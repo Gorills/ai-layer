@@ -13,39 +13,66 @@ from ai_layer.db.session import session_scope
 from ai_layer.memory.knowledge_contract import KNOWLEDGE_KIND, public_card
 from ai_layer.memory.knowledge_store import knowledge_status
 from ai_layer.policy.service import DEFAULT_POLICY
-from ai_layer.projections.dashboard_common import entry_for_key, entries, page_info, project_key, project_options
-from ai_layer.skills.registry import disabled_global_skill_slugs, find_skill_record, project_skill_dir
+from ai_layer.projections.dashboard_common import (
+    entries,
+    entry_for_key,
+    page_info,
+    project_key,
+    project_options,
+)
+from ai_layer.skills.common import builtin_skill_dir
+from ai_layer.skills.registry import (
+    disabled_global_skill_slugs,
+    find_skill_record,
+    project_skill_dir,
+)
 from ai_layer.skills.service import parse_skill, skill_core_content, skill_sections
 
 _KNOWLEDGE_STATUSES = {"VERIFIED", "DRAFT", "STALE", "SUPERSEDED"}
+
+
+def _parse_visible_skill(path: Path) -> dict | None:
+    if path.is_symlink():
+        return None
+    try:
+        return parse_skill(path)
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
 
 
 def _read_skill_catalog(project_root: Path | None = None) -> list[dict]:
     settings = get_settings()
     disabled = disabled_global_skill_slugs()
     result: dict[str, dict] = {}
+
+    bundled_dir = builtin_skill_dir()
+    if bundled_dir.exists():
+        for path in sorted(bundled_dir.glob("*.md")):
+            if path.stem in disabled:
+                continue
+            skill = _parse_visible_skill(path)
+            if skill is not None:
+                result[path.stem] = {**skill, "scope": "global", "record": {}}
+
     if settings.skills_dir.exists():
         for path in sorted(settings.skills_dir.glob("*.md")):
-            if path.is_symlink() or path.stem in disabled:
+            if path.stem in disabled:
                 continue
-            try:
-                skill = parse_skill(path)
-            except (OSError, UnicodeDecodeError, ValueError):
+            skill = _parse_visible_skill(path)
+            if skill is None:
                 continue
             record = find_skill_record(path.stem, scope="global")
             result[path.stem] = {**skill, "scope": "global", "record": record or {}}
+
     if project_root is not None:
         directory = project_skill_dir(project_root)
         if directory.exists():
             for path in sorted(directory.glob("*.md")):
-                if path.is_symlink():
-                    continue
                 record = find_skill_record(path.stem, scope="project", project_root=project_root)
                 if not record or record.get("status", "enabled") != "enabled":
                     continue
-                try:
-                    skill = parse_skill(path)
-                except (OSError, UnicodeDecodeError, ValueError):
+                skill = _parse_visible_skill(path)
+                if skill is None:
                     continue
                 result[path.stem] = {**skill, "scope": "project", "record": record}
     return [result[slug] for slug in sorted(result)]

@@ -49,6 +49,7 @@ jobs:
               "from ai_layer.skills.sources import (\n    _catalog_source,\n    default_skill_catalog as default_skill_catalog,\n",
           )
           PY
+      - run: ruff check src/ai_layer/observability/events.py src/ai_layer/integrations/service.py src/ai_layer/skills/manager.py --select I --fix
       - run: ruff format src/ai_layer/observability/events.py src/ai_layer/integrations/service.py src/ai_layer/skills/manager.py
       - run: ruff check src/ai_layer/observability/events.py src/ai_layer/integrations/service.py src/ai_layer/skills/manager.py
       - name: Commit facade repairs

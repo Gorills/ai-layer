@@ -162,7 +162,7 @@ def project_refresh_lock(
                 raise TimeoutError(
                     f"AI Layer memory refresh is busy for {Path(project_root).resolve()}; "
                     f"waited {timeout_seconds:.0f}s for {path}."
-                )
+                ) from None
             time.sleep(POLL_SECONDS)
     try:
         yield {"waited": waited, "lock_path": str(path)}

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_layer.core.redaction import redact_secrets
-from ai_layer.db.models import ReviewFinding, Task, utcnow
+from ai_layer.db.models import ReviewFinding, Task, TaskStage, utcnow
 from ai_layer.observability.domain_events import append_event
 from ai_layer.tasks.constants import (
     MAX_EXTERNAL_ACTIONS,
@@ -299,7 +299,9 @@ def _apply_verification_results(
 
 
 def _finding_signature(*, category: str, path: str, problem: str) -> tuple[str, str, str]:
-    normalize = lambda value: " ".join(str(value or "").casefold().split())
+    def normalize(value: object) -> str:
+        return " ".join(str(value or "").casefold().split())
+
     return normalize(category), normalize(path), normalize(problem)
 
 

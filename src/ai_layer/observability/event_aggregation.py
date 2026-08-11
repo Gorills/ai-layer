@@ -153,7 +153,7 @@ def _rebuild_aggregate_state(
     state = _AggregateState()
     for path in files:
         try:
-            stat = path.stat()
+            path.stat()
         except OSError:
             continue
         offset = _read_appended_events(path, offset=0, state=state, cutoff_epoch=cutoff_epoch)

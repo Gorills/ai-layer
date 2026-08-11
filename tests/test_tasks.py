@@ -1321,7 +1321,7 @@ def test_task_next_is_authoritative_navigator_and_stage_specific_completion_avoi
 ):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(
+        tasks.create_task(
             db, project, goal="Guided workflow", acceptance_criteria=[], constraints=[]
         )
         nav = tasks.next_task_action(db, project)
@@ -1403,7 +1403,7 @@ def test_dirty_baseline_excludes_preexisting_unrelated_work_from_task_delta(tmp_
         subprocess.run(["git", "-C", str(root), "commit", "-qm", "add other"], check=True)
         (root / "app.py").write_text("VALUE = 41\n", encoding="utf-8")  # unrelated pre-existing WIP
 
-        created = tasks.create_task(
+        tasks.create_task(
             db, project, goal="Change only other.py", acceptance_criteria=[], constraints=[]
         )
         tasks.delegate_current_stage(db, project, worker_id="dirty-baseline-impl")
@@ -1437,7 +1437,7 @@ def test_dirty_baseline_same_file_is_task_delta_and_micro_escalates_to_review(tm
     try:
         _init_git_repo(root)
         (root / "app.py").write_text("VALUE = 41\n", encoding="utf-8")
-        created = tasks.create_task(
+        tasks.create_task(
             db,
             project,
             goal="Tiny follow-up",
@@ -1477,7 +1477,7 @@ def test_verified_terminal_dirty_state_is_allowed_as_next_task_baseline(tmp_path
         )
         tasks.delegate_current_stage(db, project, worker_id="terminal-impl")
         (root / "app.py").write_text("VALUE = 17\n", encoding="utf-8")
-        review1 = tasks.complete_current_stage(
+        tasks.complete_current_stage(
             db,
             project,
             expected_kind="implement",
@@ -1645,7 +1645,7 @@ def test_blocked_fix_rejects_repository_changes_before_resume(tmp_path: Path):
             db, project, goal="Blocked fix guard", acceptance_criteria=[], constraints=[]
         )
         review = _complete_implement(db, project, created, root)
-        fix = _complete_bound(
+        _complete_bound(
             db,
             project,
             stage_id=review["active_stage"]["id"],

@@ -44,19 +44,17 @@ from ai_layer.skills.sources import (
 from ai_layer.skills.sources import (
     read_url as _read_url_impl,
 )
-
-
-def _read_url(url: str) -> bytes:
-    # Kept as a manager-level seam so tests/hosts can replace network I/O without patching internals.
-    return _read_url_impl(url, max_bytes=MAX_ARCHIVE_BYTES)
-
-
 from ai_layer.skills.packages import (
     _decode_document,
     _package_files_for_doc,
     _package_risk_issues,
     _source_documents,
 )
+
+
+def _read_url(url: str) -> bytes:
+    # Kept as a manager-level seam so tests/hosts can replace network I/O without patching internals.
+    return _read_url_impl(url, max_bytes=MAX_ARCHIVE_BYTES)
 
 
 def import_skills(

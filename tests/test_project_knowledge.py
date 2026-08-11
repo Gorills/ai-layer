@@ -214,7 +214,7 @@ def test_review_gated_task_completion_publishes_mapper_drafts(tmp_path: Path, mo
     db, project, _ = _db_project(tmp_path)
     monkeypatch.setattr(knowledge_store, "get_embedder", lambda: StableEmbedder())
     try:
-        created = tasks.create_task(
+        tasks.create_task(
             db,
             project,
             goal="Build verified Project Knowledge baseline",

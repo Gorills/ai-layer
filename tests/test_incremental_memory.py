@@ -91,7 +91,7 @@ def test_unchanged_scan_reuses_deterministic_file_identity_without_embeddings(
     embedder = _configure(monkeypatch)
     db, project = _project_db(tmp_path)
     try:
-        first = scanner.scan_project(db, project, tmp_path)
+        scanner.scan_project(db, project, tmp_path)
         db.commit()
         calls_after_first = len(embedder.calls)
 

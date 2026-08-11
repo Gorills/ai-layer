@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -11,8 +11,6 @@ from sqlalchemy.orm import Session
 from ai_layer.db.models import CommandReceipt, utcnow
 from ai_layer.domain.security import Actor
 from ai_layer.observability.domain_events import append_event
-
-T = TypeVar("T", bound=dict[str, Any])
 
 
 def _request_hash(command_name: str, request: dict[str, Any]) -> str:
@@ -34,7 +32,7 @@ def _advisory_command_lock(db: Session, command_id: str) -> None:
     db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
 
 
-def execute_idempotent(
+def execute_idempotent[T: dict[str, Any]](
     db: Session,
     *,
     command_id: str,

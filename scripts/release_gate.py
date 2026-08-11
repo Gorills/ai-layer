@@ -146,7 +146,6 @@ def main() -> int:
         import tempfile
 
         with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
-            cmd = [sys.executable, str(ROOT / "scripts" / "build_release_wheel.py")]
             # Builder's default output is fixed, so invoke its build() directly for temp dirs.
             code = (
                 "from pathlib import Path; import sys; "

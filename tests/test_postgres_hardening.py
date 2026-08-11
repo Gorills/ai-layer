@@ -167,7 +167,7 @@ def test_postgres_concurrent_stage_completion_has_one_authoritative_result(
     with Session(engine, expire_on_commit=False) as db:
         project = db.get(Project, project_id)
         assert project is not None
-        created = tasks.create_task(
+        tasks.create_task(
             db,
             project,
             goal="Change value",

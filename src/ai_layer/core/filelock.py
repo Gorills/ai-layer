@@ -171,7 +171,7 @@ def directory_lock(
             if _try_reclaim(lock_dir, stale_after_seconds):
                 continue
             if time.monotonic() - started >= timeout_seconds:
-                raise TimeoutError(f"Timed out waiting for lock: {lock_dir}")
+                raise TimeoutError(f"Timed out waiting for lock: {lock_dir}") from None
             time.sleep(POLL_SECONDS)
     try:
         yield

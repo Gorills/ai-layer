@@ -103,7 +103,7 @@ def test_discovery_first_is_read_only_then_implements_without_fake_fixer(tmp_pat
         assert discovered["discovery_result"]["verified_facts"] == ["app.py owns VALUE"]
         tasks.delegate_current_stage(db, project, worker_id="impl-worker")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-        review = tasks.complete_current_stage(
+        tasks.complete_current_stage(
             db,
             project,
             expected_kind="implement",
@@ -273,7 +273,7 @@ def test_micro_one_file_large_rewrite_escalates_to_review(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
         _init_git(root)
-        created = tasks.create_task(
+        tasks.create_task(
             db,
             project,
             goal="Fix one line in app.py",

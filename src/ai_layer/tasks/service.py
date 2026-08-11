@@ -47,17 +47,41 @@ from ai_layer.tasks.review_contracts import (
 )
 from ai_layer.tasks.state_store import (
     atomic_write_json as _atomic_write_json,
+)
+from ai_layer.tasks.state_store import (
     baseline_path as _baseline_path,
+)
+from ai_layer.tasks.state_store import (
     load_baseline as _load_baseline,
+)
+from ai_layer.tasks.state_store import (
     load_stage_start as _load_stage_start,
+)
+from ai_layer.tasks.state_store import (
     memory_hash_seed as _memory_hash_seed,
+)
+from ai_layer.tasks.state_store import (
     read_json as _read_json,
+)
+from ai_layer.tasks.state_store import (
     stage_start_path as _stage_start_path,
+)
+from ai_layer.tasks.state_store import (
     task_key,
+)
+from ai_layer.tasks.state_store import (
     task_lock as _task_lock,
+)
+from ai_layer.tasks.state_store import (
     task_root as _task_root,
+)
+from ai_layer.tasks.state_store import (
     task_work_dir as _task_work_dir,
+)
+from ai_layer.tasks.state_store import (
     utc_iso as _utc_iso,
+)
+from ai_layer.tasks.state_store import (
     write_stage_start as _write_stage_start,
 )
 from ai_layer.tasks.transitions import _complete_task, _privacy_findings
@@ -83,11 +107,21 @@ from ai_layer.tasks.views import (
 )
 from ai_layer.workspace.repository import (
     capture_repository_state,
-    git_changed_line_count as _git_changed_line_count,
-    git_changed_paths as _git_changed_paths,
-    git_visible_paths as _git_visible_paths,
-    hash_file as _hash_file,
     repository_changes,
+)
+from ai_layer.workspace.repository import (
+    git_changed_line_count as _git_changed_line_count,
+)
+from ai_layer.workspace.repository import (
+    git_changed_paths as _git_changed_paths,
+)
+from ai_layer.workspace.repository import (
+    git_visible_paths as _git_visible_paths,
+)
+from ai_layer.workspace.repository import (
+    hash_file as _hash_file,
+)
+from ai_layer.workspace.repository import (
     repository_files as _repository_files,
 )
 

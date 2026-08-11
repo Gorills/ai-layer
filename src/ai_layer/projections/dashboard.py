@@ -10,6 +10,7 @@ from ai_layer.application.tasks import read_state as read_task_state
 from ai_layer.core.background_service import service_runtime_payload
 from ai_layer.core.mcp_runtime import runtime_state as core_runtime_state
 from ai_layer.core.registry import list_registered_projects
+from ai_layer.core.service import get_project
 from ai_layer.db.models import VerificationRun
 from ai_layer.db.session import session_scope
 from ai_layer.observability.domain_events import read_structured_events

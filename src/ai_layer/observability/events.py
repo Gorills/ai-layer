@@ -10,6 +10,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_layer.core.registry import get_registered_project
+from ai_layer.observability.event_common import event_dir as _event_dir
+from ai_layer.observability.event_common import parse_ts, utcnow
 
 EVENT_RETENTION_DAYS = 7
 TAIL_READ_BYTES = 512 * 1024
@@ -49,10 +51,6 @@ SAFE_METRIC_KEYS = {
     "normalization_count",
     "effective_verdict",
 }
-
-
-from ai_layer.observability.event_common import event_dir as _event_dir
-from ai_layer.observability.event_common import parse_ts, utcnow
 
 
 def event_path(project_root: str | Path | None = None, *, day: str | None = None) -> Path:

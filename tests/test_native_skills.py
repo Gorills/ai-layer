@@ -29,7 +29,7 @@ def test_global_native_descriptors_share_agents_root_for_cursor_and_codex(tmp_pa
     try:
         result = sync_global_native_skills(home=tmp_path / "user")
         assert result["routing_owner"] == "host-native"
-        assert result["canonical_skills"] == 42
+        assert result["canonical_skills"] == 43
         assert result["validation"]["ok"] is True
         shared = tmp_path / "user" / ".agents" / "skills" / "django" / "SKILL.md"
         antigravity = tmp_path / "user" / ".gemini" / "config" / "skills" / "django" / "SKILL.md"
@@ -166,8 +166,8 @@ def test_upgrade_skips_legacy_invalid_custom_skill_without_blocking_native_catal
 
         result = sync_global_native_skills(home=home)
 
-        assert result["canonical_skills"] == 43
-        assert result["published_skills"] == 42
+        assert result["canonical_skills"] == 44
+        assert result["published_skills"] == 43
         assert result["blocked_skills"] == 1
         assert result["validation"]["ok"] is False
         assert result["validation"]["publication"]["blocked"][0]["slug"] == "legacy-custom"

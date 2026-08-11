@@ -11,7 +11,6 @@ from ai_layer.domain.workflow import stage_definition
 from ai_layer.memory.knowledge_store import has_task_drafts
 from ai_layer.tasks.constants import (
     HUMAN_ATTENTION_PREFIX,
-    INLINE_MICRO_WORKER_ID,
     MAX_AUTOMATIC_FIX_ROUNDS,
     MAX_FINDINGS,
     MAX_STAGE_HISTORY,
@@ -23,6 +22,7 @@ from ai_layer.tasks.constants import (
 from ai_layer.tasks.contracts import _configure_stage_agent, _stage_agent_policy
 from ai_layer.tasks.delegation_contract import build_delegation_contract
 from ai_layer.tasks.micro_runtime import (
+    INLINE_MICRO_WORKER_ID,
     inline_micro_next_action,
     is_inline_micro_stage,
     should_inline_micro_implementation,

@@ -149,6 +149,7 @@ def _classify_task(
     text = _task_text(goal, acceptance_criteria, constraints)
     legacy = dict((project.project_intelligence or {}).get("legacy") or {})
     fragility = str(legacy.get("level") or "unknown").lower()
+    explicit_micro = workflow == "micro"
     reasons: list[str] = []
     if risk == "auto":
         if _contains_any(text, HIGH_RISK_TERMS):
@@ -157,9 +158,14 @@ def _classify_task(
         elif fragility == "high":
             risk_level = "normal"
             reasons.append("project scanner reports high change fragility")
-        elif (workflow == "micro" or _contains_any(text, MICRO_TERMS)) and fragility == "low":
+        elif explicit_micro:
             risk_level = "low"
-            reasons.append("task is explicitly/localized as a low-risk micro correction")
+            reasons.append(
+                "host selected micro; final repository delta must prove the low-risk micro envelope"
+            )
+        elif _contains_any(text, MICRO_TERMS) and fragility == "low":
+            risk_level = "low"
+            reasons.append("task wording identifies a localized low-risk micro correction")
         else:
             risk_level = "normal"
     else:
@@ -171,7 +177,7 @@ def _classify_task(
     if complexity == "auto":
         if _contains_any(text, COMPLEXITY_TERMS) or len(acceptance_criteria) >= 6:
             complexity_level = "high"
-        elif _contains_any(text, MICRO_TERMS) and len(acceptance_criteria) <= 2:
+        elif (explicit_micro or _contains_any(text, MICRO_TERMS)) and len(acceptance_criteria) <= 2:
             complexity_level = "low"
         else:
             complexity_level = "normal"
@@ -180,7 +186,7 @@ def _classify_task(
     if uncertainty == "auto":
         if has_discovery or _contains_any(text, UNCERTAINTY_TERMS):
             uncertainty_level = "high"
-        elif _contains_any(text, MICRO_TERMS) and fragility == "low":
+        elif explicit_micro or (_contains_any(text, MICRO_TERMS) and fragility == "low"):
             uncertainty_level = "low"
         else:
             uncertainty_level = "normal"
@@ -205,7 +211,7 @@ def _classify_task(
         profile = "standard"
         reasons.append(f"micro request escalated because project fragility is {fragility}")
     return {
-        "workflow_version": 2,
+        "workflow_version": 3,
         "workflow_profile": profile,
         "risk_level": risk_level,
         "risk_reasons": reasons,

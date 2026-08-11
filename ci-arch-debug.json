@@ -202,7 +202,7 @@
     "soft_module_warning_lines": 300,
     "soft_warnings": [
       "src/ai_layer/agents/policy.py: 332 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
-      "src/ai_layer/application/epic_planning.py: 304 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/application/epic_planning.py: 308 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
       "src/ai_layer/audit/service.py: 301 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
       "src/ai_layer/cli/commands/operations.py: 471 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
       "src/ai_layer/cli/commands/skills_commands.py: 310 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
@@ -246,7 +246,7 @@
   "ok": true,
   "warnings": [
     "src/ai_layer/agents/policy.py: 332 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
-    "src/ai_layer/application/epic_planning.py: 304 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/application/epic_planning.py: 308 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
     "src/ai_layer/audit/service.py: 301 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
     "src/ai_layer/cli/commands/operations.py: 471 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
     "src/ai_layer/cli/commands/skills_commands.py: 310 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",

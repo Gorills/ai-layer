@@ -1,0 +1,79 @@
+name: epic-task-boundary-fix
+on:
+  push:
+    branches: [feature/epics-v1]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/epics-v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - name: Bind scheduler to terminal Task evidence
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          planning = Path('src/ai_layer/application/epic_planning.py')
+          text = planning.read_text(encoding='utf-8')
+          text = text.replace('    capture_identity,\n', '')
+          if 'epic_task_boundary import accepted_task_identity' not in text:
+              text = text.replace(
+                  'from ai_layer.application.epic_common import (',
+                  'from ai_layer.application.epic_common import (',
+              )
+              marker = 'from ai_layer.db.epic_models import Epic, EpicPlanItem, EpicSpecVersion\n'
+              text = text.replace(
+                  marker,
+                  'from ai_layer.application.epic_task_boundary import accepted_task_identity\n' + marker,
+              )
+          text = text.replace(
+              '        identity = capture_identity(project.root_path)\n        epic.execution_digest = identity["digest"]\n        epic.execution_files = identity["file_count"]\n',
+              '        identity = accepted_task_identity(db, task)\n        epic.execution_digest = str(identity["digest"])\n        epic.execution_files = int(identity["file_count"])\n',
+          )
+          planning.write_text(text, encoding='utf-8')
+
+          navigation = Path('src/ai_layer/application/epic_navigation.py')
+          text = navigation.read_text(encoding='utf-8')
+          marker = 'from ai_layer.application.epic_planning import retry_final_item\n'
+          if 'epic_task_boundary import accepted_task_identity' not in text:
+              text = text.replace(
+                  marker,
+                  marker + 'from ai_layer.application.epic_task_boundary import accepted_task_identity\n',
+              )
+          old = '''    identity = capture_identity(project.root_path)\n    epic.execution_digest = identity["digest"]\n    epic.execution_files = identity["file_count"]\n    if active.kind == "final":\n'''
+          new = '''    identity = accepted_task_identity(db, task)\n    epic.execution_digest = str(identity["digest"])\n    epic.execution_files = int(identity["file_count"])\n    if active.kind == "final":\n'''
+          if old not in text:
+              raise SystemExit('navigation accepted-boundary insertion point not found')
+          text = text.replace(old, new, 1)
+          navigation.write_text(text, encoding='utf-8')
+
+          tests = Path('tests/test_epic_human_gates.py')
+          text = tests.read_text(encoding='utf-8')
+          if 'test_phase0_post_completion_change_is_not_silently_accepted' not in text:
+              text += '''\n\ndef test_phase0_post_completion_change_is_not_silently_accepted(tmp_path: Path, monkeypatch) -> None:\n    db, project, root = _environment(tmp_path, monkeypatch)\n    try:\n        key = _phase0_ready(db, project, root)\n        (root / "after-phase0.py").write_text("CHANGED_AFTER_REVIEW = True\\n", encoding="utf-8")\n        reconciled = epics.reconcile_complete(root, key=key, summary="Phase 0 findings recorded.")\n        assert reconciled["status"] == "planning"\n        epics.set_plan(\n            root,\n            key=key,\n            work_items=[\n                {\n                    "title": "Implement scope",\n                    "goal": "Implement scope.",\n                    "acceptance_criteria": ["Scope complete"],\n                    "constraints": [],\n                }\n            ],\n        )\n        navigation = epics.next_action(root, key=key)\n        assert navigation["epic"]["status"] == "blocked"\n        assert navigation["next_action"]["action"] == "start_drift_reconciliation"\n    finally:\n        db.close()\n        get_settings.cache_clear()\n'''
+          tests.write_text(text, encoding='utf-8')
+          PY
+          python -m ruff check --fix src/ai_layer/application/epic_task_boundary.py src/ai_layer/application/epic_planning.py src/ai_layer/application/epic_navigation.py tests/test_epic_human_gates.py
+          python -m ruff format src/ai_layer/application/epic_task_boundary.py src/ai_layer/application/epic_planning.py src/ai_layer/application/epic_navigation.py tests/test_epic_human_gates.py
+      - name: Verify boundary fix
+        run: |
+          python -m mypy src/ai_layer
+          python -m pytest -q tests/test_epics.py tests/test_epic_human_gates.py tests/test_epic_mcp_runtime.py tests/test_epic_dashboard.py
+          python scripts/architecture_gate.py
+      - name: Commit fix and remove workflow
+        run: |
+          rm -f .github/workflows/epic-task-boundary-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- src/ai_layer/application/epic_task_boundary.py src/ai_layer/application/epic_planning.py src/ai_layer/application/epic_navigation.py tests/test_epic_human_gates.py
+          git add -u -- .github/workflows/epic-task-boundary-fix.yml
+          git commit -m 'Use verified Task boundaries for Epic drift detection'
+          git push origin HEAD:feature/epics-v1

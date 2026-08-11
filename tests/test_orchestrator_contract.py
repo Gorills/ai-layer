@@ -42,6 +42,14 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
     assert "never do the stage yourself as fallback" in global_text
     assert "smallest coherent change" in global_text
     assert "never claim a check passed unless it ran" in global_text
+    assert "For any work involving a registered project" in global_text
+    assert "FIRST project-related tool call MUST be `memory_context" in global_text
+    assert "Do not pair it with `task_current`" in global_text
+    assert "do not read/search/grep project files, run shell/SSH, edit, or start a subagent" in global_text
+    assert "Never bypass this because the work looks simple or read-only" in global_text
+    assert "After every Task/Epic transition or worker return" in global_text
+    assert "before any further project work" in global_text
+    assert "non-trivial engineering work" not in global_text
     assert len(global_text.encode("utf-8")) < 2600
 
     # Standard projects no longer materialize a text workflow bridge. This renderer survives only

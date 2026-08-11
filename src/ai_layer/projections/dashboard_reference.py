@@ -66,19 +66,31 @@ def _read_skill_catalog(project_root: Path | None = None) -> list[dict]:
             if skill is None:
                 continue
             record = find_skill_record(path.stem, scope="global")
-            result[path.stem] = {**skill, "scope": "global", "record": record or {}}
+            result[path.stem] = {
+                **skill,
+                "scope": "global",
+                "record": record or {},
+            }
 
     if project_root is not None:
         directory = project_skill_dir(project_root)
         if directory.exists():
             for path in sorted(directory.glob("*.md")):
-                record = find_skill_record(path.stem, scope="project", project_root=project_root)
+                record = find_skill_record(
+                    path.stem,
+                    scope="project",
+                    project_root=project_root,
+                )
                 if not record or record.get("status", "enabled") != "enabled":
                     continue
                 skill = _parse_visible_skill(path)
                 if skill is None:
                     continue
-                result[path.stem] = {**skill, "scope": "project", "record": record}
+                result[path.stem] = {
+                    **skill,
+                    "scope": "project",
+                    "record": record,
+                }
     return [result[slug] for slug in sorted(result)]
 
 
@@ -99,7 +111,10 @@ def _skill_summary(skill: dict) -> dict:
 
 
 def skills_payload(
-    *, project_key_value: str | None = None, page: int = 1, page_size: int = 10
+    *,
+    project_key_value: str | None = None,
+    page: int = 1,
+    page_size: int = 10,
 ) -> dict | None:
     root = None
     if project_key_value:
@@ -126,7 +141,10 @@ def skill_detail_payload(project_key_value: str | None, slug: str) -> dict | Non
         if entry is None:
             return None
         root = Path(str(entry["root"])).expanduser().resolve()
-    skill = next((item for item in _read_skill_catalog(root) if item.get("slug") == slug), None)
+    skill = next(
+        (item for item in _read_skill_catalog(root) if item.get("slug") == slug),
+        None,
+    )
     if skill is None:
         return None
     return {
@@ -141,7 +159,11 @@ def _read_text(path: Path | None) -> str:
     if path is None:
         return ""
     try:
-        return path.read_text(encoding="utf-8") if path.is_file() and not path.is_symlink() else ""
+        return (
+            path.read_text(encoding="utf-8")
+            if path.is_file() and not path.is_symlink()
+            else ""
+        )
     except (OSError, UnicodeDecodeError):
         return ""
 
@@ -157,7 +179,13 @@ def _project_rules_path(entry: dict) -> Path | None:
         return target
 
     project_id = str(entry.get("project_id") or "").strip()
-    if not project_id or Path(project_id).name != project_id:
+    project_id_path = Path(project_id)
+    if (
+        not project_id
+        or project_id in {".", ".."}
+        or len(project_id_path.parts) != 1
+        or project_id_path.name != project_id
+    ):
         return None
     base = get_settings().home / "projects"
     project_dir = base / project_id
@@ -254,7 +282,10 @@ def knowledge_payload(
         rows = list(
             db.scalars(
                 select(Knowledge)
-                .where(Knowledge.project_id == project.id, Knowledge.kind == KNOWLEDGE_KIND)
+                .where(
+                    Knowledge.project_id == project.id,
+                    Knowledge.kind == KNOWLEDGE_KIND,
+                )
                 .order_by(Knowledge.updated_at.desc(), Knowledge.id)
             ).all()
         )

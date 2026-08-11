@@ -28,6 +28,43 @@ def patch_tasks() -> None:
         "state = current_task(db, project, include_history=include_history)",
         "task projection history flag",
     )
+    text = path.read_text(encoding="utf-8")
+    old = '''            projected_next_action = state.get("next_action") or (
+                (current_payload or latest_payload or {}).get("next_action")
+            )
+            return {
+                "current": current_payload,
+                "latest": latest_payload,
+                "next_action": projected_next_action,
+                "source": "database-projection",
+            }'''
+    new = '''            projected_next_action = state.get("next_action") or (
+                (current_payload or latest_payload or {}).get("next_action")
+            )
+            if current_payload is None and (projected_next_action or {}).get("action") == "create_task":
+                projected_next_action = {
+                    **projected_next_action,
+                    "tool": "task_create",
+                    "required": ["goal"],
+                    "optional": [
+                        "acceptance_criteria",
+                        "constraints",
+                        "workflow",
+                        "risk",
+                        "cost_policy",
+                    ],
+                }
+            return {
+                "current": current_payload,
+                "latest": latest_payload,
+                "next_action": projected_next_action,
+                "source": "database",
+            }'''
+    if old in text:
+        text = text.replace(old, new, 1)
+    elif '"source": "database",' not in text or '"tool": "task_create"' not in text:
+        raise SystemExit("task projection compatibility block not found")
+    path.write_text(text, encoding="utf-8")
 
 
 def patch_snapshot() -> None:
@@ -156,7 +193,7 @@ def test_dashboard_task_projection_never_calls_authoritative_navigator(monkeypat
 
     state = task_app.read_state(tmp_path, include_history=False)
 
-    assert state["source"] == "database-projection"
+    assert state["source"] == "database"
     assert state["current"]["key"] == "T-0001"
     assert state["next_action"]["action"] == "delegate_stage"
 
@@ -196,6 +233,21 @@ def test_dashboard_frontend_uses_adaptive_visibility_aware_polling():
     assert "setTimeout" in app_js
     assert "semanticFingerprint" in app_js
 '''
+    else:
+        text = text.replace('assert state["source"] == "database-projection"', 'assert state["source"] == "database"')
+    path.write_text(text, encoding="utf-8")
+
+    path = ROOT / "tests/test_tasks.py"
+    text = path.read_text(encoding="utf-8")
+    old_name = "def test_dashboard_state_uses_authoritative_task_next_navigation(tmp_path: Path, monkeypatch):"
+    if old_name in text:
+        start = text.index(old_name)
+        next_name = "\ndef test_dashboard_state_exposes_create_task_navigation_when_only_historical_task_remains("
+        end = text.index(next_name, start)
+        replacement = '''def test_dashboard_state_is_projection_only_and_task_next_owns_repository_guards(\n    tmp_path: Path, monkeypatch\n):\n    from contextlib import contextmanager\n\n    from ai_layer.application import tasks as application_tasks\n\n    db, project, root = _db_project(tmp_path)\n    try:\n        tasks.create_task(\n            db, project, goal="Dashboard projection nav", acceptance_criteria=[], constraints=[]\n        )\n        (root / "app.py").write_text("VALUE = 99\\n", encoding="utf-8")\n\n        @contextmanager\n        def fake_scope():\n            yield db\n\n        monkeypatch.setattr(application_tasks, "session_scope", fake_scope)\n        dashboard = read_task_state(root)\n        assert dashboard["source"] == "database"\n        assert dashboard["next_action"]["action"] == "delegate_stage"\n        assert dashboard["current"]["next_action"] == dashboard["next_action"]\n\n        authoritative = tasks.next_task_action(db, project)\n        assert authoritative["next_action"]["action"] == "unmanaged_stage_mutation"\n        assert authoritative["next_action"]["code"] == "UNMANAGED_STAGE_MUTATION"\n    finally:\n        db.close()\n\n'''
+        text = text[:start] + replacement + text[end + 1 :]
+    elif "test_dashboard_state_is_projection_only_and_task_next_owns_repository_guards" not in text:
+        raise SystemExit("old Dashboard authoritative-navigation test not found")
     path.write_text(text, encoding="utf-8")
 
 

@@ -53,29 +53,22 @@ def _inline_micro_stage(task: Task, stage: TaskStage) -> bool:
     )
 
 
-def build_delegation_contract(
-    task: Task,
-    stage: TaskStage,
-    open_findings: list[dict],
-    completion_contract: dict,
-    *,
-    knowledge_review_required: bool = False,
-) -> dict:
-    inline_micro = _inline_micro_stage(task, stage)
+def _base_contract(task: Task, stage: TaskStage, *, inline_micro: bool) -> dict[str, object]:
+    role = (
+        "inline_micro_implementer"
+        if inline_micro
+        else {
+            "implement": "implementer",
+            "review": "reviewer",
+            "fix": "fixer",
+            "discovery": "discovery",
+        }.get(stage.kind)
+    )
     contract: dict[str, object] = {
         "task": task_key(task),
         "stage_id": str(stage.id),
         "stage": stage.kind,
-        "role": (
-            "inline_micro_implementer"
-            if inline_micro
-            else {
-                "implement": "implementer",
-                "review": "reviewer",
-                "fix": "fixer",
-                "discovery": "discovery",
-            }.get(stage.kind)
-        ),
+        "role": role,
         "goal": task.goal,
         "acceptance_criteria": list(task.acceptance_criteria or []),
         "constraints": list(task.constraints or []),
@@ -136,109 +129,144 @@ def build_delegation_contract(
     provenance_notice = _provenance_notice(task)
     if provenance_notice:
         contract["provenance_notice"] = provenance_notice
+    return contract
 
+
+def _discovery_payload() -> dict[str, object]:
+    return {
+        "repository_mode": "read-only",
+        "context_policy": {
+            "mode": "isolated_discovery",
+            "include": [
+                "task goal and constraints",
+                "current source/project intelligence",
+                "host-selected relevant skill instructions",
+                "read-only verification evidence",
+            ],
+            "exclude": [
+                "implementation assumptions presented as facts",
+                "full orchestration transcript when isolated context is available",
+            ],
+        },
+        "requirements": [
+            "Investigate the actual repository before proposing implementation.",
+            "Separate verified facts from hypotheses and risks.",
+            "Return a compact proposed plan/acceptance refinements when implementation is warranted.",
+            "Do not modify repository files or external state.",
+        ],
+    }
+
+
+def _review_payload(
+    task: Task,
+    stage: TaskStage,
+    open_findings: list[dict],
+    *,
+    knowledge_review_required: bool,
+) -> dict[str, object]:
+    pending_verification = [
+        item for item in open_findings if item.get("status") == "pending_verification"
+    ]
+    requirements = [
+        "Inspect the actual implementation and relevant tests.",
+        "Explicitly verify every finding_to_verify against the current repository state and return one verification_results entry per finding id with evidence.",
+        "Run appropriate verification checks. If checks may write caches/test artifacts, use the AI Layer review sandbox instead of the canonical repository.",
+        "Assess documentation impact from the actual diff. Changes to configuration, setup, deployment, public API, persistence/media, migrations requiring operator action, or runtime processes must update the existing owning docs/examples when such documentation exists; internal-only changes do not require documentation churn.",
+    ]
+    if knowledge_review_required:
+        requirements.append(
+            "Call knowledge_list(status=DRAFT, source_task_id=project_knowledge_review.source_task_id) and independently verify the returned Project Knowledge cards; unsupported or incomplete claims are actionable findings."
+        )
+    requirements.extend(
+        [
+            "Do not modify repository files.",
+            "Return verdict=pass only when no actionable findings remain.",
+        ]
+    )
+    payload: dict[str, object] = {
+        "repository_mode": "read-only",
+        "review_round": stage.review_round,
+        "findings_to_verify": pending_verification,
+        "context_policy": {
+            "mode": "isolated_review",
+            "include": [
+                "task goal and acceptance criteria",
+                "task constraints",
+                "current repository state and diff",
+                "relevant project evidence",
+                "pending finding IDs requiring verification",
+            ],
+            "exclude": [
+                "implementer/fixer self-assessment",
+                "prior reviewer conclusions except pending finding records",
+                "parent/orchestrator persuasion or full transcript",
+            ],
+            "host_requirement": "Start the reviewer from this compact contract plus repository access; do not inject the full orchestration transcript when the host supports isolated subagent context.",
+        },
+        "requirements": requirements,
+    }
+    if knowledge_review_required:
+        payload["project_knowledge_review"] = _knowledge_review_contract(task)
+    return payload
+
+
+def _fix_payload(stage: TaskStage, open_findings: list[dict]) -> dict[str, object]:
+    return {
+        "repository_mode": "write",
+        "fix_round": stage.fix_round,
+        "open_findings": open_findings,
+        "requirements": [
+            "Address the review findings without broad unrelated changes.",
+            "Apply documentation-impact fixes only when the changed external/developer/operator contract requires them; update the existing owning document rather than creating parallel guidance.",
+            "If there are no findings, verify that no fix is needed and complete as no_changes_needed.",
+        ],
+    }
+
+
+def _implementation_payload(*, inline_micro: bool) -> dict[str, object]:
+    requirements = [
+        "Implement the task contract completely.",
+        "Use knowledge_draft_upsert only when the task explicitly requires creating/updating Project Knowledge; never turn ordinary coding work into automatic documentation generation.",
+        "Add or update tests appropriate to the change.",
+        "Assess documentation impact: update existing setup/config/deploy/API/storage/migration/runtime documentation or safe examples when the task changes those contracts; do not churn docs for internal-only changes.",
+        "Run focused verification before completing the stage.",
+    ]
+    if inline_micro:
+        requirements.insert(
+            0,
+            "Keep the edit inside the localized MICRO intent. Do not broaden scope merely because repository-write authority is temporarily available.",
+        )
+    return {
+        "repository_mode": "write",
+        "execution_mode": "inline_micro" if inline_micro else "delegated",
+        "requirements": requirements,
+    }
+
+
+def build_delegation_contract(
+    task: Task,
+    stage: TaskStage,
+    open_findings: list[dict],
+    completion_contract: dict,
+    *,
+    knowledge_review_required: bool = False,
+) -> dict:
+    inline_micro = _inline_micro_stage(task, stage)
+    contract = _base_contract(task, stage, inline_micro=inline_micro)
     if stage.kind == "discovery":
-        contract.update(
-            {
-                "repository_mode": "read-only",
-                "context_policy": {
-                    "mode": "isolated_discovery",
-                    "include": [
-                        "task goal and constraints",
-                        "current source/project intelligence",
-                        "host-selected relevant skill instructions",
-                        "read-only verification evidence",
-                    ],
-                    "exclude": [
-                        "implementation assumptions presented as facts",
-                        "full orchestration transcript when isolated context is available",
-                    ],
-                },
-                "requirements": [
-                    "Investigate the actual repository before proposing implementation.",
-                    "Separate verified facts from hypotheses and risks.",
-                    "Return a compact proposed plan/acceptance refinements when implementation is warranted.",
-                    "Do not modify repository files or external state.",
-                ],
-            }
-        )
+        contract.update(_discovery_payload())
     elif stage.kind == "review":
-        pending_verification = [
-            item for item in open_findings if item.get("status") == "pending_verification"
-        ]
-        review_requirements = [
-            "Inspect the actual implementation and relevant tests.",
-            "Explicitly verify every finding_to_verify against the current repository state and return one verification_results entry per finding id with evidence.",
-            "Run appropriate verification checks. If checks may write caches/test artifacts, use the AI Layer review sandbox instead of the canonical repository.",
-            "Assess documentation impact from the actual diff. Changes to configuration, setup, deployment, public API, persistence/media, migrations requiring operator action, or runtime processes must update the existing owning docs/examples when such documentation exists; internal-only changes do not require documentation churn.",
-        ]
-        if knowledge_review_required:
-            review_requirements.append(
-                "Call knowledge_list(status=DRAFT, source_task_id=project_knowledge_review.source_task_id) and independently verify the returned Project Knowledge cards; unsupported or incomplete claims are actionable findings."
+        contract.update(
+            _review_payload(
+                task,
+                stage,
+                open_findings,
+                knowledge_review_required=knowledge_review_required,
             )
-        review_requirements.extend(
-            [
-                "Do not modify repository files.",
-                "Return verdict=pass only when no actionable findings remain.",
-            ]
         )
-        review_payload: dict[str, object] = {
-            "repository_mode": "read-only",
-            "review_round": stage.review_round,
-            "findings_to_verify": pending_verification,
-            "context_policy": {
-                "mode": "isolated_review",
-                "include": [
-                    "task goal and acceptance criteria",
-                    "task constraints",
-                    "current repository state and diff",
-                    "relevant project evidence",
-                    "pending finding IDs requiring verification",
-                ],
-                "exclude": [
-                    "implementer/fixer self-assessment",
-                    "prior reviewer conclusions except pending finding records",
-                    "parent/orchestrator persuasion or full transcript",
-                ],
-                "host_requirement": "Start the reviewer from this compact contract plus repository access; do not inject the full orchestration transcript when the host supports isolated subagent context.",
-            },
-            "requirements": review_requirements,
-        }
-        if knowledge_review_required:
-            review_payload["project_knowledge_review"] = _knowledge_review_contract(task)
-        contract.update(review_payload)
     elif stage.kind == "fix":
-        contract.update(
-            {
-                "repository_mode": "write",
-                "fix_round": stage.fix_round,
-                "open_findings": open_findings,
-                "requirements": [
-                    "Address the review findings without broad unrelated changes.",
-                    "Apply documentation-impact fixes only when the changed external/developer/operator contract requires them; update the existing owning document rather than creating parallel guidance.",
-                    "If there are no findings, verify that no fix is needed and complete as no_changes_needed.",
-                ],
-            }
-        )
+        contract.update(_fix_payload(stage, open_findings))
     else:
-        implementation_requirements = [
-            "Implement the task contract completely.",
-            "Use knowledge_draft_upsert only when the task explicitly requires creating/updating Project Knowledge; never turn ordinary coding work into automatic documentation generation.",
-            "Add or update tests appropriate to the change.",
-            "Assess documentation impact: update existing setup/config/deploy/API/storage/migration/runtime documentation or safe examples when the task changes those contracts; do not churn docs for internal-only changes.",
-            "Run focused verification before completing the stage.",
-        ]
-        if inline_micro:
-            implementation_requirements.insert(
-                0,
-                "Keep the edit inside the localized MICRO intent. Do not broaden scope merely because repository-write authority is temporarily available.",
-            )
-        contract.update(
-            {
-                "repository_mode": "write",
-                "execution_mode": "inline_micro" if inline_micro else "delegated",
-                "requirements": implementation_requirements,
-            }
-        )
+        contract.update(_implementation_payload(inline_micro=inline_micro))
     contract["completion_contract"] = completion_contract
     return contract

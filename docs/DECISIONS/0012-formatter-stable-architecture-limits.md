@@ -12,7 +12,7 @@ Splitting multiple existing owners solely to reverse formatter line expansion wo
 
 Keep physical line count as a hard safety backstop and the 300-line soft maintainability warning, but set the ordinary-module hard ceiling to 600 physical lines, composition-root ceiling to 650 physical lines and function hard ceiling to 180 physical lines for formatter-normalized source. Keep the existing hard limits for module bytes (36,000), composition-root bytes (42,000), function statements (80), cyclomatic complexity (24), nesting depth (5), facade size, import cycles and capability boundaries unchanged.
 
-The architecture policy remains unable to exceed built-in ceilings. Future growth above the soft warning still requires justification or a cohesive extraction; crossing a hard semantic or size ceiling remains fail-closed.
+The architecture policy remains unable to exceed built-in ceilings. Future growth above the soft warning still requires justification or a cohesive extraction; crossing a hard semantic or size ceiling remains fail-closed. The higher physical-line ceiling is compatibility with canonical formatting, not a target or permission for routine file growth.
 
 ## Consequences
 

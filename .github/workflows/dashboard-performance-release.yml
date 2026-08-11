@@ -28,9 +28,9 @@ jobs:
 
       - name: Format and focused regression tests
         run: |
-          ruff check --fix src/ai_layer/application/tasks.py src/ai_layer/observability/snapshot.py src/ai_layer/projections/dashboard.py src/ai_layer/projections/epics.py tests/test_dashboard.py tests/test_epic_dashboard.py
-          ruff format src/ai_layer/application/tasks.py src/ai_layer/observability/snapshot.py src/ai_layer/projections/dashboard.py src/ai_layer/projections/epics.py tests/test_dashboard.py tests/test_epic_dashboard.py
-          pytest -q tests/test_dashboard.py tests/test_epic_dashboard.py
+          ruff check --fix src/ai_layer/application/tasks.py src/ai_layer/observability/snapshot.py src/ai_layer/projections/dashboard.py src/ai_layer/projections/epics.py tests/test_dashboard.py tests/test_epic_dashboard.py tests/test_tasks.py
+          ruff format src/ai_layer/application/tasks.py src/ai_layer/observability/snapshot.py src/ai_layer/projections/dashboard.py src/ai_layer/projections/epics.py tests/test_dashboard.py tests/test_epic_dashboard.py tests/test_tasks.py
+          pytest -q tests/test_dashboard.py tests/test_epic_dashboard.py tests/test_tasks.py
 
       - name: Build deterministic 0.12.2 wheel
         run: |
@@ -58,7 +58,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- src/ai_layer/application/tasks.py src/ai_layer/observability/snapshot.py src/ai_layer/projections/dashboard.py src/ai_layer/projections/epics.py src/ai_layer/dashboard/static/js/app.js tests/test_dashboard.py tests/test_epic_dashboard.py pyproject.toml src/ai_layer/__init__.py CHANGELOG.md release/release-manifest.json release/governance-baseline.json dist/local_ai_development_layer-0.12.2-py3-none-any.whl
+          git add -- src/ai_layer/application/tasks.py src/ai_layer/observability/snapshot.py src/ai_layer/projections/dashboard.py src/ai_layer/projections/epics.py src/ai_layer/dashboard/static/js/app.js tests/test_dashboard.py tests/test_epic_dashboard.py tests/test_tasks.py pyproject.toml src/ai_layer/__init__.py CHANGELOG.md release/release-manifest.json release/governance-baseline.json dist/local_ai_development_layer-0.12.2-py3-none-any.whl
           git add -u -- dist .github/dashboard_perf_patch.py .github/dashboard_perf_release.py .github/workflows/dashboard-performance-release.yml
           git diff --cached --check
           git commit -m 'Finalize 0.12.2 Dashboard performance fix'

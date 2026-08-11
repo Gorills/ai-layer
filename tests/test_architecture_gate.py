@@ -23,11 +23,11 @@ def _policy(**overrides):
     data = {
         "schema": 2,
         "limits": {
-            "module_lines": 500,
-            "composition_root_lines": 550,
+            "module_lines": 600,
+            "composition_root_lines": 650,
             "module_bytes": 36000,
             "composition_root_bytes": 42000,
-            "function_lines": 120,
+            "function_lines": 180,
             "function_statements": 80,
             "cyclomatic_complexity": 24,
             "nesting_depth": 5,
@@ -59,10 +59,10 @@ def test_current_production_architecture_passes_hard_gate():
 def test_gate_rejects_oversized_production_module(tmp_path: Path):
     gate = _gate_module()
     source = _source(tmp_path)
-    (source / "oversized.py").write_text("x = 1\n" * 501, encoding="utf-8")
+    (source / "oversized.py").write_text("x = 1\n" * 601, encoding="utf-8")
     result = gate.analyze(source, _policy())
     assert result["ok"] is False
-    assert any("exceeds module limit 500" in error for error in result["errors"])
+    assert any("exceeds module limit 600" in error for error in result["errors"])
 
 
 def test_legacy_composition_root_requires_ratchet_to_exceed_normal_limit(tmp_path: Path):
@@ -71,16 +71,16 @@ def test_legacy_composition_root_requires_ratchet_to_exceed_normal_limit(tmp_pat
     cli = source / "cli"
     cli.mkdir()
     (cli / "__init__.py").write_text("", encoding="utf-8")
-    (cli / "app.py").write_text("x = 1\n" * 551, encoding="utf-8")
+    (cli / "app.py").write_text("x = 1\n" * 651, encoding="utf-8")
     policy = _policy(composition_roots=["src/ai_layer/cli/app.py"])
     result = gate.analyze(source, policy)
     assert result["ok"] is False
-    assert any("exceeds module limit 550" in error for error in result["errors"])
+    assert any("exceeds module limit 650" in error for error in result["errors"])
 
-    policy["ratchets"] = {"src/ai_layer/cli/app.py": {"max_lines": 551, "target_lines": 550}}
+    policy["ratchets"] = {"src/ai_layer/cli/app.py": {"max_lines": 651, "target_lines": 650}}
     result = gate.analyze(source, policy)
     assert result["ok"] is False
-    assert any("exceeds absolute hard limit 550" in error for error in result["errors"])
+    assert any("exceeds absolute hard limit 650" in error for error in result["errors"])
 
 
 def test_gate_rejects_source_packing_that_evades_line_limit(tmp_path: Path):

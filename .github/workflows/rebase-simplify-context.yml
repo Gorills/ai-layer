@@ -25,7 +25,6 @@ jobs:
             docs/DECISIONS/0012-task-aware-memory-context-presentation.md
             src/ai_layer/mcp/tools/sessions.py
             src/ai_layer/memory/guidance.py
-            src/ai_layer/memory/history.py
             src/ai_layer/memory/presentation.py
             src/ai_layer/memory/service.py
             tests/test_tool_guidance.py
@@ -37,11 +36,11 @@ jobs:
           from pathlib import Path
           path = Path("src/ai_layer/memory/history.py")
           text = path.read_text(encoding="utf-8")
-          old = '''    for item in snapshot_decisions(project, limit=50):\n        score = _overlap_score(query, item.get("decision"), item.get("context"))\n        if score > 0:\n            ranked.append((score, {\n                "kind": "session_decision",\n                "id": f"session:{item['session_id']}",\n                "title": str(item.get("decision") or "")[:120],\n                "decision": item.get("decision") or "",\n                "rationale": "Committed durable session decision.",\n                "score": round(score, 4),\n                "provenance": "ai_layer_session_history",\n            }))\n'''
-          new = '''    for snapshot_item in snapshot_decisions(project, limit=50):\n        score = _overlap_score(query, snapshot_item.get("decision"), snapshot_item.get("context"))\n        if score > 0:\n            ranked.append((score, {\n                "kind": "session_decision",\n                "id": f"session:{snapshot_item['session_id']}",\n                "title": str(snapshot_item.get("decision") or "")[:120],\n                "decision": snapshot_item.get("decision") or "",\n                "rationale": "Committed durable session decision.",\n                "score": round(score, 4),\n                "provenance": "ai_layer_session_history",\n            }))\n'''
-          if text.count(old) != 1:
-              raise SystemExit("Expected exactly one pre-baseline snapshot_decisions block")
-          path.write_text(text.replace(old, new), encoding="utf-8")
+          start = text.find("def latest_task_summary(")
+          end = text.find("def relevant_decision_brief(", start)
+          if start < 0 or end < 0:
+              raise SystemExit("Could not locate latest_task_summary boundaries")
+          path.write_text(text[:start] + text[end:], encoding="utf-8")
           PY
       - name: Normalize and verify full canonical quality
         run: |

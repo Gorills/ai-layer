@@ -1,0 +1,142 @@
+from __future__ import annotations
+
+import hashlib
+import re
+from pathlib import Path
+
+from ai_layer.skills.service import skill_sections
+
+NATIVE_DESCRIPTOR_VERSION = 1
+NATIVE_MARKER = "<!-- AI-LAYER NATIVE SKILL v1"
+GENERIC_DESCRIPTION_RE = re.compile(
+    r"^(useful|helpful|general|generic|software development|coding|development)(\b|[ .:-])",
+    re.IGNORECASE,
+)
+
+
+def _yaml_scalar(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def native_descriptor_name(slug: str, *, project_root: str | Path | None = None, external_scope: bool = False) -> str:
+    if project_root is None or not external_scope:
+        return slug
+    root = str(Path(project_root).expanduser().resolve())
+    key = hashlib.sha256(root.encode("utf-8")).hexdigest()[:10]
+    base = f"ai-layer-{key}-{slug}"
+    return base[:64].rstrip("-")
+
+
+def validate_routing_description(slug: str, description: str) -> list[str]:
+    text = " ".join(str(description or "").split())
+    issues: list[str] = []
+    if not text:
+        issues.append("description is missing")
+        return issues
+    if len(text) < 28:
+        issues.append("description is too short for reliable native routing")
+    if len(text) > 180:
+        issues.append("description is too long for metadata-first context economy")
+    if GENERIC_DESCRIPTION_RE.search(text):
+        issues.append("description starts with generic routing language")
+    if len(set(re.findall(r"[a-zA-Z][a-zA-Z0-9+.#_-]{2,}", text.casefold()))) < 4:
+        issues.append("description lacks concrete routing terms")
+    if slug.replace("-", " ") == text.casefold().strip(" ."):
+        issues.append("description merely repeats the skill name")
+    return issues
+
+
+def routing_overlap_warnings(skills: list[dict], *, threshold: float = 0.72) -> list[dict]:
+    """Cheap lexical warning only; never used to route runtime work."""
+    tokens: dict[str, set[str]] = {}
+    stop = {"use", "for", "and", "the", "with", "that", "from", "across", "specific", "discipline"}
+    for skill in skills:
+        slug = str(skill.get("slug") or "")
+        description = str((skill.get("meta") or {}).get("description") or "")
+        tokens[slug] = {
+            word for word in re.findall(r"[a-zA-Z][a-zA-Z0-9+.#_-]{2,}", description.casefold())
+            if word not in stop
+        }
+    warnings: list[dict] = []
+    slugs = sorted(tokens)
+    for index, left in enumerate(slugs):
+        for right in slugs[index + 1 :]:
+            union = tokens[left] | tokens[right]
+            if not union:
+                continue
+            score = len(tokens[left] & tokens[right]) / len(union)
+            if score >= threshold:
+                warnings.append({"left": left, "right": right, "jaccard": round(score, 3)})
+    return warnings
+
+
+def validate_native_catalog(skills: list[dict]) -> dict:
+    names: set[str] = set()
+    issues: list[dict] = []
+    for skill in skills:
+        slug = str(skill.get("slug") or "")
+        if not slug or slug in names:
+            issues.append({"slug": slug, "problem": "duplicate or empty canonical slug"})
+            continue
+        names.add(slug)
+        description = str((skill.get("meta") or {}).get("description") or "")
+        for problem in validate_routing_description(slug, description):
+            issues.append({"slug": slug, "problem": problem})
+        sections = skill_sections(skill)
+        if not sections:
+            issues.append({"slug": slug, "problem": "canonical skill has no retrievable content"})
+    return {
+        "ok": not issues,
+        "skills": len(skills),
+        "issues": issues,
+        "overlap_warnings": routing_overlap_warnings(skills),
+    }
+
+
+def render_native_descriptor(
+    skill: dict,
+    *,
+    project_root: str | Path | None = None,
+    external_scope: bool = False,
+) -> str:
+    slug = str(skill["slug"])
+    meta = skill.get("meta") or {}
+    description = " ".join(str(meta.get("description") or "").split())
+    problems = validate_routing_description(slug, description)
+    if problems:
+        raise ValueError(f"Skill `{slug}` is not safe to publish to native hosts: {problems}")
+    name = native_descriptor_name(slug, project_root=project_root, external_scope=external_scope)
+    sections = list(skill_sections(skill))
+    section_text = ", ".join(f"`{item}`" for item in sections) if sections else "`full`"
+    root_hint = "the canonical project root returned by `memory_context`/`task_next`"
+    scope_note = "This is a global AI Layer skill."
+    if project_root is not None:
+        canonical_root = str(Path(project_root).expanduser().resolve())
+        root_hint = f'`{canonical_root}`'
+        scope_note = (
+            f"This descriptor is project-scoped to `{canonical_root}`. "
+            if not external_scope
+            else f"This zero-footprint descriptor is for the exact registered project `{canonical_root}` only. "
+        )
+    root_key = hashlib.sha256(str(Path(project_root).expanduser().resolve()).encode("utf-8")).hexdigest()[:10] if project_root is not None else "-"
+    scope = "project" if project_root is not None else "global"
+    marker = f"{NATIVE_MARKER} scope={scope} project={root_key} canonical={slug} -->"
+    host_description = description
+    if project_root is not None and external_scope:
+        canonical_root = str(Path(project_root).expanduser().resolve())
+        host_description = f"{description} Activate only for the registered project at {canonical_root}."
+    return f"""---
+name: {name}
+description: {_yaml_scalar(host_description)}
+---
+
+{marker}
+# {slug}
+
+{scope_note} AI Layer owns the authoritative instructions; this thin native descriptor exists only for host-side skill discovery and activation.
+
+When this skill is relevant, retrieve the smallest useful authoritative section with the `ai-layer` MCP tool `skill_get(slug=\"{slug}\", project_root={root_hint}, section=\"<exact section>\")` before relying on AI Layer domain guidance. Available section names: {section_text}.
+
+Prefer one targeted section. Request `section=\"full\"` only when the task genuinely spans multiple sections or targeted retrieval is insufficient. Do not treat this descriptor as domain guidance, and do not infer that AI Layer can observe whether the host activated this skill automatically or manually.
+"""

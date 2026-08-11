@@ -1,0 +1,44 @@
+{
+  "application_wheel": "dist/local_ai_development_layer-0.11.4-py3-none-any.whl",
+  "application_wheel_sha256": "5fed9ec0cf4b9a1fbb162933d7f8fb715d3883fd97db610ddb9e3e308fe3b6b3",
+  "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
+  "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
+  "governance": {
+    "local_guard_is_not_security_boundary": true,
+    "protected_branch_required_for_production": true,
+    "release_signer_required": true
+  },
+  "migration_compatibility": {
+    "minimum_source_schema": "0010_adaptive_task_workflow",
+    "rollback": "forward_only_after_migration",
+    "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
+    "target_schema": "0013_dirty_task_baselines"
+  },
+  "notes": "v0.11.4 makes the global native host bootstrap the single static AI Layer policy/workflow owner. Standard projects keep sparse workspace MCP bindings but no AI Layer AGENTS/CLAUDE/Cursor/Antigravity rule text; memory_context returns only dynamic customized/project/privacy policy, MCP instructions are a tiny fallback, and ordinary task runtime/tool guidance are compact. Essential weak-model engineering invariants are distilled into the global bootstrap. No DB migration.",
+  "official_runtime": {
+    "arch": "x86_64",
+    "os": "linux",
+    "python_implementation": "CPython",
+    "python_series": "3.12.x"
+  },
+  "quality": {
+    "canonical_gate": "python scripts/quality_gate.py --deterministic-wheel",
+    "required_for_release": true
+  },
+  "release_tools_lock": "release/requirements-release-tools.lock",
+  "release_tools_lock_sha256": "96c0e4f45c3166a973137891eaf0d1ae2faea84844e6240ce18a16eba3a77940",
+  "runtime_lock": "release/requirements-linux-x86_64-py312.lock",
+  "runtime_lock_sha256": "71ce7210484dad5283a55250191e58cf0e6f0ec3b54aa5b5a3b60e77ed863769",
+  "schema": 2,
+  "validation": {
+    "canonical_quality_gate": "required",
+    "clean_network_install": "required_before_promotion_on_supported_host",
+    "dashboard_black_box": "required_before_promotion_on_supported_host",
+    "mcp_runtime_black_box": "required_before_promotion_on_supported_host",
+    "multi_project_reconcile_black_box": "required_before_promotion_on_supported_host",
+    "postgres_migration_e2e": "required_before_promotion_on_supported_host",
+    "task_workflow_black_box": "required_before_promotion_on_supported_host",
+    "update_black_box": "required_before_promotion_on_supported_host"
+  },
+  "version": "0.11.4"
+}

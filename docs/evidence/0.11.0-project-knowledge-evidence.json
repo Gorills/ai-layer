@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "version": "0.11.0",
+  "architecture": {
+    "current_source_owner": "host-native",
+    "scanner_role": "deterministic_repository_evidence_and_freshness",
+    "scanner_schema": 4,
+    "raw_source_semantic_index_default": false,
+    "raw_source_memory_chars": 0,
+    "previous_raw_source_memory_budget_chars": 4000,
+    "database_migration_added": false,
+    "migration_head": "0012_architecture_hardening",
+    "knowledge_kind": "project-knowledge",
+    "knowledge_lifecycle": [
+      "DRAFT",
+      "VERIFIED",
+      "STALE",
+      "SUPERSEDED"
+    ],
+    "baseline_requires_verified_overview": true,
+    "knowledge_authoring": "delegated implement/fix worker during explicit review-gated managed task",
+    "publication_requires": [
+      "active review stage",
+      "reviewer retrieval of the task DRAFT cards",
+      "durable KnowledgeReviewInspected event for that review stage",
+      "review verdict pass"
+    ],
+    "epic_layer_implemented": false,
+    "legacy_epic_repository_files_role": "repository_evidence_only"
+  },
+  "context_economy": {
+    "before": {
+      "automatic_current_source_memory_chars_max": 4000
+    },
+    "after": {
+      "automatic_current_source_memory_chars": 0
+    },
+    "approx_tokens_note": "Any token estimate is approximate and is not provider billing.",
+    "mcp_tool_catalog_before": 35,
+    "mcp_tool_catalog_after": 37,
+    "new_mcp_tools": [
+      "knowledge_list",
+      "knowledge_draft_upsert"
+    ]
+  },
+  "upgrade": {
+    "strategy": "lazy scanner-schema-v4 reconciliation",
+    "removes_legacy_knowledge_kinds": [
+      "file",
+      "architecture",
+      "project-intelligence"
+    ],
+    "preserves": [
+      "project-knowledge",
+      "Decision",
+      "Task",
+      "WorkSession"
+    ],
+    "destructive_database_reset": false
+  },
+  "tests": [
+    {
+      "name": "project knowledge/scanner targeted regression",
+      "result": "PASS",
+      "passed": 46,
+      "environment": "test-only pgvector SQLAlchemy Vector type stub"
+    },
+    {
+      "name": "broad dependency-light/stubbed regression",
+      "result": "PASS",
+      "passed": 300,
+      "environment": "test-only pgvector SQLAlchemy Vector type stub"
+    },
+    {
+      "name": "full test tree with Vector stub",
+      "result": "NOT_PASS",
+      "passed": 387,
+      "failed": 17,
+      "skipped": 7,
+      "failure_reason": "17 failures require absent mcp SDK; PostgreSQL-marked tests skipped without real service"
+    },
+    {
+      "name": "context trace subset",
+      "result": "PASS_WITH_DESELECTIONS",
+      "passed": 4,
+      "deselected": 2,
+      "reason": "two deselected tests require absent mcp SDK"
+    },
+    {
+      "name": "architecture_gate",
+      "result": "PASS"
+    },
+    {
+      "name": "governance_gate",
+      "result": "PASS_LOCAL_BASELINE_ONLY"
+    },
+    {
+      "name": "migration_gate",
+      "result": "PASS"
+    },
+    {
+      "name": "skill_gate",
+      "result": "PASS",
+      "built_in_skills": 42
+    },
+    {
+      "name": "release_gate deterministic wheel",
+      "result": "PASS"
+    },
+    {
+      "name": "canonical quality gate diagnostic",
+      "result": "NOT_PASS",
+      "reasons": [
+        "ruff missing",
+        "mypy missing",
+        "real pgvector Python dependency missing for canonical test collection"
+      ]
+    }
+  ],
+  "environment": {
+    "python": "3.13.5",
+    "official_runtime": "CPython 3.12.x Linux x86_64",
+    "real_postgresql_pgvector": false,
+    "mcp_sdk": false,
+    "ruff": false,
+    "mypy": false,
+    "test_stub_in_release": false
+  },
+  "release": {
+    "wheel": "dist/local_ai_development_layer-0.11.0-py3-none-any.whl",
+    "wheel_sha256": "9e4e4357b8ffd79896fa1f87540ad68fd7368fc62dde35c833df1525fd4f3604"
+  },
+  "remaining_risks": {
+    "P0": [],
+    "P1": [
+      "canonical quality gate on supported CPython 3.12 exact environment",
+      "real PostgreSQL/pgvector integration",
+      "real MCP black-box integration",
+      "protected-branch/external review for governance-sensitive transition change"
+    ],
+    "P2": [
+      "real weak-model A/B evidence of Project Knowledge effectiveness",
+      "coverage completeness is not automatically guaranteed",
+      "policy/task/tool-guidance compatibility envelope still shares memory_context transport"
+    ],
+    "P3": [
+      "possible later deprecation of scanner-derived compatibility architecture/project-intelligence fields"
+    ]
+  }
+}

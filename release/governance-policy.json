@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "description": "Files whose modification changes architecture, quality, release, migration, verification, privacy/security or task-state invariants.",
+  "protected_paths": [
+    "install.sh",
+    "release/architecture-policy.json",
+    "release/governance-policy.json",
+    "scripts/architecture_gate.py",
+    "scripts/bootstrap_release_gate.py",
+    "scripts/build_release.py",
+    "scripts/build_release_archive.py",
+    "scripts/build_release_wheel.py",
+    "scripts/governance_gate.py",
+    "scripts/migration_gate.py",
+    "scripts/quality_gate.py",
+    "scripts/release_gate.py",
+    "scripts/verify_release_lock.py",
+    "src/ai_layer/privacy/service.py",
+    "src/ai_layer/tasks/constants.py",
+    "src/ai_layer/tasks/stage_validation.py",
+    "src/ai_layer/tasks/transitions.py",
+    "src/ai_layer/verification/runner.py"
+  ],
+  "change_requirements": [
+    "human-visible rationale",
+    "ADR for semantic policy changes",
+    "tests proving the intended invariant",
+    "protected-branch review with required quality checks"
+  ],
+  "trust_model": {
+    "local_hash_baseline": "tamper-evident convenience guard only",
+    "repository_write_access": "not a security boundary",
+    "production_enforcement": [
+      "protected branch",
+      "required canonical quality check",
+      "human review for governance-sensitive changes",
+      "CI/release signing identity outside ordinary feature-agent write access"
+    ]
+  }
+}

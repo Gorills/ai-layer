@@ -1,0 +1,259 @@
+{
+  "schema": 2,
+  "limits": {
+    "module_lines": 500,
+    "composition_root_lines": 550,
+    "function_lines": 120,
+    "cyclomatic_complexity": 24,
+    "nesting_depth": 5,
+    "module_bytes": 36000,
+    "composition_root_bytes": 42000,
+    "function_statements": 80
+  },
+  "composition_roots": [
+    "src/ai_layer/cli/app.py",
+    "src/ai_layer/mcp/server.py",
+    "src/ai_layer/api/app.py"
+  ],
+  "facades": {
+    "src/ai_layer/tasks/service.py": 120,
+    "src/ai_layer/tasks/repository.py": 120,
+    "src/ai_layer/tasks/agent_policy.py": 80,
+    "src/ai_layer/observability/service.py": 120
+  },
+  "ratchets": {},
+  "capabilities": [
+    {
+      "prefix": "ai_layer.domain",
+      "capability": "Domain"
+    },
+    {
+      "prefix": "ai_layer.epics",
+      "capability": "EpicsBoundary"
+    },
+    {
+      "prefix": "ai_layer.verification",
+      "capability": "Verification"
+    },
+    {
+      "prefix": "ai_layer.workspace",
+      "capability": "Workspace"
+    },
+    {
+      "prefix": "ai_layer.tasks.sandbox",
+      "capability": "Workspace"
+    },
+    {
+      "prefix": "ai_layer.tasks.review_workspace",
+      "capability": "Workspace"
+    },
+    {
+      "prefix": "ai_layer.tasks.review_checks",
+      "capability": "Workspace"
+    },
+    {
+      "prefix": "ai_layer.tasks",
+      "capability": "Tasks"
+    },
+    {
+      "prefix": "ai_layer.agents",
+      "capability": "Agents"
+    },
+    {
+      "prefix": "ai_layer.skills",
+      "capability": "Skills"
+    },
+    {
+      "prefix": "ai_layer.builtin_skills",
+      "capability": "SkillAssets"
+    },
+    {
+      "prefix": "ai_layer.context",
+      "capability": "Application"
+    },
+    {
+      "prefix": "ai_layer.memory",
+      "capability": "Context"
+    },
+    {
+      "prefix": "ai_layer.sessions",
+      "capability": "Context"
+    },
+    {
+      "prefix": "ai_layer.policy",
+      "capability": "Policy"
+    },
+    {
+      "prefix": "ai_layer.privacy",
+      "capability": "Privacy"
+    },
+    {
+      "prefix": "ai_layer.dashboard",
+      "capability": "Dashboard"
+    },
+    {
+      "prefix": "ai_layer.projections",
+      "capability": "Projections"
+    },
+    {
+      "prefix": "ai_layer.observability.snapshot",
+      "capability": "Projections"
+    },
+    {
+      "prefix": "ai_layer.observability.render",
+      "capability": "Projections"
+    },
+    {
+      "prefix": "ai_layer.observability.service",
+      "capability": "Projections"
+    },
+    {
+      "prefix": "ai_layer.observability",
+      "capability": "Observability"
+    },
+    {
+      "prefix": "ai_layer.integrations",
+      "capability": "Integrations"
+    },
+    {
+      "prefix": "ai_layer.audit",
+      "capability": "Audit"
+    },
+    {
+      "prefix": "ai_layer.db",
+      "capability": "Infrastructure"
+    },
+    {
+      "prefix": "ai_layer.core.registry",
+      "capability": "ProjectRegistry"
+    },
+    {
+      "prefix": "ai_layer.core.paths",
+      "capability": "ProjectRegistry"
+    },
+    {
+      "prefix": "ai_layer.core.service",
+      "capability": "Projects"
+    },
+    {
+      "prefix": "ai_layer.core.runtime",
+      "capability": "Installation"
+    },
+    {
+      "prefix": "ai_layer.core.background_service",
+      "capability": "Installation"
+    },
+    {
+      "prefix": "ai_layer.core.repair",
+      "capability": "Installation"
+    },
+    {
+      "prefix": "ai_layer.core.mcp_process",
+      "capability": "HostRuntime"
+    },
+    {
+      "prefix": "ai_layer.core.mcp_runtime",
+      "capability": "ControlPlane"
+    },
+    {
+      "prefix": "ai_layer.core",
+      "capability": "Foundation"
+    },
+    {
+      "prefix": "ai_layer.cli",
+      "capability": "Interfaces"
+    },
+    {
+      "prefix": "ai_layer.mcp",
+      "capability": "Interfaces"
+    },
+    {
+      "prefix": "ai_layer.api",
+      "capability": "Interfaces"
+    },
+    {
+      "prefix": "ai_layer.application",
+      "capability": "Application"
+    },
+    {
+      "prefix": "ai_layer.installation",
+      "capability": "Installation"
+    },
+    {
+      "prefix": "ai_layer",
+      "capability": "Foundation"
+    }
+  ],
+  "forbidden_capability_dependencies": [
+    {
+      "from": "Domain",
+      "to": "Interfaces",
+      "reason": "domain is transport independent"
+    },
+    {
+      "from": "Domain",
+      "to": "Infrastructure",
+      "reason": "domain is persistence independent"
+    },
+    {
+      "from": "Domain",
+      "to": "Dashboard",
+      "reason": "domain cannot depend on read UI"
+    },
+    {
+      "from": "Tasks",
+      "to": "Dashboard",
+      "reason": "Task Engine cannot know its read-side UI"
+    },
+    {
+      "from": "Tasks",
+      "to": "Interfaces",
+      "reason": "Task Engine is invoked by interfaces"
+    },
+    {
+      "from": "Skills",
+      "to": "Tasks",
+      "reason": "skill interpretation is an independent capability"
+    },
+    {
+      "from": "Dashboard",
+      "to": "Tasks",
+      "reason": "dashboard consumes projections, not Task internals"
+    },
+    {
+      "from": "Dashboard",
+      "to": "Skills",
+      "reason": "dashboard consumes projections, not Skill internals"
+    },
+    {
+      "from": "Dashboard",
+      "to": "Infrastructure",
+      "reason": "dashboard transport does not query persistence"
+    },
+    {
+      "from": "Interfaces",
+      "to": "Infrastructure",
+      "reason": "CLI/MCP/API call application contracts, not database sessions"
+    },
+    {
+      "from": "EpicsBoundary",
+      "to": "Tasks",
+      "reason": "pre-Epics boundary contains no workflow implementation"
+    },
+    {
+      "from": "EpicsBoundary",
+      "to": "Infrastructure",
+      "reason": "pre-Epics boundary contains no persistence"
+    },
+    {
+      "from": "EpicsBoundary",
+      "to": "Workspace",
+      "reason": "Epic Layer may aggregate Tasks but cannot own per-Task repository snapshot/workspace lifecycle"
+    },
+    {
+      "from": "EpicsBoundary",
+      "to": "Verification",
+      "reason": "Epic Layer cannot duplicate Task verification lifecycle"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+# Optional maintainer tooling for rebuilding a release from source.
+# Runtime installation does NOT depend on this file because v0.11.4 ships a wheel.
+hatchling==1.27.0
+packaging==25.0
+pathspec==0.12.1
+pluggy==1.6.0
+trove-classifiers==2026.5.22.10

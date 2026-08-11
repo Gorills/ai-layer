@@ -1,0 +1,103 @@
+{
+  "method": {
+    "approx_tokens": "ceil(UTF-8 bytes / 4); relative estimate only, not provider billing",
+    "host_prompt_visibility": "AI_LAYER_CONFIGURED / AI_LAYER_OBSERVED only; exact host assembly is HOST_HIDDEN"
+  },
+  "always_loaded_configured_surfaces": {
+    "before": {
+      "critical_orchestrator": {
+        "bytes": 1302,
+        "approx_tokens": 326
+      },
+      "global_bootstrap": {
+        "bytes": 5382,
+        "approx_tokens": 1346
+      },
+      "project_bridge": {
+        "bytes": 10062,
+        "approx_tokens": 2516
+      },
+      "mcp_instructions": {
+        "bytes": 5745,
+        "approx_tokens": 1437
+      }
+    },
+    "after": {
+      "critical_orchestrator": {
+        "bytes": 1302,
+        "approx_tokens": 326
+      },
+      "global_bootstrap": {
+        "bytes": 5540,
+        "approx_tokens": 1385
+      },
+      "project_bridge": {
+        "bytes": 1549,
+        "approx_tokens": 388
+      },
+      "mcp_instructions": {
+        "bytes": 5815,
+        "approx_tokens": 1454
+      }
+    }
+  },
+  "representative_legacy_autoload": [
+    {
+      "task": "Fix Django migration that breaks production database schema and add tests.",
+      "autoload_chars": 6000,
+      "approx_tokens": 1500
+    },
+    {
+      "task": "Update Docker production deployment and volume handling.",
+      "autoload_chars": 4353,
+      "approx_tokens": 1089
+    },
+    {
+      "task": "Fix CSS React button accessibility and visual design.",
+      "autoload_chars": 6000,
+      "approx_tokens": 1500
+    }
+  ],
+  "after_memory_context_automatic_domain_skill": {
+    "bytes": 0,
+    "approx_tokens": 0
+  },
+  "native_catalog_42_builtin_skills": {
+    "validation_ok": true,
+    "issues": 0,
+    "lexical_overlap_warnings": 0,
+    "name_description_value_bytes": 4409,
+    "name_description_value_approx_tokens": 1103,
+    "serialized_frontmatter_body_bytes": 5375,
+    "serialized_frontmatter_body_approx_tokens": 1344,
+    "aggregate_descriptor_files_on_disk_bytes": 47109,
+    "aggregate_descriptor_files_on_disk_approx_tokens_if_all_loaded": 11778,
+    "descriptor_min_bytes": 1054,
+    "descriptor_max_bytes": 1300,
+    "descriptor_avg_bytes": 1121.6,
+    "note": "aggregate descriptor file size is disk/configuration size, not claimed prompt cost"
+  },
+  "mcp_tool_catalog_static_proxy": {
+    "before": {
+      "tools": 36,
+      "docstring_bytes": 9279,
+      "signature_ast_bytes": 3775,
+      "contract_proxy_bytes": 13054
+    },
+    "after": {
+      "tools": 36,
+      "docstring_bytes": 9583,
+      "signature_ast_bytes": 3775,
+      "contract_proxy_bytes": 13358
+    },
+    "delta_contract_proxy_bytes": 304,
+    "note": "source proxy only; host serialized schema/context inclusion is HOST_HIDDEN"
+  },
+  "final_release": {
+    "version": "0.10.3",
+    "wheel": "dist/local_ai_development_layer-0.10.3-py3-none-any.whl",
+    "wheel_sha256": "b9be3e0e868eb6255c7e41c4d787e1665f3938b08dfeaf1830dcbcf278fa064a",
+    "release_gate": "PASS",
+    "release_gate_command": "python scripts/release_gate.py --check-deterministic-wheel"
+  }
+}

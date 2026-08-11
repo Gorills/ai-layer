@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Layer Dashboard — Задачи</title>
+  <link rel="stylesheet" href="/dashboard-assets/css/app.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">AI</div>
+        <div>
+          <div class="brand-title">AI Layer</div>
+          <div class="brand-subtitle">Панель управления</div>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Основная навигация">
+        <a class="nav-item" href="#/overview" data-route="overview">Обзор</a>
+        <div class="nav-section">Проекты</div>
+        <div id="project-nav" class="project-nav"></div>
+        <div class="nav-section nav-section-future">Дальше</div>
+        <span class="nav-item disabled">Эпики</span>
+      </nav>
+      <div class="sidebar-footer">
+        <span id="connection-dot" class="status-dot"></span>
+        <span id="connection-label">Подключение…</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="page-title">Обзор</h1>
+          <p id="page-subtitle">Текущие задачи, стадии и состояние AI Layer</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="updated-at" class="muted">—</span>
+          <button id="refresh-button" type="button" class="button">Обновить</button>
+        </div>
+      </header>
+      <section id="app" class="content" aria-live="polite"></section>
+    </main>
+  </div>
+  <script type="module" src="/dashboard-assets/js/app.js"></script>
+</body>
+</html>

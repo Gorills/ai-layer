@@ -1,0 +1,125 @@
+# Changelog
+
+## 0.11.4 — single-owner policy/bootstrap context economy
+
+- Made the global native host bootstrap the single static AI Layer instruction owner for Cursor, Codex, Claude Code and Antigravity; detailed runtime procedure remains owned by `task_next`.
+- Removed AI Layer workflow text from standard-project `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/ai-layer.mdc` and `.agents/rules/ai-layer.md`; upgrades remove only AI Layer-managed legacy blocks and preserve user-authored content.
+- Added sparse workspace Antigravity MCP binding at the documented `.agents/mcp_config.json` path alongside Cursor/Claude/Codex project bindings, preserving exact project-root identity without project rule duplication.
+- Replaced the multi-kilobyte MCP instruction manual with a tiny fallback contract.
+- `memory_context.policy` is now dynamic-only: bundled defaults are omitted, while user-modified global policy, real project rules and strict-private constraints remain authoritative.
+- Removed static Task workflow manuals from `memory_context.tool_guidance` and compacted ordinary Task runtime state; full Task state remains available from Task Layer tools.
+- Distilled the useful general engineering floor (minimal coherent change, real verification, no speculative dependencies, high-impact/destructive-change caution) into the one global bootstrap rather than dropping it with the duplicated policy.
+- Updated smoke/regression tests to enforce zero raw-source memory, zero default dynamic-policy cost and absence of repository-level AI Layer text bridges. No database migration.
+
+## 0.11.3 — continuation context compiler hardening
+
+- Added an explicit continuation presentation for prompts such as `продолжай`, `continue previous task` and `resume work`; session handoff restoration is the primary context source instead of semantic Project Knowledge search.
+- Generic continuation text is never sent to `memory_search`; consequential decision lookup can still be requested separately when the user actually asks for a new design choice.
+- Continuation context now exposes only a compact recent completed-task summary and compact authoritative Task navigation state; full previous task acceptance criteria, discovery reasoning, findings and internal counters are excluded.
+- Scanner evidence and scanner-derived project profile are withheld whenever the deterministic snapshot is stale/refreshing/missing, rather than presenting outdated architecture candidates beside newer Task history.
+- Continuation mode also suppresses scanner/profile payload even when fresh because handoff history plus current host-native source inspection are the authoritative continuation surfaces.
+- Kept ordinary coding semantic Project Knowledge retrieval and inventory-first knowledge-audit presentation unchanged. No database migration, new router, or new service was added.
+
+## 0.11.2 — task-aware Project Knowledge presentation
+
+- Added an inventory-first `memory_context` presentation for Project Knowledge coverage/correctness audits instead of semantic top-N retrieval.
+- Coverage audits now receive a compact complete VERIFIED knowledge catalog plus category counts and stale inventory, with selective expansion only when needed.
+- Independent knowledge audits no longer receive previous reviewer `discovery_result`, findings, proposed plans or completion reasoning through `task_runtime`; only minimal prior knowledge-task metadata remains.
+- Added a compact read-only audit policy/navigation contract while keeping current repository source authoritative and Task Layer navigation intact.
+- Removed duplicate `memory` and `project_intelligence` aliases from `memory_context`; scanner evidence now has one canonical response surface.
+- Audit scanner hints no longer expose unreviewed framework/entrypoint candidates when a reviewed knowledge baseline exists.
+- Ordinary coding tasks keep semantic relevant-card/history/decision retrieval unchanged. No database migration or new routing/classifier subsystem was added.
+
+## 0.11.1 — dirty-worktree task baselines
+
+- `task_create` now accepts staged, unstaged and untracked pre-existing work and captures the exact repository state as the immutable task baseline.
+- Added durable `Task.preexisting_changes` provenance (migration `0013_dirty_task_baselines`).
+- `final_changes` and stage deltas remain measured against AI Layer snapshots, so unrelated pre-existing dirty paths are excluded from the managed task delta.
+- `task_adopt` is reserved for existing changes that are themselves the implementation being brought under review.
+- Agents are explicitly forbidden from using stash/reset/restore/commit merely to satisfy Task Layer cleanliness.
+- MICRO tasks that touch a path already dirty at baseline escalate to STANDARD review because a HEAD-based line count cannot honestly represent the task-only line delta.
+- Task state schema is now 5.
+
+## 0.11.0 — verified Project Knowledge memory redesign
+
+- Reframed `scan` as deterministic repository evidence/freshness collection; new scans no longer chunk/embed current source or create a second semantic code-search index.
+- Added review-gated, evidence-backed Project Knowledge cards with `DRAFT`, `VERIFIED`, `STALE` and `SUPERSEDED` lifecycle, explicit unknowns, source fingerprints and selective invalidation.
+- Added explicit knowledge onboarding through the existing standard Task workflow: Mapper writes DRAFT cards, reviewer must actually retrieve/inspect them, FIX/REVIEW uses the existing remediation loop, and only a passing independent review publishes VERIFIED knowledge.
+- Require a VERIFIED `overview` card before reporting a complete initial knowledge baseline; a lone subsystem card no longer creates false readiness.
+- Redesigned `memory_context` into a compact task project brief containing relevant reviewed knowledge, Task history, decisions, source pointers and bounded scanner evidence; raw current-source memory cost is zero.
+- `memory_search` now searches curated Project Knowledge rather than current repository source; host-native source search/read remains authoritative for implementation details.
+- Scanner schema v4 lazily removes pre-v0.11 scanner `file`/`architecture`/`project-intelligence` semantic rows on refresh while preserving curated knowledge, decisions and history; no DB migration/reset is required.
+- Added knowledge observability (`KnowledgeDraftUpdated`, `KnowledgeReviewInspected`, `KnowledgePublished`), stale/raw-source regression findings and CLI knowledge status/list commands.
+- Kept current repository `epic/*` documents as legacy evidence only; no AI Layer Epic implementation was added.
+
+## 0.10.3 — native-first skill routing redesign
+
+- Removed the active AI Layer `required/recommended/on_demand` planner and eager domain-skill core injection from `memory_context`; Cursor, Codex and Antigravity now own skill relevance through their native Agent Skills mechanisms.
+- Kept AI Layer as the authoritative skill store with targeted `skill_get` section retrieval, package management, validation, versioning and monitoring.
+- Added one thin Agent Skills descriptor renderer and automatic synchronization: Cursor + Codex share `~/.agents/skills`, Antigravity uses `~/.gemini/config/skills`, and standard project skills use `.agents/skills`. External/strict-private project skills use namespaced user-level descriptors to preserve zero footprint.
+- Added description quality/catalog gates, removed legacy routing metadata from all 42 built-in skills, and changed the production skill gate to validate native descriptors/selective retrieval instead of classifier outcomes.
+- Native publication is upgrade-safe: new/updated skills fail routing-description validation before mutation, while a pre-existing invalid legacy custom skill is retained canonically but blocked individually instead of preventing the rest of the host catalog from synchronizing. Zero-footprint project descriptors carry exact project scope in host-visible metadata.
+- Removed router-dependent scanner/dashboard/worker behavior and obsolete required/recommended autoload metrics. Historical `ProjectSkill` rows and `SkillPlanCreated` events remain readable but inactive.
+- Reduced the generated project always-on bridge from 10062 to 1549 bytes in the measured reference path; automatic domain-skill content in `memory_context` is now zero bytes.
+- Updated context monitoring to distinguish `AI_LAYER_OBSERVED`, `AI_LAYER_CONFIGURED` and `HOST_HIDDEN`, including native catalog configuration and observed targeted/full/repeated `skill_get` fetches.
+- No database migration and no Task/Epic state-machine redesign.
+
+## 0.10.2 — context and skill economy observability
+
+- Added automatic per-project context telemetry at the common MCP execution boundary; no agent-side manual logging is required.
+- Captures secret-redacted exact payloads for context/navigation tools, size/hash profiles for every MCP result, `memory_context` component breakdown, skill plan/autoload/`skill_get` chain and repeated/full/unplanned skill-fetch findings.
+- Captures actual configured Cursor global/project rule files, MCP server instructions, registered MCP tool-contract catalog and installed AI Layer worker profiles while explicitly marking host delivery as not runtime-verifiable.
+- Stores diagnostics outside target repositories under machine state, bounds/rotates the raw JSONL trace, and automatically refreshes one portable `context-report-latest.json` at context/skill/stage/session boundaries.
+- Added `ai-layer context-report --path ... --output ...` for a fresh portable forensic artifact suitable for later independent analysis.
+- Token counts are explicitly approximate and the report does not claim visibility into Cursor/OpenAI system prompts, full chat history, host-side tool-schema inclusion/cache behavior or whether a model cognitively used a skill. No database migration or Task workflow change.
+
+## 0.10.1 — orchestrator discipline hardening
+
+- Added one canonical Critical Orchestrator Contract and load it prominently in global/project bootstrap plus MCP instructions.
+- Explicitly forbids top-level repository/external mutations, fallback implementation/fix/review/discovery, and retroactive attribution of orchestrator edits to workers.
+- `task_next` now repeats the orchestrator role contract at delegation/completion boundaries and requires actual delegated-worker evidence before completion is recorded.
+- `task_stage_delegate` now returns an explicit `START_THE_DELEGATED_WORKER_NOW` handoff instead of leaving the host action implicit.
+- Strengthened Cursor writable/read-only worker profiles and delegation contracts with unambiguous role ownership and blocker behavior.
+- Added regression tests for bootstrap salience, runtime handoff/preconditions, and worker role contracts. No database migration or Task state-machine change.
+
+## 0.10.0 — pre-Epics architecture hardening
+
+- Made PostgreSQL the canonical durable owner of Task/Stage repository identity snapshots; local snapshot JSON is now disposable best-effort materialization with legacy promotion/fail-closed recovery.
+- Added DB-authoritative project/task locking, partial unique invariants for one open Task per Project and one active Stage per Task, Task versioning and optional `expected_version` stale-write protection.
+- Added `Actor`, `Capability`, policy decision and durable approval foundations without exposing a remote API; the current service remains trusted-local/loopback-only.
+- Extended the single `RuntimeEvent` journal with actor/interface/correlation/causation/command/schema metadata and durable consumer checkpoints.
+- Added transactional idempotent-command receipts for future remote/application command boundaries.
+- Added a declarative `StageDefinition` registry and architecture tests protecting the Epic boundary from duplicating per-Task lifecycle primitives.
+- Added strategic `WorkflowSnapshotStore` and `VerificationExecutor` ports; verification remains explicitly trusted-local and non-sandboxed.
+- Added migration `0012_architecture_hardening`, PostgreSQL migration/concurrency CI gate and fault-injection/recovery/idempotency tests.
+- Rebuilt the deterministic 0.10.0 application wheel and updated release/governance documentation.
+
+## 0.9.2 — strict-private large tracked-file repair hotfix
+
+- Fixed machine upgrade false-negative when an existing strict-private project contains a clean tracked text file larger than the changed-file privacy scan cap (for example `package-lock.json`).
+- Repository baseline privacy audit now streams large tracked text with bounded memory and chunk overlap, so size alone is not treated as a privacy violation.
+- Kept changed/staged privacy enforcement fail-closed for oversized text; large tracked content containing AI provenance is still detected by baseline repair.
+
+## 0.9.1 — clean-install bootstrap hotfix
+
+- Split installer validation into a dependency-free stdlib preflight and the full release gate inside the newly installed exact-pinned runtime.
+- Prevent clean installs from importing AI Layer runtime modules before dependencies are installed.
+- Fail closed with useful preflight/full-gate diagnostics and clean incomplete pre-activation release environments.
+- Expanded governance protection to the installer and bootstrap/release-lock/wheel trust-chain scripts.
+
+## 0.9.0 — PRE-EPICS FOUNDATION candidate
+
+- Added executable package/capability architecture graph and stricter complexity ceilings; removed active architecture ratchets.
+- Split former CLI/MCP/Task/Skill/Integration/Observability/Dashboard concentration points into focused owners and compatibility composition/facade modules.
+- Added application use-case boundary so CLI/MCP/Dashboard do not own database/domain transition logic.
+- Added typed domain contracts for task navigation, agent requirements/model assurance, verification, findings, repository deltas, skills and a shared semantic error envelope across core/public transports.
+- Added Repository Workspace boundary and real Verification Runner with durable evidence.
+- Added structured durable runtime events and Dashboard projections/read models.
+- Replaced central slug-specific Skill planner logic with manifest-driven routing and added production skill contract gate.
+- Persisted independent task complexity/uncertainty dimensions and actual-model assurance/telemetry.
+- Added durable worker leases/heartbeats plus daemon stale-worker reconciliation and explicit fail-closed disconnect recovery without retrospective provenance assignment.
+- Added schema revision `0011_pre_epics_foundation`.
+- Added governance-sensitive policy baseline and canonical quality/release gates.
+- Added signed/checksummed one-command updater client, separated development-repository contents from runtime release contents, and split zero-footprint `external` attachment from `strict-private` provenance/privacy policy.
+- Replaced historical/versioned documentation with small source-first canonical documents and ADRs.
+- Added only an empty Epic extension boundary; no Epic behavior or persistence.

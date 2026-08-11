@@ -13,7 +13,6 @@ from ai_layer.epics.contracts import epic_key, plan_item_key, spec_quality
 from ai_layer.observability.domain_events import append_event
 from ai_layer.workspace.repository import capture_repository_state
 
-
 DOC_PATH_NAMES = {
     "README.md",
     "ARCHITECTURE.md",
@@ -141,9 +140,7 @@ def epic_payload(
 ) -> dict:
     spec = current_spec(db, epic)
     audits = db.scalars(
-        select(EpicAudit)
-        .where(EpicAudit.epic_id == epic.id)
-        .order_by(EpicAudit.created_at.asc())
+        select(EpicAudit).where(EpicAudit.epic_id == epic.id).order_by(EpicAudit.created_at.asc())
     ).all()
     plan = db.scalars(
         select(EpicPlanItem)

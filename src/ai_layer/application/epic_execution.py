@@ -65,9 +65,7 @@ def _assert_no_open_task(db: Session, project: Project) -> None:
 
 def _phase0_goal(epic: Epic) -> tuple[str, list[str], list[str]]:
     key = epic_key(epic.sequence)
-    contract = phase0_contract(
-        {"key": key, "approved_spec_version": epic.approved_spec_version}
-    )
+    contract = phase0_contract({"key": key, "approved_spec_version": epic.approved_spec_version})
     goal = (
         f"Epic {key} Phase 0. Reconcile approved spec v{epic.approved_spec_version} against the current "
         "repository before any implementation Task is created. Call epic_get for the full spec."
@@ -280,7 +278,9 @@ def set_plan(project_root: str | Path, *, key: str, work_items: list[dict]) -> d
         project = project_for_root(db, project_root)
         epic = epic_for_update(db, project, key)
         if epic.status != "planning":
-            raise RuntimeError("Epic plan can be created only after successful Phase 0 reconciliation")
+            raise RuntimeError(
+                "Epic plan can be created only after successful Phase 0 reconciliation"
+            )
         if epic.execution_spec_version is None:
             raise RuntimeError("Epic has no reconciled execution spec")
         if db.scalar(select(EpicPlanItem.id).where(EpicPlanItem.epic_id == epic.id).limit(1)):
@@ -295,7 +295,9 @@ def set_plan(project_root: str | Path, *, key: str, work_items: list[dict]) -> d
                 kind="phase0",
                 title="Phase 0 — reality and completeness reconciliation",
                 goal=phase0_task.goal if phase0_task else "Phase 0 reconciliation",
-                acceptance_criteria=list(phase0_task.acceptance_criteria or []) if phase0_task else [],
+                acceptance_criteria=list(phase0_task.acceptance_criteria or [])
+                if phase0_task
+                else [],
                 constraints=list(phase0_task.constraints or []) if phase0_task else [],
                 status="completed",
                 task_id=epic.phase0_task_id,
@@ -423,9 +425,7 @@ def reconcile_complete(
 def _final_closure_evidence(db: Session, task: Task) -> dict:
     changes = dict(task.final_changes or {})
     paths = {
-        str(path)
-        for group in ("added", "modified", "deleted")
-        for path in changes.get(group) or []
+        str(path) for group in ("added", "modified", "deleted") for path in changes.get(group) or []
     }
     docs_updated = any(path in DOC_PATH_NAMES or path.startswith("docs/") for path in paths)
     event = db.scalar(
@@ -597,7 +597,10 @@ def next_action(project_root: str | Path, *, key: str) -> dict:
                     ),
                 }
             else:
-                action = {"action": "human_attention_required", "message": "Phase 0 Task is missing or invalid"}
+                action = {
+                    "action": "human_attention_required",
+                    "message": "Phase 0 Task is missing or invalid",
+                }
         elif epic.status == "planning":
             action = {
                 "action": "create_task_plan",
@@ -621,9 +624,7 @@ def next_action(project_root: str | Path, *, key: str) -> dict:
                 drift = _drift_action(project, epic)
                 if drift is not None:
                     epic.status = "blocked"
-                    epic.blocked_reason = (
-                        "repository_drift_detected: targeted reconciliation required before the next Epic Task"
-                    )
+                    epic.blocked_reason = "repository_drift_detected: targeted reconciliation required before the next Epic Task"
                     append_epic_event(
                         db,
                         project,
@@ -649,11 +650,15 @@ def next_action(project_root: str | Path, *, key: str) -> dict:
                         }
                     else:
                         action = {
-                            "action": "start_final_review" if pending.kind == "final" else "start_next_task",
+                            "action": "start_final_review"
+                            if pending.kind == "final"
+                            else "start_next_task",
                             "tool": "epic_start_next",
                             "plan_item": plan_payload(db, pending),
                         }
-        elif epic.status == "blocked" and epic.blocked_reason.startswith("repository_drift_detected"):
+        elif epic.status == "blocked" and epic.blocked_reason.startswith(
+            "repository_drift_detected"
+        ):
             action = {
                 "action": "start_drift_reconciliation",
                 "tool": "epic_start_next",

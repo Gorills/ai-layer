@@ -64,10 +64,7 @@ def list_for_project(
         if not include_archived:
             stmt = stmt.where(Epic.status != "archived")
         rows = db.scalars(stmt.order_by(Epic.sequence.desc())).all()
-        return [
-            epic_payload(db, row, include_spec=False, include_history=False)
-            for row in rows
-        ]
+        return [epic_payload(db, row, include_spec=False, include_history=False) for row in rows]
 
 
 def get(
@@ -149,7 +146,9 @@ def record_audit(
         project = project_for_root(db, project_root)
         epic = epic_for_update(db, project, key)
         if epic.status != "draft":
-            raise RuntimeError("Pre-approval audit rounds are recorded only while the Epic is DRAFT")
+            raise RuntimeError(
+                "Pre-approval audit rounds are recorded only while the Epic is DRAFT"
+            )
         items = list(findings or [])[:MAX_EPIC_AUDIT_FINDINGS]
         row = EpicAudit(
             epic_id=epic.id,

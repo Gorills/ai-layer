@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+from uuid import UUID
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
@@ -13,7 +14,6 @@ from ai_layer.db.epic_models import Epic, EpicPlanItem
 from ai_layer.db.models import Project, RuntimeEvent, Task, utcnow
 from ai_layer.epics.contracts import spec_quality
 from ai_layer.tasks import service as tasks
-
 
 RUSSIAN_SPEC = """# Цель
 Сделать полноценную функцию управления большим изменением.
@@ -135,7 +135,8 @@ def _approved_phase0_plan(tmp_path: Path, monkeypatch):
         root,
         key=created["key"],
         summary="Source requires one obvious wording correction; no product trade-off exists.",
-        updated_spec=RUSSIAN_SPEC + "\n\n## Проверенная реальность\nТекущий код подтверждён Phase 0.\n",
+        updated_spec=RUSSIAN_SPEC
+        + "\n\n## Проверенная реальность\nТекущий код подтверждён Phase 0.\n",
         corrections=[{"kind": "non_branching", "summary": "Recorded current source reality"}],
     )
     assert reconciled["approved_spec_version"] == 1
@@ -218,7 +219,9 @@ def test_phase0_is_mandatory_before_task_plan_and_creates_execution_spec(
             key=created["key"],
             summary="Automatic source reconciliation",
             updated_spec=RUSSIAN_SPEC + "\n\n## Phase 0\nПроверено по source.\n",
-            corrections=[{"kind": "strong_recommendation", "summary": "Use existing extension point"}],
+            corrections=[
+                {"kind": "strong_recommendation", "summary": "Use existing extension point"}
+            ],
         )
         assert result["approved_spec_version"] == 1
         assert result["execution_spec_version"] == 2
@@ -347,12 +350,17 @@ def test_final_epic_gate_requires_docs_and_reviewed_project_knowledge(
         assert len(first_close["epic"]["plan"]) == 4
 
         retry = epics.start_next(root, key=key)
-        retry_task = db.get(Task, retry["task"]["id"])
+        retry_task = db.get(Task, UUID(retry["task"]["id"]))
         assert retry_task is not None
         # Simulate the existing Task Engine's already-tested Knowledge publication contract for the retry.
         retry_task.status = "completed"
         retry_task.completed_at = utcnow()
-        retry_task.final_changes = {"added": [], "modified": ["CURRENT_STATE.md"], "deleted": [], "total": 1}
+        retry_task.final_changes = {
+            "added": [],
+            "modified": ["CURRENT_STATE.md"],
+            "deleted": [],
+            "total": 1,
+        }
         db.add(
             RuntimeEvent(
                 project_id=project.id,
@@ -376,7 +384,9 @@ def test_final_epic_gate_requires_docs_and_reviewed_project_knowledge(
         assert archived["archived_at"]
         assert str(final_task_id)
         assert db.scalar(select(Epic).where(Epic.project_id == project.id)) is not None
-        assert db.scalars(select(EpicPlanItem).where(EpicPlanItem.epic_id == archived["id"])).all()
+        assert db.scalars(
+            select(EpicPlanItem).where(EpicPlanItem.epic_id == UUID(archived["id"]))
+        ).all()
     finally:
         db.close()
         get_settings.cache_clear()

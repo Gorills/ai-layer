@@ -15,7 +15,7 @@ def test_builtin_skill_catalog_is_native_first_and_compact(tmp_path, monkeypatch
     get_settings.cache_clear()
     try:
         skills = list_skills()
-        assert len(skills) == 42
+        assert len(skills) == 43
         validation = validate_native_catalog(skills)
         assert validation["ok"] is True
         for skill in skills:
@@ -58,7 +58,7 @@ def test_builtin_skill_install_is_safe_under_concurrent_calls(tmp_path, monkeypa
             futures = [pool.submit(install_builtin_skills) for _ in range(80)]
             results = [future.result() for future in futures]
         assert all(result == results[0] for result in results)
-        assert len(results[0]) == 42
+        assert len(results[0]) == 43
         manifest = get_settings().skills_dir / ".builtin-manifest.json"
         assert manifest.exists()
         assert '"skills"' in manifest.read_text(encoding="utf-8")

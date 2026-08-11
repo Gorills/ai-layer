@@ -6,7 +6,9 @@ from ai_layer.dashboard import api as dashboard_api
 from ai_layer.projections import epics as epic_projection
 
 
-def test_project_epics_projection_is_read_only_and_uses_registered_project(monkeypatch, tmp_path: Path) -> None:
+def test_project_epics_projection_is_read_only_and_uses_registered_project(
+    monkeypatch, tmp_path: Path
+) -> None:
     root = tmp_path / "project"
     root.mkdir()
     monkeypatch.setattr(
@@ -40,7 +42,9 @@ def test_project_epics_projection_is_read_only_and_uses_registered_project(monke
     assert payload["epics"][0]["execution_spec_version"] == 2
 
 
-def test_epic_detail_projection_exposes_full_human_readable_history(monkeypatch, tmp_path: Path) -> None:
+def test_epic_detail_projection_exposes_full_human_readable_history(
+    monkeypatch, tmp_path: Path
+) -> None:
     root = tmp_path / "project"
     root.mkdir()
     monkeypatch.setattr(

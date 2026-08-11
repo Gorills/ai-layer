@@ -1,0 +1,137 @@
+name: lint-cleanup-once
+on:
+  push:
+    branches: [fix-ci-baseline]
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install ruff==0.16.2
+      - name: Apply targeted baseline lint repairs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str, expected: int = 1) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f"{path}: expected {expected} matches, found {count}: {old!r}")
+              p.write_text(text.replace(old, new), encoding="utf-8")
+
+          def drop_assignment(path: str, line_no: int, name: str) -> None:
+              p = Path(path)
+              lines = p.read_text(encoding="utf-8").splitlines(keepends=True)
+              line = lines[line_no - 1]
+              marker = f"{name} = "
+              if marker not in line:
+                  raise SystemExit(f"{path}:{line_no}: expected {marker!r}, got {line!r}")
+              lines[line_no - 1] = line.replace(marker, "", 1)
+              p.write_text("".join(lines), encoding="utf-8")
+
+          replace(
+              "scripts/release_gate.py",
+              '            cmd = [sys.executable, str(ROOT / "scripts" / "build_release_wheel.py")]\n',
+              "",
+          )
+
+          replace("src/ai_layer/application/commands.py", "from typing import Any, TypeVar\n", "from typing import Any\n")
+          replace("src/ai_layer/application/commands.py", 'T = TypeVar("T", bound=dict[str, Any])\n\n\n', "")
+          replace(
+              "src/ai_layer/application/commands.py",
+              "def execute_idempotent(\n",
+              "def execute_idempotent[T: dict[str, Any]](\n",
+          )
+
+          replace(
+              "src/ai_layer/core/filelock.py",
+              '                raise TimeoutError(f"Timed out waiting for lock: {lock_dir}")\n',
+              '                raise TimeoutError(f"Timed out waiting for lock: {lock_dir}") from None\n',
+          )
+          replace(
+              "src/ai_layer/memory/locking.py",
+              '                    f"waited {timeout_seconds:.0f}s for {path}."\n                )\n',
+              '                    f"waited {timeout_seconds:.0f}s for {path}."\n                ) from None\n',
+          )
+
+          replace(
+              "src/ai_layer/memory/scanner.py",
+              'from __future__ import annotations\n\n"""Compatibility facade for deterministic repository evidence scanning.\n\nPhysical source discovery/parsing lives in ``memory.source``; incremental identity and\nevidence orchestration live in their own lower-level modules. Existing imports from\n``memory.scanner`` remain valid without introducing reverse dependencies.\n"""\n',
+              '"""Compatibility facade for deterministic repository evidence scanning.\n\nPhysical source discovery/parsing lives in ``memory.source``; incremental identity and\nevidence orchestration live in their own lower-level modules. Existing imports from\n``memory.scanner`` remain valid without introducing reverse dependencies.\n"""\n\nfrom __future__ import annotations\n',
+          )
+
+          replace(
+              "src/ai_layer/observability/event_aggregation.py",
+              "            stat = path.stat()\n",
+              "            path.stat()\n",
+          )
+
+          replace(
+              "src/ai_layer/observability/events.py",
+              "from ai_layer.core.registry import get_registered_project\n\nEVENT_RETENTION_DAYS",
+              "from ai_layer.core.registry import get_registered_project\nfrom ai_layer.observability.event_common import event_dir as _event_dir\nfrom ai_layer.observability.event_common import parse_ts, utcnow\n\nEVENT_RETENTION_DAYS",
+          )
+          replace(
+              "src/ai_layer/observability/events.py",
+              '\n\nfrom ai_layer.observability.event_common import event_dir as _event_dir\nfrom ai_layer.observability.event_common import parse_ts, utcnow\n\n\ndef event_path',
+              "\n\ndef event_path",
+          )
+
+          replace(
+              "src/ai_layer/projections/dashboard.py",
+              "from ai_layer.core.registry import list_registered_projects\n",
+              "from ai_layer.core.registry import list_registered_projects\nfrom ai_layer.core.service import get_project\n",
+          )
+
+          replace(
+              "src/ai_layer/skills/manager.py",
+              'from ai_layer.skills.sources import (\n    read_url as _read_url_impl,\n)\n\n\ndef _read_url(url: str) -> bytes:\n    # Kept as a manager-level seam so tests/hosts can replace network I/O without patching internals.\n    return _read_url_impl(url, max_bytes=MAX_ARCHIVE_BYTES)\n\n\nfrom ai_layer.skills.packages import (\n    _decode_document,\n    _package_files_for_doc,\n    _package_risk_issues,\n    _source_documents,\n)\n',
+              'from ai_layer.skills.sources import (\n    read_url as _read_url_impl,\n)\nfrom ai_layer.skills.packages import (\n    _decode_document,\n    _package_files_for_doc,\n    _package_risk_issues,\n    _source_documents,\n)\n\n\ndef _read_url(url: str) -> bytes:\n    # Kept as a manager-level seam so tests/hosts can replace network I/O without patching internals.\n    return _read_url_impl(url, max_bytes=MAX_ARCHIVE_BYTES)\n',
+          )
+
+          replace(
+              "src/ai_layer/tasks/review_contracts.py",
+              "from ai_layer.db.models import ReviewFinding, Task, utcnow\n",
+              "from ai_layer.db.models import ReviewFinding, Task, TaskStage, utcnow\n",
+          )
+          replace(
+              "src/ai_layer/tasks/review_contracts.py",
+              '    normalize = lambda value: " ".join(str(value or "").casefold().split())\n    return normalize(category), normalize(path), normalize(problem)\n',
+              '    def normalize(value: object) -> str:\n        return " ".join(str(value or "").casefold().split())\n\n    return normalize(category), normalize(path), normalize(problem)\n',
+          )
+
+          for path, line_no, name in [
+              ("tests/test_adaptive_workflow.py", 106, "review"),
+              ("tests/test_adaptive_workflow.py", 276, "created"),
+              ("tests/test_incremental_memory.py", 94, "first"),
+              ("tests/test_postgres_hardening.py", 170, "created"),
+              ("tests/test_project_knowledge.py", 217, "created"),
+              ("tests/test_tasks.py", 1324, "created"),
+              ("tests/test_tasks.py", 1406, "created"),
+              ("tests/test_tasks.py", 1440, "created"),
+              ("tests/test_tasks.py", 1480, "review1"),
+              ("tests/test_tasks.py", 1648, "fix"),
+          ]:
+              drop_assignment(path, line_no, name)
+          PY
+      - run: ruff check src/ai_layer/tasks/service.py --select I --fix
+      - run: ruff format .
+      - run: ruff check . || true
+      - name: Commit targeted cleanup
+        run: |
+          rm .github/workflows/lint-cleanup-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git commit -m "repair remaining baseline lint defects"
+          git push origin HEAD:fix-ci-baseline

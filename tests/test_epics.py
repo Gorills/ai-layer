@@ -312,14 +312,10 @@ def test_repository_drift_requires_targeted_reconciliation_before_next_task(
             root,
             key=key,
             summary="External file does not alter remaining final-review assumptions.",
-            corrections=[
-                {"kind": "non_branching", "summary": "No remaining contract change"}
-            ],
+            corrections=[{"kind": "non_branching", "summary": "No remaining contract change"}],
         )
         assert reconciled["status"] == "running"
-        assert (
-            epics.next_action(root, key=key)["next_action"]["action"] == "start_final_review"
-        )
+        assert epics.next_action(root, key=key)["next_action"]["action"] == "start_final_review"
     finally:
         db.close()
         get_settings.cache_clear()

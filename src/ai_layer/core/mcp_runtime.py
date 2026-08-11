@@ -287,7 +287,8 @@ def _post_dispatch_timeout(tool: str, message: str) -> CoreRequestTimeout:
             ),
         )
     return CoreRequestTimeout(
-        message + " Do not replay a mutating tool blindly; read durable Task/Epic state before recovery."
+        message
+        + " Do not replay a mutating tool blindly; read durable Task/Epic state before recovery."
     )
 
 

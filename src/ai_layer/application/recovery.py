@@ -31,23 +31,23 @@ def reconcile_stale_workers() -> dict:
     try:
         result = reap_stale_workers()
     except Exception as exc:
-        payload = {
+        error_payload: dict[str, object] = {
             "status": "degraded",
             "last_run_at": _utc_iso(),
             "last_error": f"{type(exc).__name__}: {exc}"[:1000],
             "last_result": None,
         }
         with _STATUS_LOCK:
-            _STATUS.update(payload)
-        return {"ok": False, "error": payload["last_error"]}
-    payload = {
+            _STATUS.update(error_payload)
+        return {"ok": False, "error": error_payload["last_error"]}
+    healthy_payload: dict[str, object] = {
         "status": "healthy",
         "last_run_at": _utc_iso(),
         "last_error": None,
         "last_result": result,
     }
     with _STATUS_LOCK:
-        _STATUS.update(payload)
+        _STATUS.update(healthy_payload)
     return result
 
 

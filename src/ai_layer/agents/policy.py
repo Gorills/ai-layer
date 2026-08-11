@@ -13,16 +13,17 @@ TIERS = ("economy", "balanced", "strong")
 COST_POLICIES = {"economy", "balanced", "quality"}
 OWNED_MARKER = "<!-- AI_LAYER_MANAGED_AGENT_PROFILE -->"
 
-DEFAULT_POLICY = {
+DEFAULT_CURSOR_MODELS: dict[str, str] = {
+    # Keep both low/normal default tiers on the explicitly non-fast Composer variant.
+    # Operators can map balanced/strong to other models in ~/.ai-layer/agent-policy.json.
+    "economy": "composer-2.5[fast=false]",
+    "balanced": "composer-2.5[fast=false]",
+    "strong": "inherit",
+}
+DEFAULT_POLICY: dict[str, object] = {
     "schema": POLICY_SCHEMA,
     "default_cost_policy": "economy",
-    "cursor_models": {
-        # Keep both low/normal default tiers on the explicitly non-fast Composer variant.
-        # Operators can map balanced/strong to other models in ~/.ai-layer/agent-policy.json.
-        "economy": "composer-2.5[fast=false]",
-        "balanced": "composer-2.5[fast=false]",
-        "strong": "inherit",
-    },
+    "cursor_models": DEFAULT_CURSOR_MODELS,
 }
 
 
@@ -61,8 +62,7 @@ def load_policy() -> dict:
         models = raw.get("cursor_models")
         if isinstance(models, dict):
             result["cursor_models"] = {
-                tier: str(models.get(tier) or DEFAULT_POLICY["cursor_models"][tier])
-                for tier in TIERS
+                tier: str(models.get(tier) or DEFAULT_CURSOR_MODELS[tier]) for tier in TIERS
             }
     return result
 
@@ -70,22 +70,22 @@ def load_policy() -> dict:
 def save_policy(policy: dict) -> Path:
     path = policy_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    normalized = {
-        "schema": POLICY_SCHEMA,
-        "default_cost_policy": str(policy.get("default_cost_policy") or "economy"),
-        "cursor_models": {
-            tier: str(
-                (policy.get("cursor_models") or {}).get(tier)
-                or DEFAULT_POLICY["cursor_models"][tier]
-            )
-            for tier in TIERS
-        },
+    default_cost_policy = str(policy.get("default_cost_policy") or "economy")
+    raw_models = policy.get("cursor_models")
+    configured_models = raw_models if isinstance(raw_models, dict) else {}
+    cursor_models: dict[str, str] = {
+        tier: str(configured_models.get(tier) or DEFAULT_CURSOR_MODELS[tier]) for tier in TIERS
     }
-    if normalized["default_cost_policy"] not in COST_POLICIES:
+    if default_cost_policy not in COST_POLICIES:
         raise ValueError("default_cost_policy must be economy|balanced|quality")
-    for tier, model in normalized["cursor_models"].items():
+    for tier, model in cursor_models.items():
         if not model.strip():
             raise ValueError(f"Cursor model for {tier} must not be empty")
+    normalized = {
+        "schema": POLICY_SCHEMA,
+        "default_cost_policy": default_cost_policy,
+        "cursor_models": cursor_models,
+    }
     fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:

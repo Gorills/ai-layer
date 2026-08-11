@@ -364,8 +364,8 @@ def remove_project_registration(db: Session, root: str | Path) -> dict:
 
     db_deleted = 0
     if project is not None:
-        delete_result = db.execute(delete(Project).where(Project.id == project.id))
-        db_deleted = int(delete_result.rowcount or 0)
+        db.execute(delete(Project).where(Project.id == project.id))
+        db_deleted = 1
         db.commit()
 
     registry = unregister_project(path)

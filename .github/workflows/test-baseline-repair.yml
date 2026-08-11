@@ -70,6 +70,8 @@ jobs:
           )
           PY
       - run: ruff format .
+      - run: ruff check src/ai_layer/integrations/service.py src/ai_layer/observability/context_trace.py --select I --fix
+      - run: ruff format src/ai_layer/integrations/service.py src/ai_layer/observability/context_trace.py
       - run: ruff check .
       - run: mypy src/ai_layer
       - name: Run previously failing tests

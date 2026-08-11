@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "[ai-layer] pre-push: make preflight"
+exec make preflight

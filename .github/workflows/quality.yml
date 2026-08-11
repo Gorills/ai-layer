@@ -15,7 +15,7 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - run: python scripts/quality_gate.py --deterministic-wheel
+      - run: make quality
 
   postgres-hardening:
     runs-on: ubuntu-24.04
@@ -42,4 +42,4 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - run: python scripts/postgres_gate.py
+      - run: make postgres-gate

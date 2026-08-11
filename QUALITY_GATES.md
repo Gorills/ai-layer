@@ -2,11 +2,13 @@
 
 ## Canonical gate
 
+The repository-owned canonical quality entry point is:
+
 ```bash
-python scripts/quality_gate.py --deterministic-wheel
+make quality
 ```
 
-Release creation (`scripts/build_release.py`) runs this gate before building a runtime archive. It is fail-closed.
+It runs `python scripts/quality_gate.py --deterministic-wheel`. Release creation (`scripts/build_release.py`) runs this deterministic gate before building a runtime archive. It is fail-closed.
 
 Required local stages:
 
@@ -22,9 +24,27 @@ Required local stages:
 
 Missing required tooling is a failure, not a skip. Pytest plugins are not inherited from the workstation: any plugin required by project tests must be an explicit project dependency/configuration.
 
+## Development preflight
+
+Repository development uses the same gate owners locally and in CI:
+
+```bash
+make dev-setup     # once per clone: install dev dependencies + activate tracked hooks
+make fast-gate     # fast pre-commit feedback
+make quality       # deterministic canonical quality gate
+make postgres-gate # real PostgreSQL/pgvector hardening
+make preflight     # full local pre-push composition
+```
+
+`make preflight-ci` composes `make quality` and `make postgres-gate` when `AI_LAYER_TEST_POSTGRES_URL` is already supplied by CI or another controlled environment. GitHub Actions calls these same Make targets rather than duplicating raw gate commands.
+
+The tracked pre-commit hook runs `make fast-gate`; the tracked pre-push hook runs `make preflight`. `make dev-setup` activates them explicitly with `core.hooksPath=.githooks`; installing the runtime package never mutates Git configuration.
+
+A successful preflight applies only to the exact final worktree. Any later code or configuration change invalidates that evidence. Using `--no-verify`, disabling repository hooks, weakening gates, or publishing a known local failure merely to obtain CI diagnostics violates the development contract. An agent without an executable local worktree or the required Docker/PostgreSQL environment must report that limitation instead of claiming preflight success.
+
 ## PostgreSQL hardening gate
 
-CI also runs `python scripts/postgres_gate.py` against a real PostgreSQL 16 + pgvector service using `AI_LAYER_TEST_POSTGRES_URL`. It creates isolated databases and proves:
+CI also runs `make postgres-gate` against a real PostgreSQL 16 + pgvector service using `AI_LAYER_TEST_POSTGRES_URL`. It creates isolated databases and proves:
 
 1. fresh database -> `alembic upgrade head`;
 2. previous supported pre-Epics schema `0011_pre_epics_foundation` -> `head`;
@@ -43,10 +63,10 @@ The architecture gate rejects internal import cycles, capability cycles, unowned
 
 ## Governance-sensitive changes
 
-`release/governance-policy.json` marks architecture policy/gates, installer/bootstrap trust-chain files, release gates, migration policy, task-state invariants and verification runner as protected governance material. The local hash baseline is only tamper-evident convenience; it is deliberately not presented as a security boundary.
+`release/governance-policy.json` marks architecture policy/gates, development bootstrap/hooks/CI, installer/bootstrap trust-chain files, release gates, migration policy, task-state invariants and verification runner as protected governance material. The local hash baseline is only tamper-evident convenience; it is deliberately not presented as a security boundary.
 
 Semantic changes to protected files require a human-visible rationale/ADR, tests, a deliberately refreshed baseline and external protected-branch review. Production enforcement requires required CI and a release-signing identity outside ordinary feature-agent write access.
 
 ## Release repository vs runtime artifact
 
-The development repository may contain `.github`, maintainer scripts, tests and architecture configuration. `scripts/build_release_archive.py` owns the runtime allowlist/exclusions. Runtime release cleanliness is therefore a packaging property, not a ban on normal development tooling.
+The development repository may contain `.github`, `.githooks`, maintainer scripts, tests and architecture configuration. `scripts/build_release_archive.py` owns the runtime allowlist/exclusions. Runtime release cleanliness is therefore a packaging property, not a ban on normal development tooling.

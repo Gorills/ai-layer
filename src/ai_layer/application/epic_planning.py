@@ -169,9 +169,7 @@ def set_plan(project_root: str | Path, *, key: str, work_items: list[dict]) -> d
             )
         if epic.execution_spec_version is None:
             raise RuntimeError("Epic has no reconciled execution spec")
-        if db.scalar(
-            select(EpicPlanItem.id).where(EpicPlanItem.epic_id == epic.id).limit(1)
-        ):
+        if db.scalar(select(EpicPlanItem.id).where(EpicPlanItem.epic_id == epic.id).limit(1)):
             raise RuntimeError("Epic already has a plan")
         normalized = _normalize_work_items(work_items)
         epic.plan_version = 1
@@ -262,9 +260,7 @@ def reconcile_complete(
             epic,
             content,
             source="drift_reconciliation" if is_drift else "phase0",
-            change_summary=bounded_text(
-                summary, field="reconciliation summary", max_chars=12_000
-            ),
+            change_summary=bounded_text(summary, field="reconciliation summary", max_chars=12_000),
             rationale=(
                 "Automatic reconciliation from current source; material unresolved trade-offs require human decision."
             ),

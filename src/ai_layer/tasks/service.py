@@ -32,8 +32,6 @@ from ai_layer.tasks.navigation import (
     cleanup_current_review_sandbox,
     next_task_action,
     prepare_current_review_sandbox,
-    recover_disconnected_worker,
-    resume_task,
     run_current_review_check,
 )
 from ai_layer.tasks.review_contracts import (

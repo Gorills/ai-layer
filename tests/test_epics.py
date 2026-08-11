@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from ai_layer.application import epic_execution, epic_lifecycle, epics
+from ai_layer.application import epic_execution, epic_lifecycle, epic_planning, epics
 from ai_layer.core.config import get_settings
 from ai_layer.db.base import Base
 from ai_layer.db.epic_models import Epic, EpicPlanItem
@@ -68,6 +68,7 @@ def _db_project(tmp_path: Path, monkeypatch) -> tuple[Session, Project, Path]:
 
     monkeypatch.setattr(epic_lifecycle, "session_scope", scope)
     monkeypatch.setattr(epic_execution, "session_scope", scope)
+    monkeypatch.setattr(epic_planning, "session_scope", scope)
     return db, project, root
 
 
@@ -206,7 +207,11 @@ def test_phase0_is_mandatory_before_task_plan_and_creates_execution_spec(
         created = epics.create(root, title="Phase zero", spec_markdown=RUSSIAN_SPEC)
         epics.approve(root, key=created["key"])
         try:
-            epics.set_plan(root, key=created["key"], work_items=[{"title": "x", "goal": "y"}])
+            epics.set_plan(
+                root,
+                key=created["key"],
+                work_items=[{"title": "x", "goal": "y"}],
+            )
         except RuntimeError as exc:
             assert "Phase 0" in str(exc)
         else:
@@ -307,10 +312,14 @@ def test_repository_drift_requires_targeted_reconciliation_before_next_task(
             root,
             key=key,
             summary="External file does not alter remaining final-review assumptions.",
-            corrections=[{"kind": "non_branching", "summary": "No remaining contract change"}],
+            corrections=[
+                {"kind": "non_branching", "summary": "No remaining contract change"}
+            ],
         )
         assert reconciled["status"] == "running"
-        assert epics.next_action(root, key=key)["next_action"]["action"] == "start_final_review"
+        assert (
+            epics.next_action(root, key=key)["next_action"]["action"] == "start_final_review"
+        )
     finally:
         db.close()
         get_settings.cache_clear()

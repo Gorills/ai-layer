@@ -1,0 +1,35 @@
+name: rebase-simplify-context
+on:
+  push:
+    branches: [simplify-context-intent-routing-rebased]
+permissions:
+  contents: write
+jobs:
+  rebase-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - name: Apply original semantic commit onto repaired baseline
+        run: |
+          git cherry-pick --no-commit -Xignore-all-space f2237746344ec528ea0e5fa1494f08144d6feaf7
+      - name: Normalize and verify
+        run: |
+          ruff format .
+          ruff check .
+          mypy src/ai_layer
+          python scripts/quality_gate.py --deterministic-wheel
+      - name: Commit verified rebased change
+        run: |
+          rm .github/workflows/rebase-simplify-context.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "simplify context intent handling"
+          git push origin HEAD:simplify-context-intent-routing-rebased

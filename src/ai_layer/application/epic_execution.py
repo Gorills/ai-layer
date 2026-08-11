@@ -344,9 +344,7 @@ def next_action(project_root: str | Path, *, key: str) -> dict:
                 drift = _drift_action(project, epic)
                 if drift is not None:
                     epic.status = "blocked"
-                    epic.blocked_reason = (
-                        "repository_drift_detected: targeted reconciliation required before the next Epic Task"
-                    )
+                    epic.blocked_reason = "repository_drift_detected: targeted reconciliation required before the next Epic Task"
                     append_epic_event(
                         db,
                         project,

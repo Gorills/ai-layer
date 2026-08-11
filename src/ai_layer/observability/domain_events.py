@@ -40,6 +40,20 @@ EVENT_TYPES = frozenset(
         "KnowledgeDraftUpdated",
         "KnowledgeReviewInspected",
         "KnowledgePublished",
+        "EpicCreated",
+        "EpicSpecRevised",
+        "EpicAudited",
+        "EpicApproved",
+        "EpicPhase0Started",
+        "EpicReconciled",
+        "EpicPlanCreated",
+        "EpicPlanItemStarted",
+        "EpicPlanItemCompleted",
+        "EpicDriftDetected",
+        "EpicDriftReconciliationStarted",
+        "EpicFinalReviewRetryRequired",
+        "EpicCompleted",
+        "EpicArchived",
     }
 )
 

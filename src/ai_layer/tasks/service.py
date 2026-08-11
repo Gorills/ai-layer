@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-# This module intentionally re-exports the sequential Task Layer public/compatibility surface.
-# Focused owner modules contain the behavior; callers and existing tests import through this facade.
+# Compatibility facade only: behavior lives in focused Task modules.
 # ruff: noqa: F401
+from ai_layer.tasks import state_store as _state_store
 from ai_layer.tasks.completion import complete_current_stage, complete_stage
 from ai_layer.tasks.constants import *  # noqa: F403
 from ai_layer.tasks.contracts import (
@@ -44,45 +44,6 @@ from ai_layer.tasks.review_contracts import (
     _normalize_verification_results,
     _open_findings,
 )
-from ai_layer.tasks.state_store import (
-    atomic_write_json as _atomic_write_json,
-)
-from ai_layer.tasks.state_store import (
-    baseline_path as _baseline_path,
-)
-from ai_layer.tasks.state_store import (
-    load_baseline as _load_baseline,
-)
-from ai_layer.tasks.state_store import (
-    load_stage_start as _load_stage_start,
-)
-from ai_layer.tasks.state_store import (
-    memory_hash_seed as _memory_hash_seed,
-)
-from ai_layer.tasks.state_store import (
-    read_json as _read_json,
-)
-from ai_layer.tasks.state_store import (
-    stage_start_path as _stage_start_path,
-)
-from ai_layer.tasks.state_store import (
-    task_key,
-)
-from ai_layer.tasks.state_store import (
-    task_lock as _task_lock,
-)
-from ai_layer.tasks.state_store import (
-    task_root as _task_root,
-)
-from ai_layer.tasks.state_store import (
-    task_work_dir as _task_work_dir,
-)
-from ai_layer.tasks.state_store import (
-    utc_iso as _utc_iso,
-)
-from ai_layer.tasks.state_store import (
-    write_stage_start as _write_stage_start,
-)
 from ai_layer.tasks.transitions import _complete_task, _privacy_findings
 from ai_layer.tasks.views import (
     _active_stage,
@@ -105,24 +66,26 @@ from ai_layer.tasks.views import (
     task_to_dict,
 )
 from ai_layer.tasks.worker_leases import recover_disconnected_worker
-from ai_layer.workspace.repository import (
-    capture_repository_state,
-    repository_changes,
-)
-from ai_layer.workspace.repository import (
-    git_changed_line_count as _git_changed_line_count,
-)
-from ai_layer.workspace.repository import (
-    git_changed_paths as _git_changed_paths,
-)
-from ai_layer.workspace.repository import (
-    git_visible_paths as _git_visible_paths,
-)
-from ai_layer.workspace.repository import (
-    hash_file as _hash_file,
-)
-from ai_layer.workspace.repository import (
-    repository_files as _repository_files,
-)
+from ai_layer.workspace import repository as _workspace_repository
 
-__all__ = [name for name in globals() if not name.startswith("__")]
+_atomic_write_json = _state_store.atomic_write_json
+_baseline_path = _state_store.baseline_path
+_load_baseline = _state_store.load_baseline
+_load_stage_start = _state_store.load_stage_start
+_memory_hash_seed = _state_store.memory_hash_seed
+_read_json = _state_store.read_json
+_stage_start_path = _state_store.stage_start_path
+task_key = _state_store.task_key
+_task_lock = _state_store.task_lock
+_task_root = _state_store.task_root
+_task_work_dir = _state_store.task_work_dir
+_utc_iso = _state_store.utc_iso
+_write_stage_start = _state_store.write_stage_start
+
+capture_repository_state = _workspace_repository.capture_repository_state
+repository_changes = _workspace_repository.repository_changes
+_git_changed_line_count = _workspace_repository.git_changed_line_count
+_git_changed_paths = _workspace_repository.git_changed_paths
+_git_visible_paths = _workspace_repository.git_visible_paths
+_hash_file = _workspace_repository.hash_file
+_repository_files = _workspace_repository.repository_files

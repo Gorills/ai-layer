@@ -1,12 +1,10 @@
 name: epics-v1-refactor
 on:
   push:
-    branches: [feature/epics-v1]
 permissions:
   contents: write
 jobs:
   refactor:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -24,13 +22,13 @@ jobs:
 
           execution_path = Path('src/ai_layer/application/epic_execution.py')
           text = execution_path.read_text(encoding='utf-8')
-          start_marker = 'def _write_execution_spec('
-          end_marker = 'def _final_closure_evidence('
-          start = text.index(start_marker)
-          end = text.index(end_marker)
-          planning_chunk = text[start:end].rstrip() + '\n'
-
-          planning_header = '''from __future__ import annotations
+          if Path('src/ai_layer/application/epic_planning.py').exists():
+              print('planning split already present')
+          else:
+              start = text.index('def _write_execution_spec(')
+              end = text.index('def _final_closure_evidence(')
+              planning_chunk = text[start:end].rstrip() + '\n'
+              planning_header = '''from __future__ import annotations
 
 from pathlib import Path
 
@@ -58,20 +56,21 @@ from ai_layer.epics.contracts import (
 )
 
 '''
-          Path('src/ai_layer/application/epic_planning.py').write_text(
-              planning_header + planning_chunk,
-              encoding='utf-8',
-          )
-          text = text[:start] + text[end:]
+              Path('src/ai_layer/application/epic_planning.py').write_text(
+                  planning_header + planning_chunk,
+                  encoding='utf-8',
+              )
+              text = text[:start] + text[end:]
+
           needle = '        epic = epic_for_update(db, project, key)\n        if epic.status == "draft":'
-          replacement = (
-              '        epic = epic_for_update(db, project, key)\n'
-              '        action: dict[str, object]\n'
-              '        if epic.status == "draft":'
-          )
-          if needle not in text:
-              raise SystemExit('next_action annotation insertion point not found')
-          text = text.replace(needle, replacement, 1)
+          if needle in text:
+              text = text.replace(
+                  needle,
+                  '        epic = epic_for_update(db, project, key)\n'
+                  '        action: dict[str, object]\n'
+                  '        if epic.status == "draft":',
+                  1,
+              )
           execution_path.write_text(text, encoding='utf-8')
 
           facade = Path('src/ai_layer/application/epics.py')
@@ -88,23 +87,16 @@ from ai_layer.epics.contracts import (
               'from ai_layer.application import epic_execution, epic_lifecycle, epics',
               'from ai_layer.application import epic_execution, epic_lifecycle, epic_planning, epics',
           )
-          data = data.replace(
-              '    monkeypatch.setattr(epic_execution, "session_scope", scope)\n',
-              '    monkeypatch.setattr(epic_execution, "session_scope", scope)\n'
-              '    monkeypatch.setattr(epic_planning, "session_scope", scope)\n',
-          )
+          marker = '    monkeypatch.setattr(epic_execution, "session_scope", scope)\n'
+          if 'monkeypatch.setattr(epic_planning, "session_scope", scope)' not in data:
+              data = data.replace(
+                  marker,
+                  marker + '    monkeypatch.setattr(epic_planning, "session_scope", scope)\n',
+              )
           tests.write_text(data, encoding='utf-8')
           PY
-          python -m ruff check --fix \
-            src/ai_layer/application/epic_execution.py \
-            src/ai_layer/application/epic_planning.py \
-            src/ai_layer/application/epics.py \
-            tests/test_epics.py
-          python -m ruff format \
-            src/ai_layer/application/epic_execution.py \
-            src/ai_layer/application/epic_planning.py \
-            src/ai_layer/application/epics.py \
-            tests/test_epics.py
+          python -m ruff check --fix src/ai_layer/application/epic_execution.py src/ai_layer/application/epic_planning.py src/ai_layer/application/epics.py tests/test_epics.py
+          python -m ruff format src/ai_layer/application/epic_execution.py src/ai_layer/application/epic_planning.py src/ai_layer/application/epics.py tests/test_epics.py
       - name: Focused verification
         run: |
           python -m mypy src/ai_layer
@@ -114,11 +106,7 @@ from ai_layer.epics.contracts import (
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- \
-            src/ai_layer/application/epic_execution.py \
-            src/ai_layer/application/epic_planning.py \
-            src/ai_layer/application/epics.py \
-            tests/test_epics.py
+          git add -- src/ai_layer/application/epic_execution.py src/ai_layer/application/epic_planning.py src/ai_layer/application/epics.py tests/test_epics.py
           if ! git diff --cached --quiet; then
             git commit -m 'Split Epic planning from execution'
             git push origin HEAD:feature/epics-v1

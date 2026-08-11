@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from ai_layer.db.base import Base
-from ai_layer.db.models import Project
+from ai_layer.db.models import Project, Task
 from ai_layer.tasks import service as tasks
 from ai_layer.tasks import views as task_views
 
@@ -14,7 +14,7 @@ def _db_project(tmp_path: Path, *, fragility: str | None = None):
     Base.metadata.create_all(engine)
     db = Session(engine, expire_on_commit=False)
     root = tmp_path / "project"
-    root.mkdir()
+    root.mkdir(parents=True)
     (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
     legacy = {} if fragility is None else {"level": fragility, "score": 0, "signals": []}
     project = Project(
@@ -158,7 +158,7 @@ def test_review_contract_mentions_project_knowledge_only_when_drafts_exist(
 ):
     db, project, root = _db_project(tmp_path, fragility="low")
     try:
-        created = tasks.create_task(
+        tasks.create_task(
             db,
             project,
             goal="Change application behavior",
@@ -182,7 +182,9 @@ def test_review_contract_mentions_project_knowledge_only_when_drafts_exist(
         )
 
         monkeypatch.setattr(task_views, "has_task_drafts", lambda *args, **kwargs: True)
-        with_drafts = task_views.task_to_dict(db, db.get(type(project.tasks[0]), project.tasks[0].id))
+        task = db.scalar(select(Task).where(Task.project_id == project.id, Task.status == "active"))
+        assert task is not None
+        with_drafts = task_views.task_to_dict(db, task)
         assert with_drafts["delegation_contract"]["project_knowledge_review"]["tool"] == (
             "knowledge_list"
         )

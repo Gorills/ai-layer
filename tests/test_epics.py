@@ -7,7 +7,13 @@ from uuid import UUID
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from ai_layer.application import epic_execution, epic_lifecycle, epic_planning, epics
+from ai_layer.application import (
+    epic_execution,
+    epic_lifecycle,
+    epic_navigation,
+    epic_planning,
+    epics,
+)
 from ai_layer.core.config import get_settings
 from ai_layer.db.base import Base
 from ai_layer.db.epic_models import Epic, EpicPlanItem
@@ -68,6 +74,7 @@ def _db_project(tmp_path: Path, monkeypatch) -> tuple[Session, Project, Path]:
 
     monkeypatch.setattr(epic_lifecycle, "session_scope", scope)
     monkeypatch.setattr(epic_execution, "session_scope", scope)
+    monkeypatch.setattr(epic_navigation, "session_scope", scope)
     monkeypatch.setattr(epic_planning, "session_scope", scope)
     return db, project, root
 

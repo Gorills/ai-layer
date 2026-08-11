@@ -78,13 +78,14 @@ function stageTimeline(task) {
 function findings(task) {
   const items = task?.findings || [];
   if (!items.length) return `<div class="empty">Review findings отсутствуют</div>`;
-  return `<div class="finding-list">${items.map((item) => `
+  const visible = [...items].slice(-10).reverse();
+  return `<div class="finding-list">${visible.map((item) => `
     <div class="finding ${escapeHtml(item.status || "")}">
       <div class="finding-head"><strong>${escapeHtml(item.severity || "medium")}</strong><span>${escapeHtml(item.status || "open")}</span></div>
       <div class="finding-problem">${escapeHtml(item.problem || "—")}</div>
       ${item.path ? `<div class="finding-path">${escapeHtml(item.path)}</div>` : ""}
       ${item.required_fix ? `<div class="finding-fix">Нужно: ${escapeHtml(item.required_fix)}</div>` : ""}
-    </div>`).join("")}</div>`;
+    </div>`).join("")}${items.length > 10 ? `<div class="table-caption">Показаны 10 последних из ${escapeHtml(items.length)}</div>` : ""}</div>`;
 }
 
 function verification(items) {
@@ -130,7 +131,7 @@ export function renderTaskDetail(payload) {
           ${stageTimeline(task)}
         </section>
         <section class="panel">
-          <div class="panel-header"><div><div class="panel-title">Review findings</div><div class="panel-hint">Открытые, ожидающие проверки и уже подтверждённые замечания</div></div><span class="muted">${escapeHtml(findingSummary.total || 0)} всего</span></div>
+          <div class="panel-header"><div><div class="panel-title">Review findings</div><div class="panel-hint">Не более 10 последних замечаний</div></div><span class="muted">${escapeHtml(findingSummary.total || 0)} всего</span></div>
           ${findings(task)}
         </section>
         <section class="panel">
@@ -171,6 +172,7 @@ export function renderMonitoring(data) {
   const core = data.core_runtime || {};
   const db = data.database || {};
   const projects = data.projects || [];
+  const visibleProjects = projects.slice(0, 10);
   return `
     <div class="summary-grid six">
       ${metric("Core runtime", core.status === "ready" ? "Готов" : core.status || "—", core.embeddings ? `embeddings: ${core.embeddings}` : "persistent service")}
@@ -183,10 +185,11 @@ export function renderMonitoring(data) {
     <div class="dashboard-grid">
       <div class="dashboard-main">
         <section class="panel">
-          <div class="panel-header"><div><div class="panel-title">Проекты</div><div class="panel-hint">Runtime, MCP и memory сигналы без длинного event dump</div></div><span class="muted">${escapeHtml(projects.length)} всего</span></div>
+          <div class="panel-header"><div><div class="panel-title">Проекты</div><div class="panel-hint">Runtime, MCP и memory сигналы; максимум 10 строк</div></div><span class="muted">${escapeHtml(projects.length)} всего</span></div>
           <div class="table-wrap"><table><thead><tr><th>Проект</th><th>Runtime</th><th>MCP p95 / p99</th><th>Memory</th><th>Task</th></tr></thead><tbody>
-            ${projects.map((project) => `<tr><td><a class="table-link" href="#/project/${encodeURIComponent(project.key)}"><div class="project-name">${escapeHtml(project.name)}</div><div class="project-root">${escapeHtml(project.root)}</div></a></td><td>${stateBadge(project.project_state || "healthy")}</td><td>${escapeHtml(project.mcp_latency?.p95_ms != null ? `${project.mcp_latency.p95_ms} / ${project.mcp_latency.p99_ms ?? "—"} мс` : "—")}</td><td>${escapeHtml(project.memory_refresh?.status || "idle")} · ${escapeHtml(project.last_scan ? age(project.last_scan) : "scan отсутствует")}</td><td>${project.task ? `${escapeHtml(project.task.key)} · ${escapeHtml(taskStage(project.task))}` : `<span class="muted">нет</span>`}</td></tr>`).join("") || `<tr><td colspan="5"><div class="empty">Нет проектов</div></td></tr>`}
+            ${visibleProjects.map((project) => `<tr><td><a class="table-link" href="#/project/${encodeURIComponent(project.key)}"><div class="project-name">${escapeHtml(project.name)}</div><div class="project-root">${escapeHtml(project.root)}</div></a></td><td>${stateBadge(project.project_state || "healthy")}</td><td>${escapeHtml(project.mcp_latency?.p95_ms != null ? `${project.mcp_latency.p95_ms} / ${project.mcp_latency.p99_ms ?? "—"} мс` : "—")}</td><td>${escapeHtml(project.memory_refresh?.status || "idle")} · ${escapeHtml(project.last_scan ? age(project.last_scan) : "scan отсутствует")}</td><td>${project.task ? `${escapeHtml(project.task.key)} · ${escapeHtml(taskStage(project.task))}` : `<span class="muted">нет</span>`}</td></tr>`).join("") || `<tr><td colspan="5"><div class="empty">Нет проектов</div></td></tr>`}
           </tbody></table></div>
+          ${projects.length > 10 ? `<div class="table-caption">Показаны 10 из ${escapeHtml(projects.length)} проектов</div>` : ""}
         </section>
       </div>
       <div class="dashboard-side">

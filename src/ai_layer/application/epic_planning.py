@@ -7,13 +7,13 @@ from sqlalchemy.orm import Session
 
 from ai_layer.application.epic_common import (
     append_epic_event,
-    capture_identity,
     current_spec,
     epic_for_update,
     epic_payload,
     project_for_root,
     task_row,
 )
+from ai_layer.application.epic_task_boundary import accepted_task_identity
 from ai_layer.db.epic_models import Epic, EpicPlanItem, EpicSpecVersion
 from ai_layer.db.models import utcnow
 from ai_layer.db.session import session_scope
@@ -240,12 +240,15 @@ def reconcile_complete(
         project = project_for_root(db, project_root)
         epic = epic_for_update(db, project, key)
         is_drift = epic.drift_task_id is not None
+        resolving_human_decision = epic.status == "blocked" and epic.blocked_reason.startswith(
+            "human_decision_required"
+        )
         task = task_row(db, epic.drift_task_id if is_drift else epic.phase0_task_id)
         if task is None or task.status != "completed":
             raise RuntimeError(
                 "The reconciliation analysis Task must be completed before recording its result"
             )
-        if not is_drift and epic.status != "phase0":
+        if not is_drift and epic.status != "phase0" and not resolving_human_decision:
             raise RuntimeError("Epic is not waiting for Phase 0 reconciliation")
         decisions = list(human_decisions or [])
         correction_items = list(corrections or [])
@@ -269,22 +272,23 @@ def reconcile_complete(
             epic.phase0_summary = summary
             epic.phase0_corrections = correction_items
         epic.decision_required = decisions
-        identity = capture_identity(project.root_path)
+        identity = accepted_task_identity(db, task)
         epic.execution_digest = identity["digest"]
         epic.execution_files = identity["file_count"]
-        epic.drift_task_id = None
         if decisions:
             epic.status = "blocked"
             epic.blocked_reason = (
                 "human_decision_required: reconciliation found a material unresolved trade-off. "
-                "Resolve it, revise the spec, and explicitly approve the new baseline."
+                "Resolve it, then call epic_reconcile_complete again with the resolved execution spec."
             )
         elif is_drift:
             if remaining_plan is not None:
                 _replace_pending_work(db, epic, remaining_plan)
+            epic.drift_task_id = None
             epic.status = "running"
             epic.blocked_reason = ""
         else:
+            epic.drift_task_id = None
             epic.status = "planning"
             epic.blocked_reason = ""
         epic.updated_at = utcnow()

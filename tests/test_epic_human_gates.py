@@ -143,9 +143,7 @@ def test_phase0_human_decision_resumes_through_reconciliation(tmp_path: Path, mo
             root,
             key=key,
             summary="A material public-contract trade-off remains.",
-            human_decisions=[
-                {"question": "Compatibility contract?", "options": ["legacy", "new"]}
-            ],
+            human_decisions=[{"question": "Compatibility contract?", "options": ["legacy", "new"]}],
         )
         assert blocked["status"] == "blocked"
         navigation = epics.next_action(root, key=key)["next_action"]
@@ -221,7 +219,9 @@ def test_drift_human_decision_preserves_reconciliation_task_until_resolved(
         get_settings.cache_clear()
 
 
-def test_phase0_post_completion_change_is_not_silently_accepted(tmp_path: Path, monkeypatch) -> None:
+def test_phase0_post_completion_change_is_not_silently_accepted(
+    tmp_path: Path, monkeypatch
+) -> None:
     db, project, root = _environment(tmp_path, monkeypatch)
     try:
         key = _phase0_ready(db, project, root)

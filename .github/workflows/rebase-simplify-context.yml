@@ -16,9 +16,45 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -e '.[dev]'
-      - name: Apply original semantic commit onto repaired baseline
+      - name: Prove repaired baseline did not semantically change PR1 files
         run: |
-          git cherry-pick --no-commit -Xignore-all-space f2237746344ec528ea0e5fa1494f08144d6feaf7
+          set -euo pipefail
+          files=(
+            MAINTAINER_INSTRUCTIONS.md
+            PROJECT_CHARTER.md
+            docs/DECISIONS/0012-task-aware-memory-context-presentation.md
+            src/ai_layer/mcp/tools/sessions.py
+            src/ai_layer/memory/guidance.py
+            src/ai_layer/memory/history.py
+            src/ai_layer/memory/presentation.py
+            src/ai_layer/memory/service.py
+            tests/test_tool_guidance.py
+          )
+          for path in "${files[@]}"; do
+            if ! git diff --ignore-all-space --ignore-blank-lines --exit-code \
+              cdbccc978c7df451741918eb99c33e19dffe298b \
+              4af4a75ea33ba9020874c8fc09c74b2e1a83e246 -- "$path"; then
+              echo "Semantic baseline change detected in $path; refusing old-file replay."
+              exit 1
+            fi
+          done
+      - name: Replay only PR1 file states onto repaired baseline
+        run: |
+          set -euo pipefail
+          files=(
+            MAINTAINER_INSTRUCTIONS.md
+            PROJECT_CHARTER.md
+            docs/DECISIONS/0012-task-aware-memory-context-presentation.md
+            src/ai_layer/mcp/tools/sessions.py
+            src/ai_layer/memory/guidance.py
+            src/ai_layer/memory/history.py
+            src/ai_layer/memory/presentation.py
+            src/ai_layer/memory/service.py
+            tests/test_tool_guidance.py
+          )
+          for path in "${files[@]}"; do
+            git show f2237746344ec528ea0e5fa1494f08144d6feaf7:"$path" > "$path"
+          done
       - name: Normalize and verify
         run: |
           ruff format .

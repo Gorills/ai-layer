@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+from typing import TypedDict
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_layer.db.models import RepositorySnapshot, Task, TaskStage
 
 
-def accepted_task_identity(db: Session, task: Task) -> dict[str, object]:
-    """Return the repository identity actually observed by the Task's terminal read-only stage.
+class AcceptedTaskIdentity(TypedDict):
+    digest: str
+    file_count: int
+
+
+def accepted_task_identity(db: Session, task: Task) -> AcceptedTaskIdentity:
+    """Return the repository identity observed by the Task's terminal read-only stage.
 
     Epics must never bless whatever happens to be in the worktree when the scheduler later notices
     that a Task completed. STANDARD Epic Tasks terminate in REVIEW and reconciliation Tasks terminate
@@ -20,7 +27,10 @@ def accepted_task_identity(db: Session, task: Task) -> dict[str, object]:
         .limit(1)
     )
     if stage is None:
-        return {"digest": str(task.baseline_digest or ""), "file_count": int(task.baseline_files or 0)}
+        return {
+            "digest": str(task.baseline_digest or ""),
+            "file_count": int(task.baseline_files or 0),
+        }
 
     digest = str(stage.repository_digest_after or stage.repository_digest_before or "")
     file_count = int(task.baseline_files or 0)

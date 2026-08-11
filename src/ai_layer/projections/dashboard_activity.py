@@ -17,10 +17,20 @@ def activity_payload(
     entries = selected_entries(project_key_value)
     if project_key_value and not entries:
         return None
+
+    normalized_size = max(1, min(int(page_size or 10), 50))
+    requested_page = max(1, int(page or 1))
+    recent_limit = requested_page * normalized_size
     items = []
+    total = 0
     for entry in entries:
         root = Path(str(entry["root"])).expanduser().resolve()
-        metrics = aggregate_events(root, since_seconds=7 * 24 * 3600, recent_limit=250)
+        metrics = aggregate_events(
+            root,
+            since_seconds=7 * 24 * 3600,
+            recent_limit=recent_limit,
+        )
+        total += int(metrics.get("terminal") or 0)
         for event in metrics.get("recent_terminal") or []:
             items.append(
                 {
@@ -36,7 +46,7 @@ def activity_payload(
                 }
             )
     items.sort(key=lambda item: str(item.get("ts") or ""), reverse=True)
-    pagination = page_info(len(items), page, page_size)
+    pagination = page_info(total, page, normalized_size)
     start = (pagination["page"] - 1) * pagination["page_size"]
     end = start + pagination["page_size"]
     return {
@@ -44,5 +54,5 @@ def activity_payload(
         "pagination": pagination,
         "projects": project_options(),
         "project_key": project_key_value,
-        "retention": "7-day dashboard window; underlying event retention is configured separately",
+        "retention": "7-day retained event window",
     }

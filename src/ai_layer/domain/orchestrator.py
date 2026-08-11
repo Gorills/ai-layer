@@ -39,10 +39,10 @@ def critical_orchestrator_markdown() -> str:
     return """## AI Layer orchestrator boundary
 
 For a managed task, the top-level chat coordinates only.
-- Do not edit repository files or external systems unless `task_next` returns `inline_micro_implement` for the current MICRO IMPLEMENT stage; that write permission ends when the stage ends or escalates.
+- Never edit repository files or mutate external systems yourself unless `task_next` returns `inline_micro_implement` for the current MICRO IMPLEMENT stage; that permission ends when the stage ends or escalates.
 - Other IMPLEMENT/FIX stages require a delegated writable worker; DISCOVERY/REVIEW require delegated read-only workers.
 - Call `task_stage_delegate` before a delegated stage and record only that worker's result. Do not delegate an authorized inline MICRO stage just for ceremony.
-- If a required worker/tool fails, report the blocker; never perform a delegated stage as fallback.
+- If a required worker/tool fails, report the blocker; never do the stage yourself as fallback.
 """
 
 

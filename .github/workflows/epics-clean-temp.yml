@@ -1,0 +1,36 @@
+name: epics-clean-temp
+on:
+  push:
+    branches: [feature/epics-v1]
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/epics-v1
+          fetch-depth: 0
+      - name: Remove temporary Epics automation and diagnostics
+        run: |
+          rm -f \
+            .github/workflows/epics-focused-debug.yml \
+            .github/workflows/epics-finalize-source.yml \
+            .github/workflows/epics-release-build.yml \
+            .github/workflows/epic-task-boundary-fix.yml \
+            .github/workflows/epics-clean-temp.yml \
+            ci-epics-focused.txt \
+            ci-quality-debug.json \
+            ci-arch-debug.json
+      - name: Commit cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u -- .github/workflows
+          if git ls-files --error-unmatch ci-epics-focused.txt >/dev/null 2>&1; then git add -u -- ci-epics-focused.txt; fi
+          if git ls-files --error-unmatch ci-quality-debug.json >/dev/null 2>&1; then git add -u -- ci-quality-debug.json; fi
+          if git ls-files --error-unmatch ci-arch-debug.json >/dev/null 2>&1; then git add -u -- ci-arch-debug.json; fi
+          git commit -m 'Remove temporary Epics build automation'
+          git push origin HEAD:feature/epics-v1

@@ -12,7 +12,10 @@ from ai_layer.projections.dashboard_common import (
 
 
 def activity_payload(
-    *, project_key_value: str | None = None, page: int = 1, page_size: int = 10
+    *,
+    project_key_value: str | None = None,
+    page: int = 1,
+    page_size: int = 10,
 ) -> dict | None:
     entries = selected_entries(project_key_value)
     if project_key_value and not entries:

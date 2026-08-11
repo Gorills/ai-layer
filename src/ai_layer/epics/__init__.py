@@ -1,6 +1,10 @@
-"""Reserved capability boundary for the future Epic Layer.
+"""Epic domain contracts.
 
-PRE-EPICS FOUNDATION intentionally contains no Epic persistence, planner, scheduler,
-orchestration, or dashboard behavior. Future Epic code must depend on public Task
-application contracts rather than Task implementation internals.
+Epics own durable specification/approval/reconciliation semantics and scheduling intent.
+Application services coordinate persistence and invoke the existing Task Engine; Epic code
+never reimplements Task stages, leases, snapshots, verification, review/fix, or findings.
 """
+
+from ai_layer.epics.contracts import epic_key, phase0_contract, spec_quality
+
+__all__ = ["epic_key", "phase0_contract", "spec_quality"]

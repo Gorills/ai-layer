@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_layer.observability.events import aggregate_events
-from ai_layer.projections.dashboard_common import page_info, project_key, project_options, selected_entries
+from ai_layer.projections.dashboard_common import (
+    page_info,
+    project_key,
+    project_options,
+    selected_entries,
+)
 
 
 def activity_payload(
@@ -28,7 +33,6 @@ def activity_payload(
                     "status": event.get("status") or "unknown",
                     "duration_ms": event.get("duration_ms"),
                     "error_type": event.get("error_type"),
-                    "metrics": event.get("metrics") or {},
                 }
             )
     items.sort(key=lambda item: str(item.get("ts") or ""), reverse=True)

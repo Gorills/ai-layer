@@ -1,7 +1,10 @@
 from pathlib import Path
 
+from fastapi.testclient import TestClient
+
 from ai_layer.core.config import get_settings
 from ai_layer.core.registry import register_project
+from ai_layer.dashboard import api as dashboard_api
 from ai_layer.projections.dashboard_common import page_info
 from ai_layer.projections.dashboard_reference import rules_payload, skills_payload
 
@@ -91,6 +94,58 @@ def test_dashboard_strict_private_rule_read_does_not_create_project_state(
     get_settings.cache_clear()
 
 
+def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
+    monkeypatch.setattr(
+        dashboard_api,
+        "tasks_payload",
+        lambda **kwargs: {"kind": "tasks", "kwargs": kwargs},
+    )
+    monkeypatch.setattr(
+        dashboard_api,
+        "skills_payload",
+        lambda **kwargs: {"kind": "skills", "kwargs": kwargs},
+    )
+    monkeypatch.setattr(
+        dashboard_api,
+        "rules_payload",
+        lambda project_key=None: {"kind": "rules", "project_key": project_key},
+    )
+    monkeypatch.setattr(
+        dashboard_api,
+        "knowledge_payload",
+        lambda project_key, **kwargs: {
+            "kind": "knowledge",
+            "project_key": project_key,
+            "kwargs": kwargs,
+        },
+    )
+    monkeypatch.setattr(
+        dashboard_api,
+        "activity_payload",
+        lambda **kwargs: {"kind": "activity", "kwargs": kwargs},
+    )
+
+    from ai_layer.api.app import create_app
+
+    client = TestClient(create_app())
+    tasks = client.get("/api/v1/dashboard/tasks?project_key=p1&page=2&page_size=10")
+    skills = client.get("/api/v1/dashboard/skills?project_key=p1&page_size=10")
+    rules = client.get("/api/v1/dashboard/rules?project_key=p1")
+    knowledge = client.get("/api/v1/dashboard/knowledge/p1?status=DRAFT&page_size=10")
+    activity = client.get("/api/v1/dashboard/activity?project_key=p1&page=3&page_size=10")
+
+    assert tasks.status_code == 200
+    assert tasks.json()["kwargs"]["project_key_value"] == "p1"
+    assert tasks.json()["kwargs"]["page"] == 2
+    assert skills.status_code == 200
+    assert skills.json()["kwargs"]["project_key_value"] == "p1"
+    assert rules.json() == {"kind": "rules", "project_key": "p1"}
+    assert knowledge.status_code == 200
+    assert knowledge.json()["kwargs"]["status"] == "DRAFT"
+    assert activity.status_code == 200
+    assert activity.json()["kwargs"]["page"] == 3
+
+
 def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
     root = Path(__file__).resolve().parents[1]
     project_js = (root / "src/ai_layer/dashboard/static/js/views/project.js").read_text(
@@ -100,11 +155,15 @@ def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
         encoding="utf-8"
     )
     app_js = (root / "src/ai_layer/dashboard/static/js/app.js").read_text(encoding="utf-8")
+    epic_js = (root / "src/ai_layer/dashboard/static/js/views/epic.js").read_text(
+        encoding="utf-8"
+    )
     index_html = (root / "src/ai_layer/dashboard/static/index.html").read_text(encoding="utf-8")
 
     assert "slice(0, 10)" in project_js
     assert "slice(0, 10)" in overview_js
     assert "page_size: 10" in app_js
+    assert "неограниченная история" not in epic_js
     for label in (
         "Задачи",
         "Скиллы",

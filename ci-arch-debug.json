@@ -1,7 +1,5 @@
 {
-  "errors": [
-    "src/ai_layer/application/epic_execution.py:283 ai_layer.application.epic_execution.next_action: nesting 12 exceeds 5"
-  ],
+  "errors": [],
   "metrics": {
     "capabilities": [
       "Agents",
@@ -191,20 +189,19 @@
         "source_bytes": 17897
       },
       {
-        "lines": 450,
-        "path": "src/ai_layer/application/epic_execution.py",
-        "source_bytes": 17880
+        "lines": 434,
+        "path": "src/ai_layer/tasks/views.py",
+        "source_bytes": 17201
       }
     ],
     "max_complexity": 22,
     "max_function_lines": 165,
     "max_function_statements": 67,
-    "max_nesting": 12,
+    "max_nesting": 5,
     "modules": 169,
     "soft_module_warning_lines": 300,
     "soft_warnings": [
       "src/ai_layer/agents/policy.py: 332 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
-      "src/ai_layer/application/epic_execution.py: 450 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
       "src/ai_layer/application/epic_planning.py: 304 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
       "src/ai_layer/audit/service.py: 301 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
       "src/ai_layer/cli/commands/operations.py: 471 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
@@ -246,10 +243,9 @@
       "src/ai_layer/tasks/worker_leases.py: 324 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam"
     ]
   },
-  "ok": false,
+  "ok": true,
   "warnings": [
     "src/ai_layer/agents/policy.py: 332 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
-    "src/ai_layer/application/epic_execution.py: 450 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
     "src/ai_layer/application/epic_planning.py: 304 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
     "src/ai_layer/audit/service.py: 301 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
     "src/ai_layer/cli/commands/operations.py: 471 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",

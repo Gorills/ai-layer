@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from ai_layer.memory.presentation import is_continuation_intent
-
 DECISION_DOMAIN_HINTS = (
     "architecture", "provider", "api", "contract", "migration", "schema",
     "concurrency", "security", "auth", "database", "persistence", "integration",
@@ -24,15 +22,8 @@ def should_recommend_decision_search(task: str) -> bool:
 
 
 def build_tool_guidance(task: str, project_root: str, memory: list[dict]) -> dict:
-    """Only task-specific follow-up hints. Static workflow invariants live in the native bootstrap."""
-    continuation = is_continuation_intent(task)
+    """Only task-specific fact/rationale hints. User intent and session relevance stay model-owned."""
     calls: list[dict] = []
-    if continuation:
-        calls.append({
-            "tool": "session_restore",
-            "when": "continuation depends on prior work",
-            "args": {"session_id": "latest", "project_root": project_root},
-        })
     if should_recommend_decision_search(task):
         calls.append({
             "tool": "decision_search",
@@ -41,7 +32,7 @@ def build_tool_guidance(task: str, project_root: str, memory: list[dict]) -> dic
             "args": {"query": task[:240], "project_root": project_root},
         })
     top_score = max((float(item.get("score", 0.0)) for item in memory), default=0.0)
-    if not continuation and (not memory or top_score < 0.35):
+    if memory and top_score < 0.35:
         calls.append({
             "tool": "memory_search",
             "when": "one concrete reviewed project fact is still missing",

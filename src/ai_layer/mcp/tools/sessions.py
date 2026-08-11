@@ -11,7 +11,7 @@ from ai_layer.application.transport import decision_search as search_decisions
 from ai_layer.application.transport import application_scope as session_scope
 
 def session_list(project_root: str | None = None, limit: int = 20) -> list[dict]:
-    """WHEN: explicit session-history inspection/debugging. INPUT: optional project_root and limit. For normal continuation prefer session_restore(session_id="latest")."""
+    """WHEN: explicit session-history inspection/debugging. INPUT: optional project_root and limit. For normal prior-work recovery prefer session_restore(session_id="latest")."""
     root = project_root_for_tool(project_root, tool="session_list")
     with mcp_audit(root, "session_list", arg_keys=["project_root", "limit"]):
         with session_scope() as db:
@@ -19,7 +19,7 @@ def session_list(project_root: str | None = None, limit: int = 20) -> list[dict]
             return app_list_sessions(db, project, max(1, min(limit, 50)))
 
 def session_restore(session_id: str = "latest", project_root: str | None = None) -> dict | None:
-    """WHEN: the user asks to continue/reuse prior work or prior state matters. INPUT: session_id="latest" (default) or exact id, optional project_root. If nothing is returned, DO NOT infer previous-session work from repository code."""
+    """WHEN: prior session context is needed to correctly understand or execute the current request. INPUT: session_id="latest" (default) or exact id, optional project_root. If nothing is returned, DO NOT infer previous-session work from repository code."""
     root = project_root_for_tool(project_root, tool="session_restore")
     wanted = (session_id or "latest").strip() or "latest"
     with mcp_audit(root, "session_restore", arg_keys=["session_id", "project_root"]) as audit:

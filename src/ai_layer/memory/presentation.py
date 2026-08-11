@@ -2,15 +2,6 @@ from __future__ import annotations
 
 import json
 
-CONTINUATION_EXACT = {
-    "continue", "resume", "carry on", "продолжай", "продолжи", "возобнови",
-}
-CONTINUATION_VERBS = ("continue", "resume", "carry on", "продолж", "возобнов")
-CONTINUATION_OBJECTS = (
-    "task", "work", "implementation", "plan", "previous", "prior", "earlier", "yesterday",
-    "задач", "работ", "реализац", "план", "предыдущ", "прошл", "ранее", "вчера",
-)
-
 KNOWLEDGE_AUDIT_HINTS = ("audit", "review", "провер", "аудит")
 KNOWLEDGE_SCOPE_HINTS = (
     "project knowledge", "verified knowledge", "knowledge base",
@@ -20,19 +11,8 @@ COVERAGE_HINTS = ("coverage", "completeness", "полнот", "покрыт")
 CURRENT_SCANNER_STATUSES = {"fresh", "refreshed"}
 
 
-def is_continuation_intent(task: str) -> bool:
-    low = " ".join(str(task or "").casefold().split())
-    normalized = low.strip(" \t\r\n.!?,:;")
-    if normalized in CONTINUATION_EXACT:
-        return True
-    starts_with_verb = any(low.startswith(verb) for verb in CONTINUATION_VERBS)
-    has_continuation_object = any(token in low for token in CONTINUATION_OBJECTS)
-    return starts_with_verb and has_continuation_object
-
-
 def context_mode(task: str) -> str:
-    if is_continuation_intent(task):
-        return "continuation"
+    """Choose only the bounded Project Knowledge audit presentation; ordinary intent stays model-owned."""
     low = str(task or "").casefold()
     is_knowledge = any(token in low for token in KNOWLEDGE_SCOPE_HINTS)
     is_audit = any(token in low for token in KNOWLEDGE_AUDIT_HINTS)
@@ -71,8 +51,6 @@ def _compact_next_action(runtime: dict) -> dict:
     }
 
 
-
-
 def compact_task_runtime(runtime: dict) -> dict:
     """Minimal Task Layer state for ordinary memory_context calls. Full history belongs to task_current."""
     task = runtime.get("task") or {}
@@ -92,6 +70,7 @@ def compact_task_runtime(runtime: dict) -> dict:
     if preexisting:
         result["preexisting_change_count"] = int(preexisting.get("total") or 0)
     return result
+
 
 def compact_audit_runtime(runtime: dict) -> dict:
     """Keep navigation authority without previous stage reasoning or completed-task internals."""
@@ -114,48 +93,8 @@ def compact_audit_runtime(runtime: dict) -> dict:
     return result
 
 
-def compact_continuation_runtime(runtime: dict) -> dict:
-    """Expose only the durable navigator for continuation; session/task history lives in the brief."""
-    task = runtime.get("task") or {}
-    result = {
-        "active": bool(runtime.get("active")),
-        "state": runtime.get("state"),
-        "project_root": runtime.get("project_root"),
-        "next_action": _compact_next_action(runtime),
-    }
-    if result["active"] and task:
-        result["active_task"] = {
-            key: task.get(key)
-            for key in ("id", "key", "goal", "status", "workflow_profile", "active_stage")
-            if task.get(key) is not None
-        }
-    preexisting = runtime.get("preexisting_changes") or {}
-    if preexisting:
-        result["preexisting_change_count"] = int(preexisting.get("total") or 0)
-    return result
-
-
-def compact_audit_guidance(project_root: str, mode: str, runtime: dict, *, inventory_complete: bool) -> dict:
+def compact_audit_guidance(project_root: str, runtime: dict) -> dict:
     return {
-        "project_context": {"canonical_root": project_root},
-        "next_task_action": _compact_next_action(runtime),
-    }
-
-
-def compact_continuation_guidance(project_root: str, runtime: dict) -> dict:
-    calls = [{
-        "tool": "session_restore",
-        "when": "continuation was explicitly requested",
-        "args": {"session_id": "latest", "project_root": project_root},
-    }]
-    if runtime.get("active"):
-        calls.append({
-            "tool": "task_next",
-            "when": "resume the active managed workflow after restoring the handoff",
-            "args": {"project_root": project_root},
-        })
-    return {
-        "recommended_calls": calls,
         "project_context": {"canonical_root": project_root},
         "next_task_action": _compact_next_action(runtime),
     }
@@ -179,13 +118,8 @@ def scanner_snapshot_current(freshness: dict) -> bool:
     return str(freshness.get("status") or "").casefold() in CURRENT_SCANNER_STATUSES
 
 
-def present_scanner_evidence(evidence: dict, freshness: dict, *, mode: str) -> dict:
+def present_scanner_evidence(evidence: dict, freshness: dict) -> dict:
     """Never expose scanner-derived facts when their repository snapshot is known to be stale."""
-    if mode == "continuation":
-        return {
-            "available": False,
-            "reason": "continuation_mode_uses_session_history_and_current_source",
-        }
     if not scanner_snapshot_current(freshness):
         return {
             "available": False,
@@ -217,19 +151,6 @@ def build_task_brief(mode: str, materials: dict) -> dict:
                 "expand_only_when_needed": True,
             },
         })
-    elif mode == "continuation":
-        return {
-            "presentation_mode": "continuation",
-            "recent_work": materials["history"][0] if materials["history"] else None,
-            "continuation_contract": {
-                "primary_action": "session_restore(latest)",
-                "fallback": (
-                    "If no committed session exists, treat recent_work only as historical evidence and inspect current "
-                    "repository source before continuing. Never invent prior-session state."
-                ),
-            },
-            "source_contract": "Current repository source is authoritative for implementation state.",
-        }
     else:
         brief.update({
             "verified_knowledge": materials["knowledge"],
@@ -252,16 +173,10 @@ def context_budget(
     budget_mode = "task_project_brief+dynamic_policy+compact_runtime"
     if knowledge_audit:
         budget_mode = "knowledge_audit_inventory+compact_read_only_control_plane"
-    elif mode == "continuation":
-        budget_mode = "continuation_session_first+dynamic_policy+compact_runtime"
     expansion = "Use memory_search for reviewed project knowledge, decision_search for rationale, and host-native tools for code."
     if knowledge_audit:
         expansion = (
             "Knowledge audit: use compact inventory first; expand only concrete cards/gaps and verify with host-native source tools."
-        )
-    elif mode == "continuation":
-        expansion = (
-            "Continuation: restore the latest WorkSession first; do not use generic continuation text as a memory_search query."
         )
     return {
         "mode": budget_mode,

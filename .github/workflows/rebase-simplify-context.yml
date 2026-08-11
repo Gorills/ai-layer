@@ -46,6 +46,8 @@ jobs:
       - name: Normalize and verify full canonical quality
         run: |
           ruff format .
+          ruff check . --select I --fix
+          ruff format .
           ruff check .
           mypy src/ai_layer
           python scripts/quality_gate.py --deterministic-wheel

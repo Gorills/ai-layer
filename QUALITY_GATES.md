@@ -20,7 +20,7 @@ Required local stages:
 - production skill contract gate;
 - governance baseline gate;
 - unit/integration test suite with global pytest plugin autoload disabled;
-- packaging/release gate, including deterministic wheel rebuild.
+- packaging/release gate, including deterministic wheel rebuild and an exact check that the committed installable wheel matches a rebuild from current `src/`.
 
 Missing required tooling is a failure, not a skip. Pytest plugins are not inherited from the workstation: any plugin required by project tests must be an explicit project dependency/configuration.
 
@@ -47,7 +47,7 @@ A successful preflight applies only to the exact final worktree. Any later code 
 CI also runs `make postgres-gate` against a real PostgreSQL 16 + pgvector service using `AI_LAYER_TEST_POSTGRES_URL`. It creates isolated databases and proves:
 
 1. fresh database -> `alembic upgrade head`;
-2. previous supported pre-Epics schema `0011_pre_epics_foundation` -> `head`;
+2. minimum supported pre-Epics schema `0010_adaptive_task_workflow` -> `head`;
 3. PostgreSQL-only constraints/transaction semantics;
 4. two-session Task creation and stage-completion races without relying on filesystem locks;
 5. worker-recovery race behavior;

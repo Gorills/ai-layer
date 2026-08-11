@@ -10,10 +10,10 @@ Splitting multiple existing owners solely to reverse formatter line expansion wo
 
 ## Decision
 
-Keep physical line count as a hard safety backstop and the 300-line soft maintainability warning, but set the ordinary-module hard ceiling to 600 physical lines and the function hard ceiling to 180 physical lines for formatter-normalized source. Keep the existing hard limits for module bytes (36,000), function statements (80), cyclomatic complexity (24), nesting depth (5), facade size, import cycles and capability boundaries unchanged.
+Keep physical line count as a hard safety backstop and the 300-line soft maintainability warning, but set the ordinary-module hard ceiling to 600 physical lines, composition-root ceiling to 650 physical lines and function hard ceiling to 180 physical lines for formatter-normalized source. Keep the existing hard limits for module bytes (36,000), composition-root bytes (42,000), function statements (80), cyclomatic complexity (24), nesting depth (5), facade size, import cycles and capability boundaries unchanged.
 
 The architecture policy remains unable to exceed built-in ceilings. Future growth above the soft warning still requires justification or a cohesive extraction; crossing a hard semantic or size ceiling remains fail-closed.
 
 ## Consequences
 
-Canonical formatting and architecture checks no longer contradict each other for the existing baseline. The gate continues to reject packed source, oversized semantic functions, excessive branching/nesting, import cycles, facade growth and capability violations. We avoid creating artificial modules whose only purpose would be satisfying formatter-sensitive line counts.
+Canonical formatting and architecture checks no longer contradict each other for the existing baseline. Composition roots retain a small allowance above ordinary modules. The gate continues to reject packed source, oversized semantic functions, excessive branching/nesting, import cycles, facade growth and capability violations. We avoid creating artificial modules whose only purpose would be satisfying formatter-sensitive line counts.

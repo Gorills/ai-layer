@@ -55,3 +55,7 @@ line-length = 100
 select = ["E", "F", "I", "UP", "B"]
 # Ruff's formatter only best-effort wraps long lines, so E501 is intentionally excluded.
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer intentionally uses Option/Argument descriptor calls in CLI function signatures.
+"src/ai_layer/cli/commands/*.py" = ["B008"]

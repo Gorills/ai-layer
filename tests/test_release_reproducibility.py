@@ -66,6 +66,14 @@ def test_postgres_image_is_versioned_and_digest_pinned():
     assert "image: pgvector/pgvector:pg16\n" not in text
 
 
+def test_postgres_gate_exercises_manifest_minimum_source_schema():
+    manifest = json.loads((ROOT / "release" / "release-manifest.json").read_text(encoding="utf-8"))
+    source = manifest["migration_compatibility"]["minimum_source_schema"]
+    gate = (ROOT / "scripts" / "postgres_gate.py").read_text(encoding="utf-8")
+    assert source in gate
+    assert f"supported-source-upgrade-{source.split('_', 1)[0]}" in gate
+
+
 def test_release_manifest_hashes_match_artifacts():
     manifest = json.loads((ROOT / "release" / "release-manifest.json").read_text(encoding="utf-8"))
     lock = ROOT / manifest["runtime_lock"]
@@ -80,6 +88,19 @@ def test_release_manifest_hashes_match_artifacts():
         "python_implementation": "CPython",
         "python_series": "3.12.x",
     }
+
+
+def test_committed_application_wheel_matches_current_source(tmp_path: Path):
+    """Fail closed if runtime source changed without refreshing the installable wheel."""
+    builder = _load_script("build_release_wheel.py")
+    rebuilt = builder.build(tmp_path)
+    manifest = json.loads((ROOT / "release" / "release-manifest.json").read_text(encoding="utf-8"))
+    committed = ROOT / manifest["application_wheel"]
+    assert committed.is_file()
+    assert (
+        hashlib.sha256(rebuilt.read_bytes()).digest()
+        == hashlib.sha256(committed.read_bytes()).digest()
+    )
 
 
 def test_application_wheel_console_scripts_match_pyproject(tmp_path: Path):

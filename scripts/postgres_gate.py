@@ -77,8 +77,8 @@ def main() -> int:
         steps = [
             ("fresh-upgrade-head", [sys.executable, "-m", "alembic", "upgrade", "head"], fresh_url),
             (
-                "supported-source-upgrade-0011",
-                [sys.executable, "-m", "alembic", "upgrade", "0011_pre_epics_foundation"],
+                "supported-source-upgrade-0010",
+                [sys.executable, "-m", "alembic", "upgrade", "0010_adaptive_task_workflow"],
                 upgrade_url,
             ),
             (
@@ -124,7 +124,7 @@ def main() -> int:
 
     required = {
         "fresh-upgrade-head",
-        "supported-source-upgrade-0011",
+        "supported-source-upgrade-0010",
         "supported-source-upgrade-head",
         "postgres-integration",
     }

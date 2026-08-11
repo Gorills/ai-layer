@@ -1,6 +1,6 @@
 {
-  "application_wheel": "dist/local_ai_development_layer-0.11.4-py3-none-any.whl",
-  "application_wheel_sha256": "5fed9ec0cf4b9a1fbb162933d7f8fb715d3883fd97db610ddb9e3e308fe3b6b3",
+  "application_wheel": "dist/local_ai_development_layer-0.11.5-py3-none-any.whl",
+  "application_wheel_sha256": "5401b2f65f3bfc4f03a21290ea1b839d02939976f3aaddd6b5072c03ba4a8c81",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -14,7 +14,7 @@
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
     "target_schema": "0013_dirty_task_baselines"
   },
-  "notes": "v0.11.4 makes the global native host bootstrap the single static AI Layer policy/workflow owner. Standard projects keep sparse workspace MCP bindings but no AI Layer AGENTS/CLAUDE/Cursor/Antigravity rule text; memory_context returns only dynamic customized/project/privacy policy, MCP instructions are a tiny fallback, and ordinary task runtime/tool guidance are compact. Essential weak-model engineering invariants are distilled into the global bootstrap. No DB migration.",
+  "notes": "v0.11.5 refreshes the installable wheel from current main-equivalent source and makes stale committed wheels fail canonical quality. The real PostgreSQL promotion gate now exercises the declared minimum supported 0010_adaptive_task_workflow -> head migration path. No new runtime architecture or DB migration.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",
@@ -40,5 +40,5 @@
     "task_workflow_black_box": "required_before_promotion_on_supported_host",
     "update_black_box": "required_before_promotion_on_supported_host"
   },
-  "version": "0.11.4"
+  "version": "0.11.5"
 }

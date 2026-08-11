@@ -24,6 +24,7 @@ export const api = {
   rules: (projectKey = null) => request("/rules", { project_key: projectKey }),
   knowledge: (projectKey, params = {}) => request(`/knowledge/${encodeURIComponent(projectKey)}`, params),
   knowledgeDetail: (projectKey, knowledgeId) => request(`/knowledge/${encodeURIComponent(projectKey)}/${encodeURIComponent(knowledgeId)}`),
+  monitoring: (projectKey = null) => request("/monitoring", { project_key: projectKey }),
   activity: (params = {}) => request("/activity", params),
   project: (key) => request(`/projects/${encodeURIComponent(key)}`),
   projectEpics: (key) => request(`/projects/${encodeURIComponent(key)}/epics`),

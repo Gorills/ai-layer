@@ -5,6 +5,7 @@ import shutil
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal, overload
 
 import yaml
 from sqlalchemy import delete, select
@@ -102,6 +103,18 @@ def _ensure_rules(meta: Path) -> None:
         os.replace(temp_name, rules_path)
     finally:
         Path(temp_name).unlink(missing_ok=True)
+
+
+@overload
+def get_project(
+    db: Session, root: str | Path | None = None, required: Literal[True] = True
+) -> Project: ...
+
+
+@overload
+def get_project(
+    db: Session, root: str | Path | None, required: Literal[False]
+) -> Project | None: ...
 
 
 def get_project(
@@ -351,8 +364,8 @@ def remove_project_registration(db: Session, root: str | Path) -> dict:
 
     db_deleted = 0
     if project is not None:
-        result = db.execute(delete(Project).where(Project.id == project.id))
-        db_deleted = int(result.rowcount or 0)
+        delete_result = db.execute(delete(Project).where(Project.id == project.id))
+        db_deleted = int(delete_result.rowcount or 0)
         db.commit()
 
     registry = unregister_project(path)

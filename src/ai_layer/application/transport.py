@@ -45,7 +45,9 @@ def project_info(_scope: ApplicationScope, root: str | Path) -> dict:
     return context_uc.project_details(root)
 
 
-def memory_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> dict:
+def memory_search(
+    _scope: ApplicationScope, project: ProjectRef, query: str, limit: int
+) -> list[dict]:
     return context_uc.search_memory(project.root_path, query, limit)
 
 
@@ -53,7 +55,9 @@ def memory_context(_scope: ApplicationScope, project: ProjectRef, task: str, lim
     return context_uc.get_memory_context(project.root_path, task, limit)
 
 
-def decision_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> dict:
+def decision_search(
+    _scope: ApplicationScope, project: ProjectRef, query: str, limit: int
+) -> list[dict]:
     return context_uc.search_decisions(project.root_path, query, limit)
 
 

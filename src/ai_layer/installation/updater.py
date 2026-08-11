@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.parse
 import urllib.request
@@ -285,7 +286,7 @@ def install_update(
         archive.write_bytes(artifact_bytes)
         source_root = _safe_extract(archive, temp_dir / "unpacked")
         preflight = subprocess.run(
-            [os.sys.executable, str(source_root / "scripts" / "release_gate.py"), "--json"],
+            [sys.executable, str(source_root / "scripts" / "release_gate.py"), "--json"],
             cwd=source_root,
             capture_output=True,
             text=True,

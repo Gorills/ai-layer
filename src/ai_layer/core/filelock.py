@@ -24,7 +24,7 @@ def _age_seconds(path: Path) -> float | None:
 
 def _pid_status(pid: object) -> str:
     try:
-        value = int(pid)
+        value = int(str(pid))
     except (TypeError, ValueError):
         return "unknown"
     if value <= 0:
@@ -65,7 +65,7 @@ def _process_start(pid: int) -> str | None:
 
 def _owner_process_matches(owner: dict) -> bool:
     try:
-        pid = int(owner.get("pid"))
+        pid = int(str(owner.get("pid")))
     except (TypeError, ValueError):
         return False
     stored_boot = owner.get("boot_id")

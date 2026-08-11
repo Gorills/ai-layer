@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import inspect
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from mcp.server import MCPServer
@@ -27,7 +28,7 @@ MCP_INSTRUCTIONS = mcp_bootstrap_instructions()
 
 mcp = MCPServer("Local AI Development Layer", instructions=MCP_INSTRUCTIONS)
 
-TOOL_HANDLERS: dict[str, object] = {}
+TOOL_HANDLERS: dict[str, Callable[..., object]] = {}
 
 
 @functools.lru_cache(maxsize=1)

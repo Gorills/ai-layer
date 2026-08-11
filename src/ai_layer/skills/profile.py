@@ -52,7 +52,7 @@ def _frameworks(languages: dict[str, int], dependencies: dict[str, list[str]]) -
 
 def detect_project_profile(languages: dict[str, int], dependencies: dict[str, list[str]]) -> dict:
     return {
-        "languages": sorted(languages, key=languages.get, reverse=True),
+        "languages": sorted(languages, key=lambda name: languages[name], reverse=True),
         "frameworks": _frameworks(languages, dependencies),
         "dependency_ecosystems": sorted(dependencies),
     }

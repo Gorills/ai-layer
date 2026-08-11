@@ -25,7 +25,7 @@ class DoctorDependencies:
     normalize_root: Callable[[str], Path]
     project_config_path: Callable[[Path], Path]
     project_mode: Callable[[Path], str]
-    project_provenance: Callable[[Path], dict]
+    project_provenance: Callable[[str | Path], str]
     project_meta_dir: Callable[[Path], Path]
     integration_status: Callable[[Path], dict]
     repository_footprint: Callable[[Path], dict]
@@ -82,7 +82,14 @@ def _selected_roots(
             if item.get("root")
         )
     seen: set[str] = set()
-    return [root for root in roots if not (str(root) in seen or seen.add(str(root)))]
+    unique: list[Path] = []
+    for root in roots:
+        key = str(root)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(root)
+    return unique
 
 
 def _project_state(deps: DoctorDependencies, root: Path) -> dict:
@@ -252,7 +259,8 @@ def _overlap_issues(deps: DoctorDependencies, projects: list[dict]) -> list[dict
             continue
         for conflict in deps.overlapping_registered_projects(root):
             other = str(conflict.get("root") or "")
-            pair = tuple(sorted((str(root), other)))
+            first_root, second_root = sorted((str(root), other))
+            pair = (first_root, second_root)
             if other not in selected or pair in pairs:
                 continue
             pairs.add(pair)

@@ -130,17 +130,17 @@ def relevant_decision_brief(
                     },
                 )
             )
-    for item in snapshot_decisions(project, limit=50):
-        score = _overlap_score(query, item.get("decision"), item.get("context"))
+    for snapshot_item in snapshot_decisions(project, limit=50):
+        score = _overlap_score(query, snapshot_item.get("decision"), snapshot_item.get("context"))
         if score > 0:
             ranked.append(
                 (
                     score,
                     {
                         "kind": "session_decision",
-                        "id": f"session:{item['session_id']}",
-                        "title": str(item.get("decision") or "")[:120],
-                        "decision": item.get("decision") or "",
+                        "id": f"session:{snapshot_item['session_id']}",
+                        "title": str(snapshot_item.get("decision") or "")[:120],
+                        "decision": snapshot_item.get("decision") or "",
                         "rationale": "Committed durable session decision.",
                         "score": round(score, 4),
                         "provenance": "ai_layer_session_history",
@@ -150,12 +150,12 @@ def relevant_decision_brief(
     ranked.sort(key=lambda item: -item[0])
     result: list[dict] = []
     seen: set[str] = set()
-    for _, item in ranked:
-        key = str(item.get("decision") or "").casefold()
+    for _, brief in ranked:
+        key = str(brief.get("decision") or "").casefold()
         if not key or key in seen:
             continue
         seen.add(key)
-        result.append(item)
+        result.append(brief)
         if len(result) >= max(1, min(int(limit), 8)):
             break
     return result

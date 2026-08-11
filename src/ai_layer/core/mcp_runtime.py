@@ -123,7 +123,9 @@ def validate_core_token(value: str | None) -> bool:
         expected = ensure_core_token()
     except Exception:
         return False
-    return bool(value) and secrets.compare_digest(value, expected)
+    if not value:
+        return False
+    return secrets.compare_digest(value, expected)
 
 
 def _set_runtime_state(**updates: Any) -> None:

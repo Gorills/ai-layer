@@ -337,7 +337,7 @@ def skill_info(slug: str, project_root: str | None = None) -> dict:
             "slug": slug,
             "project_root": root,
             "registry": record,
-            "scope": (skill or {}).get("scope", "global") if skill else record.get("scope"),
+            "scope": (skill or {}).get("scope", "global") if skill else (record or {}).get("scope"),
             "description": ((skill or {}).get("meta") or {}).get("description", ""),
             "sections": list(skill_sections(skill)) if skill else [],
         }

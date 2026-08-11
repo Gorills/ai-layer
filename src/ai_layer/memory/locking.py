@@ -59,7 +59,7 @@ def _read_owner(path: Path) -> dict | None:
 def _pid_status(pid: object) -> str:
     """Return alive/dead/unknown without assuming Unix-only process APIs."""
     try:
-        value = int(pid)
+        value = int(str(pid))
     except (TypeError, ValueError):
         return "unknown"
     if value <= 0:

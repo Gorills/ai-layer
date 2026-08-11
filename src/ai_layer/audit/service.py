@@ -46,7 +46,7 @@ def audit_path(project_root: str | Path) -> Path:
 def _safe_audit_metrics(metrics: dict | None) -> dict | None:
     if not isinstance(metrics, dict):
         return None
-    safe = {}
+    safe: dict[str, bool | int | float | str | None] = {}
     for key, value in metrics.items():
         if str(key) not in AUDIT_SAFE_METRIC_KEYS:
             continue

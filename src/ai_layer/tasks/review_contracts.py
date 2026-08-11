@@ -402,11 +402,13 @@ def _add_findings(
 
 
 def _open_findings(db: Session, task: Task) -> list[ReviewFinding]:
-    return db.scalars(
-        select(ReviewFinding)
-        .where(
-            ReviewFinding.task_id == task.id,
-            ReviewFinding.status.in_(["open", "pending_verification"]),
-        )
-        .order_by(ReviewFinding.created_at, ReviewFinding.id)
-    ).all()
+    return list(
+        db.scalars(
+            select(ReviewFinding)
+            .where(
+                ReviewFinding.task_id == task.id,
+                ReviewFinding.status.in_(["open", "pending_verification"]),
+            )
+            .order_by(ReviewFinding.created_at, ReviewFinding.id)
+        ).all()
+    )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -352,7 +353,7 @@ def complete_stage(
             else []
         )
         normalized_checks = [*normalized_checks, *evidence_check_strings(sandbox_evidence)]
-        evidence = dict(
+        evidence: dict[str, Any] = dict(
             worker=worker,
             summary=summary,
             checks=normalized_checks,

@@ -34,7 +34,7 @@ def refresh_project_snapshot(
     selected: list[
         tuple[str, str]
     ] = []  # Native hosts own skill relevance; keep scan shape compatible.
-    return rows, languages, dependencies, summary, intelligence, selected
+    return list(rows), languages, dependencies, summary, intelligence, selected
 
 
 def sync_project_metadata(

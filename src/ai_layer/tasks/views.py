@@ -67,9 +67,11 @@ def _active_stage(db: Session, task: Task) -> TaskStage | None:
 
 
 def _stages(db: Session, task: Task) -> list[TaskStage]:
-    return db.scalars(
-        select(TaskStage).where(TaskStage.task_id == task.id).order_by(TaskStage.ordinal)
-    ).all()
+    return list(
+        db.scalars(
+            select(TaskStage).where(TaskStage.task_id == task.id).order_by(TaskStage.ordinal)
+        ).all()
+    )
 
 
 def _remediation_fix_count(db: Session, task: Task) -> int:
@@ -94,11 +96,13 @@ def _cleanup_task_review_sandboxes(db: Session, project: Project, task: Task) ->
 
 
 def _findings(db: Session, task: Task) -> list[ReviewFinding]:
-    return db.scalars(
-        select(ReviewFinding)
-        .where(ReviewFinding.task_id == task.id)
-        .order_by(ReviewFinding.created_at, ReviewFinding.id)
-    ).all()
+    return list(
+        db.scalars(
+            select(ReviewFinding)
+            .where(ReviewFinding.task_id == task.id)
+            .order_by(ReviewFinding.created_at, ReviewFinding.id)
+        ).all()
+    )
 
 
 def _next_ordinal(db: Session, task: Task) -> int:

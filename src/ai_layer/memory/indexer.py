@@ -279,12 +279,14 @@ def scan_project(
     )
     db.flush()
 
-    rows = db.scalars(
-        select(ProjectFile)
-        .where(ProjectFile.project_id == project.id)
-        .order_by(ProjectFile.path)
-        .execution_options(populate_existing=True)
-    ).all()
+    rows = list(
+        db.scalars(
+            select(ProjectFile)
+            .where(ProjectFile.project_id == project.id)
+            .order_by(ProjectFile.path)
+            .execution_options(populate_existing=True)
+        ).all()
+    )
     knowledge_items = int(
         db.scalar(select(func.count(Knowledge.id)).where(Knowledge.project_id == project.id)) or 0
     )

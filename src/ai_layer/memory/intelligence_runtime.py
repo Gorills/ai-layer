@@ -107,12 +107,14 @@ def docker_topology(root: Path, rows: Iterable[object]) -> dict:
     mounts: list[dict] = []
     for rel in compose_files:
         data = _safe_yaml(root, rel)
-        raw_services = data.get("services") if isinstance(data.get("services"), dict) else {}
+        services_value = data.get("services")
+        raw_services = services_value if isinstance(services_value, dict) else {}
         for name, raw in raw_services.items():
             if not isinstance(raw, dict):
                 continue
             service_key = f"{rel}:{name}"
             build = raw.get("build")
+            build_value: dict[str, str] | str | None
             if isinstance(build, dict):
                 build_value = {
                     "context": redact_secrets(str(build.get("context") or "")),

@@ -133,7 +133,7 @@ def emit_event(
                 return None
         except RuntimeError:
             return None
-    event = {
+    event: dict[str, object] = {
         "id": uuid4().hex,
         "correlation_id": correlation_id,
         "ts": utcnow().isoformat(),

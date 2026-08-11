@@ -108,14 +108,14 @@ def _protocol_state(project: dict) -> dict:
     recovered = False
     if last_failure is not None:
         failed_at = parse_ts(last_failure.get("ts"))
-        recovered = any(
-            item.get("status") == "completed"
-            and item.get("operation") == last_failure.get("operation")
-            and (parse_ts(item.get("ts")) is not None)
-            and failed_at is not None
-            and parse_ts(item.get("ts")) > failed_at
-            for item in recent
-        )
+        if failed_at is not None:
+            recovered = any(
+                item.get("status") == "completed"
+                and item.get("operation") == last_failure.get("operation")
+                and (completed_at := parse_ts(item.get("ts"))) is not None
+                and completed_at > failed_at
+                for item in recent
+            )
     elif failed_count:
         # The 5-minute aggregate can contain more events than the compact recent-events tail.
         # Do not invent recovery evidence when the failed event itself is no longer visible.

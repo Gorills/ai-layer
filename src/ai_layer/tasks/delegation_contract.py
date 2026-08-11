@@ -48,7 +48,7 @@ def _provenance_notice(task: Task) -> str | None:
 def build_delegation_contract(
     task: Task, stage: TaskStage, open_findings: list[dict], completion_contract: dict
 ) -> dict:
-    contract = {
+    contract: dict[str, object] = {
         "task": task_key(task),
         "stage_id": str(stage.id),
         "stage": stage.kind,

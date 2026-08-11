@@ -272,7 +272,7 @@ def _decode_source(raw: bytes) -> str | None:
         return raw.decode("utf-8", errors="replace")
 
 
-def _stable_stat_key(stat) -> tuple[int, int, int, int]:
+def _stable_stat_key(stat: os.stat_result) -> tuple[int, int, int, int]:
     return (int(stat.st_dev), int(stat.st_ino), int(stat.st_size), int(stat.st_mtime_ns))
 
 
@@ -282,7 +282,7 @@ def read_text(path: Path) -> str | None:
     return _decode_source(raw) if raw is not None else None
 
 
-def read_stable_source(path: Path) -> tuple[bytes, str | None, object] | None:
+def read_stable_source(path: Path) -> tuple[bytes, str | None, os.stat_result] | None:
     """Read one stable physical source version and return raw identity plus optional text."""
     try:
         before = path.lstat()
@@ -304,7 +304,7 @@ def read_stable_source(path: Path) -> tuple[bytes, str | None, object] | None:
     return raw, _decode_source(raw), after
 
 
-def read_stable_text(path: Path) -> tuple[str, object] | None:
+def read_stable_text(path: Path) -> tuple[str, os.stat_result] | None:
     """Read only a text file version whose identity metadata stayed stable across the read."""
     try:
         before = path.lstat()

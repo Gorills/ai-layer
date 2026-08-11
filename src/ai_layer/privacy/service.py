@@ -83,8 +83,13 @@ def _run_git(root: Path, *args: str, timeout: float = 10.0) -> subprocess.Comple
     try:
         return subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired as exc:
+        stdout = (
+            exc.stdout.decode(errors="replace")
+            if isinstance(exc.stdout, bytes)
+            else (exc.stdout or "")
+        )
         return subprocess.CompletedProcess(
-            command, 124, stdout=exc.stdout or "", stderr="git command timed out"
+            command, 124, stdout=stdout, stderr="git command timed out"
         )
     except OSError as exc:
         return subprocess.CompletedProcess(command, 127, stdout="", stderr=str(exc))

@@ -81,7 +81,7 @@ def configured_context_snapshot(
             "content": content,
         }
 
-    snapshot = {
+    snapshot: dict[str, object] = {
         "visibility_contract": {
             "ai_layer_observable": "AI Layer can prove what it configured and what its MCP tools returned.",
             "host_hidden": "Cursor system prompt, chat history, host-added context, exact tool-schema inclusion and final model tokenizer usage are not observable through AI Layer MCP.",

@@ -13,7 +13,7 @@ def project_details(project_root: str | Path) -> dict:
         return project_info(db, project_root)
 
 
-def search_memory(project_root: str | Path, query: str, limit: int = 8) -> dict:
+def search_memory(project_root: str | Path, query: str, limit: int = 8) -> list[dict]:
     with session_scope() as db:
         project = get_project(db, project_root)
         return memory_search(db, project, query, limit)
@@ -25,7 +25,7 @@ def get_memory_context(project_root: str | Path, task: str, limit: int = 4) -> d
         return build_memory_context(db, project, task, limit)
 
 
-def search_decisions(project_root: str | Path, query: str, limit: int = 8) -> dict:
+def search_decisions(project_root: str | Path, query: str, limit: int = 8) -> list[dict]:
     with session_scope() as db:
         project = get_project(db, project_root)
         return decision_search(db, project, query, limit)

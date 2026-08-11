@@ -61,10 +61,10 @@ def sync_native_root(
         atomic_write_native(target, content)
         written.append(str(target))
     for child in root.iterdir():
-        target = child / "SKILL.md" if child.is_dir() and not child.is_symlink() else None
-        if target is None or child.name in desired:
+        descriptor = child / "SKILL.md" if child.is_dir() and not child.is_symlink() else None
+        if descriptor is None or child.name in desired:
             continue
-        metadata = descriptor_metadata(target)
+        metadata = descriptor_metadata(descriptor)
         if not metadata or metadata.get("scope") != scope or metadata.get("project") != project_key:
             continue
         shutil.rmtree(child)

@@ -211,7 +211,7 @@ def _stack_profile(
             "storage_evidence": sorted(p for p in paths if p.startswith("storage/"))[:20],
         }
     return {
-        "languages": sorted(languages, key=languages.get, reverse=True),
+        "languages": sorted(languages, key=lambda name: languages[name], reverse=True),
         "frameworks": sorted(set(frameworks)),
         "dependency_ecosystems": sorted(dependencies),
         "manifests": manifests,

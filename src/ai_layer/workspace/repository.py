@@ -163,7 +163,7 @@ def capture_repository_state(root: str | Path, previous: dict | None = None) -> 
         except OSError:
             continue
         rel = path.relative_to(project_root).as_posix()
-        identity = {
+        identity: dict[str, int | str] = {
             "size": int(stat.st_size),
             "mtime_ns": int(stat.st_mtime_ns),
             "ctime_ns": int(getattr(stat, "st_ctime_ns", 0)),
@@ -177,7 +177,10 @@ def capture_repository_state(root: str | Path, previous: dict | None = None) -> 
             and bool(old.get("sha256"))
         )
         try:
-            identity["sha256"] = str(old["sha256"]) if can_reuse else hash_file(path)
+            if can_reuse and isinstance(old, dict):
+                identity["sha256"] = str(old["sha256"])
+            else:
+                identity["sha256"] = hash_file(path)
         except OSError:
             continue
         files[rel] = identity

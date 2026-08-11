@@ -11,8 +11,12 @@ def critical_orchestrator_contract() -> dict[str, Any]:
         "version": CRITICAL_ORCHESTRATOR_CONTRACT_VERSION,
         "role": "orchestrator",
         "authority": "coordinate_only",
-        "repository_mutation": "forbidden_unless_task_next_authorizes_inline_micro",
+        "repository_mutation": "forbidden",
         "external_mutation": "forbidden",
+        "inline_micro_exception": (
+            "Only task_next action inline_micro_implement grants temporary repository-write authority for "
+            "that current MICRO IMPLEMENT stage; the permission ends on completion/block/escalation."
+        ),
         "worker_rule": (
             "IMPLEMENT/FIX mutations belong only to the explicitly delegated writable worker, except "
             "a MICRO IMPLEMENT stage explicitly returned by task_next as inline_micro_implement."
@@ -106,7 +110,7 @@ def orchestrator_stage_instruction(
     if delegated:
         return {
             "role": contract["role"],
-            "repository_mutation": "forbidden",
+            "repository_mutation": contract["repository_mutation"],
             "external_mutation": contract["external_mutation"],
             "stage": stage_kind,
             "worker_id": worker_id,
@@ -119,7 +123,7 @@ def orchestrator_stage_instruction(
         }
     return {
         "role": contract["role"],
-        "repository_mutation": "forbidden",
+        "repository_mutation": contract["repository_mutation"],
         "external_mutation": contract["external_mutation"],
         "stage": stage_kind,
         "mandatory": "Bind a fresh worker, then start that worker. Do not perform the stage yourself.",

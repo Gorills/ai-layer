@@ -29,7 +29,9 @@ EXCLUDED_ROOT_ENTRIES = {
 ALLOWED_ROOT_FILES = {
     ".env.example",
     ".gitignore",
+    "AGENTS.md",
     "CHANGELOG.md",
+    "GEMINI.md",
     "MAINTAINER_INSTRUCTIONS.md",
     "Makefile",
     "README.md",
@@ -46,6 +48,7 @@ ALLOWED_ROOT_FILES = {
 }
 ALLOWED_ROOT_DIRS = {
     ".github",
+    ".githooks",
     "DECISIONS",
     "alembic",
     "dist",

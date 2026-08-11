@@ -20,6 +20,7 @@ This allowed an inefficient feedback loop: edit -> push -> discover formatting/a
 7. A successful preflight is evidence for the exact final worktree only. A later code/configuration change invalidates it.
 8. Missing local execution capability is fail-closed for publication: an agent may not claim preflight passed or use CI as its first feedback loop.
 9. The tamper-evident governance set expands to include the agent bootstrap, local hooks/targets, CI workflow, project tool configuration, PostgreSQL/skill gates, and the regression test that checks this contract.
+10. Root agent bootstrap files and `.githooks` are explicitly valid development-repository artifacts but remain excluded from runtime release archives.
 
 ## Consequences
 

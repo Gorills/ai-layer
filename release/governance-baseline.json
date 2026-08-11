@@ -17,7 +17,7 @@
     "scripts/architecture_gate.py": "aff5fc735be9107b4dfd0cbe8f53fe17658231d58a49674bc7b86802e4048f6e",
     "scripts/bootstrap_release_gate.py": "1d2183309d5517939953b65e0693a0bef7d9374be4e4ee3223b3b6054abea2dc",
     "scripts/build_release.py": "28bcfe69a1b3542df96165da171e36e6a3109420a2f527fcbfdb7d26f013e785",
-    "scripts/build_release_archive.py": "d55e0efa80aca3a9251b04212a63b2d50372c8fa14bff95ba8cd89122998f10e",
+    "scripts/build_release_archive.py": "93a8da87eea1b071e533fd48535df14a7b13040b97d04ff236776f3c4f9c709b",
     "scripts/build_release_wheel.py": "1e3b26232014e37c0408e76a097c847f60a576db16fc785520769a7358f1568a",
     "scripts/governance_gate.py": "5873394319b5df88a23b7b59c8cf9fe2ea3c3d1605f53a3d23b45a3afe028d49",
     "scripts/migration_gate.py": "5c539fadbdd2c5825446cb901139b2ffd63827c18e1ec5786acfe16a7e8467c9",
@@ -31,7 +31,7 @@
     "src/ai_layer/tasks/stage_validation.py": "437379659b1a8d147df3d581339b47bdc581ccbb1f2468b029dd37e1fbc151dc",
     "src/ai_layer/tasks/transitions.py": "3d34249e0dc58415d55c22165ca293ba8df924b0599e2a84c8af5e0d9884f18b",
     "src/ai_layer/verification/runner.py": "eb1e72a0d4a35c285d3ddf31affd91951519385861ad35bfc47818bdcac86bab",
-    "tests/test_development_governance.py": "f23e254827af405e9ad5dcee4365bd4b5b942babb1b1d178825318628a5e2412"
+    "tests/test_development_governance.py": "4c74ac7482b05ad366d7bde43bce82307027ef48f07f8ed964b5939cd1f2b2d4"
   },
   "schema": 1
 }

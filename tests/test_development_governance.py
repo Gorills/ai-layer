@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
@@ -46,6 +47,18 @@ def test_ci_calls_repository_gate_owners_instead_of_raw_gate_commands() -> None:
     assert "- run: make postgres-gate" in workflow
     assert "python scripts/quality_gate.py --deterministic-wheel" not in workflow
     assert "python scripts/postgres_gate.py" not in workflow
+
+
+def test_development_bootstrap_is_excluded_from_runtime_release() -> None:
+    path = ROOT / "scripts" / "build_release_archive.py"
+    spec = importlib.util.spec_from_file_location("build_release_archive", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    included = {item.relative_to(ROOT).as_posix() for item in module.included_files(ROOT)}
+    assert "AGENTS.md" not in included
+    assert "GEMINI.md" not in included
+    assert not any(item.startswith(".githooks/") for item in included)
 
 
 def test_development_trust_chain_is_governance_protected() -> None:

@@ -29,6 +29,12 @@ from ai_layer.skills.contracts import (
     normalize_skill_text,
     validate_skill_text,
 )
+from ai_layer.skills.packages import (
+    _decode_document,
+    _package_files_for_doc,
+    _package_risk_issues,
+    _source_documents,
+)
 from ai_layer.skills.registry import (
     _project_identity,
     _record_key,
@@ -43,12 +49,6 @@ from ai_layer.skills.sources import (
 )
 from ai_layer.skills.sources import (
     read_url as _read_url_impl,
-)
-from ai_layer.skills.packages import (
-    _decode_document,
-    _package_files_for_doc,
-    _package_risk_issues,
-    _source_documents,
 )
 
 

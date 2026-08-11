@@ -208,7 +208,9 @@ def _classify_task(
     if profile == "micro" and high_risk_domain:
         profile = "standard"
         risk_level = "high"
-        reasons.append("micro request escalated because high-risk domains require independent review")
+        reasons.append(
+            "micro request escalated because high-risk domains require independent review"
+        )
     if profile == "micro" and risk_level != "low":
         profile = "standard"
         reasons.append("micro request escalated because risk is not low")

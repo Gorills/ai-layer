@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_layer.core.registry import get_registered_project
+from ai_layer.observability.event_aggregation import aggregate_events as aggregate_events
 from ai_layer.observability.event_common import event_dir as _event_dir
 from ai_layer.observability.event_common import parse_ts, utcnow
 

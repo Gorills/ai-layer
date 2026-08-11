@@ -22,6 +22,12 @@ from ai_layer.integrations.global_install import (
     _cursor_plugin_owned,
     _merge_codex_config,
 )
+from ai_layer.integrations.global_install import (
+    install_global_integrations as install_global_integrations,
+)
+from ai_layer.integrations.global_install import (
+    remove_global_integrations as remove_global_integrations,
+)
 from ai_layer.integrations.runtime_config import _mcp_command, _server
 from ai_layer.integrations.status import (
     IntegrationStatusDependencies,

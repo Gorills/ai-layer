@@ -44,8 +44,14 @@ from ai_layer.skills.registry import (
     find_skill_record,
     load_skill_registry,
 )
+from ai_layer.skills.registry import (
+    skill_records as skill_records,
+)
 from ai_layer.skills.sources import (
     _catalog_source,
+)
+from ai_layer.skills.sources import (
+    default_skill_catalog as default_skill_catalog,
 )
 from ai_layer.skills.sources import (
     read_url as _read_url_impl,

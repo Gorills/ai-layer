@@ -16,13 +16,8 @@ from ai_layer.tasks.contracts import (
     _stage_agent_policy,
     _task_text,
 )
-from ai_layer.tasks.lifecycle import (
-    adopt_task,
-    cancel_task,
-    create_task,
-    delegate_current_stage as _delegate_current_stage,
-    resume_task,
-)
+from ai_layer.tasks.lifecycle import adopt_task, cancel_task, create_task, resume_task
+from ai_layer.tasks.lifecycle import delegate_current_stage as _delegate_current_stage
 from ai_layer.tasks.micro_policy import micro_envelope as _micro_envelope
 from ai_layer.tasks.navigation import (
     _blocked_stage_repository_guard,

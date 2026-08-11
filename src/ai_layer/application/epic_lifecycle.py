@@ -90,8 +90,11 @@ def revise_spec(
     with session_scope() as db:
         project = project_for_root(db, project_root)
         epic = epic_for_update(db, project, key)
-        if epic.status not in {"draft", "blocked"}:
-            raise RuntimeError("Spec may be manually revised only while Epic is draft or blocked")
+        if epic.status not in {"draft", "approved"}:
+            raise RuntimeError(
+                "Manual spec revision is allowed only before Phase 0 while Epic is DRAFT/APPROVED; "
+                "execution-time reality changes must use epic_reconcile_complete"
+            )
         content = bounded_text(
             spec_markdown,
             field="epic spec",
@@ -145,9 +148,10 @@ def record_audit(
     with session_scope() as db:
         project = project_for_root(db, project_root)
         epic = epic_for_update(db, project, key)
-        if epic.status != "draft":
+        if epic.status not in {"draft", "approved"}:
             raise RuntimeError(
-                "Pre-approval audit rounds are recorded only while the Epic is DRAFT"
+                "Independent specification audits are allowed before Phase 0 while Epic is DRAFT/APPROVED; "
+                "execution-time review belongs to reconciliation/Task review"
             )
         items = list(findings or [])[:MAX_EPIC_AUDIT_FINDINGS]
         row = EpicAudit(

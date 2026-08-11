@@ -180,8 +180,13 @@ async function load() {
       renderChanged(current, data, () => { setPage(data.card?.title || "Knowledge", "Claims, constraints, unknowns и evidence pointers"); app.innerHTML = renderKnowledgeDetail(data); });
       nextPollMs = IDLE_POLL_MS;
     } else if (current.kind === "monitoring") {
-      renderChanged(current, overviewCache, () => { setPage("Мониторинг", "Core, PostgreSQL, MCP, memory и локальные процессы"); app.innerHTML = renderMonitoring(overviewCache); });
-      nextPollMs = overviewIsLive(overviewCache) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+      const integration = await api.monitoring(current.project);
+      const data = { ...overviewCache, integration_monitoring: integration };
+      renderChanged(current, data, () => {
+        setPage("Мониторинг", "Core, PostgreSQL, MCP, memory и IDE-интеграции");
+        app.innerHTML = renderMonitoring(data, current);
+      });
+      nextPollMs = IDLE_POLL_MS;
     } else if (current.kind === "activity") {
       const data = await api.activity({ project_key: current.project, page: current.page, page_size: 10 });
       renderChanged(current, data, () => { setPage("Активность", "Компактный журнал технических операций"); app.innerHTML = renderActivity(data, current); });

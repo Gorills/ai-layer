@@ -16,6 +16,7 @@ from ai_layer.application.epic_common import (
     task_row,
 )
 from ai_layer.application.epic_planning import retry_final_item
+from ai_layer.application.epic_task_boundary import accepted_task_identity
 from ai_layer.db.epic_models import Epic, EpicPlanItem
 from ai_layer.db.models import Project, RuntimeEvent, Task, utcnow
 from ai_layer.db.session import session_scope
@@ -92,7 +93,7 @@ def _sync_active_item(db: Session, project: Project, epic: Epic) -> dict | None:
         return {"state": "blocked"}
     active.status = "completed"
     active.completed_at = task.completed_at or utcnow()
-    identity = capture_identity(project.root_path)
+    identity = accepted_task_identity(db, task)
     epic.execution_digest = identity["digest"]
     epic.execution_files = identity["file_count"]
     if active.kind == "final":
@@ -216,6 +217,15 @@ def _running_navigation(db: Session, project: Project, epic: Epic) -> dict:
     return drift
 
 
+def _human_decision_navigation(epic: Epic) -> dict:
+    return {
+        "action": "human_attention_required",
+        "message": epic.blocked_reason,
+        "resolution_tool": "epic_reconcile_complete",
+        "decision_required": list(epic.decision_required or []),
+    }
+
+
 def _navigation_action(db: Session, project: Project, epic: Epic) -> dict:
     if epic.status == "draft":
         return {
@@ -237,6 +247,8 @@ def _navigation_action(db: Session, project: Project, epic: Epic) -> dict:
                 "Create implementation Tasks from the reconciled execution spec. Phase 0 and final closure/review are automatic."
             ),
         }
+    if epic.status == "blocked" and epic.blocked_reason.startswith("human_decision_required"):
+        return _human_decision_navigation(epic)
     if epic.drift_task_id:
         return _drift_task_navigation(db, epic)
     if epic.status in {"running", "final_review"}:

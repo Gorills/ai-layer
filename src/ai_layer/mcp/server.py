@@ -6,6 +6,19 @@ import os
 
 from ai_layer.core.mcp_process import registered_mcp_process
 from ai_layer.mcp.runtime import MCP_INSTRUCTIONS, TOOL_HANDLERS, core_tool, execute_core_tool, mcp
+from ai_layer.mcp.tools.epics import (
+    epic_approve,
+    epic_archive,
+    epic_audit_record,
+    epic_create,
+    epic_get,
+    epic_list,
+    epic_next,
+    epic_plan_set,
+    epic_reconcile_complete,
+    epic_spec_revise,
+    epic_start_next,
+)
 from ai_layer.mcp.tools.knowledge import knowledge_draft_upsert, knowledge_list
 from ai_layer.mcp.tools.project_context import (
     memory_context,
@@ -67,6 +80,17 @@ __all__ = [
     "project_info",
     "memory_search",
     "memory_context",
+    "epic_create",
+    "epic_list",
+    "epic_get",
+    "epic_spec_revise",
+    "epic_audit_record",
+    "epic_approve",
+    "epic_next",
+    "epic_start_next",
+    "epic_reconcile_complete",
+    "epic_plan_set",
+    "epic_archive",
     "task_current",
     "task_next",
     "review_sandbox_prepare",

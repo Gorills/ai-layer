@@ -238,8 +238,7 @@ class CoreRequestTimeout(StructuredError):
             message=message,
             retryable=retryable,
             required_action=(
-                required_action
-                or "Read durable task state before deciding whether replay is safe."
+                required_action or "Read durable task state before deciding whether replay is safe."
             ),
         )
 

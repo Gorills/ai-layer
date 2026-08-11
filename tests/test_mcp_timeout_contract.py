@@ -10,9 +10,10 @@ def test_context_deadline_has_headroom_over_postgres_statement_timeout():
     from ai_layer.db import session
 
     assert mcp_runtime.TOOL_TIMEOUTS["context"] >= 15.0
-    assert mcp_runtime.TOOL_TIMEOUTS["context"] > (
-        session.INTERACTIVE_STATEMENT_TIMEOUT_MS / 1000
-    ) + 5.0
+    assert (
+        mcp_runtime.TOOL_TIMEOUTS["context"]
+        > (session.INTERACTIVE_STATEMENT_TIMEOUT_MS / 1000) + 5.0
+    )
 
 
 def test_memory_context_timeout_is_retryable_read(monkeypatch):

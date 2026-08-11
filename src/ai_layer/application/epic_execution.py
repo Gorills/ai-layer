@@ -153,9 +153,7 @@ def start_next(project_root: str | Path, *, key: str) -> dict:
 def _final_closure_evidence(db: Session, task: Task) -> dict:
     changes = dict(task.final_changes or {})
     paths = {
-        str(path)
-        for group in ("added", "modified", "deleted")
-        for path in changes.get(group) or []
+        str(path) for group in ("added", "modified", "deleted") for path in changes.get(group) or []
     }
     docs_updated = any(path in DOC_PATH_NAMES or path.startswith("docs/") for path in paths)
     event = db.scalar(
@@ -378,7 +376,9 @@ def next_action(project_root: str | Path, *, key: str) -> dict:
                     else:
                         action = {
                             "action": (
-                                "start_final_review" if pending.kind == "final" else "start_next_task"
+                                "start_final_review"
+                                if pending.kind == "final"
+                                else "start_next_task"
                             ),
                             "tool": "epic_start_next",
                             "plan_item": plan_payload(db, pending),

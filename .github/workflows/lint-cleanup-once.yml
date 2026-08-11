@@ -72,8 +72,8 @@ jobs:
 
           replace(
               "src/ai_layer/observability/event_aggregation.py",
-              "            stat = path.stat()\n",
-              "            path.stat()\n",
+              "            stat = path.stat()\n        except OSError:\n            continue\n        offset = _read_appended_events",
+              "            path.stat()\n        except OSError:\n            continue\n        offset = _read_appended_events",
           )
 
           replace(

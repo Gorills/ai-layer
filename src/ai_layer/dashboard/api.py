@@ -2,18 +2,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from ai_layer.dashboard.read_models import (
-    activity_payload,
+from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
+from ai_layer.projections.dashboard import overview_payload, project_payload
+from ai_layer.projections.dashboard_activity import activity_payload
+from ai_layer.projections.dashboard_reference import (
     knowledge_detail_payload,
     knowledge_payload,
     rules_payload,
     skill_detail_payload,
     skills_payload,
-    task_detail_payload,
-    tasks_payload,
 )
-from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
-from ai_layer.projections.dashboard import overview_payload, project_payload
+from ai_layer.projections.dashboard_tasks import task_detail_payload, tasks_payload
 from ai_layer.projections.epics import epic_detail_payload, project_epics_payload
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
@@ -46,7 +45,7 @@ def dashboard_tasks(
     page_size: int = 10,
 ):
     payload = tasks_payload(
-        project_key=project_key,
+        project_key_value=project_key,
         status=status,
         page=page,
         page_size=page_size,
@@ -73,7 +72,11 @@ def dashboard_skills(
     page: int = 1,
     page_size: int = 10,
 ):
-    payload = skills_payload(project_key=project_key, page=page, page_size=page_size)
+    payload = skills_payload(
+        project_key_value=project_key,
+        page=page,
+        page_size=page_size,
+    )
     if payload is None:
         raise _not_found({"project_key": str(project_key)}, "Registered project not found.")
     return payload
@@ -134,7 +137,7 @@ def dashboard_activity(
     page_size: int = 10,
 ):
     payload = activity_payload(
-        project_key=project_key,
+        project_key_value=project_key,
         page=page,
         page_size=page_size,
     )

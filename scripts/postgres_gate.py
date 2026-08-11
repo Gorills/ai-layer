@@ -31,6 +31,7 @@ def _run(argv: list[str], *, database_url: str) -> dict:
 
 
 def _database_url(base_url: str, database: str) -> str:
+    # SQLAlchemy masks credentials in normal URL string rendering; the gate must preserve them.
     return make_url(base_url).set(database=database).render_as_string(hide_password=False)
 
 

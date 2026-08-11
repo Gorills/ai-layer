@@ -11,7 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ai_layer.skills.native import render_native_descriptor, validate_native_catalog  # noqa: E402
-from ai_layer.skills.service import _parse_skill_text, skill_section_content, skill_sections  # noqa: E402
+from ai_layer.skills.service import (  # noqa: E402
+    _parse_skill_text,
+    skill_section_content,
+    skill_sections,
+)
 
 SKILLS = ROOT / "src" / "ai_layer" / "builtin_skills"
 VALID_KINDS = {"core", "domain", "capability", "stack"}

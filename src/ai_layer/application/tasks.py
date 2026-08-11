@@ -9,7 +9,6 @@ from ai_layer.core.paths import project_state_path
 from ai_layer.core.service import get_project
 from ai_layer.db.models import Task
 from ai_layer.db.session import session_scope
-from ai_layer.tasks.state_store import read_json
 from ai_layer.tasks.service import (
     adopt_task,
     cancel_task,
@@ -21,11 +20,12 @@ from ai_layer.tasks.service import (
     delegate_current_stage,
     next_task_action,
     prepare_current_review_sandbox,
-    resume_task,
     recover_disconnected_worker,
+    resume_task,
     run_current_review_check,
     task_to_dict,
 )
+from ai_layer.tasks.state_store import read_json
 from ai_layer.tasks.worker_leases import heartbeat_worker, reap_stale_worker_leases
 
 

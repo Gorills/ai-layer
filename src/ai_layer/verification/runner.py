@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -86,7 +86,7 @@ def _execute_verification(
     project_root = Path(project_root).resolve()
     cwd = _safe_cwd(project_root, request.cwd)
     env, recorded_env = _environment(request.environment)
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     exit_code: int | None = None
     timed_out = False
     stdout = ""
@@ -119,7 +119,7 @@ def _execute_verification(
     except OSError as exc:
         exit_code = 127
         stderr = f"{type(exc).__name__}: {exc}"
-    completed = datetime.now(timezone.utc)
+    completed = datetime.now(UTC)
     run_id = str(uuid.uuid4())
     summary = _summary(stdout, stderr)
     payload = {

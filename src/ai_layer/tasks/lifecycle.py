@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ai_layer.agents.policy import load_policy
 from ai_layer.core.filelock import directory_lock
 from ai_layer.db.models import Project, Task, TaskStage, utcnow
 from ai_layer.domain.orchestrator import orchestrator_stage_instruction
-from ai_layer.agents.policy import load_policy
-from ai_layer.observability.domain_events import append_event
 from ai_layer.memory.knowledge_store import abandon_task_drafts
-from ai_layer.tasks.constants import MAX_TASK_GOAL_CHARS, OPEN_TASK_STATUSES, READ_ONLY_STAGES
+from ai_layer.observability.domain_events import append_event
 from ai_layer.tasks.concurrency import assert_expected_version, bump_task_version, lock_project
+from ai_layer.tasks.constants import MAX_TASK_GOAL_CHARS, OPEN_TASK_STATUSES, READ_ONLY_STAGES
 from ai_layer.tasks.contracts import _bounded_text, _bounded_text_list, _classify_task
 from ai_layer.tasks.navigation import (
     _latest_resumable_stage,
@@ -22,18 +21,21 @@ from ai_layer.tasks.navigation import (
 )
 from ai_layer.tasks.state_store import (
     bind_task_baseline,
-    load_stage_start as _load_stage_start,
     materialize_baseline,
     materialize_stage_start,
-    memory_hash_seed as _memory_hash_seed,
     task_key,
-    task_lock as _task_lock,
-    task_work_dir as _task_work_dir,
 )
-from ai_layer.workspace.repository import (
-    git_changed_paths as _git_changed_paths,
-    capture_repository_state,
-    repository_changes,
+from ai_layer.tasks.state_store import (
+    load_stage_start as _load_stage_start,
+)
+from ai_layer.tasks.state_store import (
+    memory_hash_seed as _memory_hash_seed,
+)
+from ai_layer.tasks.state_store import (
+    task_lock as _task_lock,
+)
+from ai_layer.tasks.state_store import (
+    task_work_dir as _task_work_dir,
 )
 from ai_layer.tasks.views import (
     _active_stage,
@@ -44,7 +46,14 @@ from ai_layer.tasks.views import (
     _validate_worker_id,
     task_to_dict,
 )
-from ai_layer.tasks.worker_leases import recover_disconnected_worker, start_worker_lease
+from ai_layer.tasks.worker_leases import start_worker_lease
+from ai_layer.workspace.repository import (
+    capture_repository_state,
+    repository_changes,
+)
+from ai_layer.workspace.repository import (
+    git_changed_paths as _git_changed_paths,
+)
 
 
 def _materialize_recovery_cache(

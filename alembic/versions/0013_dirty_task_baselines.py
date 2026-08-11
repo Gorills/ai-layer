@@ -4,8 +4,9 @@ Revision ID: 0013_dirty_task_baselines
 Revises: 0012_architecture_hardening
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0013_dirty_task_baselines"
 down_revision = "0012_architecture_hardening"

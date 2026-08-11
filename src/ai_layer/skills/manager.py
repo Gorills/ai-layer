@@ -4,59 +4,30 @@ import hashlib
 import json
 import os
 import re
-import tempfile
-import urllib.parse
 import uuid
-import zipfile
-from datetime import datetime, timezone
-from pathlib import Path, PurePosixPath
-from typing import Iterable
-
-import yaml
+from collections.abc import Iterable
+from pathlib import Path
 
 from ai_layer.core.config import get_settings
 from ai_layer.core.filelock import directory_lock
-from ai_layer.core.registry import get_registered_project
 from ai_layer.skills.common import (
     _atomic_json,
     _atomic_write,
     _sha_bytes,
-    _sha_text,
     _utcnow,
     builtin_skill_dir,
+)
+from ai_layer.skills.common import (
     skill_import_dir as _import_dir,
 )
 from ai_layer.skills.constants import (
-    ALLOWED_PACKAGE_NAMES,
-    ALLOWED_PACKAGE_SUFFIXES,
-    DEFAULT_SKILL_CATALOG,
-    HIGH_RISK_PATTERNS,
     MAX_ARCHIVE_BYTES,
-    MAX_ARCHIVE_EXPANDED_BYTES,
-    MAX_ARCHIVE_FILES,
-    MAX_ARCHIVE_MEMBER_BYTES,
-    MAX_SKILL_BYTES,
-    MEDIUM_RISK_PATTERNS,
-    PACKAGE_SCRIPT_HIGH_RISK_PATTERNS,
     SAFE_SOURCE_TYPES,
-    SLUG_RE,
     VALID_SCOPES,
-    VALID_STATUS,
 )
 from ai_layer.skills.contracts import (
-    _first_heading,
-    _frontmatter,
-    _infer_terms,
-    _slugify,
     normalize_skill_text,
     validate_skill_text,
-)
-from ai_layer.skills.sources import (
-    _catalog_source,
-    _normalize_remote_skill_url,
-    _validate_url,
-    default_skill_catalog,
-    read_url as _read_url_impl,
 )
 from ai_layer.skills.registry import (
     _project_identity,
@@ -64,12 +35,14 @@ from ai_layer.skills.registry import (
     _registry_lock,
     _skill_target,
     _write_registry,
-    disabled_global_skill_slugs,
     find_skill_record,
     load_skill_registry,
-    project_skill_dir,
-    project_skill_slugs,
-    skill_records,
+)
+from ai_layer.skills.sources import (
+    _catalog_source,
+)
+from ai_layer.skills.sources import (
+    read_url as _read_url_impl,
 )
 
 

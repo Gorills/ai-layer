@@ -5,9 +5,9 @@ import shutil
 import stat as stat_module
 import subprocess
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
 
 from ai_layer.db.models import ProjectFile
 from ai_layer.memory.source import AI_LAYER_CONTROL_PATHS, iter_files, read_stable_source

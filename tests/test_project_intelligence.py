@@ -1,5 +1,5 @@
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 from ai_layer.memory.intelligence import build_project_intelligence
 from ai_layer.memory.source import parse_dependencies

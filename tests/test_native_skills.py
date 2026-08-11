@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 
 import yaml
 
@@ -15,7 +14,7 @@ from ai_layer.skills.native import (
     sync_project_native_skills,
     validate_native_catalog,
 )
-from ai_layer.skills.service import list_skills, load_skill, skill_section_content
+from ai_layer.skills.service import load_skill, skill_section_content
 
 
 def _frontmatter(text: str) -> dict:

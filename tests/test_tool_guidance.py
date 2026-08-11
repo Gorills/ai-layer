@@ -22,6 +22,7 @@ def test_generic_continuation_never_recommends_memory_search_when_knowledge_is_e
 
 def test_continuation_context_is_session_first_compact_and_withholds_stale_scanner(monkeypatch):
     from types import SimpleNamespace
+
     from ai_layer.memory import service
     from ai_layer.memory.presentation import context_mode
 
@@ -138,6 +139,7 @@ def test_continuation_context_is_session_first_compact_and_withholds_stale_scann
 
 def test_ordinary_task_withholds_stale_scanner_evidence_and_profile(monkeypatch):
     from types import SimpleNamespace
+
     from ai_layer.memory import service
 
     project = SimpleNamespace(
@@ -277,8 +279,8 @@ def test_ordinary_idempotency_bugfix_has_no_decision_gate():
 
 def test_memory_search_does_not_pad_results_with_near_zero_similarity():
     from types import SimpleNamespace
-    from ai_layer.memory import service
-    from ai_layer.memory import knowledge_store
+
+    from ai_layer.memory import knowledge_store, service
 
     item = SimpleNamespace(
         id="k1",
@@ -315,8 +317,8 @@ def test_memory_search_does_not_pad_results_with_near_zero_similarity():
 
 def test_decision_search_does_not_refresh_repository_memory(monkeypatch):
     from types import SimpleNamespace
-    from ai_layer.memory import service
-    from ai_layer.memory import embeddings
+
+    from ai_layer.memory import embeddings, service
 
     class Result:
         def all(self):
@@ -345,6 +347,7 @@ def test_decision_search_does_not_refresh_repository_memory(monkeypatch):
 def test_memory_context_never_injects_or_plans_domain_skills(monkeypatch):
     import json
     from types import SimpleNamespace
+
     from ai_layer.memory import service
 
     class DB:
@@ -426,6 +429,7 @@ def test_memory_context_never_injects_or_plans_domain_skills(monkeypatch):
 
 def test_coverage_audit_uses_complete_inventory_without_prior_reviewer_reasoning(monkeypatch):
     from types import SimpleNamespace
+
     from ai_layer.memory import service
 
     project = SimpleNamespace(
@@ -576,6 +580,7 @@ def test_russian_knowledge_coverage_audit_selects_inventory_mode():
 def test_near_empty_project_context_omits_static_policy_and_workflow_dump(monkeypatch):
     import json
     from types import SimpleNamespace
+
     from ai_layer.memory import service
 
     project = SimpleNamespace(

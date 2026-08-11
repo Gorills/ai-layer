@@ -1,28 +1,31 @@
 from __future__ import annotations
-from ai_layer.cli.root import app, echo
-from ai_layer.integrations.service import INTEGRATION_TEMPLATE_VERSION
-from pathlib import Path
-from ai_layer import __version__
-from ai_layer.application.runtime import database_health
-from ai_layer.policy.service import ensure_global_policy
-from ai_layer.core.config import get_settings
-from ai_layer.application.projects import hydrate_registry_from_database
-from ai_layer.skills.service import install_builtin_skills
-from ai_layer.integrations.service import install_global_integrations
-from ai_layer.core.registry import list_registered_projects
-from ai_layer.core.runtime import migrate_database
+
 import os
-from ai_layer.core.paths import project_config_path
-from ai_layer.privacy.service import remove_git_privacy_guard
-from ai_layer.integrations.service import remove_global_integrations
-from ai_layer.integrations.service import remove_project_integrations
-from ai_layer.core.repair import repair_registered_projects
-from ai_layer.core.runtime import start_database
-from ai_layer.core.service import sync_project_integrations
 import tempfile
+from pathlib import Path
+
 import typer
-from ai_layer.core.runtime import write_install_state
 import yaml
+
+from ai_layer import __version__
+from ai_layer.application.projects import hydrate_registry_from_database
+from ai_layer.application.runtime import database_health
+from ai_layer.cli.root import app, echo
+from ai_layer.core.config import get_settings
+from ai_layer.core.paths import project_config_path
+from ai_layer.core.registry import list_registered_projects
+from ai_layer.core.repair import repair_registered_projects
+from ai_layer.core.runtime import migrate_database, start_database, write_install_state
+from ai_layer.core.service import sync_project_integrations
+from ai_layer.integrations.service import (
+    INTEGRATION_TEMPLATE_VERSION,
+    install_global_integrations,
+    remove_global_integrations,
+    remove_project_integrations,
+)
+from ai_layer.policy.service import ensure_global_policy
+from ai_layer.privacy.service import remove_git_privacy_guard
+from ai_layer.skills.service import install_builtin_skills
 
 
 def _atomic_private_text(path: Path, content: str) -> None:

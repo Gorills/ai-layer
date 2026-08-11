@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 import tempfile
 import urllib.parse
@@ -10,20 +9,18 @@ from pathlib import Path, PurePosixPath
 from ai_layer.skills.constants import (
     ALLOWED_PACKAGE_NAMES,
     ALLOWED_PACKAGE_SUFFIXES,
-    HIGH_RISK_PATTERNS,
     MAX_ARCHIVE_BYTES,
     MAX_ARCHIVE_EXPANDED_BYTES,
     MAX_ARCHIVE_FILES,
     MAX_ARCHIVE_MEMBER_BYTES,
     MAX_SKILL_BYTES,
-    MEDIUM_RISK_PATTERNS,
     PACKAGE_SCRIPT_HIGH_RISK_PATTERNS,
 )
-from ai_layer.skills.contracts import _frontmatter
 from ai_layer.skills.sources import (
     _catalog_source,
     _normalize_remote_skill_url,
-    _validate_url,
+)
+from ai_layer.skills.sources import (
     read_url as _read_url_impl,
 )
 

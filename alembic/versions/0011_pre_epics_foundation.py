@@ -4,8 +4,9 @@ Revision ID: 0011_pre_epics_foundation
 Revises: 0010_adaptive_task_workflow
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0011_pre_epics_foundation"
 down_revision = "0010_adaptive_task_workflow"

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import select
 
-from ai_layer.skills.native import native_catalog_files
 from ai_layer.application.tasks import read_state as read_task_state
 from ai_layer.core.background_service import service_runtime_payload
 from ai_layer.core.mcp_runtime import runtime_state as core_runtime_state
@@ -14,8 +13,9 @@ from ai_layer.core.registry import list_registered_projects
 from ai_layer.db.models import VerificationRun
 from ai_layer.db.session import session_scope
 from ai_layer.observability.domain_events import read_structured_events
-from ai_layer.observability.events import aggregate_events, parse_ts, read_events
+from ai_layer.observability.events import aggregate_events, parse_ts
 from ai_layer.observability.snapshot import observability_snapshot
+from ai_layer.skills.native import native_catalog_files
 
 
 def _project_key(entry: dict) -> str:
@@ -93,7 +93,7 @@ def _protocol_state(project: dict) -> dict:
     stats = project.get("last_5m") or {}
     failed_count = int(stats.get("failed") or 0)
     recent = []
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+    cutoff = datetime.now(UTC) - timedelta(minutes=5)
     for event in project.get("recent_events") or []:
         if event.get("status") not in {"completed", "failed"}:
             continue
@@ -287,7 +287,7 @@ def _durable_read_models(root: Path, task_state: dict, agents: list[dict]) -> di
                 "aggregate_type": "projection",
                 "aggregate_id": "dashboard",
                 "payload": {"message": f"{type(exc).__name__}: {exc}"[:500]},
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             }
         ]
     events = [_structured_event_summary(event) for event in events]

@@ -150,7 +150,7 @@ def main() -> int:
             # Builder's default output is fixed, so invoke its build() directly for temp dirs.
             code = (
                 "from pathlib import Path; import sys; "
-                f"sys.path.insert(0,{str((ROOT / 'scripts')).__repr__()}); "
+                f"sys.path.insert(0,{str(ROOT / 'scripts').__repr__()}); "
                 "from build_release_wheel import build; print(build(Path(sys.argv[1])))"
             )
             pa = subprocess.run([sys.executable, "-c", code, a], capture_output=True, text=True)

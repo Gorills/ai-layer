@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from ai_layer.db.models import Decision, Knowledge, Project, ProjectFile
 from ai_layer.memory.embeddings import get_embedder
 from ai_layer.memory.identity import ChangeSet, SourceSnapshot, classify_changes
-from ai_layer.memory.knowledge_store import invalidate_stale_knowledge
 from ai_layer.memory.knowledge_contract import KNOWLEDGE_KIND
+from ai_layer.memory.knowledge_store import invalidate_stale_knowledge
 from ai_layer.memory.persistence import file_state, update_source_identity, upsert_project_file
 from ai_layer.memory.project_state import refresh_project_snapshot, sync_project_metadata
 from ai_layer.memory.source import (

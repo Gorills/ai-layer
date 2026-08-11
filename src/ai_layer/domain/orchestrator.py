@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 2
 
 

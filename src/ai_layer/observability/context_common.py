@@ -3,12 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_layer.core.config import get_settings
-from ai_layer.core.registry import get_registered_project
 from ai_layer.core.redaction import redact_secrets
+from ai_layer.core.registry import get_registered_project
 
 TRACE_TAIL_BYTES = 12 * 1024 * 1024
 
@@ -53,7 +53,7 @@ def redact_value(value):
 
 
 def utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def project_identity(project_root: str | Path) -> tuple[str, dict] | None:

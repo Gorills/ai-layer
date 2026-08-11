@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -188,11 +188,11 @@ def test_latest_restore_prefers_committed_database_over_newer_provisional_snapsh
             "verified_facts": ["DB commit failed after snapshot"],
             "notable_findings": [],
             "created_at": (
-                old.created_at.replace(tzinfo=timezone.utc)
+                old.created_at.replace(tzinfo=UTC)
                 if old.created_at.tzinfo is None
                 else old.created_at
             )
-            .astimezone(timezone.utc)
+            .astimezone(UTC)
             .replace(microsecond=0)
             .isoformat(),
             "storage": "snapshot",

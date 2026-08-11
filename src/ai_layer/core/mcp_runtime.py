@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from ai_layer import __version__
-from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
 from ai_layer.core.config import get_settings
+from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
 
 CORE_HOST = "127.0.0.1"
 CORE_PORT = 8765

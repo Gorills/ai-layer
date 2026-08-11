@@ -4,6 +4,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
+from ai_layer.application.security import decide
 from ai_layer.core.request_context import current_operation
 from ai_layer.core.service import get_project
 from ai_layer.db.models import Task
@@ -12,7 +13,6 @@ from ai_layer.domain.ports import VerificationExecutor
 from ai_layer.domain.security import LOCAL_TRUSTED_ACTOR
 from ai_layer.domain.verification import VerificationRequest
 from ai_layer.observability.domain_events import append_event
-from ai_layer.application.security import decide
 from ai_layer.tasks.views import _active_stage
 from ai_layer.verification.runner import persist_verification
 

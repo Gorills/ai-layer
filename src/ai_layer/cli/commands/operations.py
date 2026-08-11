@@ -1,57 +1,56 @@
 from __future__ import annotations
-from ai_layer.cli.root import app, audit_app, projects_app, task_app, echo
-from ai_layer.cli.commands.maintenance import _machine_upgrade
-from ai_layer.cli.doctor import DoctorDependencies
-from ai_layer.integrations.service import INTEGRATION_TEMPLATE_VERSION
+
+import time
 from pathlib import Path
+
+import typer
+
 from ai_layer import __version__
 from ai_layer.application.projects import get_project_info as app_project_info
+from ai_layer.application.projects import initialize_project
 from ai_layer.application.projects import remove_project as app_remove_project
 from ai_layer.application.projects import scan_project as app_scan_project
+from ai_layer.application.runtime import database_health
 from ai_layer.application.tasks import cancel as app_task_cancel
 from ai_layer.application.tasks import current as app_task_current
 from ai_layer.application.tasks import next_action as app_task_next
 from ai_layer.application.tasks import resume as app_task_resume
 from ai_layer.application.tasks import worker_disconnected as app_worker_disconnected
 from ai_layer.application.tasks import worker_heartbeat as app_worker_heartbeat
-from ai_layer.audit.service import audit_path
-from ai_layer.audit.service import check_latest_flow
-from ai_layer.application.runtime import database_health
-from ai_layer.core.runtime import docker_compose_available
-from ai_layer.cli.doctor import doctor_report
-from ai_layer.core.registry import get_registered_project
-from ai_layer.core.config import get_settings
-from ai_layer.privacy.service import git_privacy_guard_status
-from ai_layer.integrations.service import global_bootstrap_status
-from ai_layer.integrations.service import global_integration_status
-from ai_layer.application.projects import initialize_project
-from ai_layer.integrations.service import integration_status
-from ai_layer.core.mcp_process import list_mcp_processes
-from ai_layer.core.registry import list_registered_projects
-from ai_layer.core.runtime import migrate_database
-from ai_layer.core.paths import normalize_root
-from ai_layer.observability.service import observability_snapshot
-from ai_layer.core.registry import overlapping_registered_projects
-from ai_layer.privacy.service import privacy_check
-from ai_layer.core.paths import project_config_path
-from ai_layer.core.paths import project_meta_dir
-from ai_layer.core.paths import project_mode
-from ai_layer.core.paths import project_provenance
-from ai_layer.core.registry import prune_registry
-from ai_layer.audit.service import read_audit
-from ai_layer.core.runtime import read_install_state
-from ai_layer.observability.render import render_monitor
-from ai_layer.observability.render import render_status
-from ai_layer.core.repair import repair_project
-from ai_layer.core.repair import repair_registered_projects
-from ai_layer.privacy.service import repository_footprint
+from ai_layer.audit.service import audit_path, check_latest_flow, read_audit
+from ai_layer.cli.commands.maintenance import _machine_upgrade
+from ai_layer.cli.doctor import DoctorDependencies, doctor_report
+from ai_layer.cli.root import app, audit_app, echo, projects_app, task_app
 from ai_layer.core.background_service import service_status
-from ai_layer.core.mcp_process import stop_user_mcp_processes
+from ai_layer.core.config import get_settings
+from ai_layer.core.mcp_process import list_mcp_processes, stop_user_mcp_processes
+from ai_layer.core.paths import (
+    normalize_root,
+    project_config_path,
+    project_meta_dir,
+    project_mode,
+    project_provenance,
+)
+from ai_layer.core.registry import (
+    get_registered_project,
+    list_registered_projects,
+    overlapping_registered_projects,
+    prune_registry,
+    unregister_project,
+)
+from ai_layer.core.repair import repair_project, repair_registered_projects
+from ai_layer.core.runtime import docker_compose_available, migrate_database, read_install_state
 from ai_layer.core.service import sync_project_integrations
 from ai_layer.domain.errors import normalize_error
-import time
-import typer
-from ai_layer.core.registry import unregister_project
+from ai_layer.integrations.service import (
+    INTEGRATION_TEMPLATE_VERSION,
+    global_bootstrap_status,
+    global_integration_status,
+    integration_status,
+)
+from ai_layer.observability.render import render_monitor, render_status
+from ai_layer.observability.service import observability_snapshot
+from ai_layer.privacy.service import git_privacy_guard_status, privacy_check, repository_footprint
 
 
 def db_init():

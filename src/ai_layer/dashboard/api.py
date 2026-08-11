@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from ai_layer.projections.dashboard import overview_payload, project_payload
 from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
+from ai_layer.projections.dashboard import overview_payload, project_payload
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 

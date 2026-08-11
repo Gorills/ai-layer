@@ -5,7 +5,6 @@ from pathlib import Path
 from ai_layer.core.config import get_settings
 from ai_layer.integrations.service import (
     INTEGRATION_TEMPLATE_VERSION,
-    MANAGED_START,
     install_global_integrations,
     install_project_integrations,
     integration_status,
@@ -486,6 +485,7 @@ def test_integration_status_fails_closed_on_invalid_utf8_managed_files(tmp_path:
 def test_global_upgrade_adopts_legacy_claude_ai_layer_entry(tmp_path: Path, monkeypatch):
     """Pre-marker v0.6.1 Claude entries must upgrade instead of being treated as user collisions."""
     from types import SimpleNamespace
+
     from ai_layer.integrations import service as integrations
 
     home = tmp_path / "home"
@@ -535,6 +535,7 @@ def test_global_upgrade_adopts_legacy_claude_ai_layer_entry(tmp_path: Path, monk
 
 def test_claude_same_name_unknown_command_still_blocks_upgrade(tmp_path: Path, monkeypatch):
     from types import SimpleNamespace
+
     from ai_layer.integrations import service as integrations
 
     home = tmp_path / "home"
@@ -567,6 +568,7 @@ def test_claude_same_name_unknown_command_still_blocks_upgrade(tmp_path: Path, m
 
 def test_remove_global_integrations_can_clean_legacy_claude_entry(tmp_path: Path, monkeypatch):
     from types import SimpleNamespace
+
     from ai_layer.integrations import service as integrations
 
     home = tmp_path / "home"

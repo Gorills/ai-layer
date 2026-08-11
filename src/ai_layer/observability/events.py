@@ -3,14 +3,12 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterator
 from uuid import uuid4
 
-from ai_layer.core.config import get_settings
-from ai_layer.core.paths import project_state_path
 from ai_layer.core.registry import get_registered_project
 
 EVENT_RETENTION_DAYS = 7
@@ -53,7 +51,8 @@ SAFE_METRIC_KEYS = {
 }
 
 
-from ai_layer.observability.event_common import event_dir as _event_dir, parse_ts, utcnow
+from ai_layer.observability.event_common import event_dir as _event_dir
+from ai_layer.observability.event_common import parse_ts, utcnow
 
 
 def event_path(project_root: str | Path | None = None, *, day: str | None = None) -> Path:
@@ -268,6 +267,3 @@ def read_events(
             if len(events) >= max(1, limit):
                 return list(reversed(events))
     return list(reversed(events))
-
-
-from ai_layer.observability.event_aggregation import aggregate_events

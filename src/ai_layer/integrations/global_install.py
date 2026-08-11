@@ -1,40 +1,31 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 from ai_layer import __version__
 from ai_layer.agents.policy import install_cursor_profiles, remove_cursor_profiles
 from ai_layer.core.config import get_settings
 from ai_layer.integrations.config_files import (
-    MANAGED_END,
-    MANAGED_START,
     MCP_OWNER_KEY,
     MCP_OWNER_VALUE,
-    OWNED_FILE_MARKER,
-    TOML_END,
     TOML_START,
     _assert_codex_merge_safe,
     _assert_json_mcp_merge_safe,
-    _assert_owned_file_safe,
     _atomic_write_text,
-    _legacy_owned_file,
-    _managed_server,
-    _merge_codex_config as _merge_codex_config_file,
     _merge_mcp_json,
     _remove_codex_mcp,
     _remove_json_mcp,
     _remove_managed_markdown,
     _server_is_owned,
-    _server_matches_legacy,
     _upsert_managed_markdown,
     _write_owned_text,
-    _write_private_backup,
+)
+from ai_layer.integrations.config_files import (
+    _merge_codex_config as _merge_codex_config_file,
 )
 from ai_layer.integrations.runtime_config import _global_bootstrap_workflow, _mcp_command, _server
 from ai_layer.integrations.status import _json_ai_layer_server

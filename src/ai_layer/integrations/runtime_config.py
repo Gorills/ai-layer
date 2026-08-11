@@ -8,6 +8,8 @@ from ai_layer.core.config import get_settings
 from ai_layer.integrations.config_files import MCP_OWNER_KEY, MCP_OWNER_VALUE
 from ai_layer.integrations.templates import (
     global_bootstrap_workflow as global_bootstrap_workflow_template,
+)
+from ai_layer.integrations.templates import (
     workflow as workflow_template,
 )
 

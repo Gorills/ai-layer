@@ -1,14 +1,14 @@
 from __future__ import annotations
-from ai_layer.mcp.runtime import core_tool
-from ai_layer.mcp.runtime import _list, _project, _scoped, _text, project_root_for_tool
+
+from ai_layer.application.transport import application_scope as session_scope
+from ai_layer.application.transport import decision_search as search_decisions
 from ai_layer.application.transport import list_sessions as app_list_sessions
 from ai_layer.application.transport import restore_session as app_restore_session
 from ai_layer.application.transport import save_session as app_save_session
 from ai_layer.application.transport import task_current as db_current_task
 from ai_layer.audit.service import mcp_audit
+from ai_layer.mcp.runtime import _list, _project, _scoped, _text, core_tool, project_root_for_tool
 from ai_layer.privacy.service import privacy_check
-from ai_layer.application.transport import decision_search as search_decisions
-from ai_layer.application.transport import application_scope as session_scope
 
 
 def session_list(project_root: str | None = None, limit: int = 20) -> list[dict]:

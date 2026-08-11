@@ -7,24 +7,27 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from ai_layer import __version__
-from ai_layer.core.background_service import service_runtime_payload
-from ai_layer.core.mcp_runtime import (
-    CORE_TOKEN_HEADER,
-    runtime_state as core_runtime_state,
-    start_runtime_warmup,
-    validate_core_token,
-)
-from ai_layer.dashboard.api import router as dashboard_api_router
-from ai_layer.dashboard.web import router as dashboard_web_router, static_files
-from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError, normalize_error
-from ai_layer.application.runtime import database_health
-from ai_layer.application.recovery import recovery_status, worker_recovery_lifespan
 from ai_layer.application.context import (
     get_memory_context,
     project_details,
     search_decisions,
     search_memory,
 )
+from ai_layer.application.recovery import recovery_status, worker_recovery_lifespan
+from ai_layer.application.runtime import database_health
+from ai_layer.core.background_service import service_runtime_payload
+from ai_layer.core.mcp_runtime import (
+    CORE_TOKEN_HEADER,
+    start_runtime_warmup,
+    validate_core_token,
+)
+from ai_layer.core.mcp_runtime import (
+    runtime_state as core_runtime_state,
+)
+from ai_layer.dashboard.api import router as dashboard_api_router
+from ai_layer.dashboard.web import router as dashboard_web_router
+from ai_layer.dashboard.web import static_files
+from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError, normalize_error
 
 
 class SearchRequest(BaseModel):
@@ -90,7 +93,8 @@ def _mcp_transport(mcp_server: Any) -> tuple[Any | None, Any | None]:
 
 def create_app() -> FastAPI:
     # Import after core modules so tests can still provide a minimal MCP SDK shim.
-    from ai_layer.mcp.server import execute_core_tool, mcp as mcp_server
+    from ai_layer.mcp.server import execute_core_tool
+    from ai_layer.mcp.server import mcp as mcp_server
 
     mcp_http_app, session_manager = _mcp_transport(mcp_server)
 

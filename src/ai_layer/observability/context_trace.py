@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -11,12 +10,15 @@ from ai_layer import __version__
 from ai_layer.core.filelock import directory_lock
 from ai_layer.core.mcp_process import current_mcp_session_id
 from ai_layer.observability.context_common import (
-    estimate_tokens,
     profile_value as _profile,
+)
+from ai_layer.observability.context_common import (
     project_identity,
-    redact_value as _redact,
     trace_path,
     utcnow_iso,
+)
+from ai_layer.observability.context_common import (
+    redact_value as _redact,
 )
 from ai_layer.observability.context_config import configured_context_snapshot
 

@@ -4,10 +4,9 @@ import json
 from pathlib import Path
 
 from ai_layer.core.config import get_settings
-from ai_layer.core.filelock import directory_lock
 from ai_layer.core.registry import get_registered_project
 from ai_layer.skills.common import _atomic_json
-from ai_layer.skills.constants import REGISTRY_VERSION, SLUG_RE, VALID_SCOPES, VALID_STATUS
+from ai_layer.skills.constants import REGISTRY_VERSION, SLUG_RE, VALID_SCOPES
 
 
 def _registry_lock() -> Path:

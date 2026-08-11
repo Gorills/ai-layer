@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 from uuid import uuid4
 
 from ai_layer import __version__
@@ -68,7 +68,7 @@ def begin_mcp_activity(project_root: str, tool: str, correlation_id: str) -> dic
         return None
     item.update(
         {
-            "last_seen_at": datetime.now(timezone.utc).isoformat(),
+            "last_seen_at": datetime.now(UTC).isoformat(),
             "last_project_root": str(Path(project_root).expanduser().resolve()),
             "current_tool": tool,
             "current_correlation_id": correlation_id,
@@ -85,7 +85,7 @@ def end_mcp_activity(project_root: str, correlation_id: str) -> dict | None:
     item = _read_process_marker()
     if item is None:
         return None
-    item["last_seen_at"] = datetime.now(timezone.utc).isoformat()
+    item["last_seen_at"] = datetime.now(UTC).isoformat()
     item["last_project_root"] = str(Path(project_root).expanduser().resolve())
     if item.get("current_correlation_id") == correlation_id:
         item["current_tool"] = None
@@ -101,7 +101,7 @@ def begin_bridge_activity(tool: str, correlation_id: str, deadline_seconds: floa
     item = _read_process_marker()
     if item is None:
         return None
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     item.update(
         {
             "last_seen_at": now,
@@ -123,7 +123,7 @@ def end_bridge_activity(correlation_id: str) -> dict | None:
     item = _read_process_marker()
     if item is None:
         return None
-    item["last_seen_at"] = datetime.now(timezone.utc).isoformat()
+    item["last_seen_at"] = datetime.now(UTC).isoformat()
     if item.get("current_correlation_id") == correlation_id:
         item["current_tool"] = None
         item["current_correlation_id"] = None
@@ -141,7 +141,7 @@ def registered_mcp_process() -> Iterator[dict]:
     """Register a running MCP process so doctor/QA can detect runtime version skew."""
     pid = os.getpid()
     path = _process_dir() / f"{pid}.json"
-    started_at = datetime.now(timezone.utc).isoformat()
+    started_at = datetime.now(UTC).isoformat()
     payload = {
         "pid": pid,
         "version": __version__,

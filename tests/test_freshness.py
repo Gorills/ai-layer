@@ -341,6 +341,7 @@ def test_git_generation_probe_skips_full_file_walk_on_unchanged_repository(
     tmp_path: Path, monkeypatch
 ):
     import json
+
     from ai_layer.memory.embeddings import embedding_signature
     from ai_layer.memory.versioning import CONTENT_IDENTITY_VERSION, SCANNER_SCHEMA_VERSION
 

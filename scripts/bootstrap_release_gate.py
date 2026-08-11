@@ -73,7 +73,7 @@ def _check_wheel(path: Path, *, version: str, scripts: dict[str, str]) -> list[s
                 errors.append("application wheel must contain exactly one METADATA file")
             else:
                 metadata = archive.read(metadata_names[0]).decode("utf-8", errors="replace")
-                if f"Name: local-ai-development-layer\n" not in metadata:
+                if "Name: local-ai-development-layer\n" not in metadata:
                     errors.append("application wheel project name mismatch")
                 if f"Version: {version}\n" not in metadata:
                     errors.append("application wheel version mismatch")

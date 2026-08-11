@@ -1,25 +1,30 @@
 from __future__ import annotations
-from ai_layer.cli.root import agent_app, skill_app, echo
+
 from pathlib import Path
-from ai_layer.agents.policy import policy_path as agent_policy_path
+
+import typer
+
 from ai_layer.agents.policy import configure_policy as configure_agent_policy
-from ai_layer.skills.manager import default_skill_catalog
-from ai_layer.core.config import get_settings
-from ai_layer.skills.manager import import_skills
-from ai_layer.skills.manager import inbox_sources
 from ai_layer.agents.policy import install_cursor_profiles
-from ai_layer.skills.manager import install_import
-from ai_layer.skills.service import list_skills as list_available_skills
 from ai_layer.agents.policy import load_policy as load_agent_policy
+from ai_layer.agents.policy import policy_path as agent_policy_path
+from ai_layer.cli.root import agent_app, echo, skill_app
+from ai_layer.core.config import get_settings
+from ai_layer.core.paths import normalize_root
+from ai_layer.skills.manager import (
+    default_skill_catalog,
+    import_skills,
+    inbox_sources,
+    install_import,
+    set_skill_enabled,
+    skill_manager_info,
+    skill_records,
+    validate_skill_text,
+)
 from ai_layer.skills.manager import remove_skill as manager_remove_skill
 from ai_layer.skills.manager import update_skill as manager_update_skill
-from ai_layer.core.paths import normalize_root
-from ai_layer.skills.manager import set_skill_enabled
-from ai_layer.skills.manager import skill_manager_info
-from ai_layer.skills.manager import skill_records
+from ai_layer.skills.service import list_skills as list_available_skills
 from ai_layer.skills.service import skill_sections
-import typer
-from ai_layer.skills.manager import validate_skill_text
 
 
 def _skill_scope_root(scope: str, project: str | None) -> tuple[str, str | None]:

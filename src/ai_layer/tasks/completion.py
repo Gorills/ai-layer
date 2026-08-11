@@ -8,16 +8,11 @@ from sqlalchemy.orm import Session
 
 from ai_layer.core.filelock import directory_lock
 from ai_layer.db.models import Project, ReviewFinding, Task, TaskStage, utcnow
-from ai_layer.privacy.service import privacy_check
 from ai_layer.observability.domain_events import append_event
-from ai_layer.sessions.service import save_session
 from ai_layer.tasks.concurrency import assert_expected_version, bump_task_version
 from ai_layer.tasks.constants import (
-    HIGH_RISK_TERMS,
-    HUMAN_ATTENTION_PREFIX,
-    MAX_AUTOMATIC_FIX_ROUNDS,
-    MAX_STAGE_CHECKS,
     MAX_STAGE_CHECK_CHARS,
+    MAX_STAGE_CHECKS,
     MAX_STAGE_SUMMARY_CHARS,
     READ_ONLY_STAGES,
     TERMINAL_TASK_STATUSES,
@@ -26,32 +21,31 @@ from ai_layer.tasks.contracts import (
     _bounded_result_data,
     _bounded_text,
     _bounded_text_list,
-    _contains_any,
 )
-from ai_layer.tasks.review_contracts import (
-    _add_findings,
-    _apply_verification_results,
-    _normalize_external_actions,
-    _normalize_review_submission,
-    _normalize_verification_results,
-    _open_findings,
-)
-from ai_layer.tasks.micro_policy import micro_envelope as _micro_envelope
-from ai_layer.tasks.state_store import (
-    load_stage_start as _load_stage_start,
-    materialize_stage_start,
-    task_key,
-    task_lock as _task_lock,
-    task_work_dir as _task_work_dir,
-)
-from ai_layer.workspace.repository import capture_repository_state, repository_changes
 from ai_layer.tasks.review_checks import (
     evidence_check_strings,
     latest_review_check_evidence,
     review_check_evidence,
 )
+from ai_layer.tasks.review_contracts import (
+    _normalize_external_actions,
+    _open_findings,
+)
 from ai_layer.tasks.review_workspace import cleanup_review_sandbox
 from ai_layer.tasks.stage_validation import _validate_stage_result
+from ai_layer.tasks.state_store import (
+    load_stage_start as _load_stage_start,
+)
+from ai_layer.tasks.state_store import (
+    materialize_stage_start,
+    task_key,
+)
+from ai_layer.tasks.state_store import (
+    task_lock as _task_lock,
+)
+from ai_layer.tasks.state_store import (
+    task_work_dir as _task_work_dir,
+)
 from ai_layer.tasks.transitions import (
     _advance_discovery,
     _advance_fix,
@@ -61,15 +55,11 @@ from ai_layer.tasks.transitions import (
 from ai_layer.tasks.views import (
     _active_stage,
     _completion_contract,
-    _create_stage,
     _finding_payload,
-    _findings,
     _persist_task_view,
-    _remediation_fix_count,
-    _stage_label,
-    _stages,
     _validate_worker_id,
 )
+from ai_layer.workspace.repository import capture_repository_state, repository_changes
 
 
 def _record_stage_evidence(

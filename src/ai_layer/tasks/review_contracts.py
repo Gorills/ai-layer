@@ -3,16 +3,16 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_layer.db.models import ReviewFinding, Task, utcnow
 from ai_layer.core.redaction import redact_secrets
+from ai_layer.db.models import ReviewFinding, Task, utcnow
 from ai_layer.observability.domain_events import append_event
 from ai_layer.tasks.constants import (
     MAX_EXTERNAL_ACTIONS,
     MAX_EXTERNAL_TARGET_CHARS,
     MAX_EXTERNAL_TEXT_CHARS,
-    MAX_FINDINGS,
     MAX_FINDING_PATH_CHARS,
     MAX_FINDING_TEXT_CHARS,
+    MAX_FINDINGS,
     MAX_VERIFICATION_EVIDENCE_CHARS,
     READ_ONLY_STAGES,
     REVIEW_VERDICT_ALIASES,

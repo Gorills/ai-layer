@@ -1,7 +1,8 @@
 """Store deterministic structured project intelligence for adaptive skill routing."""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0009_project_intelligence"
 down_revision = "0008_workflow_navigation"

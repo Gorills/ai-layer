@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 from ai_layer.skills.service import (
     list_skills,
@@ -291,9 +290,9 @@ def test_default_catalog_uiux_uses_pinned_package_and_selected_skill_member(tmp_
     import io
     import zipfile
 
-    from ai_layer.core.config import get_settings
     import ai_layer.skills.manager as manager
     import ai_layer.skills.packages as packages
+    from ai_layer.core.config import get_settings
 
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "home"))
     get_settings.cache_clear()
@@ -324,8 +323,8 @@ def test_default_catalog_uiux_uses_pinned_package_and_selected_skill_member(tmp_
 
 
 def test_package_install_failure_does_not_leave_unmanaged_skill_file(tmp_path, monkeypatch):
-    from ai_layer.core.config import get_settings
     import ai_layer.skills.manager as manager
+    from ai_layer.core.config import get_settings
 
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "home"))
     get_settings.cache_clear()
@@ -356,9 +355,9 @@ def test_skill_zip_rejects_absolute_symlink_and_bounds_symlink_expansion(tmp_pat
     import stat
     import zipfile
 
-    from ai_layer.core.config import get_settings
     import ai_layer.skills.manager as manager
     import ai_layer.skills.packages as packages
+    from ai_layer.core.config import get_settings
 
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "home"))
     get_settings.cache_clear()

@@ -1,29 +1,31 @@
 from __future__ import annotations
-from ai_layer.mcp.runtime import core_tool
-from ai_layer.mcp.runtime import (
-    _compact_open_transition,
-    _list,
-    _project,
-    _scoped,
-    _text,
-    project_root_for_tool,
-)
+
+import shlex
+
+from ai_layer.application.transport import application_scope as session_scope
+from ai_layer.application.transport import cleanup_review_sandbox as db_cleanup_review_sandbox
+from ai_layer.application.transport import prepare_review_sandbox as db_prepare_review_sandbox
+from ai_layer.application.transport import run_review_check as db_run_review_check
+from ai_layer.application.transport import run_verification as db_run_verification
 from ai_layer.application.transport import task_adopt as db_adopt_task
 from ai_layer.application.transport import task_cancel as db_cancel_task
-from ai_layer.application.transport import cleanup_review_sandbox as db_cleanup_review_sandbox
 from ai_layer.application.transport import task_complete_current as db_complete_current_stage
 from ai_layer.application.transport import task_complete_legacy as db_complete_stage
 from ai_layer.application.transport import task_create as db_create_task
 from ai_layer.application.transport import task_current as db_current_task
 from ai_layer.application.transport import task_delegate as db_delegate_current_stage
 from ai_layer.application.transport import task_next as db_next_task_action
-from ai_layer.application.transport import prepare_review_sandbox as db_prepare_review_sandbox
 from ai_layer.application.transport import task_resume as db_resume_task
-from ai_layer.application.transport import run_review_check as db_run_review_check
-from ai_layer.application.transport import run_verification as db_run_verification
 from ai_layer.audit.service import mcp_audit
-from ai_layer.application.transport import application_scope as session_scope
-import shlex
+from ai_layer.mcp.runtime import (
+    _compact_open_transition,
+    _list,
+    _project,
+    _scoped,
+    _text,
+    core_tool,
+    project_root_for_tool,
+)
 
 
 def task_current(project_root: str | None = None) -> dict:

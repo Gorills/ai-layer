@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ai_layer.core.redaction import redact_secrets
 
@@ -30,7 +30,7 @@ _KEY_RE = re.compile(r"[^a-z0-9._/-]+")
 
 
 def utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def normalize_key(value: str) -> str:

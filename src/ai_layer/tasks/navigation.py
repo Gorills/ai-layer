@@ -13,24 +13,26 @@ from ai_layer.domain.orchestrator import (
 )
 from ai_layer.tasks.constants import OPEN_TASK_STATUSES, READ_ONLY_STAGES
 from ai_layer.tasks.contracts import _stage_agent_policy
-from ai_layer.tasks.state_store import (
-    load_stage_start as _load_stage_start,
-    read_json as _read_json,
-    task_key,
-)
-from ai_layer.workspace.repository import (
-    git_changed_paths as _git_changed_paths,
-    capture_repository_state,
-    repository_changes,
-)
 from ai_layer.tasks.review_checks import run_review_check
 from ai_layer.tasks.review_workspace import cleanup_review_sandbox, prepare_review_sandbox
+from ai_layer.tasks.state_store import (
+    load_stage_start as _load_stage_start,
+)
+from ai_layer.tasks.state_store import (
+    task_key,
+)
 from ai_layer.tasks.views import (
     _active_stage,
     _completion_contract,
     _human_attention_reason,
     current_task,
-    task_to_dict,
+)
+from ai_layer.workspace.repository import (
+    capture_repository_state,
+    repository_changes,
+)
+from ai_layer.workspace.repository import (
+    git_changed_paths as _git_changed_paths,
 )
 
 

@@ -5,10 +5,10 @@ import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
+from ai_layer.application.tasks import read_state as read_task_state
 from ai_layer.db.base import Base
 from ai_layer.db.models import Project, ReviewFinding, Task, TaskStage, WorkSession
 from ai_layer.tasks import service as tasks
-from ai_layer.application.tasks import read_state as read_task_state
 
 
 def _db_project(tmp_path: Path):
@@ -600,6 +600,7 @@ def test_still_open_verification_forces_another_fix_round(tmp_path: Path):
 
 def test_task_dashboard_prefers_canonical_database_over_stale_disk(tmp_path: Path, monkeypatch):
     from contextlib import contextmanager
+
     from ai_layer.application import tasks as application_tasks
 
     db, project, root = _db_project(tmp_path)
@@ -1123,6 +1124,7 @@ def test_review_sandbox_uses_git_worktree_and_overlays_dirty_worktree(tmp_path: 
     import json
     import shutil
     import subprocess
+
     from ai_layer.core.config import get_settings
 
     git = shutil.which("git")
@@ -1753,6 +1755,7 @@ def test_legacy_active_stage_has_one_time_completion_route_without_retroactive_d
 
 def test_dashboard_state_uses_authoritative_task_next_navigation(tmp_path: Path, monkeypatch):
     from contextlib import contextmanager
+
     from ai_layer.application import tasks as application_tasks
 
     db, project, root = _db_project(tmp_path)
@@ -1780,6 +1783,7 @@ def test_dashboard_state_exposes_create_task_navigation_when_only_historical_tas
     tmp_path: Path, monkeypatch
 ):
     from contextlib import contextmanager
+
     from ai_layer.application import tasks as application_tasks
 
     db, project, root = _db_project(tmp_path)

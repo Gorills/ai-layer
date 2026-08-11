@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 import stat as stat_module
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from ai_layer.core.config import get_settings
 from ai_layer.core.redaction import redact_secrets as _shared_redact_secrets

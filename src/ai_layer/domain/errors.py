@@ -68,7 +68,7 @@ class StructuredError(Exception):
         return payload
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "StructuredError":
+    def from_dict(cls, payload: dict[str, Any]) -> StructuredError:
         category_raw = str(payload.get("category") or ErrorCategory.INTERNAL.value)
         try:
             category = ErrorCategory(category_raw)

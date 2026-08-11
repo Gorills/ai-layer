@@ -1,6 +1,6 @@
+import uuid
 from contextlib import contextmanager
 from types import SimpleNamespace
-import uuid
 
 
 def test_mcp_project_skill_create_uses_explicit_registered_identity_not_cwd(tmp_path, monkeypatch):

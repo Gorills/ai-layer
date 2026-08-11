@@ -68,7 +68,7 @@ def _build_findings(events: list[dict]) -> list[dict]:
                         "message": "Current-source text entered memory_context; host-native source discovery should own current code.",
                     }
                 )
-            stale = list(((result.get("task_brief") or {}).get("stale_knowledge") or []))
+            stale = list((result.get("task_brief") or {}).get("stale_knowledge") or [])
             if stale:
                 findings.append(
                     {
@@ -138,13 +138,13 @@ def _configured_token_summary(configured: dict) -> dict:
         result[key] = int(profile.get("estimated_tokens") or 0)
     result["worker_profiles"] = {
         str(item.get("name") or "unknown"): int(
-            ((item.get("profile") or {}).get("estimated_tokens") or 0)
+            (item.get("profile") or {}).get("estimated_tokens") or 0
         )
         for item in (configured.get("configured_worker_profiles") or [])
     }
     native = configured.get("native_skill_catalog") or {}
     result["native_skill_catalog_metadata"] = {
-        host: int(((data.get("catalog_metadata_profile") or {}).get("estimated_tokens") or 0))
+        host: int((data.get("catalog_metadata_profile") or {}).get("estimated_tokens") or 0)
         for host, data in (native.get("hosts") or {}).items()
     }
     return result

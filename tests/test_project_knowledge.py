@@ -13,7 +13,7 @@ from ai_layer.application.knowledge import (
 )
 from ai_layer.db.base import Base
 from ai_layer.db.models import Knowledge, Project
-from ai_layer.memory import indexer, knowledge_store, scanner, service
+from ai_layer.memory import knowledge_store, scanner, service
 from ai_layer.memory.knowledge_contract import KNOWLEDGE_KIND, normalize_card_input
 from ai_layer.memory.knowledge_store import (
     knowledge_status,

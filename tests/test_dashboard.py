@@ -6,8 +6,8 @@ from typer.testing import CliRunner
 
 from ai_layer.cli.app import app as cli_app
 from ai_layer.core.config import get_settings
-from ai_layer.core.registry import register_project
 from ai_layer.core.paths import project_state_path
+from ai_layer.core.registry import register_project
 from ai_layer.observability.events import emit_event
 
 

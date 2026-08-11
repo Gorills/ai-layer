@@ -4,10 +4,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_layer.db.models import Project, ReviewFinding, RuntimeEvent, Task, TaskStage, utcnow
-from ai_layer.privacy.service import privacy_check
-from ai_layer.sessions.service import save_session
 from ai_layer.memory.knowledge_store import has_task_drafts, publish_task_drafts
 from ai_layer.observability.domain_events import append_event
+from ai_layer.privacy.service import privacy_check
+from ai_layer.sessions.service import save_session
 from ai_layer.tasks.concurrency import bump_task_version
 from ai_layer.tasks.constants import (
     HIGH_RISK_TERMS,
@@ -21,7 +21,8 @@ from ai_layer.tasks.review_contracts import (
     _apply_verification_results,
     _open_findings,
 )
-from ai_layer.tasks.state_store import load_baseline as _load_baseline, task_key
+from ai_layer.tasks.state_store import load_baseline as _load_baseline
+from ai_layer.tasks.state_store import task_key
 from ai_layer.tasks.views import (
     _create_stage,
     _findings,

@@ -5,10 +5,10 @@ import json
 import os
 import shutil
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 from uuid import uuid4
 
 from ai_layer.core.paths import project_state_path
@@ -38,7 +38,7 @@ def _write_owner(path: Path, token: str) -> None:
     payload = {
         "pid": os.getpid(),
         "token": token,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
     owner = path / "owner.json"
     with owner.open("x", encoding="utf-8") as handle:

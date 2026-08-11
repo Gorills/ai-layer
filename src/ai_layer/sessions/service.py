@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -11,9 +11,9 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from ai_layer.core.paths import project_state_path
+from ai_layer.core.redaction import redact_secrets
 from ai_layer.db.models import Decision, Project, WorkSession
 from ai_layer.memory.embeddings import get_embedder
-from ai_layer.core.redaction import redact_secrets
 
 SNAPSHOT_SCHEMA = 2
 SNAPSHOT_RETENTION = 200
@@ -82,7 +82,7 @@ def _created_at_key(item: dict) -> float:
     except ValueError:
         return 0.0
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
     return value.timestamp()
 
 
@@ -109,7 +109,7 @@ def _write_snapshot_index(directory: Path, snapshots: list[dict]) -> None:
         {
             "schema": SNAPSHOT_SCHEMA,
             "ids": [str(item["id"]) for item in ordered],
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         },
     )
 
@@ -284,7 +284,7 @@ def save_session(
         important_decisions=payload["important_decisions"],
         verified_facts=payload["verified_facts"],
         notable_findings=payload["notable_findings"],
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(session)
     db.flush()

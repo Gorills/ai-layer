@@ -5,11 +5,11 @@ from pathlib import Path
 
 import typer
 
+from ai_layer.application import knowledge as knowledge_uc
 from ai_layer.cli.root import app, echo, memory_app
 from ai_layer.core.paths import normalize_root
 from ai_layer.observability.context_common import report_path
 from ai_layer.observability.context_report import build_report, write_latest_report
-from ai_layer.application import knowledge as knowledge_uc
 
 
 def context_report(

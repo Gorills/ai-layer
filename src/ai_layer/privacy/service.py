@@ -9,7 +9,6 @@ from pathlib import Path
 
 from ai_layer.core.config import get_settings
 from ai_layer.core.paths import (
-    project_meta_dir,
     project_mode,
     project_provenance,
     project_state_path,

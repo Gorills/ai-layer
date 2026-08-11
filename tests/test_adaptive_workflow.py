@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from ai_layer.core.config import get_settings
 from ai_layer.db.base import Base
-from ai_layer.db.models import Project, Task
+from ai_layer.db.models import Project
 from ai_layer.tasks import service as tasks
 from ai_layer.tasks.agent_policy import install_cursor_profiles
-from ai_layer.core.config import get_settings
 
 
 def _db_project(tmp_path: Path):

@@ -84,6 +84,7 @@ def test_audit_check_detects_duplicate_memory_context_in_same_flow(tmp_path: Pat
 
 def test_audit_event_identifies_server_version_and_pid(tmp_path: Path):
     import os
+
     from ai_layer import __version__
 
     register_project(tmp_path, "audit-version", tmp_path.name)

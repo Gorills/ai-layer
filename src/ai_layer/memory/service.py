@@ -5,6 +5,7 @@ import json
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ai_layer.core.request_context import interactive_request
 from ai_layer.db.models import Decision, Project
 from ai_layer.memory.freshness import ensure_memory_fresh
 from ai_layer.memory.guidance import build_tool_guidance
@@ -20,7 +21,6 @@ from ai_layer.memory.knowledge_store import (
     relevant_source_pointers,
     search_knowledge,
 )
-from ai_layer.memory.refresh_runtime import interactive_freshness
 from ai_layer.memory.presentation import (
     build_task_brief,
     compact_audit_guidance,
@@ -28,14 +28,14 @@ from ai_layer.memory.presentation import (
     compact_audit_scanner_evidence,
     compact_continuation_guidance,
     compact_continuation_runtime,
-    compact_task_runtime,
     compact_inventory,
+    compact_task_runtime,
     context_budget,
     context_mode,
     present_scanner_evidence,
     scanner_snapshot_current,
 )
-from ai_layer.core.request_context import interactive_request
+from ai_layer.memory.refresh_runtime import interactive_freshness
 from ai_layer.policy.service import RESPONSE_CONTRACT, dynamic_policy
 from ai_layer.sessions.service import snapshot_decisions
 from ai_layer.skills.profile import detect_project_profile

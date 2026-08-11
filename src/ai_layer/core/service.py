@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -40,12 +40,12 @@ from ai_layer.memory.freshness import (
     scan_until_stable,
     scanner_state_matches,
 )
-from ai_layer.memory.locking import project_refresh_lock
 from ai_layer.memory.knowledge_store import knowledge_status
+from ai_layer.memory.locking import project_refresh_lock
 from ai_layer.observability.events import observed_operation
 from ai_layer.privacy.service import (
-    is_git_repository,
     install_git_privacy_guard,
+    is_git_repository,
     remove_git_privacy_guard,
 )
 from ai_layer.skills.native import sync_project_native_skills
@@ -57,7 +57,7 @@ Add only rules that are specific to this repository. Global engineering policy i
 
 
 def _utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _read_project_config(path: Path) -> dict:

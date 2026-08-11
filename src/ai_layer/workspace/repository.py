@@ -4,9 +4,9 @@ import hashlib
 import os
 import shutil
 import subprocess
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 REPOSITORY_SNAPSHOT_SCHEMA = 4
 MAX_CHANGE_PATHS = 200
@@ -30,7 +30,7 @@ FALLBACK_IGNORE_DIRS = {
 
 
 def utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def git_visible_paths(root: Path) -> list[Path] | None:

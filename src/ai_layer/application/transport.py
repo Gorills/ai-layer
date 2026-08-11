@@ -7,10 +7,11 @@ code should prefer the focused use-case modules directly.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from ai_layer.application import context as context_uc
 from ai_layer.application import sessions as sessions_uc

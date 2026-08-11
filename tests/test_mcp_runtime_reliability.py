@@ -74,8 +74,8 @@ def test_ready_runtime_does_not_rewarm_on_every_context_call(monkeypatch):
 
 
 def test_bridge_wrapper_proxies_without_executing_local_handler(monkeypatch):
-    from ai_layer.mcp import server
     from ai_layer.mcp import runtime as mcp_runtime
+    from ai_layer.mcp import server
 
     monkeypatch.setenv("AI_LAYER_MCP_BRIDGE", "1")
     monkeypatch.setattr(mcp_runtime, "begin_bridge_activity", lambda *args, **kwargs: None)
@@ -193,8 +193,8 @@ def test_systemd_runtime_restarts_always():
 
 def test_ambiguous_core_timeout_is_not_replayed_locally(monkeypatch):
     from ai_layer.core.mcp_runtime import CoreRequestTimeout
-    from ai_layer.mcp import server
     from ai_layer.mcp import runtime as mcp_runtime
+    from ai_layer.mcp import server
     from ai_layer.mcp.tools import project_context as project_tools
 
     monkeypatch.setenv("AI_LAYER_MCP_BRIDGE", "1")
@@ -219,7 +219,9 @@ def test_ambiguous_core_timeout_is_not_replayed_locally(monkeypatch):
 
 def test_connection_loss_after_dispatch_is_ambiguous(monkeypatch):
     import urllib.error
+
     import pytest
+
     from ai_layer.core import mcp_runtime
 
     monkeypatch.setattr(mcp_runtime, "ensure_core_token", lambda: "token")
@@ -236,6 +238,7 @@ def test_connection_loss_after_dispatch_is_ambiguous(monkeypatch):
 
 def test_internal_core_rpc_requires_token_and_dispatches(monkeypatch):
     from fastapi.testclient import TestClient
+
     from ai_layer.api import app as api_module
     from ai_layer.mcp import server
 
@@ -263,6 +266,7 @@ def test_internal_core_rpc_requires_token_and_dispatches(monkeypatch):
 def test_create_app_initializes_streamable_http_before_session_manager(monkeypatch):
     """MCP SDK 2.x session_manager is lazy and raises before streamable_http_app()."""
     from fastapi import FastAPI
+
     from ai_layer.api import app as api_module
     from ai_layer.mcp import server
 

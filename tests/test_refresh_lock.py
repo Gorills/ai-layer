@@ -85,6 +85,7 @@ def test_refresh_lock_never_age_steals_from_known_live_owner(tmp_path: Path, mon
 
 def test_lock_owner_process_incarnation_prevents_pid_reuse_stall(tmp_path: Path, monkeypatch):
     import json
+
     from ai_layer.core import filelock
 
     lock = tmp_path / "refresh.lock"

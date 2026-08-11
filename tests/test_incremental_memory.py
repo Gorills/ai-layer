@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ai_layer.db.base import Base
 from ai_layer.db.models import Decision, Knowledge, Project, ProjectFile, ProjectSkill
-from ai_layer.memory import freshness, identity, indexer, project_state, scanner
+from ai_layer.memory import freshness, identity, indexer, scanner
 
 
 class CountingEmbedder:

@@ -8,7 +8,7 @@ from sqlalchemy import select
 from ai_layer.core.service import get_project
 from ai_layer.db.models import ApprovalRequest, utcnow
 from ai_layer.db.session import session_scope
-from ai_layer.domain.security import Actor, Capability, DANGEROUS_CAPABILITIES, PolicyDecision
+from ai_layer.domain.security import DANGEROUS_CAPABILITIES, Actor, Capability, PolicyDecision
 from ai_layer.observability.domain_events import append_event
 
 

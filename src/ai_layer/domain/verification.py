@@ -7,7 +7,6 @@ from typing import Any
 
 from ai_layer.domain.security import Capability
 
-
 MAX_TIMEOUT_SECONDS = 900
 MAX_COMMAND_PARTS = 64
 MAX_COMMAND_PART_CHARS = 2_000
@@ -32,7 +31,7 @@ class VerificationRequest:
         cwd: str = ".",
         timeout_seconds: int = 300,
         environment: dict[str, str] | None = None,
-    ) -> "VerificationRequest":
+    ) -> VerificationRequest:
         parts = tuple(str(part) for part in command)
         if not parts or len(parts) > MAX_COMMAND_PARTS:
             raise ValueError(f"verification command must contain 1..{MAX_COMMAND_PARTS} argv items")

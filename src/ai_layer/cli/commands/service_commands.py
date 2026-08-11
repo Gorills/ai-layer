@@ -1,32 +1,34 @@
 from __future__ import annotations
-from ai_layer.cli.root import app, mcp_app, memory_app, service_app, session_app, echo
-from ai_layer.core.background_service import DEFAULT_HOST
-from ai_layer.core.background_service import DEFAULT_PORT
-from ai_layer.integrations.service import _merge_mcp_json
+
+import ipaddress
+import webbrowser
+
+import typer
+import uvicorn
+
 from ai_layer.application.context import search_memory as app_memory_search
 from ai_layer.application.projects import scan_project as app_scan_project
 from ai_layer.application.runtime import database_health
+from ai_layer.application.sessions import restore_project_session, save_project_session
+from ai_layer.cli.root import app, echo, mcp_app, memory_app, service_app, session_app
+from ai_layer.core.background_service import (
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    install_user_service,
+    probe_service,
+    restart_user_service,
+    service_status,
+    service_url,
+    start_user_service,
+    stop_user_service,
+    uninstall_user_service,
+    wait_for_service,
+)
 from ai_layer.core.config import get_settings
-from ai_layer.core.background_service import install_user_service
-import ipaddress
 from ai_layer.core.mcp_process import list_mcp_processes
-from ai_layer.core.paths import normalize_root
+from ai_layer.core.paths import normalize_root, project_local_path, project_mode
+from ai_layer.integrations.service import _merge_mcp_json
 from ai_layer.privacy.service import privacy_check
-from ai_layer.core.background_service import probe_service
-from ai_layer.core.paths import project_local_path
-from ai_layer.core.paths import project_mode
-from ai_layer.core.background_service import restart_user_service
-from ai_layer.application.sessions import restore_project_session
-from ai_layer.application.sessions import save_project_session
-from ai_layer.core.background_service import service_status
-from ai_layer.core.background_service import service_url
-from ai_layer.core.background_service import start_user_service
-from ai_layer.core.background_service import stop_user_service
-import typer
-from ai_layer.core.background_service import uninstall_user_service
-import uvicorn
-from ai_layer.core.background_service import wait_for_service
-import webbrowser
 
 
 def memory_search_cmd(

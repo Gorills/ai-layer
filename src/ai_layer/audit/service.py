@@ -3,16 +3,16 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 from uuid import uuid4
 
 from ai_layer.core.filelock import directory_lock
+from ai_layer.core.mcp_process import begin_mcp_activity, current_mcp_session_id, end_mcp_activity
 from ai_layer.core.paths import project_state_path
 from ai_layer.core.registry import get_registered_project
-from ai_layer.core.mcp_process import begin_mcp_activity, current_mcp_session_id, end_mcp_activity
 from ai_layer.observability.service import emit_event
 
 AUDIT_RELATIVE_PATH = Path("audit") / "mcp.jsonl"
@@ -142,7 +142,7 @@ def mcp_audit(
                 _append_event(
                     audit_path(root),
                     {
-                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "ts": datetime.now(UTC).isoformat(),
                         "tool": tool,
                         "project_root": root,
                         "server_version": _server_version(),

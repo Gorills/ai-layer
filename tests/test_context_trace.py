@@ -66,7 +66,7 @@ def test_context_trace_captures_redacted_memory_payload_and_skill_economy(
         ),
     )
 
-    from ai_layer.observability.context_common import trace_path, report_path
+    from ai_layer.observability.context_common import report_path, trace_path
 
     trace = trace_path(repo)
     report = report_path(repo)

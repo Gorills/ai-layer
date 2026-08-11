@@ -5,9 +5,9 @@ import json
 import os
 import shutil
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 from uuid import uuid4
 
 DEFAULT_TIMEOUT_SECONDS = 15.0

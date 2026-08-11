@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ai_layer.domain.orchestrator import orchestrator_stage_instruction
-from ai_layer.domain.workflow import stage_definition
 from ai_layer.db.models import (
     Project,
     ReviewFinding,
@@ -15,6 +12,8 @@ from ai_layer.db.models import (
     TaskStage,
     VerificationRun,
 )
+from ai_layer.domain.orchestrator import orchestrator_stage_instruction
+from ai_layer.domain.workflow import stage_definition
 from ai_layer.tasks.constants import (
     HUMAN_ATTENTION_PREFIX,
     MAX_AUTOMATIC_FIX_ROUNDS,
@@ -27,14 +26,18 @@ from ai_layer.tasks.constants import (
 )
 from ai_layer.tasks.contracts import _configure_stage_agent, _stage_agent_policy
 from ai_layer.tasks.delegation_contract import build_delegation_contract
+from ai_layer.tasks.review_workspace import cleanup_review_sandbox
 from ai_layer.tasks.state_store import (
     atomic_write_json as _atomic_write_json,
+)
+from ai_layer.tasks.state_store import (
     create_repository_snapshot,
     snapshot_store,
     task_key,
+)
+from ai_layer.tasks.state_store import (
     task_root as _task_root,
 )
-from ai_layer.tasks.review_workspace import cleanup_review_sandbox
 
 
 def _stage_label(stage: TaskStage) -> str:

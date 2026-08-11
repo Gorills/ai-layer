@@ -1,10 +1,10 @@
-from ai_layer import __version__
 import json
 import os
 import signal
 
-from ai_layer.core.config import get_settings
+from ai_layer import __version__
 from ai_layer.core import mcp_process
+from ai_layer.core.config import get_settings
 from ai_layer.core.mcp_process import list_mcp_processes, registered_mcp_process
 
 

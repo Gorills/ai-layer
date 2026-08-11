@@ -1,21 +1,21 @@
 from __future__ import annotations
-from ai_layer.mcp.runtime import core_tool
-from ai_layer.mcp.runtime import _list, _project, _text, project_root_for_tool
-from ai_layer.skills.service import list_skills as all_skills
-from ai_layer.skills.manager import create_project_skill
-from ai_layer.skills.manager import default_skill_catalog
-from ai_layer.skills.manager import import_skills
-from ai_layer.skills.manager import install_import
-from ai_layer.skills.service import load_skill
+
+from ai_layer.application.transport import application_scope as session_scope
+from ai_layer.audit.service import mcp_audit
+from ai_layer.mcp.runtime import _list, _project, _text, core_tool, project_root_for_tool
+from ai_layer.skills.manager import (
+    create_project_skill,
+    default_skill_catalog,
+    import_skills,
+    install_import,
+    set_skill_enabled,
+    skill_manager_info,
+    skill_records,
+)
 from ai_layer.skills.manager import remove_skill as manager_remove_skill
 from ai_layer.skills.manager import update_skill as manager_update_skill
-from ai_layer.audit.service import mcp_audit
-from ai_layer.application.transport import application_scope as session_scope
-from ai_layer.skills.manager import set_skill_enabled
-from ai_layer.skills.manager import skill_manager_info
-from ai_layer.skills.manager import skill_records
-from ai_layer.skills.service import skill_section_content
-from ai_layer.skills.service import skill_sections
+from ai_layer.skills.service import list_skills as all_skills
+from ai_layer.skills.service import load_skill, skill_section_content, skill_sections
 
 
 def skill_list(project_root: str | None = None) -> list[dict]:

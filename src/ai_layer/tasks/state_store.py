@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -13,12 +13,11 @@ from ai_layer.core.paths import project_state_path
 from ai_layer.db.models import Project, RepositorySnapshot, Task, TaskStage
 from ai_layer.domain.ports import SnapshotReference, WorkflowSnapshotStore
 
-
 SNAPSHOT_STORAGE_BACKEND = "postgresql-json"
 
 
 def utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def task_key(task: Task) -> str:

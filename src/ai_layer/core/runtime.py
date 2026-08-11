@@ -6,16 +6,16 @@ import shutil
 import subprocess
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect
 
 from ai_layer import __version__
 from ai_layer.core.config import get_settings
 from ai_layer.db.session import database_status, get_engine
+from alembic import command
 
 COMMAND_TIMEOUT_SECONDS = 15
 
@@ -44,7 +44,7 @@ def _run_command(
 
 
 def _utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def docker_compose_available() -> tuple[bool, str | None]:

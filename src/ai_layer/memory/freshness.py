@@ -3,26 +3,28 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from ai_layer.core.paths import project_state_path
 from ai_layer.core.mcp_process import current_mcp_session_id
-from ai_layer.observability.events import observed_operation
+from ai_layer.core.paths import project_state_path
 from ai_layer.db.models import Project
 from ai_layer.memory.embeddings import embedding_signature
-from ai_layer.memory.locking import project_refresh_lock
 from ai_layer.memory.identity import (
     RepositoryChangedDuringScan,
-    build_file_hints as build_file_state,
     repository_probe,
     state_hints_match,
 )
+from ai_layer.memory.identity import (
+    build_file_hints as build_file_state,
+)
 from ai_layer.memory.indexer import scan_project
+from ai_layer.memory.locking import project_refresh_lock
 from ai_layer.memory.source import ScanLimitExceeded
 from ai_layer.memory.versioning import CONTENT_IDENTITY_VERSION, SCANNER_SCHEMA_VERSION
+from ai_layer.observability.events import observed_operation
 
 STATE_FILE = "file_state.json"
 SCAN_FILE = "scan.json"
@@ -115,7 +117,7 @@ def write_scan_metadata(
 ) -> dict:
     memory_dir = _memory_dir(project)
     snapshot = {
-        "scanned_at": datetime.now(timezone.utc).isoformat(),
+        "scanned_at": datetime.now(UTC).isoformat(),
         "reason": reason,
         "files": stats.files,
         "knowledge_items": stats.knowledge_items,

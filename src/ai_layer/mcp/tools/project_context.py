@@ -1,12 +1,12 @@
 from __future__ import annotations
-from ai_layer.mcp.runtime import core_tool
-from ai_layer.mcp.runtime import _project, _scoped, _text, project_root_for_tool
-from ai_layer.mcp.context import bind_project_root
+
+from ai_layer.application.transport import application_scope as session_scope
 from ai_layer.application.transport import memory_context as build_memory_context
+from ai_layer.application.transport import memory_search as search_memory
 from ai_layer.application.transport import project_info as get_project_info
 from ai_layer.audit.service import mcp_audit
-from ai_layer.application.transport import memory_search as search_memory
-from ai_layer.application.transport import application_scope as session_scope
+from ai_layer.mcp.context import bind_project_root
+from ai_layer.mcp.runtime import _project, _scoped, _text, core_tool, project_root_for_tool
 
 
 def project_info(project_root: str | None = None) -> dict:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -10,15 +10,15 @@ def _parse_ts(value: object) -> datetime | None:
     except (TypeError, ValueError):
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _age(value: object) -> str:
     ts = _parse_ts(value)
     if ts is None:
         return "never"
-    seconds = max(0, int((datetime.now(timezone.utc) - ts).total_seconds()))
+    seconds = max(0, int((datetime.now(UTC) - ts).total_seconds()))
     if seconds < 60:
         return f"{seconds}s ago"
     if seconds < 3600:

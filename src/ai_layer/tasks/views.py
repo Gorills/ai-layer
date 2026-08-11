@@ -30,8 +30,8 @@ from ai_layer.tasks.micro_runtime import (
 from ai_layer.tasks.review_workspace import cleanup_review_sandbox
 from ai_layer.tasks.stage_views import (
     _completion_contract,
-    _stage_label,
-    _stage_payload,
+    _stage_label as _stage_label,
+    _stage_payload as _stage_payload,
     _stage_payload_with_verification,
 )
 from ai_layer.tasks.state_store import (

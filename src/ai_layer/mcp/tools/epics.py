@@ -69,7 +69,7 @@ def epic_spec_revise(
     rationale: str = "",
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: DRAFT audit/discussion changes the Epic, or a human resolves a blocked material decision. Creates a new immutable spec version; never rewrites an approved historical version in place."""
+    """WHEN: a DRAFT or already-approved-but-not-started Epic changes before Phase 0. Creates a new immutable spec version, returns the Epic to DRAFT and requires explicit reapproval. Execution-time human decisions are resolved through epic_reconcile_complete."""
     root = project_root_for_tool(project_root, tool="epic_spec_revise")
     result = app_epics.revise_spec(
         root,
@@ -90,7 +90,7 @@ def epic_audit_record(
     auditor_id: str = "",
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: an independent pre-approval Epic audit has actually been performed. Records findings against the exact current spec version. Audit rounds are unlimited. Recording an audit does not revise or approve the spec."""
+    """WHEN: an independent Epic specification audit has actually been performed before Phase 0, including after approval but before execution starts. Records findings against the exact current spec version. Audit rounds are unlimited; revision after approval returns the Epic to DRAFT and requires reapproval."""
     root = project_root_for_tool(project_root, tool="epic_audit_record")
     result = app_epics.record_audit(
         root,
@@ -155,7 +155,7 @@ def epic_reconcile_complete(
     remaining_plan: list[dict] | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: epic_next says record_phase0_reconciliation or record_drift_reconciliation and the linked analysis-only Task is completed. Automatically applies non-branching/clearly recommended durable corrections. Set human_decisions only for genuine material product/architecture trade-offs; any entry blocks execution for the user."""
+    """WHEN: epic_next says record_phase0_reconciliation/record_drift_reconciliation, or returns this as resolution_tool for a blocked human decision, and the linked analysis-only Task is completed. Applies non-branching durable corrections automatically. human_decisions is only for genuine material trade-offs; after the user resolves one, call again with the resolved updated_spec and human_decisions=[]."""
     root = project_root_for_tool(project_root, tool="epic_reconcile_complete")
     result = app_epics.reconcile_complete(
         root,

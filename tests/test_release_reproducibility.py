@@ -66,6 +66,14 @@ def test_postgres_image_is_versioned_and_digest_pinned():
     assert "image: pgvector/pgvector:pg16\n" not in text
 
 
+def test_postgres_gate_exercises_manifest_minimum_source_schema():
+    manifest = json.loads((ROOT / "release" / "release-manifest.json").read_text(encoding="utf-8"))
+    source = manifest["migration_compatibility"]["minimum_source_schema"]
+    gate = (ROOT / "scripts" / "postgres_gate.py").read_text(encoding="utf-8")
+    assert source in gate
+    assert f"supported-source-upgrade-{source.split('_', 1)[0]}" in gate
+
+
 def test_release_manifest_hashes_match_artifacts():
     manifest = json.loads((ROOT / "release" / "release-manifest.json").read_text(encoding="utf-8"))
     lock = ROOT / manifest["runtime_lock"]

@@ -1,22 +1,31 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 from ai_layer import __version__
 from ai_layer.agents.policy import install_cursor_profiles, remove_cursor_profiles
 from ai_layer.core.config import get_settings
 from ai_layer.integrations.config_files import (
-    MANAGED_END, MANAGED_START, MCP_OWNER_KEY, MCP_OWNER_VALUE, OWNED_FILE_MARKER, TOML_END, TOML_START,
-    _assert_codex_merge_safe, _assert_json_mcp_merge_safe, _assert_owned_file_safe, _atomic_write_text,
-    _legacy_owned_file, _managed_server, _merge_codex_config as _merge_codex_config_file, _merge_mcp_json,
-    _remove_codex_mcp, _remove_json_mcp, _remove_managed_markdown,
-    _server_is_owned, _server_matches_legacy, _upsert_managed_markdown, _write_owned_text, _write_private_backup,
+    MCP_OWNER_KEY,
+    MCP_OWNER_VALUE,
+    TOML_START,
+    _assert_codex_merge_safe,
+    _assert_json_mcp_merge_safe,
+    _atomic_write_text,
+    _merge_mcp_json,
+    _remove_codex_mcp,
+    _remove_json_mcp,
+    _remove_managed_markdown,
+    _server_is_owned,
+    _upsert_managed_markdown,
+    _write_owned_text,
+)
+from ai_layer.integrations.config_files import (
+    _merge_codex_config as _merge_codex_config_file,
 )
 from ai_layer.integrations.runtime_config import _global_bootstrap_workflow, _mcp_command, _server
 from ai_layer.integrations.status import _json_ai_layer_server
@@ -26,6 +35,7 @@ INTEGRATION_TEMPLATE_VERSION = 22
 GLOBAL_BOOTSTRAP_VERSION = 9
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
 
 def _cursor_plugin_owned(root: Path) -> bool:
     manifest_path = root / ".cursor-plugin" / "plugin.json"
@@ -42,12 +52,14 @@ def _cursor_plugin_owned(root: Path) -> bool:
         and (manifest.get("author") or {}).get("name") == "Local AI Development Layer"
     )
 
+
 def _assert_cursor_plugin_safe(root: Path) -> None:
     if root.exists() and not _cursor_plugin_owned(root):
         raise RuntimeError(
             f"Integration ownership conflict: Cursor plugin directory {root} already exists and "
             "is not recognizably AI Layer-owned. It was left untouched."
         )
+
 
 def _write_cursor_global_plugin(workflow: str) -> Path:
     root = Path.home() / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
@@ -62,12 +74,15 @@ def _write_cursor_global_plugin(workflow: str) -> Path:
         "category": "developer-tools",
         "rules": "./rules/",
     }
-    _atomic_write_text(root / ".cursor-plugin" / "plugin.json", json.dumps(manifest, indent=2) + "\n")
+    _atomic_write_text(
+        root / ".cursor-plugin" / "plugin.json", json.dumps(manifest, indent=2) + "\n"
+    )
     # No description: Cursor versions before 3.6 had a bug where a described alwaysApply plugin
     # rule could be downgraded to requestable. Keep this intentionally minimal.
     rule = "---\nalwaysApply: true\n---\n\n" + workflow
     _atomic_write_text(root / "rules" / "ai-layer.mdc", rule)
     return root
+
 
 def _install_global_bootstrap_files() -> dict:
     workflow = _global_bootstrap_workflow()
@@ -88,6 +103,7 @@ def _install_global_bootstrap_files() -> dict:
         "cursor_requires_runtime_acceptance": True,
     }
 
+
 def _merge_codex_config(
     path: Path,
     project_root: Path | None = None,
@@ -104,9 +120,14 @@ def _merge_codex_config(
         backup=backup,
     )
 
+
 def _write_cursor_rule(path: Path, workflow: str) -> None:
-    content = "---\ndescription: Mandatory Local AI Development Layer workflow\nalwaysApply: true\n---\n\n" + workflow
+    content = (
+        "---\ndescription: Mandatory Local AI Development Layer workflow\nalwaysApply: true\n---\n\n"
+        + workflow
+    )
     _write_owned_text(path, content)
+
 
 def _claude_mcp_is_owned_output(output: str) -> bool:
     """Recognize current ownership markers and the exact legacy AI Layer launcher signature.
@@ -127,7 +148,9 @@ def _claude_mcp_is_owned_output(output: str) -> bool:
         r'(?im)^\s*command\s*:\s*["\']?([^"\'\r\n]+?)["\']?\s*$',
         r'(?i)["\']command["\']\s*[:=]\s*["\']([^"\']+)["\']',
     ):
-        command_values.update(match.strip() for match in re.findall(pattern, cleaned) if match.strip())
+        command_values.update(
+            match.strip() for match in re.findall(pattern, cleaned) if match.strip()
+        )
 
     expected_commands = {
         _mcp_command(),
@@ -144,6 +167,7 @@ def _claude_mcp_is_owned_output(output: str) -> bool:
     )
     return any(release_launcher.match(command) for command in command_values)
 
+
 def _assert_claude_user_mcp_safe() -> None:
     executable = shutil.which("claude")
     if not executable:
@@ -151,7 +175,10 @@ def _assert_claude_user_mcp_safe() -> None:
     try:
         probe = subprocess.run(
             [executable, "mcp", "get", "ai-layer"],
-            capture_output=True, text=True, timeout=10, check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         return
@@ -164,28 +191,48 @@ def _assert_claude_user_mcp_safe() -> None:
             "ai-layer. AI Layer will not overwrite it."
         )
 
+
 def _install_claude_user_mcp(server: dict) -> dict:
     executable = shutil.which("claude")
     if not executable:
         return {"installed": False, "available": False, "reason": "claude executable not found"}
     _assert_claude_user_mcp_safe()
-    payload = {"type": "stdio", "command": server["command"], "args": server.get("args", []), "env": server.get("env", {})}
+    payload = {
+        "type": "stdio",
+        "command": server["command"],
+        "args": server.get("args", []),
+        "env": server.get("env", {}),
+    }
     try:
         proc = subprocess.run(
-            [executable, "mcp", "add-json", "ai-layer", json.dumps(payload, separators=(",", ":")), "--scope", "user"],
+            [
+                executable,
+                "mcp",
+                "add-json",
+                "ai-layer",
+                json.dumps(payload, separators=(",", ":")),
+                "--scope",
+                "user",
+            ],
             capture_output=True,
             text=True,
             timeout=15,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"installed": False, "available": True, "executable": executable, "error": type(exc).__name__}
+        return {
+            "installed": False,
+            "available": True,
+            "executable": executable,
+            "error": type(exc).__name__,
+        }
     return {
         "installed": proc.returncode == 0,
         "available": True,
         "executable": executable,
         "error": proc.stderr.strip() if proc.returncode else None,
     }
+
 
 def install_global_integrations() -> dict:
     """Install user-level MCP registrations that do not need per-project paths.
@@ -224,6 +271,7 @@ def install_global_integrations() -> dict:
         "native_skills": native_skills,
     }
 
+
 def _remove_cursor_global_plugin() -> dict:
     root = Path.home() / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
     if not root.exists():
@@ -232,6 +280,7 @@ def _remove_cursor_global_plugin() -> dict:
         return {"removed": False, "reason": "ownership-conflict", "path": str(root)}
     shutil.rmtree(root)
     return {"removed": True, "path": str(root)}
+
 
 def _remove_claude_user_mcp() -> dict:
     executable = shutil.which("claude")
@@ -271,6 +320,7 @@ def _remove_claude_user_mcp() -> dict:
         "error": proc.stderr.strip() if proc.returncode else None,
     }
 
+
 def remove_global_integrations() -> dict:
     """Remove only globally installed material that carries AI Layer ownership evidence."""
     home = Path.home()
@@ -285,7 +335,11 @@ def remove_global_integrations() -> dict:
     _remove_json_mcp(cursor)
     _remove_json_mcp(antigravity)
     _remove_codex_mcp(codex)
-    for path in [home / ".codex" / "AGENTS.md", home / ".claude" / "CLAUDE.md", home / ".gemini" / "GEMINI.md"]:
+    for path in [
+        home / ".codex" / "AGENTS.md",
+        home / ".claude" / "CLAUDE.md",
+        home / ".gemini" / "GEMINI.md",
+    ]:
         _remove_managed_markdown(path)
     return {
         "removed": before,

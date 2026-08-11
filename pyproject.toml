@@ -27,8 +27,10 @@ dev = [
   "httpx>=0.28,<1",
   "pytest>=8.3,<9",
   "pytest-cov>=6,<7",
-  "ruff>=0.12,<1",
+  "ruff==0.16.2",
   "mypy>=1.17,<2",
+  # PyYAML does not ship the typing metadata required by the canonical mypy gate.
+  "types-PyYAML",
 ]
 
 [project.scripts]
@@ -53,3 +55,9 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# Ruff's formatter only best-effort wraps long lines, so E501 is intentionally excluded.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer intentionally uses Option/Argument descriptor calls in CLI function signatures.
+"src/ai_layer/cli/commands/*.py" = ["B008"]

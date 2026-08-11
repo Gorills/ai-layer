@@ -3,15 +3,16 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterator
 from uuid import uuid4
 
-from ai_layer.core.config import get_settings
-from ai_layer.core.paths import project_state_path
 from ai_layer.core.registry import get_registered_project
+from ai_layer.observability.event_aggregation import aggregate_events as aggregate_events
+from ai_layer.observability.event_common import event_dir as _event_dir
+from ai_layer.observability.event_common import parse_ts, utcnow
 
 EVENT_RETENTION_DAYS = 7
 TAIL_READ_BYTES = 512 * 1024
@@ -51,9 +52,6 @@ SAFE_METRIC_KEYS = {
     "normalization_count",
     "effective_verdict",
 }
-
-
-from ai_layer.observability.event_common import event_dir as _event_dir, parse_ts, utcnow
 
 
 def event_path(project_root: str | Path | None = None, *, day: str | None = None) -> Path:
@@ -135,7 +133,7 @@ def emit_event(
                 return None
         except RuntimeError:
             return None
-    event = {
+    event: dict[str, object] = {
         "id": uuid4().hex,
         "correlation_id": correlation_id,
         "ts": utcnow().isoformat(),
@@ -245,7 +243,9 @@ def read_events(
         files = sorted(directory.glob("*.jsonl"), reverse=True)[: min(EVENT_RETENTION_DAYS + 1, 8)]
     except OSError:
         return []
-    cutoff = utcnow() - timedelta(seconds=max(0.0, since_seconds)) if since_seconds is not None else None
+    cutoff = (
+        utcnow() - timedelta(seconds=max(0.0, since_seconds)) if since_seconds is not None else None
+    )
     events: list[dict] = []
     for path in files:
         lines = _tail_lines(path)
@@ -266,7 +266,3 @@ def read_events(
             if len(events) >= max(1, limit):
                 return list(reversed(events))
     return list(reversed(events))
-
-
-
-from ai_layer.observability.event_aggregation import aggregate_events

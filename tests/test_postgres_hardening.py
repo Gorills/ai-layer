@@ -50,7 +50,14 @@ def test_postgres_constraint_is_authoritative_for_one_open_task(tmp_path: Path) 
 
     def writer(sequence: int) -> None:
         with Session(engine) as db:
-            db.add(Task(project_id=project_id, sequence=sequence, goal=f"task-{sequence}", status="active"))
+            db.add(
+                Task(
+                    project_id=project_id,
+                    sequence=sequence,
+                    goal=f"task-{sequence}",
+                    status="active",
+                )
+            )
             barrier.wait()
             try:
                 db.commit()
@@ -67,10 +74,15 @@ def test_postgres_constraint_is_authoritative_for_one_open_task(tmp_path: Path) 
         thread.join(timeout=20)
     assert sorted(results) == ["committed", "rejected"]
     with Session(engine) as db:
-        assert db.scalar(select(func.count()).select_from(Task).where(Task.project_id == project_id)) == 1
+        assert (
+            db.scalar(select(func.count()).select_from(Task).where(Task.project_id == project_id))
+            == 1
+        )
 
 
-def test_postgres_create_task_uses_db_lock_without_filesystem_lock(tmp_path: Path, monkeypatch) -> None:
+def test_postgres_create_task_uses_db_lock_without_filesystem_lock(
+    tmp_path: Path, monkeypatch
+) -> None:
     engine = _engine()
     project_id, _ = _project(tmp_path)
     import ai_layer.tasks.lifecycle as lifecycle
@@ -100,8 +112,9 @@ def test_postgres_create_task_uses_db_lock_without_filesystem_lock(tmp_path: Pat
     assert sorted(results) == ["committed", "rejected"]
 
 
-
-def test_postgres_concurrent_delegation_has_one_authoritative_worker(tmp_path: Path, monkeypatch) -> None:
+def test_postgres_concurrent_delegation_has_one_authoritative_worker(
+    tmp_path: Path, monkeypatch
+) -> None:
     engine = _engine()
     project_id, _ = _project(tmp_path)
     with Session(engine, expire_on_commit=False) as db:
@@ -128,7 +141,10 @@ def test_postgres_concurrent_delegation_has_one_authoritative_worker(tmp_path: P
             else:
                 results.append("committed")
 
-    threads = [Thread(target=delegate, args=("worker-a",)), Thread(target=delegate, args=("worker-b",))]
+    threads = [
+        Thread(target=delegate, args=("worker-a",)),
+        Thread(target=delegate, args=("worker-b",)),
+    ]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -137,16 +153,21 @@ def test_postgres_concurrent_delegation_has_one_authoritative_worker(tmp_path: P
     with Session(engine) as db:
         task = db.scalar(select(Task).where(Task.project_id == project_id))
         assert task is not None
-        stage = db.scalar(select(TaskStage).where(TaskStage.task_id == task.id, TaskStage.status == "active"))
+        stage = db.scalar(
+            select(TaskStage).where(TaskStage.task_id == task.id, TaskStage.status == "active")
+        )
         assert stage is not None and stage.worker_id in {"worker-a", "worker-b"}
 
-def test_postgres_concurrent_stage_completion_has_one_authoritative_result(tmp_path: Path, monkeypatch) -> None:
+
+def test_postgres_concurrent_stage_completion_has_one_authoritative_result(
+    tmp_path: Path, monkeypatch
+) -> None:
     engine = _engine()
     project_id, root = _project(tmp_path)
     with Session(engine, expire_on_commit=False) as db:
         project = db.get(Project, project_id)
         assert project is not None
-        created = tasks.create_task(
+        tasks.create_task(
             db,
             project,
             goal="Change value",
@@ -193,13 +214,16 @@ def test_postgres_concurrent_stage_completion_has_one_authoritative_result(tmp_p
     with Session(engine) as db:
         task = db.scalar(select(Task).where(Task.project_id == project_id))
         assert task is not None
-        stages = db.scalars(select(TaskStage).where(TaskStage.task_id == task.id).order_by(TaskStage.ordinal)).all()
+        stages = db.scalars(
+            select(TaskStage).where(TaskStage.task_id == task.id).order_by(TaskStage.ordinal)
+        ).all()
         assert [stage.kind for stage in stages] == ["implement", "review"]
         assert sum(stage.status == "active" for stage in stages) == 1
 
 
-
-def test_postgres_concurrent_worker_recovery_has_one_authoritative_result(tmp_path: Path, monkeypatch) -> None:
+def test_postgres_concurrent_worker_recovery_has_one_authoritative_result(
+    tmp_path: Path, monkeypatch
+) -> None:
     engine = _engine()
     project_id, _ = _project(tmp_path)
     with Session(engine, expire_on_commit=False) as db:
@@ -220,7 +244,9 @@ def test_postgres_concurrent_worker_recovery_has_one_authoritative_result(tmp_pa
             assert project is not None
             barrier.wait()
             try:
-                worker_leases.recover_disconnected_worker(db, project, reason="simulated lost worker")
+                worker_leases.recover_disconnected_worker(
+                    db, project, reason="simulated lost worker"
+                )
             except RuntimeError:
                 db.rollback()
                 results.append("rejected")
@@ -236,7 +262,9 @@ def test_postgres_concurrent_worker_recovery_has_one_authoritative_result(tmp_pa
     with Session(engine) as db:
         task = db.scalar(select(Task).where(Task.project_id == project_id))
         assert task is not None
-        stages = db.scalars(select(TaskStage).where(TaskStage.task_id == task.id).order_by(TaskStage.ordinal)).all()
+        stages = db.scalars(
+            select(TaskStage).where(TaskStage.task_id == task.id).order_by(TaskStage.ordinal)
+        ).all()
         assert len(stages) == 2
         assert stages[0].status == "invalid"
         assert stages[1].status == "active"
@@ -249,7 +277,9 @@ def test_postgres_project_delete_cascades_task_and_snapshot_graph(tmp_path: Path
     with Session(engine, expire_on_commit=False) as db:
         project = db.get(Project, project_id)
         assert project is not None
-        created = tasks.create_task(db, project, goal="Disposable project", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Disposable project", acceptance_criteria=[], constraints=[]
+        )
         task_id = UUID(created["id"])
         task = db.get(Task, task_id)
         assert task is not None and task.baseline_snapshot_id is not None
@@ -260,13 +290,18 @@ def test_postgres_project_delete_cascades_task_and_snapshot_graph(tmp_path: Path
         assert db.get(Task, task_id) is None
         assert db.get(RepositorySnapshot, snapshot_id) is None
 
-def test_postgres_snapshot_survives_new_session_and_missing_local_materialization(tmp_path: Path) -> None:
+
+def test_postgres_snapshot_survives_new_session_and_missing_local_materialization(
+    tmp_path: Path,
+) -> None:
     engine = _engine()
     project_id, _ = _project(tmp_path)
     with Session(engine, expire_on_commit=False) as db:
         project = db.get(Project, project_id)
         assert project is not None
-        created = tasks.create_task(db, project, goal="Durable state", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Durable state", acceptance_criteria=[], constraints=[]
+        )
         task_id = UUID(created["id"])
     with Session(engine, expire_on_commit=False) as db:
         task = db.get(Task, task_id)
@@ -274,5 +309,7 @@ def test_postgres_snapshot_survives_new_session_and_missing_local_materializatio
         snapshot = db.get(RepositorySnapshot, task.baseline_snapshot_id)
         assert snapshot is not None
         assert snapshot.digest == task.baseline_digest
-        stage = db.scalar(select(TaskStage).where(TaskStage.task_id == task.id, TaskStage.status == "active"))
+        stage = db.scalar(
+            select(TaskStage).where(TaskStage.task_id == task.id, TaskStage.status == "active")
+        )
         assert stage is not None and stage.start_snapshot_id is not None

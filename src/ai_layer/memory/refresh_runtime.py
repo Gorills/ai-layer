@@ -40,7 +40,9 @@ def _run(root: str) -> None:
             result = ensure_memory_fresh(db, project)
         _update(root, status="completed", completed_at=_now(), result=result, error=None)
     except Exception as exc:
-        _update(root, status="failed", completed_at=_now(), error=f"{type(exc).__name__}: {exc}"[:500])
+        _update(
+            root, status="failed", completed_at=_now(), error=f"{type(exc).__name__}: {exc}"[:500]
+        )
 
 
 def _worker_loop() -> None:

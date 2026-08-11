@@ -24,7 +24,9 @@ def _overlap_score(query: str, *values: object) -> float:
     return common / max(1, min(len(wanted), 8))
 
 
-def relevant_task_history(db: Session, project: Project, query: str, *, limit: int = 3) -> list[dict]:
+def relevant_task_history(
+    db: Session, project: Project, query: str, *, limit: int = 3
+) -> list[dict]:
     tasks = db.scalars(
         select(Task)
         .where(Task.project_id == project.id, Task.status == "completed")
@@ -58,18 +60,19 @@ def relevant_task_history(db: Session, project: Project, query: str, *, limit: i
             *list(changes.get("modified") or []),
             *list(changes.get("deleted") or []),
         ]
-        result.append({
-            "key": f"T-{int(task.sequence):04d}",
-            "goal": task.goal,
-            "outcome": task.completion_summary,
-            "changed_paths": paths[:20],
-            "risk_level": task.risk_level,
-            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-            "score": round(score, 4),
-            "provenance": "ai_layer_task_history",
-        })
+        result.append(
+            {
+                "key": f"T-{int(task.sequence):04d}",
+                "goal": task.goal,
+                "outcome": task.completion_summary,
+                "changed_paths": paths[:20],
+                "risk_level": task.risk_level,
+                "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+                "score": round(score, 4),
+                "provenance": "ai_layer_task_history",
+            }
+        )
     return result
-
 
 
 def latest_task_summary(db: Session, project: Project) -> dict | None:
@@ -100,7 +103,10 @@ def latest_task_summary(db: Session, project: Project) -> dict | None:
         "provenance": "ai_layer_task_history_compact",
     }
 
-def relevant_decision_brief(db: Session, project: Project, query: str, *, limit: int = 2) -> list[dict]:
+
+def relevant_decision_brief(
+    db: Session, project: Project, query: str, *, limit: int = 2
+) -> list[dict]:
     ranked: list[tuple[float, dict]] = []
     for item in db.scalars(
         select(Decision)
@@ -110,36 +116,46 @@ def relevant_decision_brief(db: Session, project: Project, query: str, *, limit:
     ).all():
         score = _overlap_score(query, item.title, item.context, item.decision, item.rationale)
         if score > 0:
-            ranked.append((score, {
-                "kind": "decision",
-                "id": str(item.id),
-                "title": item.title,
-                "decision": item.decision,
-                "rationale": item.rationale,
-                "score": round(score, 4),
-                "provenance": "ai_layer_decision_history",
-            }))
-    for item in snapshot_decisions(project, limit=50):
-        score = _overlap_score(query, item.get("decision"), item.get("context"))
+            ranked.append(
+                (
+                    score,
+                    {
+                        "kind": "decision",
+                        "id": str(item.id),
+                        "title": item.title,
+                        "decision": item.decision,
+                        "rationale": item.rationale,
+                        "score": round(score, 4),
+                        "provenance": "ai_layer_decision_history",
+                    },
+                )
+            )
+    for snapshot_item in snapshot_decisions(project, limit=50):
+        score = _overlap_score(query, snapshot_item.get("decision"), snapshot_item.get("context"))
         if score > 0:
-            ranked.append((score, {
-                "kind": "session_decision",
-                "id": f"session:{item['session_id']}",
-                "title": str(item.get("decision") or "")[:120],
-                "decision": item.get("decision") or "",
-                "rationale": "Committed durable session decision.",
-                "score": round(score, 4),
-                "provenance": "ai_layer_session_history",
-            }))
+            ranked.append(
+                (
+                    score,
+                    {
+                        "kind": "session_decision",
+                        "id": f"session:{snapshot_item['session_id']}",
+                        "title": str(snapshot_item.get("decision") or "")[:120],
+                        "decision": snapshot_item.get("decision") or "",
+                        "rationale": "Committed durable session decision.",
+                        "score": round(score, 4),
+                        "provenance": "ai_layer_session_history",
+                    },
+                )
+            )
     ranked.sort(key=lambda item: -item[0])
     result: list[dict] = []
     seen: set[str] = set()
-    for _, item in ranked:
-        key = str(item.get("decision") or "").casefold()
+    for _, brief in ranked:
+        key = str(brief.get("decision") or "").casefold()
         if not key or key in seen:
             continue
         seen.add(key)
-        result.append(item)
+        result.append(brief)
         if len(result) >= max(1, min(int(limit), 8)):
             break
     return result
@@ -156,14 +172,19 @@ def knowledge_audit_history(db: Session, project: Project, *, limit: int = 4) ->
     result: list[dict] = []
     for task in tasks:
         hay = f"{task.goal} {' '.join(task.acceptance_criteria or [])}".casefold()
-        if not any(token in hay for token in ("project knowledge", "knowledge", "баз знаний", "база знаний")):
+        if not any(
+            token in hay
+            for token in ("project knowledge", "knowledge", "баз знаний", "база знаний")
+        ):
             continue
-        result.append({
-            "key": f"T-{int(task.sequence):04d}",
-            "goal": task.goal,
-            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-            "provenance": "ai_layer_task_history_metadata_only",
-        })
+        result.append(
+            {
+                "key": f"T-{int(task.sequence):04d}",
+                "goal": task.goal,
+                "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+                "provenance": "ai_layer_task_history_metadata_only",
+            }
+        )
         if len(result) >= max(1, min(int(limit), 10)):
             break
     return result

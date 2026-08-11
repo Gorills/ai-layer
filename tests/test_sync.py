@@ -55,7 +55,9 @@ def test_project_config_write_is_failure_atomic(tmp_path: Path, monkeypatch):
     assert not list(meta.glob("project.yaml.*.tmp"))
 
 
-def test_init_commits_project_identity_before_publishing_filesystem_metadata(tmp_path: Path, monkeypatch):
+def test_init_commits_project_identity_before_publishing_filesystem_metadata(
+    tmp_path: Path, monkeypatch
+):
     from sqlalchemy import create_engine, select
     from sqlalchemy.orm import Session
 
@@ -123,11 +125,21 @@ def test_manual_scan_detects_embedding_drift_and_reembeds_decisions(tmp_path: Pa
     )
     monkeypatch.setattr(service, "embedding_state_matches", lambda project: False)
     monkeypatch.setattr(service, "scanner_state_matches", lambda project: True)
-    monkeypatch.setattr(service, "knowledge_status", lambda db, project: {
-        "verified": 0, "stale": 0, "draft": 0, "superseded": 0,
-        "verified_categories": [], "verified_subsystems": 0, "overview_verified": False,
-        "baseline_ready": False, "onboarding_recommended": True,
-    })
+    monkeypatch.setattr(
+        service,
+        "knowledge_status",
+        lambda db, project: {
+            "verified": 0,
+            "stale": 0,
+            "draft": 0,
+            "superseded": 0,
+            "verified_categories": [],
+            "verified_subsystems": 0,
+            "overview_verified": False,
+            "baseline_ready": False,
+            "onboarding_recommended": True,
+        },
+    )
 
     class Lock:
         def __enter__(self):
@@ -175,11 +187,21 @@ def test_manual_scan_without_embedding_drift_keeps_manual_reason(tmp_path: Path,
     )
     monkeypatch.setattr(service, "embedding_state_matches", lambda project: True)
     monkeypatch.setattr(service, "scanner_state_matches", lambda project: True)
-    monkeypatch.setattr(service, "knowledge_status", lambda db, project: {
-        "verified": 0, "stale": 0, "draft": 0, "superseded": 0,
-        "verified_categories": [], "verified_subsystems": 0, "overview_verified": False,
-        "baseline_ready": False, "onboarding_recommended": True,
-    })
+    monkeypatch.setattr(
+        service,
+        "knowledge_status",
+        lambda db, project: {
+            "verified": 0,
+            "stale": 0,
+            "draft": 0,
+            "superseded": 0,
+            "verified_categories": [],
+            "verified_subsystems": 0,
+            "overview_verified": False,
+            "baseline_ready": False,
+            "onboarding_recommended": True,
+        },
+    )
 
     class Lock:
         def __enter__(self):
@@ -226,17 +248,24 @@ def test_init_rejects_nested_registered_project(tmp_path: Path, monkeypatch):
     try:
         register_project(parent, "p-parent", "parent", mode="strict-private", provenance="forbid")
         import pytest
+
         with pytest.raises(RuntimeError, match="overlaps an already registered project"):
             init_project(FakeDB(), child)
     finally:
         get_settings.cache_clear()
 
 
-def test_remove_accidental_nested_project_preserves_parent_and_user_files(tmp_path: Path, monkeypatch):
+def test_remove_accidental_nested_project_preserves_parent_and_user_files(
+    tmp_path: Path, monkeypatch
+):
     from types import SimpleNamespace
 
     from ai_layer.core.config import get_settings
-    from ai_layer.core.registry import get_registered_project, overlapping_registered_projects, register_project
+    from ai_layer.core.registry import (
+        get_registered_project,
+        overlapping_registered_projects,
+        register_project,
+    )
     from ai_layer.core.service import remove_project_registration
 
     home = tmp_path / "home-remove-nested"
@@ -285,7 +314,9 @@ def test_remove_accidental_nested_project_preserves_parent_and_user_files(tmp_pa
         get_settings.cache_clear()
 
 
-def test_remove_nested_standard_project_does_not_remove_parent_strict_private_git_guard(tmp_path: Path, monkeypatch):
+def test_remove_nested_standard_project_does_not_remove_parent_strict_private_git_guard(
+    tmp_path: Path, monkeypatch
+):
     import subprocess
     from types import SimpleNamespace
 
@@ -357,7 +388,9 @@ def test_remove_nested_standard_project_does_not_remove_parent_strict_private_gi
         get_settings.cache_clear()
 
 
-def test_init_preserves_user_owned_legacy_rule_and_uses_sparse_mcp_binding(tmp_path: Path, monkeypatch):
+def test_init_preserves_user_owned_legacy_rule_and_uses_sparse_mcp_binding(
+    tmp_path: Path, monkeypatch
+):
     from sqlalchemy import create_engine, select
     from sqlalchemy.orm import Session
 
@@ -383,8 +416,13 @@ def test_init_preserves_user_owned_legacy_rule_and_uses_sparse_mcp_binding(tmp_p
         service.init_project(db, project_root)
 
     with Session(engine) as verify:
-        assert verify.scalar(select(Project).where(Project.root_path == str(project_root.resolve()))) is not None
-    assert legacy_rule.read_text(encoding="utf-8") == "user-owned rule with this historical filename\n"
+        assert (
+            verify.scalar(select(Project).where(Project.root_path == str(project_root.resolve())))
+            is not None
+        )
+    assert (
+        legacy_rule.read_text(encoding="utf-8") == "user-owned rule with this historical filename\n"
+    )
     assert (project_root / ".cursor" / "mcp.json").exists()
     assert (project_root / ".agents" / "mcp_config.json").exists()
     get_settings.cache_clear()
@@ -417,12 +455,17 @@ def test_private_init_requires_git_before_db_identity(tmp_path: Path, monkeypatc
             raise AssertionError("strict-private init without Git must fail closed")
 
     with Session(engine) as verify:
-        assert verify.scalar(select(Project).where(Project.root_path == str(project_root.resolve()))) is None
+        assert (
+            verify.scalar(select(Project).where(Project.root_path == str(project_root.resolve())))
+            is None
+        )
     assert not (project_root / ".ai-layer").exists()
     get_settings.cache_clear()
 
 
-def test_external_init_keeps_repository_zero_footprint_without_privacy_policy(tmp_path: Path, monkeypatch):
+def test_external_init_keeps_repository_zero_footprint_without_privacy_policy(
+    tmp_path: Path, monkeypatch
+):
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
 

@@ -11,6 +11,7 @@ from ai_layer.db.models import Project, Task, TaskStage
 
 SANDBOX_MANIFEST = ".ai-layer-review-sandbox.json"
 
+
 def _sandbox_parent(project: Project) -> Path:
     root = get_settings().home / "review-sandboxes" / str(project.id)
     if root.is_symlink():
@@ -22,11 +23,14 @@ def _sandbox_parent(project: Project) -> Path:
         pass
     return root
 
+
 def sandbox_path(project: Project, stage: TaskStage) -> Path:
     return _sandbox_parent(project) / str(stage.id)
 
+
 def _manifest_path(path: Path) -> Path:
     return path / SANDBOX_MANIFEST
+
 
 def _read_manifest(path: Path) -> dict | None:
     manifest = _manifest_path(path)
@@ -38,6 +42,7 @@ def _read_manifest(path: Path) -> dict | None:
         return None
     return value if isinstance(value, dict) else None
 
+
 def _write_manifest(path: Path, payload: dict) -> None:
     target = _manifest_path(path)
     target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -45,6 +50,7 @@ def _write_manifest(path: Path, payload: dict) -> None:
         target.chmod(0o600)
     except OSError:
         pass
+
 
 def _git_root(root: Path) -> bool:
     git = shutil.which("git")
@@ -61,6 +67,7 @@ def _git_root(root: Path) -> bool:
     except (OSError, subprocess.SubprocessError):
         return False
     return probe.returncode == 0 and probe.stdout.strip() == "true"
+
 
 def _remove_deleted_tracked_files(source: Path, target: Path) -> None:
     git = shutil.which("git")
@@ -92,6 +99,7 @@ def _remove_deleted_tracked_files(source: Path, target: Path) -> None:
         except OSError:
             continue
 
+
 def _git_visible_paths(source: Path) -> list[Path] | None:
     """Return tracked + non-ignored untracked paths for a Git worktree."""
     git = shutil.which("git")
@@ -113,10 +121,16 @@ def _git_visible_paths(source: Path) -> list[Path] | None:
         if not raw:
             continue
         rel = Path(os.fsdecode(raw))
-        if rel.is_absolute() or ".." in rel.parts or ".git" in rel.parts or ".ai-layer" in rel.parts:
+        if (
+            rel.is_absolute()
+            or ".." in rel.parts
+            or ".git" in rel.parts
+            or ".ai-layer" in rel.parts
+        ):
             continue
         result.append(rel)
     return sorted(set(result), key=lambda item: item.as_posix())
+
 
 def _copy_worktree_path(source: Path, target: Path, rel: Path) -> None:
     src = source / rel
@@ -135,6 +149,7 @@ def _copy_worktree_path(source: Path, target: Path, rel: Path) -> None:
             shutil.copy2(src, dst)
     except OSError:
         return
+
 
 def _overlay_working_tree(source: Path, target: Path) -> None:
     """Overlay managed Git state, or a bounded non-Git fallback, without following symlinks."""
@@ -178,6 +193,7 @@ def _overlay_working_tree(source: Path, target: Path) -> None:
                     shutil.copy2(src, dst)
             except OSError:
                 continue
+
 
 def cleanup_review_sandbox(project: Project, stage_id: str) -> dict:
     path = _sandbox_parent(project) / str(stage_id)
@@ -223,9 +239,12 @@ def cleanup_review_sandbox(project: Project, stage_id: str) -> dict:
                     pass
     return {"ok": removed or not path.exists(), "removed": removed, "path": str(path)}
 
+
 def prepare_review_sandbox(project: Project, task: Task, stage: TaskStage) -> dict:
     if stage.kind not in {"review", "discovery"} or stage.status != "active":
-        raise RuntimeError("Read-only sandbox is available only for an active discovery/review stage.")
+        raise RuntimeError(
+            "Read-only sandbox is available only for an active discovery/review stage."
+        )
     source = Path(project.root_path).expanduser().resolve()
     path = sandbox_path(project, stage)
     existing = _read_manifest(path) if path.exists() else None

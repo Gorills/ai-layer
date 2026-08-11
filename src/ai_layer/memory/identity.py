@@ -5,9 +5,9 @@ import shutil
 import stat as stat_module
 import subprocess
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
 
 from ai_layer.db.models import ProjectFile
 from ai_layer.memory.source import AI_LAYER_CONTROL_PATHS, iter_files, read_stable_source
@@ -98,8 +98,6 @@ def build_file_hints(root: Path) -> dict[str, dict[str, int]]:
     return state
 
 
-
-
 def repository_probe(root: Path, *, budget_seconds: float | None = None) -> dict | None:
     """Return a cheap Git generation fingerprint, or None when Git cannot prove repository state.
 
@@ -124,17 +122,35 @@ def repository_probe(root: Path, *, budget_seconds: float | None = None) -> dict
     try:
         inside = subprocess.run(
             [git, "-C", str(root), "rev-parse", "--is-inside-work-tree"],
-            capture_output=True, text=True, timeout=remaining(5), check=False,
+            capture_output=True,
+            text=True,
+            timeout=remaining(5),
+            check=False,
         )
         if inside.returncode != 0 or inside.stdout.strip() != "true":
             return None
         head = subprocess.run(
             [git, "-C", str(root), "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=remaining(5), check=False,
+            capture_output=True,
+            text=True,
+            timeout=remaining(5),
+            check=False,
         )
         status = subprocess.run(
-            [git, "-C", str(root), "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "."],
-            capture_output=True, timeout=remaining(10), check=False,
+            [
+                git,
+                "-C",
+                str(root),
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=all",
+                "--",
+                ".",
+            ],
+            capture_output=True,
+            timeout=remaining(10),
+            check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -182,7 +198,10 @@ def state_hints_match(previous: dict, current: dict[str, dict[str, int]]) -> boo
         old = previous.get(path)
         if not isinstance(old, dict) or not old.get("content_sha256"):
             return False
-        if any(int(old.get(key, -1)) != int(hint.get(key, 0)) for key in ("size", "mtime_ns", "ctime_ns")):
+        if any(
+            int(old.get(key, -1)) != int(hint.get(key, 0))
+            for key in ("size", "mtime_ns", "ctime_ns")
+        ):
             return False
     return True
 
@@ -194,7 +213,17 @@ def _git_changed_paths(root: Path) -> set[str]:
         return set()
     try:
         proc = subprocess.run(
-            [git, "-C", str(root), "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "."],
+            [
+                git,
+                "-C",
+                str(root),
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "--untracked-files=all",
+                "--",
+                ".",
+            ],
             capture_output=True,
             timeout=5,
             check=False,
@@ -242,7 +271,9 @@ def _row_hint(row: ProjectFile) -> tuple[int, int, int]:
 def _snapshot(root: Path, rel: str) -> SourceSnapshot:
     stable = read_stable_source(root / rel)
     if stable is None:
-        raise RepositoryChangedDuringScan(f"Source changed, disappeared, or became unreadable during scan: {rel}")
+        raise RepositoryChangedDuringScan(
+            f"Source changed, disappeared, or became unreadable during scan: {rel}"
+        )
     raw, text, stat = stable
     return SourceSnapshot(
         path=rel,

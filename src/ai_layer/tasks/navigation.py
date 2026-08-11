@@ -7,16 +7,34 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_layer.db.models import Project, Task, TaskStage
-from ai_layer.domain.orchestrator import critical_orchestrator_contract, orchestrator_stage_instruction
+from ai_layer.domain.orchestrator import (
+    critical_orchestrator_contract,
+    orchestrator_stage_instruction,
+)
 from ai_layer.tasks.constants import OPEN_TASK_STATUSES, READ_ONLY_STAGES
 from ai_layer.tasks.contracts import _stage_agent_policy
-from ai_layer.tasks.state_store import load_stage_start as _load_stage_start, read_json as _read_json, task_key
-from ai_layer.workspace.repository import git_changed_paths as _git_changed_paths, capture_repository_state, repository_changes
 from ai_layer.tasks.review_checks import run_review_check
 from ai_layer.tasks.review_workspace import cleanup_review_sandbox, prepare_review_sandbox
-from ai_layer.tasks.views import (
-    _active_stage, _completion_contract, _human_attention_reason, current_task, task_to_dict,
+from ai_layer.tasks.state_store import (
+    load_stage_start as _load_stage_start,
 )
+from ai_layer.tasks.state_store import (
+    task_key,
+)
+from ai_layer.tasks.views import (
+    _active_stage,
+    _completion_contract,
+    _human_attention_reason,
+    current_task,
+)
+from ai_layer.workspace.repository import (
+    capture_repository_state,
+    repository_changes,
+)
+from ai_layer.workspace.repository import (
+    git_changed_paths as _git_changed_paths,
+)
+
 
 def _safe_git_changes(root: Path) -> dict | None:
     try:
@@ -131,7 +149,8 @@ def _inactive_navigation(db: Session, project: Project, runtime: dict, root: Pat
             ],
             "alternative": (
                 "Use task_adopt only if the pre-existing dirty changes are themselves the work for the intended task."
-                if preexisting else None
+                if preexisting
+                else None
             ),
             "message": message,
         },
@@ -186,7 +205,11 @@ def _active_stage_navigation(
                 "in-flight stage without retroactive task_stage_delegate; do not claim authenticated authorship. "
                 "Every subsequently created stage uses the strict delegation contract."
             ),
-            "forbidden": ["task_stage_delegate", "retroactive delegation", "orchestrator repository edits"],
+            "forbidden": [
+                "task_stage_delegate",
+                "retroactive delegation",
+                "orchestrator repository edits",
+            ],
             "identity_assurance": "legacy-unverified-worker-label",
         }
         task_payload["legacy_stage_compatibility"] = {
@@ -226,7 +249,9 @@ def _active_stage_navigation(
             "orchestrator fallback implementation",
         ],
         "agent_policy": _stage_agent_policy(stage),
-        "orchestrator_contract": orchestrator_stage_instruction(stage_kind=stage.kind, delegated=False),
+        "orchestrator_contract": orchestrator_stage_instruction(
+            stage_kind=stage.kind, delegated=False
+        ),
         "message": (
             "Bind a fresh worker, then START that native worker with the returned delegation contract. "
             "The orchestrator must not perform the stage itself. If the worker cannot be started, report the blocker."
@@ -282,9 +307,13 @@ def prepare_current_review_sandbox(db: Session, project: Project) -> dict:
         raise RuntimeError("No active task exists for this project.")
     stage = _active_stage(db, task)
     if stage is None or stage.kind not in READ_ONLY_STAGES:
-        raise RuntimeError("Read-only sandbox is available only while the active task stage is discovery or review.")
+        raise RuntimeError(
+            "Read-only sandbox is available only while the active task stage is discovery or review."
+        )
     if bool(stage.delegation_required) and not stage.worker_id:
-        raise RuntimeError("STAGE_NOT_DELEGATED: delegate the reviewer before preparing its sandbox.")
+        raise RuntimeError(
+            "STAGE_NOT_DELEGATED: delegate the reviewer before preparing its sandbox."
+        )
     return prepare_review_sandbox(project, task, stage)
 
 
@@ -306,9 +335,13 @@ def run_current_review_check(
         raise RuntimeError("No active task exists for this project.")
     stage = _active_stage(db, task)
     if stage is None or stage.kind not in READ_ONLY_STAGES:
-        raise RuntimeError("review_check_run is available only while the active task stage is discovery or review.")
+        raise RuntimeError(
+            "review_check_run is available only while the active task stage is discovery or review."
+        )
     if bool(stage.delegation_required) and not stage.worker_id:
-        raise RuntimeError("STAGE_NOT_DELEGATED: delegate the reviewer before running review checks.")
+        raise RuntimeError(
+            "STAGE_NOT_DELEGATED: delegate the reviewer before running review checks."
+        )
     return run_review_check(
         project,
         task,

@@ -6,33 +6,45 @@ import shutil
 import subprocess
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect
 
 from ai_layer import __version__
 from ai_layer.core.config import get_settings
 from ai_layer.db.session import database_status, get_engine
+from alembic import command
 
 COMMAND_TIMEOUT_SECONDS = 15
 
 
-def _run_command(args: list[str], *, timeout: int = COMMAND_TIMEOUT_SECONDS) -> subprocess.CompletedProcess[str]:
+def _run_command(
+    args: list[str], *, timeout: int = COMMAND_TIMEOUT_SECONDS
+) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(args, capture_output=True, text=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-        stderr = exc.stderr.decode(errors="replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
-        return subprocess.CompletedProcess(args, 124, stdout=stdout, stderr=stderr or "command timed out")
+        stdout = (
+            exc.stdout.decode(errors="replace")
+            if isinstance(exc.stdout, bytes)
+            else (exc.stdout or "")
+        )
+        stderr = (
+            exc.stderr.decode(errors="replace")
+            if isinstance(exc.stderr, bytes)
+            else (exc.stderr or "")
+        )
+        return subprocess.CompletedProcess(
+            args, 124, stdout=stdout, stderr=stderr or "command timed out"
+        )
     except OSError as exc:
         return subprocess.CompletedProcess(args, 127, stdout="", stderr=str(exc))
 
 
 def _utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def docker_compose_available() -> tuple[bool, str | None]:
@@ -160,7 +172,10 @@ def start_database(timeout: int = 45) -> dict:
             "database": state,
         }
 
-    proc = _run_command([docker, "compose", "-f", str(compose), "up", "-d"], timeout=max(COMMAND_TIMEOUT_SECONDS, 45))
+    proc = _run_command(
+        [docker, "compose", "-f", str(compose), "up", "-d"],
+        timeout=max(COMMAND_TIMEOUT_SECONDS, 45),
+    )
     if proc.returncode != 0:
         # A concurrent/legacy startup can race with compose. Re-check the actual dependency
         # before declaring the machine broken.
@@ -199,8 +214,6 @@ def _alembic_config() -> Config:
     return cfg
 
 
-
-
 def _column_names(inspector, table: str) -> set[str]:
     return {str(column.get("name")) for column in inspector.get_columns(table)}
 
@@ -212,7 +225,14 @@ def _detect_unversioned_revision(inspector, tables: set[str]) -> str:
     lifetime, so an unversioned database can legitimately look like 0001 *or* later revisions.
     Partial revision signatures are refused instead of being guessed.
     """
-    required_base = {"projects", "project_files", "knowledge", "decisions", "sessions", "project_skills"}
+    required_base = {
+        "projects",
+        "project_files",
+        "knowledge",
+        "decisions",
+        "sessions",
+        "project_skills",
+    }
     if not required_base.issubset(tables):
         missing = sorted(required_base - tables)
         raise RuntimeError(
@@ -223,23 +243,33 @@ def _detect_unversioned_revision(inspector, tables: set[str]) -> str:
     session_columns = _column_names(inspector, "sessions")
     evidence = {"verified_facts", "notable_findings"}
     if session_columns & evidence and not evidence.issubset(session_columns):
-        raise RuntimeError("Unversioned sessions schema is partially migrated; manual recovery is required.")
+        raise RuntimeError(
+            "Unversioned sessions schema is partially migrated; manual recovery is required."
+        )
 
     project_file_columns = _column_names(inspector, "project_files")
     incremental = {"content_sha256", "mtime_ns", "ctime_ns", "indexed", "scanner_schema"}
     if project_file_columns & incremental and not incremental.issubset(project_file_columns):
-        raise RuntimeError("Unversioned project_files schema is partially migrated; manual recovery is required.")
+        raise RuntimeError(
+            "Unversioned project_files schema is partially migrated; manual recovery is required."
+        )
 
     task_tables = {"tasks", "task_stages", "review_findings"}
     if tables & task_tables and not task_tables.issubset(tables):
-        raise RuntimeError("Unversioned Task Layer schema is partially migrated; manual recovery is required.")
+        raise RuntimeError(
+            "Unversioned Task Layer schema is partially migrated; manual recovery is required."
+        )
     if task_tables.issubset(tables):
         if not incremental.issubset(project_file_columns) or not evidence.issubset(session_columns):
-            raise RuntimeError("Unversioned Task Layer schema is inconsistent with its prerequisite revisions.")
+            raise RuntimeError(
+                "Unversioned Task Layer schema is inconsistent with its prerequisite revisions."
+            )
         finding_columns = _column_names(inspector, "review_findings")
         hardening = {"verification_evidence", "verification_history", "verified_by_stage_id"}
         if finding_columns & hardening and not hardening.issubset(finding_columns):
-            raise RuntimeError("Unversioned review_findings schema is partially hardened; manual recovery is required.")
+            raise RuntimeError(
+                "Unversioned review_findings schema is partially hardened; manual recovery is required."
+            )
         if hardening.issubset(finding_columns):
             # Historical create_all may have materialized 0006 ORM columns without the raw HNSW
             # index. Stamp 0006 and let later idempotent migration reconciliation ensure auxiliaries.
@@ -247,7 +277,9 @@ def _detect_unversioned_revision(inspector, tables: set[str]) -> str:
         return "0005_task_execution"
     if incremental.issubset(project_file_columns):
         if not evidence.issubset(session_columns):
-            raise RuntimeError("Unversioned incremental schema is inconsistent with session evidence revisions.")
+            raise RuntimeError(
+                "Unversioned incremental schema is inconsistent with session evidence revisions."
+            )
         return "0004_incremental_identity"
     if evidence.issubset(session_columns):
         # 0003 differs from 0002 only by persistent server defaults. Inspector default text is

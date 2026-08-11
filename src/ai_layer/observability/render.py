@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -10,15 +10,15 @@ def _parse_ts(value: object) -> datetime | None:
     except (TypeError, ValueError):
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _age(value: object) -> str:
     ts = _parse_ts(value)
     if ts is None:
         return "never"
-    seconds = max(0, int((datetime.now(timezone.utc) - ts).total_seconds()))
+    seconds = max(0, int((datetime.now(UTC) - ts).total_seconds()))
     if seconds < 60:
         return f"{seconds}s ago"
     if seconds < 3600:
@@ -35,8 +35,18 @@ def _time(value: object) -> str:
 
 def _metric_summary(metrics: dict) -> str:
     preferred = (
-        "memory_hits", "skills", "skill_slugs", "hits", "files", "knowledge_items", "skill_slug",
-        "memory_refreshed", "decisions", "findings", "refresh_attempts", "template_version",
+        "memory_hits",
+        "skills",
+        "skill_slugs",
+        "hits",
+        "files",
+        "knowledge_items",
+        "skill_slug",
+        "memory_refreshed",
+        "decisions",
+        "findings",
+        "refresh_attempts",
+        "template_version",
     )
     items = []
     for key in preferred:
@@ -95,10 +105,20 @@ def render_monitor(snapshot: dict, *, recent_limit: int = 12) -> str:
         lines.extend(["AGENTS / MCP", "  No running AI Layer MCP processes detected."])
 
     for project in projects:
-        lines.extend(["", f"PROJECT  {project.get('name')}  [{project.get('mode')}]", f"  {project.get('root')}"])
+        lines.extend(
+            [
+                "",
+                f"PROJECT  {project.get('name')}  [{project.get('mode')}]",
+                f"  {project.get('root')}",
+            ]
+        )
         lines.append(
             f"  Memory: last scan {_age(project.get('last_scan'))}"
-            + (f" · {project.get('scan_files')} files" if project.get("scan_files") is not None else "")
+            + (
+                f" · {project.get('scan_files')} files"
+                if project.get("scan_files") is not None
+                else ""
+            )
             + (f" · {project.get('scan_reason')}" if project.get("scan_reason") else "")
         )
         task = project.get("task") or {}
@@ -125,7 +145,8 @@ def render_monitor(snapshot: dict, *, recent_limit: int = 12) -> str:
             f"  Last 5m: completed={stats.get('completed', 0)} · failed={stats.get('failed', 0)}"
         )
         recent = [
-            item for item in (project.get("recent_events") or [])
+            item
+            for item in (project.get("recent_events") or [])
             if item.get("status") in {"completed", "failed"}
         ][-recent_limit:]
         if recent:
@@ -135,12 +156,14 @@ def render_monitor(snapshot: dict, *, recent_limit: int = 12) -> str:
         else:
             lines.append("  Recent activity: none")
 
-    lines.extend([
-        "",
-        "Event stream: metadata only; prompts, source text and tool results are not stored.",
-        "Last handoff, when shown, is read from the existing session handoff and is not copied into events.",
-        "Ctrl+C to exit.",
-    ])
+    lines.extend(
+        [
+            "",
+            "Event stream: metadata only; prompts, source text and tool results are not stored.",
+            "Last handoff, when shown, is read from the existing session handoff and is not copied into events.",
+            "Ctrl+C to exit.",
+        ]
+    )
     return "\n".join(lines)
 
 

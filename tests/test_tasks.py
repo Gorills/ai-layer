@@ -5,10 +5,10 @@ import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
+from ai_layer.application.tasks import read_state as read_task_state
 from ai_layer.db.base import Base
 from ai_layer.db.models import Project, ReviewFinding, Task, TaskStage, WorkSession
 from ai_layer.tasks import service as tasks
-from ai_layer.application.tasks import read_state as read_task_state
 
 
 def _db_project(tmp_path: Path):
@@ -38,8 +38,6 @@ def _complete_bound(db, project, **kwargs):
     return tasks.complete_stage(db, project, **kwargs)
 
 
-
-
 def _force_legacy_workflow(db):
     task = db.scalar(select(Task).order_by(Task.created_at.desc()).limit(1))
     assert task is not None
@@ -47,6 +45,7 @@ def _force_legacy_workflow(db):
     task.workflow_profile = "legacy_standard"
     db.commit()
     return task
+
 
 def _complete_implement(db, project, task, root):
     tasks.delegate_current_stage(db, project, worker_id="implementer-1")
@@ -61,7 +60,9 @@ def _complete_implement(db, project, task, root):
     )
 
 
-def test_legacy_v1_task_pipeline_still_requires_implement_review_fix_review_and_auto_handoff(tmp_path: Path):
+def test_legacy_v1_task_pipeline_still_requires_implement_review_fix_review_and_auto_handoff(
+    tmp_path: Path,
+):
     db, project, root = _db_project(tmp_path)
     try:
         created = tasks.create_task(
@@ -128,7 +129,9 @@ def test_legacy_v1_task_pipeline_still_requires_implement_review_fix_review_and_
 def test_review_findings_force_fixer_and_are_verified_by_next_review(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Fix edge case", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Fix edge case", acceptance_criteria=[], constraints=[]
+        )
         review1 = _complete_implement(db, project, created, root)
         fix = _complete_bound(
             db,
@@ -138,13 +141,15 @@ def test_review_findings_force_fixer_and_are_verified_by_next_review(tmp_path: P
             summary="Found missing regression coverage.",
             checks=["manual code inspection"],
             verdict="changes_required",
-            findings=[{
-                "severity": "high",
-                "category": "testing",
-                "path": "app.py",
-                "problem": "Regression path is not covered.",
-                "required_fix": "Add the missing behavior and regression test.",
-            }],
+            findings=[
+                {
+                    "severity": "high",
+                    "category": "testing",
+                    "path": "app.py",
+                    "problem": "Regression path is not covered.",
+                    "required_fix": "Add the missing behavior and regression test.",
+                }
+            ],
         )
         assert fix["active_stage"]["kind"] == "fix"
         assert fix["open_findings"] == 1
@@ -172,16 +177,20 @@ def test_review_findings_force_fixer_and_are_verified_by_next_review(tmp_path: P
             summary="Regression fix verified.",
             checks=["pytest passed", "manual diff inspection"],
             verdict="pass",
-            verification_results=[{
-                "finding_id": verify_items[0]["id"],
-                "status": "verified",
-                "evidence": "Regression behavior is covered and pytest passed.",
-            }],
+            verification_results=[
+                {
+                    "finding_id": verify_items[0]["id"],
+                    "status": "verified",
+                    "evidence": "Regression behavior is covered and pytest passed.",
+                }
+            ],
         )
         assert completed["status"] == "completed"
         finding = db.scalar(select(ReviewFinding))
         assert finding is not None and finding.status == "verified"
-        handoff = db.scalar(select(WorkSession).where(WorkSession.id == UUID(completed["handoff_session_id"])))
+        handoff = db.scalar(
+            select(WorkSession).where(WorkSession.id == UUID(completed["handoff_session_id"]))
+        )
         assert handoff is not None
         assert any("Regression path is not covered" in item for item in handoff.notable_findings)
     finally:
@@ -239,7 +248,9 @@ def test_reviewer_write_blocks_task_until_repository_is_restored(tmp_path: Path)
         assert blocked["status"] == "blocked"
         assert "modified repository files" in blocked["blocked_reason"]
         invalid = db.scalar(
-            select(TaskStage).where(TaskStage.task_id == UUID(created["id"]), TaskStage.status == "invalid")
+            select(TaskStage).where(
+                TaskStage.task_id == UUID(created["id"]), TaskStage.status == "invalid"
+            )
         )
         assert invalid is not None
 
@@ -293,18 +304,21 @@ def test_task_baseline_reuses_fresh_memory_content_hash(tmp_path: Path, monkeypa
         source = root / "app.py"
         stat = source.stat()
         import hashlib
+
         expected = hashlib.sha256(source.read_bytes()).hexdigest()
         memory_dir = root / ".ai-layer" / "memory"
         memory_dir.mkdir(parents=True)
         (memory_dir / "file_state.json").write_text(
-            __import__("json").dumps({
-                "app.py": {
-                    "content_sha256": expected,
-                    "size": stat.st_size,
-                    "mtime_ns": stat.st_mtime_ns,
-                    "ctime_ns": stat.st_ctime_ns,
+            __import__("json").dumps(
+                {
+                    "app.py": {
+                        "content_sha256": expected,
+                        "size": stat.st_size,
+                        "mtime_ns": stat.st_mtime_ns,
+                        "ctime_ns": stat.st_ctime_ns,
+                    }
                 }
-            }),
+            ),
             encoding="utf-8",
         )
         original_hash = tasks._hash_file
@@ -315,7 +329,9 @@ def test_task_baseline_reuses_fresh_memory_content_hash(tmp_path: Path, monkeypa
             return original_hash(path)
 
         monkeypatch.setattr(tasks, "_hash_file", tracking_hash)
-        tasks.create_task(db, project, goal="Reuse memory hash", acceptance_criteria=[], constraints=[])
+        tasks.create_task(
+            db, project, goal="Reuse memory hash", acceptance_criteria=[], constraints=[]
+        )
         assert "app.py" not in hashed
     finally:
         db.close()
@@ -324,7 +340,9 @@ def test_task_baseline_reuses_fresh_memory_content_hash(tmp_path: Path, monkeypa
 def test_completed_stage_requires_verification_check(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Verify stage", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Verify stage", acceptance_criteria=[], constraints=[]
+        )
         tasks.delegate_current_stage(db, project, worker_id="implementer-no-checks")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
         with pytest.raises(ValueError, match="requires at least one verification check"):
@@ -383,7 +401,9 @@ def test_unexpected_clean_fixer_changes_must_be_reverted_before_resume(tmp_path:
 def test_rejected_stage_report_does_not_consume_worker_or_stage(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Retry report", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Retry report", acceptance_criteria=[], constraints=[]
+        )
         tasks.delegate_current_stage(db, project, worker_id="implementer-retry")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
         stage_id = created["active_stage"]["id"]
@@ -416,7 +436,9 @@ def test_rejected_stage_report_does_not_consume_worker_or_stage(tmp_path: Path):
 def test_review_submission_normalizes_weak_model_aliases_and_pass_with_findings(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Normalize review contract", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Normalize review contract", acceptance_criteria=[], constraints=[]
+        )
         review = _complete_implement(db, project, created, root)
 
         result = _complete_bound(
@@ -427,12 +449,14 @@ def test_review_submission_normalizes_weak_model_aliases_and_pass_with_findings(
             summary="Found one actionable issue.",
             checks=["manual diff inspection"],
             verdict="pass",
-            findings=[{
-                "severity": "warning",
-                "file": "app.py",
-                "issue": "Weak-model alias should be accepted without a retry.",
-                "fix": "Correct the implementation before the next review.",
-            }],
+            findings=[
+                {
+                    "severity": "warning",
+                    "file": "app.py",
+                    "issue": "Weak-model alias should be accepted without a retry.",
+                    "fix": "Correct the implementation before the next review.",
+                }
+            ],
         )
 
         assert result["status"] == "active"
@@ -466,30 +490,47 @@ def test_review_fail_alias_becomes_changes_required():
 def test_review_cannot_blanket_pass_pending_findings_without_per_finding_evidence(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Verify finding", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Verify finding", acceptance_criteria=[], constraints=[]
+        )
         review1 = _complete_implement(db, project, created, root)
         fix = _complete_bound(
-            db, project,
+            db,
+            project,
             stage_id=review1["active_stage"]["id"],
             worker_id="reviewer-x",
-            summary="Found issue.", checks=["inspection"], verdict="changes_required",
-            findings=[{
-                "severity": "medium", "category": "code", "path": "app.py",
-                "problem": "Behavior needs verification.", "required_fix": "Fix it.",
-            }],
+            summary="Found issue.",
+            checks=["inspection"],
+            verdict="changes_required",
+            findings=[
+                {
+                    "severity": "medium",
+                    "category": "code",
+                    "path": "app.py",
+                    "problem": "Behavior needs verification.",
+                    "required_fix": "Fix it.",
+                }
+            ],
         )
         tasks.delegate_current_stage(db, project, worker_id="fixer-x")
         (root / "app.py").write_text("VALUE = 3\n", encoding="utf-8")
         review2 = _complete_bound(
-            db, project,
-            stage_id=fix["active_stage"]["id"], worker_id="fixer-x",
-            summary="Applied fix.", checks=["focused tests passed"],
+            db,
+            project,
+            stage_id=fix["active_stage"]["id"],
+            worker_id="fixer-x",
+            summary="Applied fix.",
+            checks=["focused tests passed"],
         )
         with pytest.raises(ValueError, match="verification_results"):
             _complete_bound(
-                db, project,
-                stage_id=review2["active_stage"]["id"], worker_id="reviewer-y",
-                summary="Looks fixed.", checks=["inspection"], verdict="pass",
+                db,
+                project,
+                stage_id=review2["active_stage"]["id"],
+                worker_id="reviewer-y",
+                summary="Looks fixed.",
+                checks=["inspection"],
+                verdict="pass",
             )
     finally:
         db.close()
@@ -498,33 +539,54 @@ def test_review_cannot_blanket_pass_pending_findings_without_per_finding_evidenc
 def test_still_open_verification_forces_another_fix_round(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Keep unresolved finding open", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Keep unresolved finding open", acceptance_criteria=[], constraints=[]
+        )
         review1 = _complete_implement(db, project, created, root)
         fix = _complete_bound(
-            db, project,
-            stage_id=review1["active_stage"]["id"], worker_id="reviewer-open",
-            summary="Found issue.", checks=["inspection"], verdict="changes_required",
-            findings=[{
-                "severity": "high", "category": "code", "path": "app.py",
-                "problem": "Issue remains.", "required_fix": "Correct it.",
-            }],
+            db,
+            project,
+            stage_id=review1["active_stage"]["id"],
+            worker_id="reviewer-open",
+            summary="Found issue.",
+            checks=["inspection"],
+            verdict="changes_required",
+            findings=[
+                {
+                    "severity": "high",
+                    "category": "code",
+                    "path": "app.py",
+                    "problem": "Issue remains.",
+                    "required_fix": "Correct it.",
+                }
+            ],
         )
         finding_id = fix["findings"][0]["id"]
         tasks.delegate_current_stage(db, project, worker_id="fixer-open")
         (root / "app.py").write_text("VALUE = 4\n", encoding="utf-8")
         review2 = _complete_bound(
-            db, project,
-            stage_id=fix["active_stage"]["id"], worker_id="fixer-open",
-            summary="Attempted fix.", checks=["focused tests"],
+            db,
+            project,
+            stage_id=fix["active_stage"]["id"],
+            worker_id="fixer-open",
+            summary="Attempted fix.",
+            checks=["focused tests"],
         )
         result = _complete_bound(
-            db, project,
-            stage_id=review2["active_stage"]["id"], worker_id="reviewer-open-2",
-            summary="Issue is still reproducible.", checks=["reproduction"], verdict="pass",
-            verification_results=[{
-                "finding_id": finding_id, "status": "still_open",
-                "evidence": "Focused reproduction still fails on the original edge case.",
-            }],
+            db,
+            project,
+            stage_id=review2["active_stage"]["id"],
+            worker_id="reviewer-open-2",
+            summary="Issue is still reproducible.",
+            checks=["reproduction"],
+            verdict="pass",
+            verification_results=[
+                {
+                    "finding_id": finding_id,
+                    "status": "still_open",
+                    "evidence": "Focused reproduction still fails on the original edge case.",
+                }
+            ],
         )
         assert result["active_stage"]["kind"] == "fix"
         finding = db.get(ReviewFinding, UUID(finding_id))
@@ -538,13 +600,18 @@ def test_still_open_verification_forces_another_fix_round(tmp_path: Path):
 
 def test_task_dashboard_prefers_canonical_database_over_stale_disk(tmp_path: Path, monkeypatch):
     from contextlib import contextmanager
+
     from ai_layer.application import tasks as application_tasks
 
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Canonical dashboard state", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Canonical dashboard state", acceptance_criteria=[], constraints=[]
+        )
         state_root = tasks._task_root(project)
-        tasks._atomic_write_json(state_root / "current.json", {"status": "stale", "id": "disk-only"})
+        tasks._atomic_write_json(
+            state_root / "current.json", {"status": "stale", "id": "disk-only"}
+        )
         tasks._atomic_write_json(state_root / "latest.json", {"status": "stale", "id": "disk-only"})
 
         @contextmanager
@@ -564,7 +631,9 @@ def test_task_dashboard_prefers_canonical_database_over_stale_disk(tmp_path: Pat
 def test_automatic_remediation_stops_for_human_attention_and_resume_is_explicit(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Bound remediation", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Bound remediation", acceptance_criteria=[], constraints=[]
+        )
         review1 = _complete_implement(db, project, created, root)
         fix1 = _complete_bound(
             db,
@@ -574,13 +643,15 @@ def test_automatic_remediation_stops_for_human_attention_and_resume_is_explicit(
             summary="Issue found.",
             checks=["manual inspection"],
             verdict="changes_required",
-            findings=[{
-                "severity": "high",
-                "category": "correctness",
-                "path": "app.py",
-                "problem": "Persistent defect.",
-                "required_fix": "Fix the defect.",
-            }],
+            findings=[
+                {
+                    "severity": "high",
+                    "category": "correctness",
+                    "path": "app.py",
+                    "problem": "Persistent defect.",
+                    "required_fix": "Fix the defect.",
+                }
+            ],
         )
         review2 = _complete_bound(
             db,
@@ -599,11 +670,13 @@ def test_automatic_remediation_stops_for_human_attention_and_resume_is_explicit(
             summary="Issue still present.",
             checks=["manual inspection"],
             verdict="changes_required",
-            verification_results=[{
-                "finding_id": pending1["id"],
-                "status": "still_open",
-                "evidence": "The defect is still visible in app.py.",
-            }],
+            verification_results=[
+                {
+                    "finding_id": pending1["id"],
+                    "status": "still_open",
+                    "evidence": "The defect is still visible in app.py.",
+                }
+            ],
         )
         assert fix2["active_stage"]["kind"] == "fix"
         assert fix2["fix_round"] == 2
@@ -625,11 +698,13 @@ def test_automatic_remediation_stops_for_human_attention_and_resume_is_explicit(
             summary="Still not acceptable.",
             checks=["manual inspection"],
             verdict="changes_required",
-            verification_results=[{
-                "finding_id": pending2["id"],
-                "status": "still_open",
-                "evidence": "The same defect remains after two remediation attempts.",
-            }],
+            verification_results=[
+                {
+                    "finding_id": pending2["id"],
+                    "status": "still_open",
+                    "evidence": "The same defect remains after two remediation attempts.",
+                }
+            ],
         )
         assert stopped["status"] == "blocked"
         assert stopped["active_stage"] is None
@@ -648,7 +723,9 @@ def test_automatic_remediation_stops_for_human_attention_and_resume_is_explicit(
 def test_duplicate_finding_reuses_id_instead_of_growing_active_workset(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Deduplicate findings", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Deduplicate findings", acceptance_criteria=[], constraints=[]
+        )
         review1 = _complete_implement(db, project, created, root)
         first = _complete_bound(
             db,
@@ -658,13 +735,15 @@ def test_duplicate_finding_reuses_id_instead_of_growing_active_workset(tmp_path:
             summary="Found one issue.",
             checks=["inspection"],
             verdict="changes_required",
-            findings=[{
-                "severity": "medium",
-                "category": "testing",
-                "path": "app.py",
-                "problem": "Missing edge-case coverage.",
-                "required_fix": "Add coverage.",
-            }],
+            findings=[
+                {
+                    "severity": "medium",
+                    "category": "testing",
+                    "path": "app.py",
+                    "problem": "Missing edge-case coverage.",
+                    "required_fix": "Add coverage.",
+                }
+            ],
         )
         finding_id = first["active_findings"][0]["id"]
         review2 = _complete_bound(
@@ -683,18 +762,22 @@ def test_duplicate_finding_reuses_id_instead_of_growing_active_workset(tmp_path:
             summary="Same issue remains.",
             checks=["inspection"],
             verdict="changes_required",
-            verification_results=[{
-                "finding_id": finding_id,
-                "status": "still_open",
-                "evidence": "Coverage is still absent.",
-            }],
-            findings=[{
-                "severity": "high",
-                "category": "testing",
-                "path": "app.py",
-                "problem": "  Missing   edge-case coverage. ",
-                "required_fix": "Add regression coverage.",
-            }],
+            verification_results=[
+                {
+                    "finding_id": finding_id,
+                    "status": "still_open",
+                    "evidence": "Coverage is still absent.",
+                }
+            ],
+            findings=[
+                {
+                    "severity": "high",
+                    "category": "testing",
+                    "path": "app.py",
+                    "problem": "  Missing   edge-case coverage. ",
+                    "required_fix": "Add regression coverage.",
+                }
+            ],
         )
         assert result["finding_summary"]["total"] == 1
         assert result["open_findings"] == 1
@@ -718,14 +801,18 @@ def test_cancel_is_idempotent_after_transport_retry(tmp_path: Path):
         db.close()
 
 
-def test_review_sandbox_runs_writing_check_without_touching_canonical_repo(tmp_path: Path, monkeypatch):
+def test_review_sandbox_runs_writing_check_without_touching_canonical_repo(
+    tmp_path: Path, monkeypatch
+):
     from ai_layer.core.config import get_settings
 
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "ai-home"))
     get_settings.cache_clear()
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Sandbox checks", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Sandbox checks", acceptance_criteria=[], constraints=[]
+        )
         review = _complete_implement(db, project, created, root)
         tasks.delegate_current_stage(db, project, worker_id="reviewer-sandbox")
         prepared = tasks.prepare_current_review_sandbox(db, project)
@@ -759,22 +846,31 @@ def test_review_sandbox_runs_writing_check_without_touching_canonical_repo(tmp_p
         completed_review = next(
             item for item in next_stage["stages"] if item["id"] == review["active_stage"]["id"]
         )
-        assert completed_review["check_evidence_assurance"] == "ai-layer-executed-sandbox+reported-by-worker"
-        assert any(str(item).startswith("[ai-layer-sandbox] PASS") for item in completed_review["checks"])
+        assert (
+            completed_review["check_evidence_assurance"]
+            == "ai-layer-executed-sandbox+reported-by-worker"
+        )
+        assert any(
+            str(item).startswith("[ai-layer-sandbox] PASS") for item in completed_review["checks"]
+        )
         assert not sandbox.exists()
     finally:
         db.close()
         get_settings.cache_clear()
 
 
-def test_review_sandbox_failed_check_prevents_pass_until_successful_rerun(tmp_path: Path, monkeypatch):
+def test_review_sandbox_failed_check_prevents_pass_until_successful_rerun(
+    tmp_path: Path, monkeypatch
+):
     from ai_layer.core.config import get_settings
 
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "ai-home"))
     get_settings.cache_clear()
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Sandbox failure gate", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Sandbox failure gate", acceptance_criteria=[], constraints=[]
+        )
         review = _complete_implement(db, project, created, root)
         tasks.delegate_current_stage(db, project, worker_id="reviewer-sandbox-fail")
         retry_code = "from pathlib import Path; p=Path('retry.marker'); existed=p.exists(); p.write_text('x'); raise SystemExit(0 if existed else 3)"
@@ -815,7 +911,9 @@ def test_review_sandbox_failed_check_prevents_pass_until_successful_rerun(tmp_pa
 def test_review_delegation_contract_is_context_isolated(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Review isolation", acceptance_criteria=["safe"], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Review isolation", acceptance_criteria=["safe"], constraints=[]
+        )
         review = _complete_implement(db, project, created, root)
         contract = review["delegation_contract"]
         assert contract["context_policy"]["mode"] == "isolated_review"
@@ -829,7 +927,9 @@ def test_review_delegation_contract_is_context_isolated(tmp_path: Path):
 def test_clean_noop_fixer_does_not_consume_remediation_budget(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="No-op budget", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="No-op budget", acceptance_criteria=[], constraints=[]
+        )
         _force_legacy_workflow(db)
         review1 = _complete_implement(db, project, created, root)
         clean_fix = _complete_bound(
@@ -859,13 +959,15 @@ def test_clean_noop_fixer_does_not_consume_remediation_budget(tmp_path: Path):
             summary="Found a later defect.",
             checks=["inspection"],
             verdict="changes_required",
-            findings=[{
-                "severity": "medium",
-                "category": "correctness",
-                "path": "app.py",
-                "problem": "Later defect.",
-                "required_fix": "Fix it.",
-            }],
+            findings=[
+                {
+                    "severity": "medium",
+                    "category": "correctness",
+                    "path": "app.py",
+                    "problem": "Later defect.",
+                    "required_fix": "Fix it.",
+                }
+            ],
         )
         assert real_fix1["status"] == "active"
         assert real_fix1["active_stage"]["kind"] == "fix"
@@ -874,7 +976,9 @@ def test_clean_noop_fixer_does_not_consume_remediation_budget(tmp_path: Path):
         db.close()
 
 
-def test_review_sandbox_durable_evidence_excludes_output_and_redacts_secret_args(tmp_path: Path, monkeypatch):
+def test_review_sandbox_durable_evidence_excludes_output_and_redacts_secret_args(
+    tmp_path: Path, monkeypatch
+):
     from ai_layer.core.config import get_settings
     from ai_layer.tasks.sandbox import review_check_evidence
 
@@ -882,7 +986,9 @@ def test_review_sandbox_durable_evidence_excludes_output_and_redacts_secret_args
     get_settings.cache_clear()
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Private sandbox evidence", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Private sandbox evidence", acceptance_criteria=[], constraints=[]
+        )
         review = _complete_implement(db, project, created, root)
         tasks.delegate_current_stage(db, project, worker_id="reviewer-private-sandbox")
         check = tasks.run_current_review_check(
@@ -901,7 +1007,9 @@ def test_review_sandbox_durable_evidence_excludes_output_and_redacts_secret_args
         assert check["command"][-1] == "<redacted>"
 
         task_row = db.scalar(select(Task).where(Task.id == UUID(created["id"])))
-        stage_row = db.scalar(select(TaskStage).where(TaskStage.id == UUID(review["active_stage"]["id"])))
+        stage_row = db.scalar(
+            select(TaskStage).where(TaskStage.id == UUID(review["active_stage"]["id"]))
+        )
         records = review_check_evidence(project, task_row, stage_row)
         assert len(records) == 1
         assert "stdout_tail" not in records[0]
@@ -913,7 +1021,9 @@ def test_review_sandbox_durable_evidence_excludes_output_and_redacts_secret_args
         get_settings.cache_clear()
 
 
-def test_review_sandbox_does_not_inherit_host_secret_environment_and_scrubs_secret_argv(tmp_path: Path, monkeypatch):
+def test_review_sandbox_does_not_inherit_host_secret_environment_and_scrubs_secret_argv(
+    tmp_path: Path, monkeypatch
+):
     from ai_layer.core.config import get_settings
 
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "ai-home"))
@@ -921,13 +1031,19 @@ def test_review_sandbox_does_not_inherit_host_secret_environment_and_scrubs_secr
     get_settings.cache_clear()
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Sandbox env isolation", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Sandbox env isolation", acceptance_criteria=[], constraints=[]
+        )
         _complete_implement(db, project, created, root)
         tasks.delegate_current_stage(db, project, worker_id="reviewer-env-isolation")
         env_check = tasks.run_current_review_check(
             db,
             project,
-            command=["python", "-c", "import os; print(os.environ.get('MY_SECRET_TOKEN', '<missing>'))"],
+            command=[
+                "python",
+                "-c",
+                "import os; print(os.environ.get('MY_SECRET_TOKEN', '<missing>'))",
+            ],
             timeout_seconds=30,
         )
         assert env_check["ok"] is True
@@ -963,7 +1079,9 @@ def test_review_sandbox_does_not_inherit_python_import_overrides(tmp_path: Path,
     get_settings.cache_clear()
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Sandbox import isolation", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Sandbox import isolation", acceptance_criteria=[], constraints=[]
+        )
         _complete_implement(db, project, created, root)
         tasks.delegate_current_stage(db, project, worker_id="reviewer-import-isolation")
         check = tasks.run_current_review_check(
@@ -988,7 +1106,9 @@ def test_review_sandbox_does_not_inherit_python_import_overrides(tmp_path: Path,
 def test_compact_task_recovery_excludes_completed_worker_summaries(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Compact review context", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Compact review context", acceptance_criteria=[], constraints=[]
+        )
         _complete_implement(db, project, created, root)
         compact = tasks.current_task(db, project, include_history=False)
         payload = compact["task"]
@@ -1004,6 +1124,7 @@ def test_review_sandbox_uses_git_worktree_and_overlays_dirty_worktree(tmp_path: 
     import json
     import shutil
     import subprocess
+
     from ai_layer.core.config import get_settings
 
     git = shutil.which("git")
@@ -1015,25 +1136,35 @@ def test_review_sandbox_uses_git_worktree_and_overlays_dirty_worktree(tmp_path: 
     db, project, root = _db_project(tmp_path)
     try:
         subprocess.run([git, "-C", str(root), "init", "-q"], check=True)
-        subprocess.run([git, "-C", str(root), "config", "user.email", "test@example.invalid"], check=True)
+        subprocess.run(
+            [git, "-C", str(root), "config", "user.email", "test@example.invalid"], check=True
+        )
         subprocess.run([git, "-C", str(root), "config", "user.name", "AI Layer Test"], check=True)
         subprocess.run([git, "-C", str(root), "add", "app.py"], check=True)
         subprocess.run([git, "-C", str(root), "commit", "-qm", "baseline"], check=True)
         (root / ".gitignore").write_text(".env\nnode_modules/\n.venv/\n", encoding="utf-8")
         subprocess.run([git, "-C", str(root), "add", ".gitignore"], check=True)
-        subprocess.run([git, "-C", str(root), "commit", "-qm", "ignore generated files"], check=True)
+        subprocess.run(
+            [git, "-C", str(root), "commit", "-qm", "ignore generated files"], check=True
+        )
         (root / ".env").write_text("TOKEN=do-not-copy\n", encoding="utf-8")
         (root / "node_modules" / "pkg").mkdir(parents=True)
-        (root / "node_modules" / "pkg" / "index.js").write_text("module.exports = 1\n", encoding="utf-8")
+        (root / "node_modules" / "pkg" / "index.js").write_text(
+            "module.exports = 1\n", encoding="utf-8"
+        )
         (root / ".venv" / "bin").mkdir(parents=True)
         (root / ".venv" / "bin" / "python").write_text("ignored\n", encoding="utf-8")
 
-        created = tasks.create_task(db, project, goal="Git worktree review", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Git worktree review", acceptance_criteria=[], constraints=[]
+        )
         review = _complete_implement(db, project, created, root)
         tasks.delegate_current_stage(db, project, worker_id="reviewer-git-worktree")
         prepared = tasks.prepare_current_review_sandbox(db, project)
         sandbox = Path(prepared["path"])
-        manifest = json.loads((sandbox / ".ai-layer-review-sandbox.json").read_text(encoding="utf-8"))
+        manifest = json.loads(
+            (sandbox / ".ai-layer-review-sandbox.json").read_text(encoding="utf-8")
+        )
         assert manifest["mode"] == "git-worktree"
         assert (sandbox / "app.py").read_text(encoding="utf-8") == "VALUE = 2\n"
         assert not (sandbox / ".env").exists()
@@ -1103,7 +1234,12 @@ def test_task_adopt_records_unmanaged_git_changes_and_starts_at_review(tmp_path:
         assert adopted["adopted_changes"]["total"] == 2
         assert set(adopted["adopted_changes"]["paths"]) == {"app.py", "new.txt"}
         assert "original implementation" in adopted["delegation_contract"]["provenance_notice"]
-        assert db.scalar(select(func.count()).select_from(TaskStage).where(TaskStage.kind == "implement")) == 0
+        assert (
+            db.scalar(
+                select(func.count()).select_from(TaskStage).where(TaskStage.kind == "implement")
+            )
+            == 0
+        )
     finally:
         db.close()
 
@@ -1112,7 +1248,9 @@ def test_task_adopt_clean_git_tree_is_rejected_instead_of_inventing_history(tmp_
     db, project, root = _db_project(tmp_path)
     try:
         _init_git_repo(root)
-        with pytest.raises(RuntimeError, match="found no staged, unstaged, or untracked Git changes"):
+        with pytest.raises(
+            RuntimeError, match="found no staged, unstaged, or untracked Git changes"
+        ):
             tasks.adopt_task(
                 db,
                 project,
@@ -1165,18 +1303,27 @@ def test_adopted_task_handoff_never_claims_managed_implementation(tmp_path: Path
         assert completed["status"] == "completed"
         assert completed["execution_origin"] == "adopted_unmanaged_changes"
         assert completed["final_changes"]["total"] == 0
-        handoff = db.scalar(select(WorkSession).where(WorkSession.id == UUID(completed["handoff_session_id"])))
+        handoff = db.scalar(
+            select(WorkSession).where(WorkSession.id == UUID(completed["handoff_session_id"]))
+        )
         assert handoff is not None
         assert "no managed implementation stage was claimed" in handoff.current_state
-        assert any("did not claim the original implementation stage" in fact for fact in handoff.verified_facts)
+        assert any(
+            "did not claim the original implementation stage" in fact
+            for fact in handoff.verified_facts
+        )
     finally:
         db.close()
 
 
-def test_task_next_is_authoritative_navigator_and_stage_specific_completion_avoids_ids(tmp_path: Path):
+def test_task_next_is_authoritative_navigator_and_stage_specific_completion_avoids_ids(
+    tmp_path: Path,
+):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Guided workflow", acceptance_criteria=[], constraints=[])
+        tasks.create_task(
+            db, project, goal="Guided workflow", acceptance_criteria=[], constraints=[]
+        )
         nav = tasks.next_task_action(db, project)
         assert nav["next_action"]["action"] == "delegate_stage"
         assert nav["next_action"]["tool"] == "task_stage_delegate"
@@ -1231,7 +1378,11 @@ def test_task_create_accepts_unknown_dirty_git_worktree_as_captured_baseline(tmp
         assert "Do not stash/reset/restore/commit" in nav["next_action"]["message"]
 
         created = tasks.create_task(
-            db, project, goal="Start safely over existing unrelated work", acceptance_criteria=[], constraints=[]
+            db,
+            project,
+            goal="Start safely over existing unrelated work",
+            acceptance_criteria=[],
+            constraints=[],
         )
         assert created["execution_origin"] == "managed"
         assert created["preexisting_changes"]["total"] == 1
@@ -1247,20 +1398,32 @@ def test_dirty_baseline_excludes_preexisting_unrelated_work_from_task_delta(tmp_
         _init_git_repo(root)
         (root / "other.py").write_text("OTHER = 1\n", encoding="utf-8")
         import subprocess
+
         subprocess.run(["git", "-C", str(root), "add", "other.py"], check=True)
         subprocess.run(["git", "-C", str(root), "commit", "-qm", "add other"], check=True)
         (root / "app.py").write_text("VALUE = 41\n", encoding="utf-8")  # unrelated pre-existing WIP
 
-        created = tasks.create_task(db, project, goal="Change only other.py", acceptance_criteria=[], constraints=[])
+        tasks.create_task(
+            db, project, goal="Change only other.py", acceptance_criteria=[], constraints=[]
+        )
         tasks.delegate_current_stage(db, project, worker_id="dirty-baseline-impl")
         (root / "other.py").write_text("OTHER = 2\n", encoding="utf-8")
         review = tasks.complete_current_stage(
-            db, project, expected_kind="implement", summary="Changed target file.", checks=["focused check"]
+            db,
+            project,
+            expected_kind="implement",
+            summary="Changed target file.",
+            checks=["focused check"],
         )
         assert review["active_stage"]["kind"] == "review"
         tasks.delegate_current_stage(db, project, worker_id="dirty-baseline-review")
         completed = tasks.complete_current_stage(
-            db, project, expected_kind="review", summary="Reviewed task delta.", checks=["inspection"], verdict="pass"
+            db,
+            project,
+            expected_kind="review",
+            summary="Reviewed task delta.",
+            checks=["inspection"],
+            verdict="pass",
         )
         assert completed["final_changes"]["modified"] == ["other.py"]
         assert "app.py" not in completed["final_changes"]["modified"]
@@ -1274,14 +1437,26 @@ def test_dirty_baseline_same_file_is_task_delta_and_micro_escalates_to_review(tm
     try:
         _init_git_repo(root)
         (root / "app.py").write_text("VALUE = 41\n", encoding="utf-8")
-        created = tasks.create_task(
-            db, project, goal="Tiny follow-up", acceptance_criteria=[], constraints=[],
-            workflow="micro", risk="low", complexity="low", uncertainty="low", cost_policy="economy",
+        tasks.create_task(
+            db,
+            project,
+            goal="Tiny follow-up",
+            acceptance_criteria=[],
+            constraints=[],
+            workflow="micro",
+            risk="low",
+            complexity="low",
+            uncertainty="low",
+            cost_policy="economy",
         )
         tasks.delegate_current_stage(db, project, worker_id="dirty-overlap-impl")
         (root / "app.py").write_text("VALUE = 42\n", encoding="utf-8")
         result = tasks.complete_current_stage(
-            db, project, expected_kind="implement", summary="Follow-up on existing WIP.", checks=["focused check"]
+            db,
+            project,
+            expected_kind="implement",
+            summary="Follow-up on existing WIP.",
+            checks=["focused check"],
         )
         assert result["workflow_profile"] == "standard"
         assert result["active_stage"]["kind"] == "review"
@@ -1297,15 +1472,26 @@ def test_verified_terminal_dirty_state_is_allowed_as_next_task_baseline(tmp_path
     db, project, root = _db_project(tmp_path)
     try:
         _init_git_repo(root)
-        first = tasks.create_task(db, project, goal="First managed change", acceptance_criteria=[], constraints=[])
+        first = tasks.create_task(
+            db, project, goal="First managed change", acceptance_criteria=[], constraints=[]
+        )
         tasks.delegate_current_stage(db, project, worker_id="terminal-impl")
         (root / "app.py").write_text("VALUE = 17\n", encoding="utf-8")
-        review1 = tasks.complete_current_stage(
-            db, project, expected_kind="implement", summary="Changed value.", checks=["focused test"]
+        tasks.complete_current_stage(
+            db,
+            project,
+            expected_kind="implement",
+            summary="Changed value.",
+            checks=["focused test"],
         )
         tasks.delegate_current_stage(db, project, worker_id="terminal-review-1")
         completed = tasks.complete_current_stage(
-            db, project, expected_kind="review", summary="Clean review.", checks=["inspection"], verdict="pass"
+            db,
+            project,
+            expected_kind="review",
+            summary="Clean review.",
+            checks=["inspection"],
+            verdict="pass",
         )
         assert completed["status"] == "completed"
         assert tasks._git_changed_paths(root)["paths"] == ["app.py"]
@@ -1313,7 +1499,9 @@ def test_verified_terminal_dirty_state_is_allowed_as_next_task_baseline(tmp_path
         nav = tasks.next_task_action(db, project)
         assert nav["next_action"]["action"] == "create_task"
         assert nav["known_preexisting_state"]["task"] == first["key"]
-        second = tasks.create_task(db, project, goal="Second managed change", acceptance_criteria=[], constraints=[])
+        second = tasks.create_task(
+            db, project, goal="Second managed change", acceptance_criteria=[], constraints=[]
+        )
         assert second["key"] == "T-0002"
     finally:
         db.close()
@@ -1322,7 +1510,9 @@ def test_verified_terminal_dirty_state_is_allowed_as_next_task_baseline(tmp_path
 def test_external_action_boundary_is_recorded_and_review_mutation_is_rejected(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        tasks.create_task(db, project, goal="External boundary", acceptance_criteria=[], constraints=[])
+        tasks.create_task(
+            db, project, goal="External boundary", acceptance_criteria=[], constraints=[]
+        )
         tasks.delegate_current_stage(db, project, worker_id="external-impl")
         (root / "app.py").write_text("VALUE = 22\n", encoding="utf-8")
         review = tasks.complete_current_stage(
@@ -1331,12 +1521,14 @@ def test_external_action_boundary_is_recorded_and_review_mutation_is_rejected(tm
             expected_kind="implement",
             summary="Updated code and deployment-side cron as required.",
             checks=["focused test"],
-            external_actions=[{
-                "kind": "mutation",
-                "target": "staging:cron/iiko-sync",
-                "summary": "Updated schedule from 10m to 5m.",
-                "evidence": "cron listing inspected after change; API_TOKEN=super-secret-token",
-            }],
+            external_actions=[
+                {
+                    "kind": "mutation",
+                    "target": "staging:cron/iiko-sync",
+                    "summary": "Updated schedule from 10m to 5m.",
+                    "evidence": "cron listing inspected after change; API_TOKEN=super-secret-token",
+                }
+            ],
         )
         implementation = next(item for item in review["stages"] if item["kind"] == "implement")
         assert implementation["external_actions"][0]["kind"] == "mutation"
@@ -1353,11 +1545,13 @@ def test_external_action_boundary_is_recorded_and_review_mutation_is_rejected(tm
                 summary="Reviewer tried to mutate staging.",
                 checks=["inspection"],
                 verdict="pass",
-                external_actions=[{
-                    "kind": "mutation",
-                    "target": "staging:service",
-                    "summary": "Restarted service.",
-                }],
+                external_actions=[
+                    {
+                        "kind": "mutation",
+                        "target": "staging:service",
+                        "summary": "Restarted service.",
+                    }
+                ],
             )
         runtime = tasks.current_task(db, project, include_history=False)
         assert runtime["task"]["active_stage"]["worker_id"] == "external-review"
@@ -1368,11 +1562,18 @@ def test_external_action_boundary_is_recorded_and_review_mutation_is_rejected(tm
 def test_stage_specific_completion_kind_mismatch_points_to_current_stage(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        tasks.create_task(db, project, goal="Wrong completion surface", acceptance_criteria=[], constraints=[])
+        tasks.create_task(
+            db, project, goal="Wrong completion surface", acceptance_criteria=[], constraints=[]
+        )
         tasks.delegate_current_stage(db, project, worker_id="impl-kind")
         with pytest.raises(RuntimeError, match="STAGE_KIND_MISMATCH") as exc:
             tasks.complete_current_stage(
-                db, project, expected_kind="review", summary="wrong", checks=["inspection"], verdict="pass"
+                db,
+                project,
+                expected_kind="review",
+                summary="wrong",
+                checks=["inspection"],
+                verdict="pass",
             )
         assert "task_implementation_complete" in str(exc.value)
     finally:
@@ -1382,7 +1583,9 @@ def test_stage_specific_completion_kind_mismatch_points_to_current_stage(tmp_pat
 def test_blocked_implementation_rejects_repository_changes_before_resume(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        tasks.create_task(db, project, goal="Blocked implementation guard", acceptance_criteria=[], constraints=[])
+        tasks.create_task(
+            db, project, goal="Blocked implementation guard", acceptance_criteria=[], constraints=[]
+        )
         tasks.delegate_current_stage(db, project, worker_id="blocked-impl")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
         blocked = tasks.complete_current_stage(
@@ -1409,7 +1612,9 @@ def test_blocked_implementation_rejects_repository_changes_before_resume(tmp_pat
 def test_blocked_review_rejects_repository_changes_before_resume(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Blocked review guard", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Blocked review guard", acceptance_criteria=[], constraints=[]
+        )
         review = _complete_implement(db, project, created, root)
         tasks.delegate_current_stage(db, project, worker_id="blocked-review")
         blocked = tasks.complete_stage(
@@ -1436,9 +1641,11 @@ def test_blocked_review_rejects_repository_changes_before_resume(tmp_path: Path)
 def test_blocked_fix_rejects_repository_changes_before_resume(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Blocked fix guard", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Blocked fix guard", acceptance_criteria=[], constraints=[]
+        )
         review = _complete_implement(db, project, created, root)
-        fix = _complete_bound(
+        _complete_bound(
             db,
             project,
             stage_id=review["active_stage"]["id"],
@@ -1446,13 +1653,15 @@ def test_blocked_fix_rejects_repository_changes_before_resume(tmp_path: Path):
             summary="Found one issue.",
             checks=["inspection"],
             verdict="changes_required",
-            findings=[{
-                "severity": "medium",
-                "category": "correctness",
-                "path": "app.py",
-                "problem": "Needs another value.",
-                "required_fix": "Adjust value.",
-            }],
+            findings=[
+                {
+                    "severity": "medium",
+                    "category": "correctness",
+                    "path": "app.py",
+                    "problem": "Needs another value.",
+                    "required_fix": "Adjust value.",
+                }
+            ],
         )
         tasks.delegate_current_stage(db, project, worker_id="blocked-fixer")
         (root / "app.py").write_text("VALUE = 4\n", encoding="utf-8")
@@ -1479,7 +1688,9 @@ def test_blocked_fix_rejects_repository_changes_before_resume(tmp_path: Path):
 def test_blocked_stage_can_resume_when_repository_still_matches_blocked_digest(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        tasks.create_task(db, project, goal="Clean blocked resume", acceptance_criteria=[], constraints=[])
+        tasks.create_task(
+            db, project, goal="Clean blocked resume", acceptance_criteria=[], constraints=[]
+        )
         tasks.delegate_current_stage(db, project, worker_id="blocked-clean")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
         tasks.complete_current_stage(
@@ -1500,10 +1711,14 @@ def test_blocked_stage_can_resume_when_repository_still_matches_blocked_digest(t
         db.close()
 
 
-def test_legacy_active_stage_has_one_time_completion_route_without_retroactive_delegation(tmp_path: Path):
+def test_legacy_active_stage_has_one_time_completion_route_without_retroactive_delegation(
+    tmp_path: Path,
+):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Legacy in-flight stage", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Legacy in-flight stage", acceptance_criteria=[], constraints=[]
+        )
         stage = db.get(TaskStage, UUID(created["active_stage"]["id"]))
         stage.delegation_required = False
         db.commit()
@@ -1516,7 +1731,9 @@ def test_legacy_active_stage_has_one_time_completion_route_without_retroactive_d
         assert nav["task"]["legacy_stage_compatibility"]["delegation_required"] is False
         assert nav["task"]["active_stage"]["delegated"] is False
         assert nav["task"]["active_stage"]["explicitly_delegated"] is False
-        assert nav["task"]["active_stage"]["delegation_assurance"] == "legacy-no-explicit-delegation"
+        assert (
+            nav["task"]["active_stage"]["delegation_assurance"] == "legacy-no-explicit-delegation"
+        )
         with pytest.raises(RuntimeError, match="LEGACY_STAGE_NO_RETROACTIVE_DELEGATION"):
             tasks.delegate_current_stage(db, project, worker_id="retroactive-worker")
 
@@ -1538,11 +1755,14 @@ def test_legacy_active_stage_has_one_time_completion_route_without_retroactive_d
 
 def test_dashboard_state_uses_authoritative_task_next_navigation(tmp_path: Path, monkeypatch):
     from contextlib import contextmanager
+
     from ai_layer.application import tasks as application_tasks
 
     db, project, root = _db_project(tmp_path)
     try:
-        tasks.create_task(db, project, goal="Dashboard authoritative nav", acceptance_criteria=[], constraints=[])
+        tasks.create_task(
+            db, project, goal="Dashboard authoritative nav", acceptance_criteria=[], constraints=[]
+        )
         (root / "app.py").write_text("VALUE = 99\n", encoding="utf-8")
 
         @contextmanager
@@ -1559,13 +1779,18 @@ def test_dashboard_state_uses_authoritative_task_next_navigation(tmp_path: Path,
         db.close()
 
 
-def test_dashboard_state_exposes_create_task_navigation_when_only_historical_task_remains(tmp_path: Path, monkeypatch):
+def test_dashboard_state_exposes_create_task_navigation_when_only_historical_task_remains(
+    tmp_path: Path, monkeypatch
+):
     from contextlib import contextmanager
+
     from ai_layer.application import tasks as application_tasks
 
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Historical dashboard nav", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Historical dashboard nav", acceptance_criteria=[], constraints=[]
+        )
         tasks.cancel_task(db, project, reason="fixture complete")
 
         @contextmanager
@@ -1583,17 +1808,28 @@ def test_dashboard_state_exposes_create_task_navigation_when_only_historical_tas
         db.close()
 
 
-def test_delegation_contract_requires_adaptive_expertise_and_documentation_impact_review(tmp_path: Path):
+def test_delegation_contract_requires_adaptive_expertise_and_documentation_impact_review(
+    tmp_path: Path,
+):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Change deployment config", acceptance_criteria=["safe"], constraints=[])
+        created = tasks.create_task(
+            db,
+            project,
+            goal="Change deployment config",
+            acceptance_criteria=["safe"],
+            constraints=[],
+        )
         contract = created["delegation_contract"]
         assert contract["expertise_contract"]["routing_owner"].startswith("The host agent")
         assert "skill_get" in contract["expertise_contract"]["authoritative_content"]
         assert "required/recommended/on-demand" in contract["expertise_contract"]["routing_owner"]
         assert any("documentation impact" in item.casefold() for item in contract["requirements"])
         review = _complete_implement(db, project, created, root)
-        assert any("documentation impact" in item.casefold() for item in review["delegation_contract"]["requirements"])
+        assert any(
+            "documentation impact" in item.casefold()
+            for item in review["delegation_contract"]["requirements"]
+        )
     finally:
         db.close()
 
@@ -1612,7 +1848,9 @@ def test_task_contract_rejects_oversized_durable_payloads(tmp_path: Path):
                 constraints=[],
             )
 
-        created = tasks.create_task(db, project, goal="Bound stage payload", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Bound stage payload", acceptance_criteria=[], constraints=[]
+        )
         tasks.delegate_current_stage(db, project, worker_id="bounded-implementer")
         stage_id = created["active_stage"]["id"]
         with pytest.raises(ValueError, match="50-item limit"):
@@ -1656,7 +1894,9 @@ def test_review_check_rejects_unbounded_command_payload(tmp_path: Path):
 
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Bound review command", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Bound review command", acceptance_criteria=[], constraints=[]
+        )
         _complete_implement(db, project, created, root)
         tasks.delegate_current_stage(db, project, worker_id="bounded-reviewer")
         with pytest.raises(ValueError, match="64-argument limit"):

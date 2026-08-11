@@ -7,19 +7,27 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from ai_layer import __version__
+from ai_layer.application.context import (
+    get_memory_context,
+    project_details,
+    search_decisions,
+    search_memory,
+)
+from ai_layer.application.recovery import recovery_status, worker_recovery_lifespan
+from ai_layer.application.runtime import database_health
 from ai_layer.core.background_service import service_runtime_payload
 from ai_layer.core.mcp_runtime import (
     CORE_TOKEN_HEADER,
-    runtime_state as core_runtime_state,
     start_runtime_warmup,
     validate_core_token,
 )
+from ai_layer.core.mcp_runtime import (
+    runtime_state as core_runtime_state,
+)
 from ai_layer.dashboard.api import router as dashboard_api_router
-from ai_layer.dashboard.web import router as dashboard_web_router, static_files
+from ai_layer.dashboard.web import router as dashboard_web_router
+from ai_layer.dashboard.web import static_files
 from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError, normalize_error
-from ai_layer.application.runtime import database_health
-from ai_layer.application.recovery import recovery_status, worker_recovery_lifespan
-from ai_layer.application.context import get_memory_context, project_details, search_decisions, search_memory
 
 
 class SearchRequest(BaseModel):
@@ -62,7 +70,6 @@ def _http_error(exc: BaseException, *, status_code: int = 400) -> HTTPException:
     return HTTPException(status_code=status_code, detail=normalize_error(exc).to_dict())
 
 
-
 def _mcp_transport(mcp_server: Any) -> tuple[Any | None, Any | None]:
     mcp_http_app = None
     session_manager = None
@@ -70,7 +77,9 @@ def _mcp_transport(mcp_server: Any) -> tuple[Any | None, Any | None]:
     if callable(streamable):
         try:
             # MCP SDK 2.x creates the Streamable HTTP session manager lazily here.
-            mcp_http_app = streamable(streamable_http_path="/", stateless_http=True, json_response=True)
+            mcp_http_app = streamable(
+                streamable_http_path="/", stateless_http=True, json_response=True
+            )
         except TypeError:
             # Keep health/dashboard/stdio usable with an incompatible host SDK.
             mcp_http_app = None
@@ -84,7 +93,8 @@ def _mcp_transport(mcp_server: Any) -> tuple[Any | None, Any | None]:
 
 def create_app() -> FastAPI:
     # Import after core modules so tests can still provide a minimal MCP SDK shim.
-    from ai_layer.mcp.server import execute_core_tool, mcp as mcp_server
+    from ai_layer.mcp.server import execute_core_tool
+    from ai_layer.mcp.server import mcp as mcp_server
 
     mcp_http_app, session_manager = _mcp_transport(mcp_server)
 

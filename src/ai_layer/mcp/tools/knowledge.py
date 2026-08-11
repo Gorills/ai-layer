@@ -16,7 +16,9 @@ def knowledge_list(
     wanted = (status or "VERIFIED").strip().upper()
     if wanted not in {"VERIFIED", "DRAFT", "STALE", "SUPERSEDED"}:
         raise ValueError("knowledge_list: status must be VERIFIED|DRAFT|STALE|SUPERSEDED")
-    with mcp_audit(root, "knowledge_list", arg_keys=["status", "source_task_id", "project_root", "limit"]):
+    with mcp_audit(
+        root, "knowledge_list", arg_keys=["status", "source_task_id", "project_root", "limit"]
+    ):
         return knowledge_uc.list_cards(
             root,
             status=wanted,
@@ -43,8 +45,16 @@ def knowledge_draft_upsert(
         root,
         "knowledge_draft_upsert",
         arg_keys=[
-            "worker_id", "key", "category", "title", "summary", "evidence_paths",
-            "claims", "constraints", "unknowns", "project_root",
+            "worker_id",
+            "key",
+            "category",
+            "title",
+            "summary",
+            "evidence_paths",
+            "claims",
+            "constraints",
+            "unknowns",
+            "project_root",
         ],
     ) as audit:
         result = knowledge_uc.upsert_card_draft(

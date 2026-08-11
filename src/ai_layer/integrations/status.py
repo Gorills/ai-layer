@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import os
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,9 @@ def global_bootstrap_status(deps: IntegrationStatusDependencies) -> dict:
         },
         "cursor": {
             "path": str(plugin),
-            "ready": deps.cursor_plugin_owned(plugin) and cursor_manifest.exists() and cursor_rule.exists(),
+            "ready": deps.cursor_plugin_owned(plugin)
+            and cursor_manifest.exists()
+            and cursor_rule.exists(),
             "verified_by": "owned local plugin files present; runtime black-box acceptance required",
             "runtime_acceptance_required": True,
         },
@@ -172,7 +174,13 @@ def _command_ready(command: str) -> bool:
 
 
 def _external_status(
-    root: Path, deps: IntegrationStatusDependencies, *, mode: str, executable: str, executable_ready: bool, global_state: dict
+    root: Path,
+    deps: IntegrationStatusDependencies,
+    *,
+    mode: str,
+    executable: str,
+    executable_ready: bool,
+    global_state: dict,
 ) -> dict:
     bootstrap = global_bootstrap_status(deps)
     providers = {
@@ -192,7 +200,11 @@ def _external_status(
             "mcp": global_state["antigravity"]["mcp_ready"],
             "native_skills": global_state["antigravity"]["native_skills"]["ready"],
         },
-        "claude-code": {"bootstrap": bootstrap["claude-code"]["ready"], "mcp": None, "note": "user-scope MCP is installed through the Claude CLI when available"},
+        "claude-code": {
+            "bootstrap": bootstrap["claude-code"]["ready"],
+            "mcp": None,
+            "note": "user-scope MCP is installed through the Claude CLI when available",
+        },
     }
     for name, state in providers.items():
         if name == "claude-code":
@@ -209,7 +221,8 @@ def _external_status(
         "global": global_state,
         "bootstrap": bootstrap,
         "providers": providers,
-        "ready": executable_ready and all(providers[name]["ready"] for name in ("cursor", "codex", "antigravity")),
+        "ready": executable_ready
+        and all(providers[name]["ready"] for name in ("cursor", "codex", "antigravity")),
         "cursor_runtime_acceptance_required": True,
     }
 
@@ -222,10 +235,18 @@ def integration_status(deps: IntegrationStatusDependencies, project_root: str | 
     mode = deps.project_mode(root)
     if mode in {"external", "strict-private"}:
         return _external_status(
-            root, deps, mode=mode, executable=executable, executable_ready=executable_ready, global_state=global_state
+            root,
+            deps,
+            mode=mode,
+            executable=executable,
+            executable_ready=executable_ready,
+            global_state=global_state,
         )
     try:
-        targets = {relative: deps.project_local_path(root, relative) for relative in deps.project_integration_paths}
+        targets = {
+            relative: deps.project_local_path(root, relative)
+            for relative in deps.project_integration_paths
+        }
     except RuntimeError as exc:
         return {
             "project_root": str(root),
@@ -242,7 +263,8 @@ def integration_status(deps: IntegrationStatusDependencies, project_root: str | 
     providers = {
         "cursor": {
             "bootstrap": bootstrap["cursor"]["ready"],
-            "mcp": _json_has_ai_layer(targets[".cursor/mcp.json"], deps) or global_state["cursor"]["mcp_ready"],
+            "mcp": _json_has_ai_layer(targets[".cursor/mcp.json"], deps)
+            or global_state["cursor"]["mcp_ready"],
             "native_skills": global_state["cursor"]["native_skills"]["ready"],
         },
         "claude-code": {
@@ -251,12 +273,14 @@ def integration_status(deps: IntegrationStatusDependencies, project_root: str | 
         },
         "codex": {
             "bootstrap": bootstrap["codex"]["ready"],
-            "mcp": _codex_has_ai_layer(targets[".codex/config.toml"], deps) or global_state["codex"]["mcp_ready"],
+            "mcp": _codex_has_ai_layer(targets[".codex/config.toml"], deps)
+            or global_state["codex"]["mcp_ready"],
             "native_skills": global_state["codex"]["native_skills"]["ready"],
         },
         "antigravity": {
             "bootstrap": bootstrap["antigravity-gemini"]["ready"],
-            "mcp": _json_has_ai_layer(targets[".agents/mcp_config.json"], deps) or global_state["antigravity"]["mcp_ready"],
+            "mcp": _json_has_ai_layer(targets[".agents/mcp_config.json"], deps)
+            or global_state["antigravity"]["mcp_ready"],
             "native_skills": global_state["antigravity"]["native_skills"]["ready"],
         },
     }

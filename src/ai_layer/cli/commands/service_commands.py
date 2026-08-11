@@ -1,38 +1,45 @@
 from __future__ import annotations
-from ai_layer.cli.root import app, mcp_app, memory_app, service_app, session_app, echo
-from ai_layer.core.background_service import DEFAULT_HOST
-from ai_layer.core.background_service import DEFAULT_PORT
-from ai_layer.integrations.service import _merge_mcp_json
+
+import ipaddress
+import webbrowser
+
+import typer
+import uvicorn
+
 from ai_layer.application.context import search_memory as app_memory_search
 from ai_layer.application.projects import scan_project as app_scan_project
 from ai_layer.application.runtime import database_health
+from ai_layer.application.sessions import restore_project_session, save_project_session
+from ai_layer.cli.root import app, echo, mcp_app, memory_app, service_app, session_app
+from ai_layer.core.background_service import (
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    install_user_service,
+    probe_service,
+    restart_user_service,
+    service_status,
+    service_url,
+    start_user_service,
+    stop_user_service,
+    uninstall_user_service,
+    wait_for_service,
+)
 from ai_layer.core.config import get_settings
-from ai_layer.core.background_service import install_user_service
-import ipaddress
 from ai_layer.core.mcp_process import list_mcp_processes
-from ai_layer.core.paths import normalize_root
+from ai_layer.core.paths import normalize_root, project_local_path, project_mode
+from ai_layer.integrations.service import _merge_mcp_json
 from ai_layer.privacy.service import privacy_check
-from ai_layer.core.background_service import probe_service
-from ai_layer.core.paths import project_local_path
-from ai_layer.core.paths import project_mode
-from ai_layer.core.background_service import restart_user_service
-from ai_layer.application.sessions import restore_project_session
-from ai_layer.application.sessions import save_project_session
-from ai_layer.core.background_service import service_status
-from ai_layer.core.background_service import service_url
-from ai_layer.core.background_service import start_user_service
-from ai_layer.core.background_service import stop_user_service
-import typer
-from ai_layer.core.background_service import uninstall_user_service
-import uvicorn
-from ai_layer.core.background_service import wait_for_service
-import webbrowser
 
-def memory_search_cmd(query: str, path: str = typer.Option(".", "--path"), limit: int = typer.Option(8, min=1, max=30)):
+
+def memory_search_cmd(
+    query: str, path: str = typer.Option(".", "--path"), limit: int = typer.Option(8, min=1, max=30)
+):
     echo(app_memory_search(path, query, limit))
+
 
 def memory_rebuild(path: str = typer.Option(".", "--path")):
     echo(app_scan_project(path))
+
 
 def session_save(
     goal: str = typer.Option(..., help="Current work goal."),
@@ -41,7 +48,9 @@ def session_save(
     next_step: list[str] = typer.Option([], "--next", help="Next step; repeatable."),
     decision: list[str] = typer.Option([], "--decision", help="Important decision; repeatable."),
     fact: list[str] = typer.Option([], "--fact", help="Verified project fact; repeatable."),
-    finding: list[str] = typer.Option([], "--finding", help="Notable review/investigation finding; repeatable."),
+    finding: list[str] = typer.Option(
+        [], "--finding", help="Notable review/investigation finding; repeatable."
+    ),
     path: str = typer.Option(".", "--path"),
 ):
     root = normalize_root(path)
@@ -49,14 +58,26 @@ def session_save(
     if not check.get("ok", True):
         echo(check)
         raise typer.Exit(1)
-    echo(save_project_session(
-        root, goal=goal, completed_actions=done, current_state=state, next_steps=next_step,
-        important_decisions=decision, verified_facts=fact, notable_findings=finding,
-    ))
+    echo(
+        save_project_session(
+            root,
+            goal=goal,
+            completed_actions=done,
+            current_state=state,
+            next_steps=next_step,
+            important_decisions=decision,
+            verified_facts=fact,
+            notable_findings=finding,
+        )
+    )
 
-def session_restore_cmd(session_id: str = typer.Argument("latest"), path: str = typer.Option(".", "--path")):
+
+def session_restore_cmd(
+    session_id: str = typer.Argument("latest"), path: str = typer.Option(".", "--path")
+):
     item = restore_project_session(path, session_id)
     echo(item if item else {"found": False})
+
 
 def _is_loopback_host(host: str) -> bool:
     normalized = host.strip().lower()
@@ -67,13 +88,16 @@ def _is_loopback_host(host: str) -> bool:
     except ValueError:
         return False
 
+
 def health_cmd():
     """Fast machine health view for the persistent core, DB and MCP bridges."""
     service = probe_service(timeout=0.5)
     db = database_health()
     core = service.get("runtime") or {}
     payload = {
-        "ok": bool(service.get("running") and db.get("connected") and core.get("status") == "ready"),
+        "ok": bool(
+            service.get("running") and db.get("connected") and core.get("status") == "ready"
+        ),
         "service": service,
         "core_runtime": core,
         "database": db,
@@ -83,17 +107,21 @@ def health_cmd():
     if not payload["ok"]:
         raise typer.Exit(1)
 
+
 def mcp_status_cmd():
     """Show persistent MCP core transport and connected stdio bridge processes."""
     service = probe_service(timeout=0.5)
-    echo({
-        "ok": bool(service.get("running")),
-        "core": service,
-        "stdio_bridges": list_mcp_processes(),
-        "streamable_http": (service.get("runtime") or {}).get("mcp_http_url"),
-    })
+    echo(
+        {
+            "ok": bool(service.get("running")),
+            "core": service,
+            "stdio_bridges": list_mcp_processes(),
+            "streamable_http": (service.get("runtime") or {}).get("mcp_http_url"),
+        }
+    )
     if not service.get("running"):
         raise typer.Exit(1)
+
 
 def serve(host: str = "127.0.0.1", port: int = 8765):
     """Run the unauthenticated local FastAPI server on loopback only."""
@@ -102,6 +130,7 @@ def serve(host: str = "127.0.0.1", port: int = 8765):
             "The FastAPI surface has no remote authentication; --host must be localhost/loopback."
         )
     uvicorn.run("ai_layer.api.app:app", host=host, port=port, reload=False)
+
 
 def service_run(
     host: str = typer.Option(DEFAULT_HOST, "--host"),
@@ -115,12 +144,14 @@ def service_run(
         )
     uvicorn.run("ai_layer.api.app:app", host=host, port=port, reload=False)
 
+
 def service_install(no_start: bool = typer.Option(False, "--no-start")):
     """Install/refresh Linux systemd --user autostart for the persistent core/dashboard service."""
     result = install_user_service(start=not no_start)
     echo(result)
     if not result.get("ok"):
         raise typer.Exit(1)
+
 
 def service_start():
     """Start the always-on AI Layer core/dashboard service."""
@@ -129,12 +160,14 @@ def service_start():
     if not result.get("ok"):
         raise typer.Exit(1)
 
+
 def service_restart():
     """Restart the always-on AI Layer core/dashboard service."""
     result = restart_user_service()
     echo(result)
     if not result.get("ok"):
         raise typer.Exit(1)
+
 
 def service_stop():
     """Stop the persistent core/dashboard service without removing AI Layer."""
@@ -143,9 +176,11 @@ def service_stop():
     if not result.get("ok"):
         raise typer.Exit(1)
 
+
 def service_status_cmd():
     """Show persistent core/dashboard service and autostart state."""
     echo(service_status())
+
 
 def service_uninstall():
     """Remove the user-level dashboard autostart unit."""
@@ -153,6 +188,7 @@ def service_uninstall():
     echo(result)
     if not result.get("ok"):
         raise typer.Exit(1)
+
 
 def dashboard(
     host: str = DEFAULT_HOST,
@@ -181,18 +217,24 @@ def dashboard(
     if not no_open:
         webbrowser.open(url)
 
+
 def mcp():
     """Run the MCP stdio server (normally started by the IDE)."""
     from ai_layer.mcp.server import main
 
     main()
 
-def mcp_config(path: str = typer.Argument("."), write_cursor: bool = typer.Option(False, "--write-cursor")):
+
+def mcp_config(
+    path: str = typer.Argument("."), write_cursor: bool = typer.Option(False, "--write-cursor")
+):
     """Print MCP stdio config, or refresh project integrations for Cursor."""
     root = normalize_root(path)
     settings = get_settings()
     server = {
-        "command": str(settings.stable_mcp_executable) if settings.stable_mcp_executable.exists() else "ai-layer-mcp",
+        "command": str(settings.stable_mcp_executable)
+        if settings.stable_mcp_executable.exists()
+        else "ai-layer-mcp",
         "args": [],
         "env": {"AI_LAYER_PROJECT_ROOT": str(root), "AI_LAYER_CLIENT": "cursor"},
     }
@@ -201,7 +243,9 @@ def mcp_config(path: str = typer.Argument("."), write_cursor: bool = typer.Optio
         echo(payload)
         return
     if project_mode(root) in {"external", "strict-private"}:
-        raise typer.BadParameter("--write-cursor is forbidden for external-state projects; use the global MCP integration.")
+        raise typer.BadParameter(
+            "--write-cursor is forbidden for external-state projects; use the global MCP integration."
+        )
     target = project_local_path(root, ".cursor", "mcp.json")
     _merge_mcp_json(target, server)
     echo({"ok": True, "written": str(target), "server": server})

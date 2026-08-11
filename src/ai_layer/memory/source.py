@@ -1,41 +1,125 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 import stat as stat_module
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from ai_layer.core.config import get_settings
 from ai_layer.core.redaction import redact_secrets as _shared_redact_secrets
 
 IGNORE_DIRS = {
-    ".git", ".ai-layer", ".idea", ".vscode", "node_modules", "vendor", "dist", "build",
-    "target", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+    ".git",
+    ".ai-layer",
+    ".idea",
+    ".vscode",
+    "node_modules",
+    "vendor",
+    "dist",
+    "build",
+    "target",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
 }
 BINARY_EXTS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".gz", ".7z", ".rar",
-    ".exe", ".dll", ".so", ".dylib", ".woff", ".woff2", ".ttf", ".otf", ".mp3", ".wav", ".mp4",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".ico",
+    ".pdf",
+    ".zip",
+    ".gz",
+    ".7z",
+    ".rar",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
+    ".mp3",
+    ".wav",
+    ".mp4",
 }
 LANG_BY_EXT = {
-    ".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript",
-    ".go": "go", ".rs": "rust", ".java": "java", ".kt": "kotlin", ".cs": "csharp", ".cpp": "cpp",
-    ".c": "c", ".h": "c", ".hpp": "cpp", ".gd": "gdscript", ".php": "php", ".rb": "ruby",
-    ".sql": "sql", ".html": "html", ".css": "css", ".scss": "scss", ".vue": "vue", ".svelte": "svelte",
-    ".sh": "shell", ".yaml": "yaml", ".yml": "yaml", ".toml": "toml", ".json": "json", ".md": "markdown",
+    ".py": "python",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".go": "go",
+    ".rs": "rust",
+    ".java": "java",
+    ".kt": "kotlin",
+    ".cs": "csharp",
+    ".cpp": "cpp",
+    ".c": "c",
+    ".h": "c",
+    ".hpp": "cpp",
+    ".gd": "gdscript",
+    ".php": "php",
+    ".rb": "ruby",
+    ".sql": "sql",
+    ".html": "html",
+    ".css": "css",
+    ".scss": "scss",
+    ".vue": "vue",
+    ".svelte": "svelte",
+    ".sh": "shell",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".toml": "toml",
+    ".json": "json",
+    ".md": "markdown",
 }
 IMPORTANT_NAMES = {
-    "README.md", "pyproject.toml", "package.json", "composer.json", "composer.lock", "Cargo.toml", "go.mod", "docker-compose.yml",
-    "docker-compose.yaml", "Dockerfile", "Makefile", "project.godot", "requirements.txt", ".env.example",
+    "README.md",
+    "pyproject.toml",
+    "package.json",
+    "composer.json",
+    "composer.lock",
+    "Cargo.toml",
+    "go.mod",
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    "Dockerfile",
+    "Makefile",
+    "project.godot",
+    "requirements.txt",
+    ".env.example",
 }
 SENSITIVE_NAMES = {
-    ".env", ".envrc", ".npmrc", ".pypirc", ".netrc", ".git-credentials", ".dockerconfigjson",
-    "credentials", "credentials.json", "credentials.ini", "credentials.toml", "credentials.yaml", "credentials.yml",
-    "secrets.json", "secrets.toml", "secrets.yaml", "secrets.yml", "service-account.json",
-    "id_rsa", "id_ed25519",
+    ".env",
+    ".envrc",
+    ".npmrc",
+    ".pypirc",
+    ".netrc",
+    ".git-credentials",
+    ".dockerconfigjson",
+    "credentials",
+    "credentials.json",
+    "credentials.ini",
+    "credentials.toml",
+    "credentials.yaml",
+    "credentials.yml",
+    "secrets.json",
+    "secrets.toml",
+    "secrets.yaml",
+    "secrets.yml",
+    "service-account.json",
+    "id_rsa",
+    "id_ed25519",
 }
 SAFE_ENV_TEMPLATE_NAMES = {".env.example", ".env.sample", ".env.template"}
 SENSITIVE_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
@@ -136,8 +220,15 @@ def iter_files(root: Path) -> Iterable[Path]:
             continue
         name = path.name.lower()
         env_secret = name.startswith(".env.") and name not in SAFE_ENV_TEMPLATE_NAMES
-        terraform_secret = name.endswith(".tfstate") or ".tfstate." in name or name.endswith(".tfvars")
-        if name in SENSITIVE_NAMES or env_secret or terraform_secret or path.suffix.lower() in SENSITIVE_SUFFIXES:
+        terraform_secret = (
+            name.endswith(".tfstate") or ".tfstate." in name or name.endswith(".tfvars")
+        )
+        if (
+            name in SENSITIVE_NAMES
+            or env_secret
+            or terraform_secret
+            or path.suffix.lower() in SENSITIVE_SUFFIXES
+        ):
             continue
         try:
             if path.stat().st_size > settings.scan_max_file_bytes:
@@ -181,7 +272,7 @@ def _decode_source(raw: bytes) -> str | None:
         return raw.decode("utf-8", errors="replace")
 
 
-def _stable_stat_key(stat) -> tuple[int, int, int, int]:
+def _stable_stat_key(stat: os.stat_result) -> tuple[int, int, int, int]:
     return (int(stat.st_dev), int(stat.st_ino), int(stat.st_size), int(stat.st_mtime_ns))
 
 
@@ -191,7 +282,7 @@ def read_text(path: Path) -> str | None:
     return _decode_source(raw) if raw is not None else None
 
 
-def read_stable_source(path: Path) -> tuple[bytes, str | None, object] | None:
+def read_stable_source(path: Path) -> tuple[bytes, str | None, os.stat_result] | None:
     """Read one stable physical source version and return raw identity plus optional text."""
     try:
         before = path.lstat()
@@ -206,12 +297,14 @@ def read_stable_source(path: Path) -> tuple[bytes, str | None, object] | None:
         after = path.lstat()
     except OSError:
         return None
-    if _stable_stat_key(before) != _stable_stat_key(after) or not stat_module.S_ISREG(after.st_mode):
+    if _stable_stat_key(before) != _stable_stat_key(after) or not stat_module.S_ISREG(
+        after.st_mode
+    ):
         return None
     return raw, _decode_source(raw), after
 
 
-def read_stable_text(path: Path) -> tuple[str, object] | None:
+def read_stable_text(path: Path) -> tuple[str, os.stat_result] | None:
     """Read only a text file version whose identity metadata stayed stable across the read."""
     try:
         before = path.lstat()
@@ -226,7 +319,12 @@ def read_stable_text(path: Path) -> tuple[str, object] | None:
         after = path.lstat()
     except OSError:
         return None
-    return (text, after) if _stable_stat_key(before) == _stable_stat_key(after) and stat_module.S_ISREG(after.st_mode) else None
+    return (
+        (text, after)
+        if _stable_stat_key(before) == _stable_stat_key(after)
+        and stat_module.S_ISREG(after.st_mode)
+        else None
+    )
 
 
 def prepare_index_text(rel: str, text: str) -> str | None:
@@ -255,7 +353,16 @@ def infer_purpose(rel: str, text: str, language: str | None) -> str:
         return "Dependency/build manifest; defines runtime or development dependencies."
     if "test" in Path(rel).parts or name.startswith("test_") or name.endswith("_test.py"):
         return "Automated test or test support code."
-    if name in {"main.py", "app.py", "server.py", "index.ts", "index.js", "main.go", "lib.rs", "main.rs"}:
+    if name in {
+        "main.py",
+        "app.py",
+        "server.py",
+        "index.ts",
+        "index.js",
+        "main.go",
+        "lib.rs",
+        "main.rs",
+    }:
         return "Likely application entry point or composition root."
     if "migration" in rel.lower() or "alembic" in rel.lower():
         return "Database schema migration or migration configuration."
@@ -319,13 +426,18 @@ def parse_dependencies(root: Path) -> dict[str, list[str]]:
     if _safe_manifest(pyproject):
         try:
             import tomllib
+
             text = read_text(pyproject)
             if text is not None:
                 data = tomllib.loads(text)
                 project_deps = list(data.get("project", {}).get("dependencies", []) or [])
                 poetry = data.get("tool", {}).get("poetry", {}).get("dependencies", {})
                 if isinstance(poetry, dict):
-                    project_deps.extend(f"{k}{v if isinstance(v, str) else ''}" for k, v in poetry.items() if k != "python")
+                    project_deps.extend(
+                        f"{k}{v if isinstance(v, str) else ''}"
+                        for k, v in poetry.items()
+                        if k != "python"
+                    )
                 deps["python"] = [_safe_metadata_text(x) for x in project_deps]
         except Exception:
             pass
@@ -336,7 +448,8 @@ def parse_dependencies(root: Path) -> dict[str, list[str]]:
             text = read_text(req)
             if text is not None:
                 deps.setdefault("python", []).extend(
-                    _safe_metadata_text(line.strip()) for line in text.splitlines()
+                    _safe_metadata_text(line.strip())
+                    for line in text.splitlines()
                     if line.strip() and not line.lstrip().startswith(("#", "-r", "--requirement"))
                 )
         except Exception:
@@ -358,7 +471,9 @@ def parse_dependencies(root: Path) -> dict[str, list[str]]:
             if text is not None:
                 data = json.loads(text)
                 merged = {**data.get("require", {}), **data.get("require-dev", {})}
-                deps["composer"] = sorted(_safe_metadata_text(f"{k}@{v}") for k, v in merged.items())
+                deps["composer"] = sorted(
+                    _safe_metadata_text(f"{k}@{v}") for k, v in merged.items()
+                )
         except Exception:
             pass
     go_mod = root / "go.mod"
@@ -367,14 +482,21 @@ def parse_dependencies(root: Path) -> dict[str, list[str]]:
             text = read_text(go_mod)
             if text is not None:
                 lines = text.splitlines()
-                deps["go"] = [_safe_metadata_text(line.strip()) for line in lines if line.strip().startswith("require ")]
+                deps["go"] = [
+                    _safe_metadata_text(line.strip())
+                    for line in lines
+                    if line.strip().startswith("require ")
+                ]
         except Exception:
             pass
     for ecosystem, values in list(deps.items()):
         deps[ecosystem] = sorted(dict.fromkeys(value for value in values if value))
     return deps
 
-def architecture_summary(root: Path, languages: dict[str, int], dependencies: dict[str, list[str]], files: list[str]) -> str:
+
+def architecture_summary(
+    root: Path, languages: dict[str, int], dependencies: dict[str, list[str]], files: list[str]
+) -> str:
     top_dirs = sorted({Path(p).parts[0] for p in files if len(Path(p).parts) > 1})[:30]
     manifests = [p for p in files if Path(p).name in IMPORTANT_NAMES]
     return (

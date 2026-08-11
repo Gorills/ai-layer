@@ -108,7 +108,7 @@ def _unit_content() -> str:
             "",
             "[Service]",
             "Type=simple",
-            'EnvironmentFile=-%h/.config/ai-layer/service.env',
+            "EnvironmentFile=-%h/.config/ai-layer/service.env",
             f'Environment="AI_LAYER_HOME={_escape_systemd_value(str(settings.home))}"',
             (
                 'Environment="AI_LAYER_RUNTIME_HOME='
@@ -117,7 +117,7 @@ def _unit_content() -> str:
             'Environment="AI_LAYER_SERVICE_MODE=background"',
             (
                 f'ExecStart="{_escape_systemd_value(str(executable))}" service run '
-                f'--host {DEFAULT_HOST} --port {DEFAULT_PORT}'
+                f"--host {DEFAULT_HOST} --port {DEFAULT_PORT}"
             ),
             "Restart=always",
             "RestartSec=1",
@@ -266,7 +266,11 @@ def start_user_service() -> dict[str, Any]:
     if not path.exists():
         return install_user_service(start=True)
     if not _unit_owned(path):
-        return {"ok": False, "supported": True, "reason": "existing ai-layer.service is not AI Layer-owned"}
+        return {
+            "ok": False,
+            "supported": True,
+            "reason": "existing ai-layer.service is not AI Layer-owned",
+        }
     if not systemd_user_available():
         return {
             "ok": False,
@@ -293,7 +297,11 @@ def restart_user_service() -> dict[str, Any]:
     if not path.exists():
         return install_user_service(start=True)
     if not _unit_owned(path):
-        return {"ok": False, "supported": True, "reason": "existing ai-layer.service is not AI Layer-owned"}
+        return {
+            "ok": False,
+            "supported": True,
+            "reason": "existing ai-layer.service is not AI Layer-owned",
+        }
     if not systemd_user_available():
         return {
             "ok": False,
@@ -313,7 +321,11 @@ def restart_user_service() -> dict[str, Any]:
 def stop_user_service() -> dict[str, Any]:
     path = systemd_unit_path()
     if path.exists() and not _unit_owned(path):
-        return {"ok": False, "supported": True, "reason": "existing ai-layer.service is not AI Layer-owned"}
+        return {
+            "ok": False,
+            "supported": True,
+            "reason": "existing ai-layer.service is not AI Layer-owned",
+        }
     if not systemd_user_available():
         return {
             "ok": False,

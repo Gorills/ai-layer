@@ -7,7 +7,9 @@ from ai_layer.tasks.constants import MICRO_MAX_CHANGED_LINES, SENSITIVE_PATH_TER
 from ai_layer.workspace.repository import git_changed_line_count
 
 
-def micro_envelope(project: Project, task: Task, changes: dict, external_actions: list[dict]) -> tuple[bool, list[str]]:
+def micro_envelope(
+    project: Project, task: Task, changes: dict, external_actions: list[dict]
+) -> tuple[bool, list[str]]:
     reasons: list[str] = []
     if (task.risk_level or "normal") != "low":
         reasons.append("risk is not low")
@@ -18,12 +20,19 @@ def micro_envelope(project: Project, task: Task, changes: dict, external_actions
         reasons.append("micro implementation produced no managed repository changes")
     if total > 2:
         reasons.append(f"changed paths {total} exceed micro limit 2")
-    paths = [*(changes.get("added") or []), *(changes.get("modified") or []), *(changes.get("deleted") or [])]
-    sensitive = [p for p in paths if any(term in str(p).casefold() for term in SENSITIVE_PATH_TERMS)]
+    paths = [
+        *(changes.get("added") or []),
+        *(changes.get("modified") or []),
+        *(changes.get("deleted") or []),
+    ]
+    sensitive = [
+        p for p in paths if any(term in str(p).casefold() for term in SENSITIVE_PATH_TERMS)
+    ]
     if sensitive:
         reasons.append("sensitive path touched: " + ", ".join(sensitive[:4]))
     added_code = [
-        p for p in (changes.get("added") or [])
+        p
+        for p in (changes.get("added") or [])
         if Path(str(p)).suffix.lower() not in {".md", ".txt"} and "test" not in str(p).casefold()
     ]
     if added_code:
@@ -58,7 +67,9 @@ def micro_envelope(project: Project, task: Task, changes: dict, external_actions
         elif bool(line_stats.get("binary")):
             reasons.append("binary diff is not eligible for micro completion")
         elif int(line_stats.get("total") or 0) > MICRO_MAX_CHANGED_LINES:
-            reasons.append(f"changed lines {int(line_stats.get('total') or 0)} exceed micro limit {MICRO_MAX_CHANGED_LINES}")
+            reasons.append(
+                f"changed lines {int(line_stats.get('total') or 0)} exceed micro limit {MICRO_MAX_CHANGED_LINES}"
+            )
     if any(item.get("kind") == "mutation" for item in external_actions):
         reasons.append("external mutation was required")
     return not reasons, reasons

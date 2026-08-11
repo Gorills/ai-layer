@@ -3,16 +3,23 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_layer.db.models import ReviewFinding, Task, utcnow
 from ai_layer.core.redaction import redact_secrets
+from ai_layer.db.models import ReviewFinding, Task, TaskStage, utcnow
 from ai_layer.observability.domain_events import append_event
 from ai_layer.tasks.constants import (
-    MAX_EXTERNAL_ACTIONS, MAX_EXTERNAL_TARGET_CHARS, MAX_EXTERNAL_TEXT_CHARS, MAX_FINDINGS,
-    MAX_FINDING_PATH_CHARS, MAX_FINDING_TEXT_CHARS, MAX_VERIFICATION_EVIDENCE_CHARS,
-    READ_ONLY_STAGES, REVIEW_VERDICT_ALIASES,
+    MAX_EXTERNAL_ACTIONS,
+    MAX_EXTERNAL_TARGET_CHARS,
+    MAX_EXTERNAL_TEXT_CHARS,
+    MAX_FINDING_PATH_CHARS,
+    MAX_FINDING_TEXT_CHARS,
+    MAX_FINDINGS,
+    MAX_VERIFICATION_EVIDENCE_CHARS,
+    READ_ONLY_STAGES,
+    REVIEW_VERDICT_ALIASES,
 )
 from ai_layer.tasks.contracts import _bounded_text
 from ai_layer.tasks.views import _findings
+
 
 def _normalize_external_actions(actions: list[dict] | None, *, stage_kind: str) -> list[dict]:
     raw_actions = list(actions or [])
@@ -32,16 +39,28 @@ def _normalize_external_actions(actions: list[dict] | None, *, stage_kind: str) 
             )
         if stage_kind in READ_ONLY_STAGES and kind == "mutation":
             if stage_kind == "review":
-                raise ValueError("Read-only review cannot record or perform external mutation actions.")
-            raise ValueError("Read-only discovery cannot record or perform external mutation actions.")
+                raise ValueError(
+                    "Read-only review cannot record or perform external mutation actions."
+                )
+            raise ValueError(
+                "Read-only discovery cannot record or perform external mutation actions."
+            )
         target = _bounded_text(
-            raw.get("target"), field=f"external action #{index} target", max_chars=MAX_EXTERNAL_TARGET_CHARS, required=True
+            raw.get("target"),
+            field=f"external action #{index} target",
+            max_chars=MAX_EXTERNAL_TARGET_CHARS,
+            required=True,
         )
         summary = _bounded_text(
-            raw.get("summary"), field=f"external action #{index} summary", max_chars=MAX_EXTERNAL_TEXT_CHARS, required=True
+            raw.get("summary"),
+            field=f"external action #{index} summary",
+            max_chars=MAX_EXTERNAL_TEXT_CHARS,
+            required=True,
         )
         evidence = _bounded_text(
-            raw.get("evidence"), field=f"external action #{index} evidence", max_chars=MAX_EXTERNAL_TEXT_CHARS
+            raw.get("evidence"),
+            field=f"external action #{index} evidence",
+            max_chars=MAX_EXTERNAL_TEXT_CHARS,
         )
         result.append(
             {
@@ -65,12 +84,19 @@ def _normalize_findings(findings: list[dict] | None) -> tuple[list[dict], list[s
         if not isinstance(raw, dict):
             raise ValueError(f"review finding #{index} must be an object.")
         problem_key = next(
-            (key for key in ("problem", "issue", "message", "description") if str(raw.get(key) or "").strip()),
+            (
+                key
+                for key in ("problem", "issue", "message", "description")
+                if str(raw.get(key) or "").strip()
+            ),
             None,
         )
         problem = (
             _bounded_text(
-                raw.get(problem_key), field=f"review finding #{index} problem", max_chars=MAX_FINDING_TEXT_CHARS, redact=True
+                raw.get(problem_key),
+                field=f"review finding #{index} problem",
+                max_chars=MAX_FINDING_TEXT_CHARS,
+                redact=True,
             )
             if problem_key
             else ""
@@ -93,9 +119,15 @@ def _normalize_findings(findings: list[dict] | None) -> tuple[list[dict], list[s
                 "use critical|high|medium|low."
             )
 
-        path_key = next((key for key in ("path", "file_path", "file") if str(raw.get(key) or "").strip()), None)
+        path_key = next(
+            (key for key in ("path", "file_path", "file") if str(raw.get(key) or "").strip()), None
+        )
         fix_key = next(
-            (key for key in ("required_fix", "fix", "recommendation") if str(raw.get(key) or "").strip()),
+            (
+                key
+                for key in ("required_fix", "fix", "recommendation")
+                if str(raw.get(key) or "").strip()
+            ),
             None,
         )
         if path_key and path_key != "path":
@@ -109,7 +141,10 @@ def _normalize_findings(findings: list[dict] | None) -> tuple[list[dict], list[s
                 "category": str(raw.get("category") or "code").strip()[:64] or "code",
                 "path": (
                     _bounded_text(
-                        raw.get(path_key), field=f"review finding #{index} path", max_chars=MAX_FINDING_PATH_CHARS, redact=True
+                        raw.get(path_key),
+                        field=f"review finding #{index} path",
+                        max_chars=MAX_FINDING_PATH_CHARS,
+                        redact=True,
                     )
                     if path_key
                     else ""
@@ -149,7 +184,11 @@ def _normalize_review_submission(
     if normalized_verdict == "pass" and normalized_findings:
         normalized_verdict = "changes_required"
         normalizations.append("verdict:pass->changes_required(findings_present)")
-    if normalized_verdict == "changes_required" and not normalized_findings and not allow_empty_changes_required:
+    if (
+        normalized_verdict == "changes_required"
+        and not normalized_findings
+        and not allow_empty_changes_required
+    ):
         raise ValueError(
             "Review result means changes are required, but no structured findings were supplied. "
             "Add at least one finding with `problem` (or alias `issue`/`message`/`description`), "
@@ -164,7 +203,9 @@ def _normalize_verification_results(
     """Require explicit, evidenced disposition of every finding awaiting verification."""
     if not pending:
         if verification_results:
-            raise ValueError("verification_results were supplied but this review has no pending findings.")
+            raise ValueError(
+                "verification_results were supplied but this review has no pending findings."
+            )
         return {}, []
     if not verification_results:
         raise ValueError(
@@ -174,17 +215,27 @@ def _normalize_verification_results(
     result: dict[str, dict] = {}
     normalizations: list[str] = []
     aliases = {
-        "verified": "verified", "pass": "verified", "passed": "verified", "fixed": "verified",
-        "still_open": "still_open", "open": "still_open", "failed": "still_open", "not_fixed": "still_open",
+        "verified": "verified",
+        "pass": "verified",
+        "passed": "verified",
+        "fixed": "verified",
+        "still_open": "still_open",
+        "open": "still_open",
+        "failed": "still_open",
+        "not_fixed": "still_open",
     }
     for index, raw in enumerate(verification_results, start=1):
         if not isinstance(raw, dict):
             raise ValueError(f"verification result #{index} must be an object.")
         raw_id = str(raw.get("finding_id") or raw.get("id") or "").strip()
         if not raw_id or raw_id not in expected:
-            raise ValueError(f"verification result #{index} references an unknown finding_id `{raw_id}`.")
+            raise ValueError(
+                f"verification result #{index} references an unknown finding_id `{raw_id}`."
+            )
         if raw_id in result:
-            raise ValueError(f"verification result for finding `{raw_id}` was supplied more than once.")
+            raise ValueError(
+                f"verification result for finding `{raw_id}` was supplied more than once."
+            )
         raw_status = str(raw.get("status") or raw.get("result") or "").strip().lower()
         status = aliases.get(raw_status)
         if status is None:
@@ -198,7 +249,9 @@ def _normalize_verification_results(
             redact=True,
         )
         if not evidence:
-            raise ValueError(f"verification result for finding `{raw_id}` requires concrete evidence.")
+            raise ValueError(
+                f"verification result for finding `{raw_id}` requires concrete evidence."
+            )
         if raw_status != status:
             normalizations.append(f"verification[{raw_id}]:{raw_status}->{status}")
         result[raw_id] = {"status": status, "evidence": evidence}
@@ -231,8 +284,12 @@ def _apply_verification_results(
             item.status = "verified"
             item.verified_at = now
             append_event(
-                db, event_type="FindingVerified", project_id=None, aggregate_type="finding",
-                aggregate_id=str(item.id), payload={"task_id": str(item.task_id), "stage_id": str(stage.id)},
+                db,
+                event_type="FindingVerified",
+                project_id=None,
+                aggregate_type="finding",
+                aggregate_id=str(item.id),
+                payload={"task_id": str(item.task_id), "stage_id": str(stage.id)},
             )
         else:
             item.status = "open"
@@ -242,11 +299,15 @@ def _apply_verification_results(
 
 
 def _finding_signature(*, category: str, path: str, problem: str) -> tuple[str, str, str]:
-    normalize = lambda value: " ".join(str(value or "").casefold().split())
+    def normalize(value: object) -> str:
+        return " ".join(str(value or "").casefold().split())
+
     return normalize(category), normalize(path), normalize(problem)
 
 
-def _add_findings(db: Session, task: Task, stage: TaskStage, findings: list[dict]) -> dict[str, int]:
+def _add_findings(
+    db: Session, task: Task, stage: TaskStage, findings: list[dict]
+) -> dict[str, int]:
     """Add genuinely new findings while reopening/reusing semantically identical records.
 
     Review history must remain durable, but the active working set should not grow simply because
@@ -286,10 +347,17 @@ def _add_findings(db: Session, task: Task, stage: TaskStage, findings: list[dict
             db.add(prior)
             db.flush()
             append_event(
-                db, event_type="FindingOpened", project_id=task.project_id, aggregate_type="finding",
-                aggregate_id=str(prior.id), payload={
-                    "task_id": str(task.id), "stage_id": str(stage.id), "severity": prior.severity,
-                    "category": prior.category, "path": prior.path,
+                db,
+                event_type="FindingOpened",
+                project_id=task.project_id,
+                aggregate_type="finding",
+                aggregate_id=str(prior.id),
+                payload={
+                    "task_id": str(task.id),
+                    "stage_id": str(stage.id),
+                    "severity": prior.severity,
+                    "category": prior.category,
+                    "path": prior.path,
                 },
             )
             by_signature[signature] = prior
@@ -308,7 +376,13 @@ def _add_findings(db: Session, task: Task, stage: TaskStage, findings: list[dict
         prior.verification_evidence = ""
         provenance = dict(prior.provenance or {})
         reports = list(provenance.get("reports") or [])
-        reports.append({"stage_id": str(stage.id), "worker_id": stage.worker_id or None, "recorded_at": now.isoformat()})
+        reports.append(
+            {
+                "stage_id": str(stage.id),
+                "worker_id": stage.worker_id or None,
+                "recorded_at": now.isoformat(),
+            }
+        )
         provenance["reports"] = reports[-20:]
         prior.provenance = provenance
         history = list(prior.verification_history or [])
@@ -328,13 +402,13 @@ def _add_findings(db: Session, task: Task, stage: TaskStage, findings: list[dict
 
 
 def _open_findings(db: Session, task: Task) -> list[ReviewFinding]:
-    return db.scalars(
-        select(ReviewFinding)
-        .where(
-            ReviewFinding.task_id == task.id,
-            ReviewFinding.status.in_(["open", "pending_verification"]),
-        )
-        .order_by(ReviewFinding.created_at, ReviewFinding.id)
-    ).all()
-
-
+    return list(
+        db.scalars(
+            select(ReviewFinding)
+            .where(
+                ReviewFinding.task_id == task.id,
+                ReviewFinding.status.in_(["open", "pending_verification"]),
+            )
+            .order_by(ReviewFinding.created_at, ReviewFinding.id)
+        ).all()
+    )

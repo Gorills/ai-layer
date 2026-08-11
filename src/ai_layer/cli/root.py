@@ -25,6 +25,7 @@ app.add_typer(task_app, name="task")
 app.add_typer(skill_app, name="skill")
 app.add_typer(agent_app, name="agent")
 
+
 def echo(data) -> None:
     typer.echo(dumps(data) if not isinstance(data, str) else data)
 

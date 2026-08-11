@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """Compatibility facade for deterministic repository evidence scanning.
 
 Physical source discovery/parsing lives in ``memory.source``; incremental identity and
 evidence orchestration live in their own lower-level modules. Existing imports from
 ``memory.scanner`` remain valid without introducing reverse dependencies.
 """
+
+from __future__ import annotations
 
 from ai_layer.memory.identity import build_file_hints as build_file_state
 from ai_layer.memory.indexer import scan_project
@@ -17,10 +17,10 @@ from ai_layer.memory.source import (
     IMPORTANT_NAMES,
     LANG_BY_EXT,
     SAFE_ENV_TEMPLATE_NAMES,
-    ScanLimitExceeded,
     SENSITIVE_NAMES,
     SENSITIVE_SUFFIXES,
     SHARED_AGENT_INSTRUCTION_PATHS,
+    ScanLimitExceeded,
     architecture_summary,
     extract_imports,
     infer_purpose,

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import AsyncIterator
 
 from ai_layer.application.tasks import reap_stale_workers
 
@@ -31,23 +31,23 @@ def reconcile_stale_workers() -> dict:
     try:
         result = reap_stale_workers()
     except Exception as exc:
-        payload = {
+        error_payload: dict[str, object] = {
             "status": "degraded",
             "last_run_at": _utc_iso(),
             "last_error": f"{type(exc).__name__}: {exc}"[:1000],
             "last_result": None,
         }
         with _STATUS_LOCK:
-            _STATUS.update(payload)
-        return {"ok": False, "error": payload["last_error"]}
-    payload = {
+            _STATUS.update(error_payload)
+        return {"ok": False, "error": error_payload["last_error"]}
+    healthy_payload: dict[str, object] = {
         "status": "healthy",
         "last_run_at": _utc_iso(),
         "last_error": None,
         "last_result": result,
     }
     with _STATUS_LOCK:
-        _STATUS.update(payload)
+        _STATUS.update(healthy_payload)
     return result
 
 
@@ -61,11 +61,14 @@ async def _run_reaper(stop: asyncio.Event, interval_seconds: float) -> None:
 
 @asynccontextmanager
 async def worker_recovery_lifespan(
-    *, interval_seconds: float = _REAPER_INTERVAL_SECONDS,
+    *,
+    interval_seconds: float = _REAPER_INTERVAL_SECONDS,
 ) -> AsyncIterator[None]:
     await asyncio.to_thread(reconcile_stale_workers)
     stop = asyncio.Event()
-    task = asyncio.create_task(_run_reaper(stop, interval_seconds), name="ai-layer-worker-lease-reaper")
+    task = asyncio.create_task(
+        _run_reaper(stop, interval_seconds), name="ai-layer-worker-lease-reaper"
+    )
     try:
         yield
     finally:

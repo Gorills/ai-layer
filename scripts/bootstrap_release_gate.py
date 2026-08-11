@@ -6,6 +6,7 @@ its dependencies exist, so importing application modules here is forbidden.
 The full release gate runs inside the freshly installed runtime before the
 active runtime pointer is switched.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -72,7 +73,7 @@ def _check_wheel(path: Path, *, version: str, scripts: dict[str, str]) -> list[s
                 errors.append("application wheel must contain exactly one METADATA file")
             else:
                 metadata = archive.read(metadata_names[0]).decode("utf-8", errors="replace")
-                if f"Name: local-ai-development-layer\n" not in metadata:
+                if "Name: local-ai-development-layer\n" not in metadata:
                     errors.append("application wheel project name mismatch")
                 if f"Version: {version}\n" not in metadata:
                     errors.append("application wheel version mismatch")
@@ -91,7 +92,9 @@ def _check_wheel(path: Path, *, version: str, scripts: dict[str, str]) -> list[s
 def run_gate() -> dict:
     errors: list[str] = []
     try:
-        project_data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+        project_data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+            "project"
+        ]
         version = str(project_data["version"])
         scripts = {str(k): str(v) for k, v in dict(project_data.get("scripts") or {}).items()}
     except Exception as exc:
@@ -155,7 +158,11 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     result = run_gate()
-    print(json.dumps(result, sort_keys=True) if args.json else json.dumps(result, indent=2, sort_keys=True))
+    print(
+        json.dumps(result, sort_keys=True)
+        if args.json
+        else json.dumps(result, indent=2, sort_keys=True)
+    )
     return 0 if result["ok"] else 1
 
 

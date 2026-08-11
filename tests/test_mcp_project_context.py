@@ -16,7 +16,9 @@ def teardown_function():
 def test_project_scoped_resolution_never_falls_back_to_process_cwd(monkeypatch, tmp_path: Path):
     monkeypatch.delenv("AI_LAYER_PROJECT_ROOT", raising=False)
     monkeypatch.chdir(tmp_path)
-    with pytest.raises(context.ProjectContextRequiredError, match="PROJECT_CONTEXT_REQUIRED") as exc:
+    with pytest.raises(
+        context.ProjectContextRequiredError, match="PROJECT_CONTEXT_REQUIRED"
+    ) as exc:
         context.resolve_project_root(None, tool="task_create")
     assert str(tmp_path.resolve()) not in str(exc.value)
     assert "Do not derive it from MCP cwd" in str(exc.value)
@@ -42,7 +44,9 @@ def test_multiple_bound_projects_make_implicit_resolution_fail_closed(monkeypatc
         context.resolve_project_root(None, tool="task_current")
 
 
-def test_project_specific_environment_is_authoritative_even_after_multiple_bindings(monkeypatch, tmp_path: Path):
+def test_project_specific_environment_is_authoritative_even_after_multiple_bindings(
+    monkeypatch, tmp_path: Path
+):
     first = tmp_path / "food"
     second = tmp_path / "other"
     fixed = tmp_path / "fixed"
@@ -90,7 +94,11 @@ def test_memory_context_binds_exact_root_for_following_task_create(monkeypatch, 
     monkeypatch.setattr(
         project_tools,
         "build_memory_context",
-        lambda db, project, task, limit: {"task_runtime": {"active": False}, "memory": [], "skills": []},
+        lambda db, project, task, limit: {
+            "task_runtime": {"active": False},
+            "memory": [],
+            "skills": [],
+        },
     )
     monkeypatch.setattr(
         task_tools,
@@ -110,7 +118,9 @@ def test_memory_context_binds_exact_root_for_following_task_create(monkeypatch, 
     assert seen["roots"] == [str(project_root.resolve()), str(project_root.resolve())]
 
 
-def test_task_create_without_explicit_env_or_bound_project_fails_before_cwd(monkeypatch, tmp_path: Path):
+def test_task_create_without_explicit_env_or_bound_project_fails_before_cwd(
+    monkeypatch, tmp_path: Path
+):
     from ai_layer.mcp import server
 
     monkeypatch.delenv("AI_LAYER_PROJECT_ROOT", raising=False)
@@ -120,7 +130,9 @@ def test_task_create_without_explicit_env_or_bound_project_fails_before_cwd(monk
         server.task_create(goal="Must not target MCP cwd")
 
 
-def test_task_next_and_stage_specific_completion_use_durable_bound_state(monkeypatch, tmp_path: Path):
+def test_task_next_and_stage_specific_completion_use_durable_bound_state(
+    monkeypatch, tmp_path: Path
+):
     from contextlib import contextmanager
     from types import SimpleNamespace
 
@@ -148,20 +160,32 @@ def test_task_next_and_stage_specific_completion_use_durable_bound_state(monkeyp
         task_tools, "_project", lambda db, root: SimpleNamespace(root_path=root, id="project-1")
     )
     monkeypatch.setattr(
-        task_tools, "db_next_task_action",
+        task_tools,
+        "db_next_task_action",
         lambda db, project: {
             "state": "active",
-            "next_action": {"action": "record_stage_result", "tool": "task_implementation_complete"},
-            "task": {"key": "T-0001", "status": "active", "active_stage": {"kind": "implement", "worker_id": "impl-1"}},
+            "next_action": {
+                "action": "record_stage_result",
+                "tool": "task_implementation_complete",
+            },
+            "task": {
+                "key": "T-0001",
+                "status": "active",
+                "active_stage": {"kind": "implement", "worker_id": "impl-1"},
+            },
         },
     )
     monkeypatch.setattr(
-        task_tools, "db_complete_current_stage",
-        lambda db, project, **kwargs: calls.append(kwargs) or {
-            "key": "T-0001",
-            "status": "active",
-            "active_stage": {"kind": "review", "worker_id": None},
-        },
+        task_tools,
+        "db_complete_current_stage",
+        lambda db, project, **kwargs: (
+            calls.append(kwargs)
+            or {
+                "key": "T-0001",
+                "status": "active",
+                "active_stage": {"kind": "review", "worker_id": None},
+            }
+        ),
     )
     monkeypatch.setattr(task_tools, "_compact_open_transition", lambda db, project, result: result)
 
@@ -169,10 +193,12 @@ def test_task_next_and_stage_specific_completion_use_durable_bound_state(monkeyp
     assert nav["next_action"]["tool"] == "task_implementation_complete"
     result = server.task_implementation_complete(summary="Done", checks=["pytest passed"])
     assert result["active_stage"]["kind"] == "review"
-    assert calls == [{
-        "expected_kind": "implement",
-        "summary": "Done",
-        "checks": ["pytest passed"],
-        "outcome": "done",
-        "external_actions": None,
-    }]
+    assert calls == [
+        {
+            "expected_kind": "implement",
+            "summary": "Done",
+            "checks": ["pytest passed"],
+            "outcome": "done",
+            "external_actions": None,
+        }
+    ]

@@ -5,8 +5,11 @@ from sqlalchemy.orm import Session
 from ai_layer.db.models import ReviewFinding, Task, TaskStage
 from ai_layer.domain.workflow import stage_definition
 from ai_layer.tasks.review_contracts import (
-    _normalize_review_submission, _normalize_verification_results, _open_findings,
+    _normalize_review_submission,
+    _normalize_verification_results,
+    _open_findings,
 )
+
 
 def _validate_stage_result(
     db: Session,
@@ -33,7 +36,10 @@ def _validate_stage_result(
         raise ValueError(f"{stage.kind} stage outcome must be one of: {allowed}")
 
     if stage.kind == "discovery":
-        if task.workflow_profile == "analysis_only" and normalized_outcome == "ready_for_implementation":
+        if (
+            task.workflow_profile == "analysis_only"
+            and normalized_outcome == "ready_for_implementation"
+        ):
             raise ValueError(
                 "analysis_only discovery cannot request implementation; create/continue a change task explicitly."
             )
@@ -42,18 +48,23 @@ def _validate_stage_result(
                 "discovery_first requires ready_for_implementation or no_change_needed after discovery."
             )
     elif stage.kind == "review":
-        pending_to_verify = [item for item in _open_findings(db, task) if item.status == "pending_verification"]
+        pending_to_verify = [
+            item for item in _open_findings(db, task) if item.status == "pending_verification"
+        ]
         verification_map, verification_normalizations = _normalize_verification_results(
             pending_to_verify, verification_results
         )
         verification_still_open = any(
             result["status"] == "still_open" for result in verification_map.values()
         )
-        normalized_verdict, normalized_findings, input_normalizations = _normalize_review_submission(
-            verdict, findings, allow_empty_changes_required=verification_still_open
+        normalized_verdict, normalized_findings, input_normalizations = (
+            _normalize_review_submission(
+                verdict, findings, allow_empty_changes_required=verification_still_open
+            )
         )
         failed_checks = [
-            item for item in sandbox_evidence
+            item
+            for item in sandbox_evidence
             if int(item.get("exit_code", 1)) != 0 or bool(item.get("timed_out"))
         ]
         if failed_checks and normalized_verdict == "pass":
@@ -70,7 +81,9 @@ def _validate_stage_result(
     elif stage.kind == "fix":
         assert open_items is not None
         if open_items and normalized_outcome == "no_changes_needed":
-            raise ValueError("Fix stage cannot return no_changes_needed while review findings remain open.")
+            raise ValueError(
+                "Fix stage cannot return no_changes_needed while review findings remain open."
+            )
         if not open_items:
             normalized_outcome = "no_changes_needed"
     else:

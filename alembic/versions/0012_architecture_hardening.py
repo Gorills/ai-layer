@@ -4,8 +4,9 @@ Revision ID: 0012_architecture_hardening
 Revises: 0011_pre_epics_foundation
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0012_architecture_hardening"
 down_revision = "0011_pre_epics_foundation"
@@ -140,7 +141,9 @@ def upgrade() -> None:
     op.add_column("runtime_events", sa.Column("causation_id", sa.String(length=64), nullable=True))
     op.add_column(
         "runtime_events",
-        sa.Column("actor_id", sa.String(length=128), nullable=False, server_default="system:legacy"),
+        sa.Column(
+            "actor_id", sa.String(length=128), nullable=False, server_default="system:legacy"
+        ),
     )
     op.add_column(
         "runtime_events",

@@ -3,8 +3,10 @@
 Revision ID: 0002_session_evidence
 Revises: 0001_initial
 """
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0002_session_evidence"
 down_revision = "0001_initial"
@@ -22,13 +24,17 @@ def upgrade() -> None:
     if "verified_facts" not in columns:
         op.add_column(
             "sessions",
-            sa.Column("verified_facts", sa.JSON(), nullable=False, server_default=sa.text("'[]'::json")),
+            sa.Column(
+                "verified_facts", sa.JSON(), nullable=False, server_default=sa.text("'[]'::json")
+            ),
         )
         op.alter_column("sessions", "verified_facts", server_default=None)
     if "notable_findings" not in columns:
         op.add_column(
             "sessions",
-            sa.Column("notable_findings", sa.JSON(), nullable=False, server_default=sa.text("'[]'::json")),
+            sa.Column(
+                "notable_findings", sa.JSON(), nullable=False, server_default=sa.text("'[]'::json")
+            ),
         )
         op.alter_column("sessions", "notable_findings", server_default=None)
 

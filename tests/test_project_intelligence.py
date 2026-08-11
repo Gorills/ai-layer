@@ -1,5 +1,5 @@
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 from ai_layer.memory.intelligence import build_project_intelligence
 from ai_layer.memory.source import parse_dependencies
@@ -49,13 +49,21 @@ volumes:
         path.write_text(content, encoding="utf-8")
 
     rows = [
-        _row("composer.json"), _row("package.json"), _row("artisan"),
-        _row("routes/web.php", "php"), _row("config/filesystems.php", "php"),
-        _row("database/migrations/2026_01_01_create_products.php", "php"), _row("storage/app/.gitignore"),
+        _row("composer.json"),
+        _row("package.json"),
+        _row("artisan"),
+        _row("routes/web.php", "php"),
+        _row("config/filesystems.php", "php"),
+        _row("database/migrations/2026_01_01_create_products.php", "php"),
+        _row("storage/app/.gitignore"),
         _row("compose.yaml", "yaml"),
-        _row("Dockerfile"), _row("resources/css/theme.css", "css"),
-        _row("resources/js/pages/Product.vue", "vue"), _row("public/robots.txt"), _row("public/sitemap.xml"),
-        _row("docs/DEPLOY.md", "markdown"), _row(".env.example"),
+        _row("Dockerfile"),
+        _row("resources/css/theme.css", "css"),
+        _row("resources/js/pages/Product.vue", "vue"),
+        _row("public/robots.txt"),
+        _row("public/sitemap.xml"),
+        _row("docs/DEPLOY.md", "markdown"),
+        _row(".env.example"),
         _row("app/Services/LegacyPayment.php", "php", ["large_file", "contains_todo_or_fixme"]),
     ]
     dependencies = parse_dependencies(tmp_path)
@@ -82,7 +90,13 @@ volumes:
     assert intelligence["seo"]["public_web_surface"] is True
     assert intelligence["documentation"]["domains"]["deployment"] == ["docs/DEPLOY.md"]
     assert intelligence["legacy"]["level"] in {"medium", "high"}
-    assert {"docker", "frontend", "design-system", "public-web", "project-docs", "legacy-fragility"} <= set(intelligence["signals"])
+    assert {
+        "docker",
+        "frontend",
+        "design-system",
+        "public-web",
+        "project-docs",
+        "legacy-fragility",
+    } <= set(intelligence["signals"])
 
     # Project Intelligence remains scanner evidence only; it no longer selects skills.
-

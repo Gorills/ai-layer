@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import select
 
-from ai_layer.skills.native import native_catalog_files
 from ai_layer.application.tasks import read_state as read_task_state
 from ai_layer.core.background_service import service_runtime_payload
 from ai_layer.core.mcp_runtime import runtime_state as core_runtime_state
 from ai_layer.core.registry import list_registered_projects
+from ai_layer.core.service import get_project
 from ai_layer.db.models import VerificationRun
 from ai_layer.db.session import session_scope
 from ai_layer.observability.domain_events import read_structured_events
-from ai_layer.observability.events import aggregate_events, parse_ts, read_events
+from ai_layer.observability.events import aggregate_events, parse_ts
 from ai_layer.observability.snapshot import observability_snapshot
+from ai_layer.skills.native import native_catalog_files
 
 
 def _project_key(entry: dict) -> str:
@@ -33,9 +34,7 @@ def _entry_for_key(key: str) -> dict | None:
     return None
 
 
-def _processes_for_root(
-    processes: list[dict], root: Path, known_roots: list[Path]
-) -> list[dict]:
+def _processes_for_root(processes: list[dict], root: Path, known_roots: list[Path]) -> list[dict]:
     result: list[dict] = []
     resolved_root = root.resolve()
     ordered_roots = sorted(
@@ -82,8 +81,10 @@ def _project_state(project: dict, agents: list[dict], task_state: dict | None = 
     current_task = (task_state or {}).get("current") or {}
     if current_task.get("human_attention_required"):
         return "attention"
-    if current_task.get("status") == "active" or project.get("active_operations") or any(
-        item.get("activity_state") in {"ACTIVE", "WORKING"} for item in agents
+    if (
+        current_task.get("status") == "active"
+        or project.get("active_operations")
+        or any(item.get("activity_state") in {"ACTIVE", "WORKING"} for item in agents)
     ):
         return "working"
     return "healthy"
@@ -93,7 +94,7 @@ def _protocol_state(project: dict) -> dict:
     stats = project.get("last_5m") or {}
     failed_count = int(stats.get("failed") or 0)
     recent = []
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+    cutoff = datetime.now(UTC) - timedelta(minutes=5)
     for event in project.get("recent_events") or []:
         if event.get("status") not in {"completed", "failed"}:
             continue
@@ -107,14 +108,14 @@ def _protocol_state(project: dict) -> dict:
     recovered = False
     if last_failure is not None:
         failed_at = parse_ts(last_failure.get("ts"))
-        recovered = any(
-            item.get("status") == "completed"
-            and item.get("operation") == last_failure.get("operation")
-            and (parse_ts(item.get("ts")) is not None)
-            and failed_at is not None
-            and parse_ts(item.get("ts")) > failed_at
-            for item in recent
-        )
+        if failed_at is not None:
+            recovered = any(
+                item.get("status") == "completed"
+                and item.get("operation") == last_failure.get("operation")
+                and (completed_at := parse_ts(item.get("ts"))) is not None
+                and completed_at > failed_at
+                for item in recent
+            )
     elif failed_count:
         # The 5-minute aggregate can contain more events than the compact recent-events tail.
         # Do not invent recovery evidence when the failed event itself is no longer visible.
@@ -155,7 +156,6 @@ def _event_summary(event: dict, project: dict) -> dict:
     }
 
 
-
 def _safe_database_status(value: dict) -> dict:
     return {
         "connected": bool(value.get("connected")),
@@ -164,11 +164,10 @@ def _safe_database_status(value: dict) -> dict:
     }
 
 
-
-
 def _latest_memory_context_skill_state(events: list[dict]) -> dict:
     completed = [
-        item for item in events
+        item
+        for item in events
         if item.get("operation") == "memory_context" and item.get("status") == "completed"
     ]
     if not completed:
@@ -195,12 +194,14 @@ def _task_skill_state(root: Path, task: dict | None, events: list[dict]) -> dict
         if not slug:
             continue
         section = str(metrics.get("section") or "full")
-        fetches.append({
-            "slug": slug,
-            "section": section,
-            "full": section.casefold() == "full",
-            "at": event.get("ts"),
-        })
+        fetches.append(
+            {
+                "slug": slug,
+                "section": section,
+                "full": section.casefold() == "full",
+                "at": event.get("ts"),
+            }
+        )
     catalogs = native_catalog_files(root)
     return {
         "task": task.get("key") if task and task.get("status") in {"active", "blocked"} else None,
@@ -228,6 +229,7 @@ def _structured_event_summary(event: dict) -> dict:
         "payload_fields": sorted(str(key) for key in (event.get("payload") or {}).keys()),
     }
 
+
 def _durable_read_models(root: Path, task_state: dict, agents: list[dict]) -> dict:
     """Project read-side projection for Dashboard; no mutation/business transition lives here."""
     task = task_state.get("current") or task_state.get("latest") or {}
@@ -239,12 +241,15 @@ def _durable_read_models(root: Path, task_state: dict, agents: list[dict]) -> di
             "stage": item.get("kind"),
             "status": item.get("status"),
             "worker_id": item.get("worker_id"),
-            "requested_model": ((item.get("model_identity") or {}).get("requested") or item.get("agent_model")),
+            "requested_model": (
+                (item.get("model_identity") or {}).get("requested") or item.get("agent_model")
+            ),
             "actual_model": (item.get("model_identity") or {}).get("actual"),
             "model_assurance": (item.get("model_identity") or {}).get("assurance"),
             "telemetry": item.get("telemetry") or {},
         }
-        for item in stages if item.get("worker_id")
+        for item in stages
+        if item.get("worker_id")
     ]
     verifications: list[dict] = []
     events: list[dict] = []
@@ -253,43 +258,71 @@ def _durable_read_models(root: Path, task_state: dict, agents: list[dict]) -> di
             project = get_project(db, root)
             if project is not None:
                 rows = db.scalars(
-                    select(VerificationRun).where(VerificationRun.project_id == project.id)
-                    .order_by(VerificationRun.created_at.desc()).limit(50)
+                    select(VerificationRun)
+                    .where(VerificationRun.project_id == project.id)
+                    .order_by(VerificationRun.created_at.desc())
+                    .limit(50)
                 ).all()
                 verifications = [
                     {
-                        "id": str(row.id), "task_id": str(row.task_id) if row.task_id else None,
-                        "stage_id": str(row.stage_id) if row.stage_id else None, "assurance": row.assurance,
-                        "command": list(row.command or []), "started_at": row.started_at.isoformat(),
-                        "completed_at": row.completed_at.isoformat(), "exit_code": row.exit_code,
-                        "timed_out": bool(row.timed_out), "output_summary": row.output_summary,
+                        "id": str(row.id),
+                        "task_id": str(row.task_id) if row.task_id else None,
+                        "stage_id": str(row.stage_id) if row.stage_id else None,
+                        "assurance": row.assurance,
+                        "command": list(row.command or []),
+                        "started_at": row.started_at.isoformat(),
+                        "completed_at": row.completed_at.isoformat(),
+                        "exit_code": row.exit_code,
+                        "timed_out": bool(row.timed_out),
+                        "output_summary": row.output_summary,
                         "evidence_ref": row.evidence_ref,
-                    } for row in rows
+                    }
+                    for row in rows
                 ]
                 events = read_structured_events(db, project=project, limit=80)
     except Exception as exc:
-        events = [{
-            "event_type": "ProjectionReadError", "project_id": None, "aggregate_type": "projection",
-            "aggregate_id": "dashboard", "payload": {"message": f"{type(exc).__name__}: {exc}"[:500]},
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }]
+        events = [
+            {
+                "event_type": "ProjectionReadError",
+                "project_id": None,
+                "aggregate_type": "projection",
+                "aggregate_id": "dashboard",
+                "payload": {"message": f"{type(exc).__name__}: {exc}"[:500]},
+                "created_at": datetime.now(UTC).isoformat(),
+            }
+        ]
     events = [_structured_event_summary(event) for event in events]
     blockers = []
     if task.get("status") == "blocked":
-        blockers.append({
-            "task": task.get("key"), "reason": task.get("blocked_reason"),
-            "human_attention_required": bool(task.get("human_attention_required")),
-        })
-    errors = [event for event in events if event.get("event_type") in {"AgentFailed", "StageInvalidated", "TaskBlocked"}]
+        blockers.append(
+            {
+                "task": task.get("key"),
+                "reason": task.get("blocked_reason"),
+                "human_attention_required": bool(task.get("human_attention_required")),
+            }
+        )
+    errors = [
+        event
+        for event in events
+        if event.get("event_type") in {"AgentFailed", "StageInvalidated", "TaskBlocked"}
+    ]
     return {
-        "machine_health": {"service": service_runtime_payload(), "core_runtime": core_runtime_state()},
+        "machine_health": {
+            "service": service_runtime_payload(),
+            "core_runtime": core_runtime_state(),
+        },
         "active_task": task if task.get("status") in {"active", "blocked"} else None,
         "stage_timeline": stages,
         "workers": worker_rows,
         "host_agents": agents,
         "model_assurance": [
-            {"stage_id": item.get("stage_id"), "requested": item.get("requested_model"),
-             "actual": item.get("actual_model"), "assurance": item.get("model_assurance")} for item in worker_rows
+            {
+                "stage_id": item.get("stage_id"),
+                "requested": item.get("requested_model"),
+                "actual": item.get("actual_model"),
+                "assurance": item.get("model_assurance"),
+            }
+            for item in worker_rows
         ],
         "verification": verifications,
         "findings": findings,
@@ -387,13 +420,19 @@ def overview_payload() -> dict:
             "operations_5m": total_completed,
             "failures_5m": total_failed,
             "protocol_warnings": protocol_warnings,
-            "mcp_worst_project_p95_ms": round(max(project_p95_values), 1) if project_p95_values else None,
+            "mcp_worst_project_p95_ms": round(max(project_p95_values), 1)
+            if project_p95_values
+            else None,
             "recovered_protocol_warnings": recovered_protocol_warnings,
         },
         "projects": sorted(
             projects,
             key=lambda item: (
-                0 if item.get("task_state") == "blocked" else 1 if item.get("task_state") == "active" else 2,
+                0
+                if item.get("task_state") == "blocked"
+                else 1
+                if item.get("task_state") == "active"
+                else 2,
                 0 if (item.get("protocol_state") or {}).get("status") == "warning" else 1,
                 str(item["name"]).lower(),
             ),

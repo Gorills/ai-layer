@@ -3,8 +3,10 @@
 Revision ID: 0011_pre_epics_foundation
 Revises: 0010_adaptive_task_workflow
 """
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0011_pre_epics_foundation"
 down_revision = "0010_adaptive_task_workflow"
@@ -13,16 +15,42 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("tasks", sa.Column("complexity_level", sa.String(length=16), nullable=False, server_default="normal"))
-    op.add_column("tasks", sa.Column("uncertainty_level", sa.String(length=16), nullable=False, server_default="normal"))
-    op.add_column("task_stages", sa.Column("actual_model", sa.String(length=128), nullable=False, server_default=""))
-    op.add_column("task_stages", sa.Column("worker_heartbeat_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("task_stages", sa.Column("worker_lease_expires_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column(
+        "tasks",
+        sa.Column(
+            "complexity_level", sa.String(length=16), nullable=False, server_default="normal"
+        ),
+    )
+    op.add_column(
+        "tasks",
+        sa.Column(
+            "uncertainty_level", sa.String(length=16), nullable=False, server_default="normal"
+        ),
+    )
     op.add_column(
         "task_stages",
-        sa.Column("model_assurance", sa.String(length=32), nullable=False, server_default="requested_unverified"),
+        sa.Column("actual_model", sa.String(length=128), nullable=False, server_default=""),
     )
-    op.add_column("task_stages", sa.Column("telemetry", sa.JSON(), nullable=False, server_default=sa.text("'{}'")))
+    op.add_column(
+        "task_stages", sa.Column("worker_heartbeat_at", sa.DateTime(timezone=True), nullable=True)
+    )
+    op.add_column(
+        "task_stages",
+        sa.Column("worker_lease_expires_at", sa.DateTime(timezone=True), nullable=True),
+    )
+    op.add_column(
+        "task_stages",
+        sa.Column(
+            "model_assurance",
+            sa.String(length=32),
+            nullable=False,
+            server_default="requested_unverified",
+        ),
+    )
+    op.add_column(
+        "task_stages",
+        sa.Column("telemetry", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
+    )
     op.add_column(
         "review_findings",
         sa.Column("provenance", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
@@ -50,7 +78,12 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["stage_id"], ["task_stages.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_verification_runs_project_created", "verification_runs", ["project_id", "created_at"], unique=False)
+    op.create_index(
+        "ix_verification_runs_project_created",
+        "verification_runs",
+        ["project_id", "created_at"],
+        unique=False,
+    )
     op.create_index("ix_verification_runs_stage", "verification_runs", ["stage_id"], unique=False)
 
     op.create_table(
@@ -65,7 +98,12 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_runtime_events_project_created", "runtime_events", ["project_id", "created_at"], unique=False)
+    op.create_index(
+        "ix_runtime_events_project_created",
+        "runtime_events",
+        ["project_id", "created_at"],
+        unique=False,
+    )
     op.create_index(
         "ix_runtime_events_aggregate",
         "runtime_events",

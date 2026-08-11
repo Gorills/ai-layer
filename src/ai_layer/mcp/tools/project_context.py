@@ -1,12 +1,13 @@
 from __future__ import annotations
-from ai_layer.mcp.runtime import core_tool
-from ai_layer.mcp.runtime import _project, _scoped, _text, project_root_for_tool
-from ai_layer.mcp.context import bind_project_root
+
+from ai_layer.application.transport import application_scope as session_scope
 from ai_layer.application.transport import memory_context as build_memory_context
+from ai_layer.application.transport import memory_search as search_memory
 from ai_layer.application.transport import project_info as get_project_info
 from ai_layer.audit.service import mcp_audit
-from ai_layer.application.transport import memory_search as search_memory
-from ai_layer.application.transport import application_scope as session_scope
+from ai_layer.mcp.context import bind_project_root
+from ai_layer.mcp.runtime import _project, _scoped, _text, core_tool, project_root_for_tool
+
 
 def project_info(project_root: str | None = None) -> dict:
     """WHEN: you need project metadata only. INPUT: optional project_root. DO NOT use instead of memory_context at task start."""
@@ -16,6 +17,7 @@ def project_info(project_root: str | None = None) -> dict:
             result = get_project_info(db, root)
             bind_project_root(root)
             return _scoped(result, root)
+
 
 def memory_search(query: str, project_root: str | None = None, limit: int = 8) -> list[dict]:
     """WHEN: memory_context left one specific reviewed project-knowledge gap. INPUT: query (required), project_root, limit. Searches curated VERIFIED knowledge only; use host-native tools for current source code. DO NOT use for broad repository dumps or repeat the same search."""
@@ -28,6 +30,7 @@ def memory_search(query: str, project_root: str | None = None, limit: int = 8) -
             audit["metrics"] = {"hits": len(result), "limit": max(1, min(limit, 20))}
             return result
 
+
 def memory_context(
     task: str | None = None,
     query: str | None = None,
@@ -39,7 +42,7 @@ def memory_context(
     current_task = (task or query or "").strip()
     if not current_task:
         raise ValueError(
-            "memory_context: `task` is required. Example: memory_context(task=\"Fix duplicate payment creation\", project_root=\"<workspace>\"). Legacy `query` is also accepted."
+            'memory_context: `task` is required. Example: memory_context(task="Fix duplicate payment creation", project_root="<workspace>"). Legacy `query` is also accepted.'
         )
     keys = ["task" if task else "query", "limit"] + (["project_root"] if project_root else [])
     with mcp_audit(root, "memory_context", arg_keys=keys) as audit:
@@ -55,12 +58,18 @@ def memory_context(
                 "stale_knowledge_hits": len(brief.get("stale_knowledge") or []),
                 "history_hits": len(brief.get("relevant_history") or []),
                 "decision_brief_hits": len(brief.get("relevant_decisions") or []),
-                "knowledge_baseline_ready": bool((result.get("knowledge_state") or {}).get("baseline_ready")),
+                "knowledge_baseline_ready": bool(
+                    (result.get("knowledge_state") or {}).get("baseline_ready")
+                ),
                 "skill_routing_owner": "host-native",
                 "automatic_skill_injection": False,
-                "automatic_skill_chars": int((result.get("context_budget") or {}).get("automatic_skill_chars") or 0),
+                "automatic_skill_chars": int(
+                    (result.get("context_budget") or {}).get("automatic_skill_chars") or 0
+                ),
                 "memory_refreshed": bool(freshness.get("refreshed")),
-                "raw_source_memory_chars": int((result.get("context_budget") or {}).get("raw_source_memory_chars") or 0),
+                "raw_source_memory_chars": int(
+                    (result.get("context_budget") or {}).get("raw_source_memory_chars") or 0
+                ),
                 "files": freshness.get("files"),
             }
             return _scoped(result, root)

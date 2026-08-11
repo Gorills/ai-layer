@@ -4,12 +4,14 @@ The pre-foundation transports historically opened ORM sessions themselves.  This
 those call shapes while moving transaction ownership behind the application boundary.  New transport
 code should prefer the focused use-case modules directly.
 """
+
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from ai_layer.application import context as context_uc
 from ai_layer.application import sessions as sessions_uc
@@ -43,7 +45,9 @@ def project_info(_scope: ApplicationScope, root: str | Path) -> dict:
     return context_uc.project_details(root)
 
 
-def memory_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> dict:
+def memory_search(
+    _scope: ApplicationScope, project: ProjectRef, query: str, limit: int
+) -> list[dict]:
     return context_uc.search_memory(project.root_path, query, limit)
 
 
@@ -51,11 +55,15 @@ def memory_context(_scope: ApplicationScope, project: ProjectRef, task: str, lim
     return context_uc.get_memory_context(project.root_path, task, limit)
 
 
-def decision_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> dict:
+def decision_search(
+    _scope: ApplicationScope, project: ProjectRef, query: str, limit: int
+) -> list[dict]:
     return context_uc.search_decisions(project.root_path, query, limit)
 
 
-def task_current(_scope: ApplicationScope, project: ProjectRef, *, include_history: bool = True) -> dict:
+def task_current(
+    _scope: ApplicationScope, project: ProjectRef, *, include_history: bool = True
+) -> dict:
     return tasks_uc.current(project.root_path, include_history=include_history)
 
 
@@ -71,7 +79,9 @@ def task_adopt(_scope: ApplicationScope, project: ProjectRef, **kwargs: Any) -> 
     return tasks_uc.adopt(project.root_path, **kwargs)
 
 
-def task_delegate(_scope: ApplicationScope, project: ProjectRef, *, worker_id: str, **kwargs: Any) -> dict:
+def task_delegate(
+    _scope: ApplicationScope, project: ProjectRef, *, worker_id: str, **kwargs: Any
+) -> dict:
     return tasks_uc.delegate(project.root_path, worker_id=worker_id, **kwargs)
 
 

@@ -31,14 +31,18 @@ def test_policy_install_is_safe_under_concurrent_calls(tmp_path, monkeypatch):
     get_settings.cache_clear()
     try:
         with ThreadPoolExecutor(max_workers=20) as pool:
-            paths = [future.result() for future in [pool.submit(ensure_global_policy) for _ in range(80)]]
+            paths = [
+                future.result() for future in [pool.submit(ensure_global_policy) for _ in range(80)]
+            ]
         assert all(path.read_text(encoding="utf-8") == DEFAULT_POLICY for path in paths)
         assert (get_settings().policies_dir / ".managed.json").exists()
     finally:
         get_settings.cache_clear()
 
 
-def test_strict_private_policy_is_delivered_from_registry_without_project_local_rules(tmp_path, monkeypatch):
+def test_strict_private_policy_is_delivered_from_registry_without_project_local_rules(
+    tmp_path, monkeypatch
+):
     from ai_layer.core.config import get_settings
     from ai_layer.core.paths import project_meta_dir
     from ai_layer.core.registry import register_project
@@ -52,10 +56,14 @@ def test_strict_private_policy_is_delivered_from_registry_without_project_local_
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
     get_settings.cache_clear()
     try:
-        register_project(project, "policy-private", "private", mode="strict-private", provenance="forbid")
+        register_project(
+            project, "policy-private", "private", mode="strict-private", provenance="forbid"
+        )
         meta = project_meta_dir(project)
         meta.mkdir(parents=True)
-        (meta / "rules.md").write_text("Use type hints for new Python functions.\n", encoding="utf-8")
+        (meta / "rules.md").write_text(
+            "Use type hints for new Python functions.\n", encoding="utf-8"
+        )
         policy = dynamic_policy(project)
         assert "Use type hints for new Python functions." in policy
         assert "Strict Private Repository Policy" in policy
@@ -105,10 +113,14 @@ def test_dynamic_policy_includes_only_custom_global_and_project_rules(tmp_path, 
     try:
         register_project(project, "dynamic-custom", "project", mode="external", provenance="allow")
         global_path = ensure_global_policy()
-        global_path.write_text("Require ticket references for production migrations.\n", encoding="utf-8")
+        global_path.write_text(
+            "Require ticket references for production migrations.\n", encoding="utf-8"
+        )
         meta = home / ".ai-layer" / "projects" / "dynamic-custom"
         meta.mkdir(parents=True)
-        (meta / "rules.md").write_text("Use domain-specific exceptions from src/errors.py.\n", encoding="utf-8")
+        (meta / "rules.md").write_text(
+            "Use domain-specific exceptions from src/errors.py.\n", encoding="utf-8"
+        )
 
         policy = dynamic_policy(project)
         assert "Custom Global Policy" in policy
@@ -134,7 +146,9 @@ def test_dynamic_policy_preserves_strict_private_and_read_only_constraints(tmp_p
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
     get_settings.cache_clear()
     try:
-        register_project(project, "dynamic-private", "private", mode="strict-private", provenance="forbid")
+        register_project(
+            project, "dynamic-private", "private", mode="strict-private", provenance="forbid"
+        )
         policy = dynamic_policy(project, read_only=True)
         assert "Strict Private Repository Policy" in policy
         assert "Do not create AI Layer artifacts" in policy

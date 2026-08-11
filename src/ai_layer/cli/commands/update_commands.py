@@ -9,9 +9,17 @@ from ai_layer.installation.updater import install_update
 
 
 def update(
-    check: bool = typer.Option(False, "--check", help="Verify the signed channel and report availability without installing."),
-    manifest_url: str | None = typer.Option(None, "--manifest-url", help="Override the configured signed channel manifest URL."),
-    public_key: Path | None = typer.Option(None, "--public-key", help="Override the configured publisher public key."),
+    check: bool = typer.Option(
+        False,
+        "--check",
+        help="Verify the signed channel and report availability without installing.",
+    ),
+    manifest_url: str | None = typer.Option(
+        None, "--manifest-url", help="Override the configured signed channel manifest URL."
+    ),
+    public_key: Path | None = typer.Option(
+        None, "--public-key", help="Override the configured publisher public key."
+    ),
 ):
     """Securely install the newest release from the configured signed channel."""
     try:

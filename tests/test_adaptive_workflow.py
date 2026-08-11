@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from ai_layer.core.config import get_settings
 from ai_layer.db.base import Base
-from ai_layer.db.models import Project, Task
+from ai_layer.db.models import Project
 from ai_layer.tasks import service as tasks
 from ai_layer.tasks.agent_policy import install_cursor_profiles
-from ai_layer.core.config import get_settings
 
 
 def _db_project(tmp_path: Path):
@@ -30,27 +30,38 @@ def _db_project(tmp_path: Path):
     return db, project, root
 
 
-
-
 def _init_git(root: Path):
     import subprocess
+
     subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
     subprocess.run(["git", "config", "user.email", "tests@example.invalid"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.name", "AI Layer Tests"], cwd=root, check=True)
     subprocess.run(["git", "add", "."], cwd=root, check=True)
     subprocess.run(["git", "commit", "-m", "baseline"], cwd=root, check=True, capture_output=True)
 
+
 def test_standard_clean_review_completes_without_noop_fixer(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Change application behavior", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Change application behavior", acceptance_criteria=[], constraints=[]
+        )
         assert created["workflow_profile"] == "standard"
         tasks.delegate_current_stage(db, project, worker_id="impl")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-        review = tasks.complete_current_stage(db, project, expected_kind="implement", summary="Changed value", checks=["focused test"])
+        review = tasks.complete_current_stage(
+            db, project, expected_kind="implement", summary="Changed value", checks=["focused test"]
+        )
         assert review["active_stage"]["kind"] == "review"
         tasks.delegate_current_stage(db, project, worker_id="review")
-        completed = tasks.complete_current_stage(db, project, expected_kind="review", summary="Clean independent review", checks=["inspection"], verdict="pass")
+        completed = tasks.complete_current_stage(
+            db,
+            project,
+            expected_kind="review",
+            summary="Clean independent review",
+            checks=["inspection"],
+            verdict="pass",
+        )
         assert completed["status"] == "completed"
         assert completed["active_stage"] is None
         assert [stage["kind"] for stage in completed["stages"]] == ["implement", "review"]
@@ -63,7 +74,8 @@ def test_discovery_first_is_read_only_then_implements_without_fake_fixer(tmp_pat
     db, project, root = _db_project(tmp_path)
     try:
         created = tasks.create_task(
-            db, project,
+            db,
+            project,
             goal="Investigate current app behavior before implementing a safe change",
             acceptance_criteria=["understand existing behavior", "then change VALUE"],
             constraints=[],
@@ -74,7 +86,9 @@ def test_discovery_first_is_read_only_then_implements_without_fake_fixer(tmp_pat
         assert created["delegation_contract"]["repository_mode"] == "read-only"
         tasks.delegate_current_stage(db, project, worker_id="discovery-worker")
         discovered = tasks.complete_current_stage(
-            db, project, expected_kind="discovery",
+            db,
+            project,
+            expected_kind="discovery",
             summary="Verified the existing VALUE path and identified the safe edit.",
             checks=["read source", "traced entrypoint"],
             outcome="ready_for_implementation",
@@ -89,11 +103,28 @@ def test_discovery_first_is_read_only_then_implements_without_fake_fixer(tmp_pat
         assert discovered["discovery_result"]["verified_facts"] == ["app.py owns VALUE"]
         tasks.delegate_current_stage(db, project, worker_id="impl-worker")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-        review = tasks.complete_current_stage(db, project, expected_kind="implement", summary="Applied discovered plan", checks=["focused test"])
+        tasks.complete_current_stage(
+            db,
+            project,
+            expected_kind="implement",
+            summary="Applied discovered plan",
+            checks=["focused test"],
+        )
         tasks.delegate_current_stage(db, project, worker_id="review-worker")
-        completed = tasks.complete_current_stage(db, project, expected_kind="review", summary="Implementation matches discovery and task contract", checks=["inspection"], verdict="pass")
+        completed = tasks.complete_current_stage(
+            db,
+            project,
+            expected_kind="review",
+            summary="Implementation matches discovery and task contract",
+            checks=["inspection"],
+            verdict="pass",
+        )
         assert completed["status"] == "completed"
-        assert [stage["kind"] for stage in completed["stages"]] == ["discovery", "implement", "review"]
+        assert [stage["kind"] for stage in completed["stages"]] == [
+            "discovery",
+            "implement",
+            "review",
+        ]
         assert completed["fix_round"] == 0
     finally:
         db.close()
@@ -102,13 +133,24 @@ def test_discovery_first_is_read_only_then_implements_without_fake_fixer(tmp_pat
 def test_analysis_only_discovery_completes_without_implementation_or_fixer(tmp_path: Path):
     db, project, _ = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Analyze current app architecture and risks", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db,
+            project,
+            goal="Analyze current app architecture and risks",
+            acceptance_criteria=[],
+            constraints=[],
+        )
         assert created["workflow_profile"] == "analysis_only"
         assert created["active_stage"]["kind"] == "discovery"
         tasks.delegate_current_stage(db, project, worker_id="analysis-worker")
         completed = tasks.complete_current_stage(
-            db, project, expected_kind="discovery", summary="Analysis complete", checks=["source inspection"],
-            outcome="analysis_complete", result_data={"verified_facts": ["single app entrypoint"], "risks": []},
+            db,
+            project,
+            expected_kind="discovery",
+            summary="Analysis complete",
+            checks=["source inspection"],
+            outcome="analysis_complete",
+            result_data={"verified_facts": ["single app entrypoint"], "risks": []},
         )
         assert completed["status"] == "completed"
         assert [stage["kind"] for stage in completed["stages"]] == ["discovery"]
@@ -122,14 +164,22 @@ def test_micro_low_risk_one_file_change_completes_with_one_worker(tmp_path: Path
     db, project, root = _db_project(tmp_path)
     try:
         _init_git(root)
-        created = tasks.create_task(db, project, goal="Fix one line typo in app.py", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Fix one line typo in app.py", acceptance_criteria=[], constraints=[]
+        )
         assert created["workflow_profile"] == "micro"
         nav = tasks.next_task_action(db, project)
         assert nav["next_action"]["agent_policy"]["tier"] == "economy"
         assert nav["next_action"]["agent_policy"]["profile"] == "ai-layer-economy-write"
         tasks.delegate_current_stage(db, project, worker_id="micro-worker")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-        completed = tasks.complete_current_stage(db, project, expected_kind="implement", summary="Fixed localized line", checks=["focused check"])
+        completed = tasks.complete_current_stage(
+            db,
+            project,
+            expected_kind="implement",
+            summary="Fixed localized line",
+            checks=["focused check"],
+        )
         assert completed["status"] == "completed"
         assert [stage["kind"] for stage in completed["stages"]] == ["implement"]
         assert completed["review_round"] == 0
@@ -141,12 +191,25 @@ def test_micro_envelope_excess_auto_escalates_to_standard_review(tmp_path: Path)
     db, project, root = _db_project(tmp_path)
     try:
         _init_git(root)
-        created = tasks.create_task(db, project, goal="Small fix in app.py", acceptance_criteria=[], constraints=[], workflow="micro")
+        created = tasks.create_task(
+            db,
+            project,
+            goal="Small fix in app.py",
+            acceptance_criteria=[],
+            constraints=[],
+            workflow="micro",
+        )
         assert created["workflow_profile"] == "micro"
         tasks.delegate_current_stage(db, project, worker_id="micro-worker")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
         (root / "helper.py").write_text("HELPER = True\n", encoding="utf-8")
-        escalated = tasks.complete_current_stage(db, project, expected_kind="implement", summary="Change grew beyond expected scope", checks=["focused check"])
+        escalated = tasks.complete_current_stage(
+            db,
+            project,
+            expected_kind="implement",
+            summary="Change grew beyond expected scope",
+            checks=["focused check"],
+        )
         assert escalated["status"] == "active"
         assert escalated["workflow_profile"] == "standard"
         assert escalated["active_stage"]["kind"] == "review"
@@ -159,12 +222,24 @@ def test_micro_envelope_excess_auto_escalates_to_standard_review(tmp_path: Path)
 def test_high_risk_review_requests_strong_readonly_profile(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Fix authentication permission security bug", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db,
+            project,
+            goal="Fix authentication permission security bug",
+            acceptance_criteria=[],
+            constraints=[],
+        )
         assert created["risk_level"] == "high"
         assert created["active_stage"]["agent_policy"]["tier"] == "balanced"
         tasks.delegate_current_stage(db, project, worker_id="impl")
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
-        review = tasks.complete_current_stage(db, project, expected_kind="implement", summary="Security fix implemented", checks=["focused security test"])
+        review = tasks.complete_current_stage(
+            db,
+            project,
+            expected_kind="implement",
+            summary="Security fix implemented",
+            checks=["focused security test"],
+        )
         assert review["active_stage"]["kind"] == "review"
         assert review["active_stage"]["agent_policy"]["tier"] == "strong"
         assert review["active_stage"]["agent_policy"]["profile"] == "ai-layer-strong-readonly"
@@ -172,7 +247,9 @@ def test_high_risk_review_requests_strong_readonly_profile(tmp_path: Path):
         db.close()
 
 
-def test_cursor_agent_profiles_are_machine_side_and_do_not_overwrite_unmanaged(tmp_path: Path, monkeypatch):
+def test_cursor_agent_profiles_are_machine_side_and_do_not_overwrite_unmanaged(
+    tmp_path: Path, monkeypatch
+):
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "ai-home"))
     get_settings.cache_clear()
     cursor_home = tmp_path / "user-home"
@@ -196,13 +273,24 @@ def test_micro_one_file_large_rewrite_escalates_to_review(tmp_path: Path):
     db, project, root = _db_project(tmp_path)
     try:
         _init_git(root)
-        created = tasks.create_task(
-            db, project, goal="Fix one line in app.py", acceptance_criteria=[], constraints=[], workflow="micro"
+        tasks.create_task(
+            db,
+            project,
+            goal="Fix one line in app.py",
+            acceptance_criteria=[],
+            constraints=[],
+            workflow="micro",
         )
         tasks.delegate_current_stage(db, project, worker_id="micro-large")
-        (root / "app.py").write_text("\n".join(f"VALUE_{i} = {i}" for i in range(80)) + "\n", encoding="utf-8")
+        (root / "app.py").write_text(
+            "\n".join(f"VALUE_{i} = {i}" for i in range(80)) + "\n", encoding="utf-8"
+        )
         escalated = tasks.complete_current_stage(
-            db, project, expected_kind="implement", summary="Rewrite exceeded intended scope", checks=["focused check"]
+            db,
+            project,
+            expected_kind="implement",
+            summary="Rewrite exceeded intended scope",
+            checks=["focused check"],
         )
         assert escalated["status"] == "active"
         assert escalated["workflow_profile"] == "standard"
@@ -257,6 +345,7 @@ def test_discovery_rejects_external_mutation_actions(tmp_path: Path):
         assert created["active_stage"]["kind"] == "discovery"
         tasks.delegate_current_stage(db, project, worker_id="discovery-readonly")
         import pytest
+
         with pytest.raises(ValueError, match="Read-only discovery"):
             tasks.complete_current_stage(
                 db,
@@ -265,11 +354,13 @@ def test_discovery_rejects_external_mutation_actions(tmp_path: Path):
                 summary="Tried to change staging",
                 checks=["inspection"],
                 outcome="analysis_complete",
-                external_actions=[{
-                    "kind": "mutation",
-                    "target": "staging-config",
-                    "summary": "changed config",
-                }],
+                external_actions=[
+                    {
+                        "kind": "mutation",
+                        "target": "staging-config",
+                        "summary": "changed config",
+                    }
+                ],
             )
     finally:
         db.close()
@@ -331,7 +422,9 @@ def test_discovery_can_run_write_producing_check_in_disposable_sandbox(tmp_path:
         db.close()
 
 
-def test_task_create_uses_machine_default_cost_policy_and_persists_requested_model(tmp_path: Path, monkeypatch):
+def test_task_create_uses_machine_default_cost_policy_and_persists_requested_model(
+    tmp_path: Path, monkeypatch
+):
     from ai_layer.tasks import agent_policy
 
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "ai-home"))
@@ -358,7 +451,9 @@ def test_task_create_uses_machine_default_cost_policy_and_persists_requested_mod
         # Policy changes affect future stages/tasks, not the historical request already bound to this stage.
         agent_policy.configure_policy(balanced_model="balanced-model-v2")
         current = tasks.current_task(db, project)
-        assert current["task"]["active_stage"]["agent_policy"]["cursor_model"] == "balanced-model-v1"
+        assert (
+            current["task"]["active_stage"]["agent_policy"]["cursor_model"] == "balanced-model-v1"
+        )
     finally:
         db.close()
         get_settings.cache_clear()

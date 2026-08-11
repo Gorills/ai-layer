@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 
 from ai_layer.core.config import get_settings
-from ai_layer.core.filelock import directory_lock
 from ai_layer.core.registry import get_registered_project
 from ai_layer.skills.common import _atomic_json
-from ai_layer.skills.constants import REGISTRY_VERSION, SLUG_RE, VALID_SCOPES, VALID_STATUS
+from ai_layer.skills.constants import REGISTRY_VERSION, SLUG_RE, VALID_SCOPES
+
 
 def _registry_lock() -> Path:
     return get_settings().home / ".skill-registry.lock"
@@ -43,7 +43,9 @@ def _project_identity(project_root: str | Path) -> tuple[str, str]:
     root = str(Path(project_root).expanduser().resolve())
     item = get_registered_project(root)
     if not item or not str(item.get("project_id") or "").strip():
-        raise RuntimeError(f"Project is not registered with durable identity: {root}. Run `ai-layer init` first.")
+        raise RuntimeError(
+            f"Project is not registered with durable identity: {root}. Run `ai-layer init` first."
+        )
     return root, str(item["project_id"])
 
 
@@ -58,7 +60,9 @@ def project_skill_dir(project_root: str | Path) -> Path:
     return path
 
 
-def _skill_target(*, scope: str, slug: str, project_root: str | Path | None) -> tuple[Path, str | None, str | None]:
+def _skill_target(
+    *, scope: str, slug: str, project_root: str | Path | None
+) -> tuple[Path, str | None, str | None]:
     if scope not in VALID_SCOPES:
         raise ValueError(f"Unsupported skill scope: {scope!r}. Expected global or project.")
     if not SLUG_RE.fullmatch(slug):
@@ -73,10 +77,16 @@ def _skill_target(*, scope: str, slug: str, project_root: str | Path | None) -> 
 
 
 def _record_key(record: dict) -> tuple[str, str | None, str]:
-    return str(record.get("scope")), str(record.get("project_id")) if record.get("project_id") else None, str(record.get("slug"))
+    return (
+        str(record.get("scope")),
+        str(record.get("project_id")) if record.get("project_id") else None,
+        str(record.get("slug")),
+    )
 
 
-def skill_records(*, project_root: str | Path | None = None, include_disabled: bool = True) -> list[dict]:
+def skill_records(
+    *, project_root: str | Path | None = None, include_disabled: bool = True
+) -> list[dict]:
     wanted_project_id: str | None = None
     if project_root is not None:
         _, wanted_project_id = _project_identity(project_root)
@@ -85,7 +95,11 @@ def skill_records(*, project_root: str | Path | None = None, include_disabled: b
         if not isinstance(raw, dict):
             continue
         scope = str(raw.get("scope") or "")
-        if scope == "project" and wanted_project_id is not None and str(raw.get("project_id")) != wanted_project_id:
+        if (
+            scope == "project"
+            and wanted_project_id is not None
+            and str(raw.get("project_id")) != wanted_project_id
+        ):
             continue
         if scope == "project" and wanted_project_id is None:
             continue
@@ -95,7 +109,9 @@ def skill_records(*, project_root: str | Path | None = None, include_disabled: b
     return sorted(records, key=lambda item: (str(item.get("scope")), str(item.get("slug"))))
 
 
-def find_skill_record(slug: str, *, scope: str | None = None, project_root: str | Path | None = None) -> dict | None:
+def find_skill_record(
+    slug: str, *, scope: str | None = None, project_root: str | Path | None = None
+) -> dict | None:
     for record in skill_records(project_root=project_root, include_disabled=True):
         if record.get("slug") == slug and (scope is None or record.get("scope") == scope):
             return record
@@ -113,7 +129,8 @@ def project_skill_slugs(project_root: str | Path, *, enabled_only: bool = True) 
     return sorted(
         str(record["slug"])
         for record in records
-        if record.get("scope") == "project" and (not enabled_only or record.get("status", "enabled") == "enabled")
+        if record.get("scope") == "project"
+        and (not enabled_only or record.get("status", "enabled") == "enabled")
     )
 
 
@@ -121,5 +138,7 @@ def disabled_global_skill_slugs() -> set[str]:
     return {
         str(record["slug"])
         for record in load_skill_registry().get("skills", [])
-        if isinstance(record, dict) and record.get("scope") == "global" and record.get("status") == "disabled"
+        if isinstance(record, dict)
+        and record.get("scope") == "global"
+        and record.get("status") == "disabled"
     }

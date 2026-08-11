@@ -6,7 +6,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from ai_layer.observability.event_common import event_dir as _event_dir, parse_ts, utcnow
+from ai_layer.observability.event_common import event_dir as _event_dir
+from ai_layer.observability.event_common import parse_ts, utcnow
+
+
 @dataclass
 class _AggregateState:
     """Process-local incremental projection of terminal events for one exact time window."""
@@ -50,8 +53,20 @@ def _aggregate_add(state: _AggregateState, item: dict, *, cutoff_epoch: float) -
     compact = {
         key: item[key]
         for key in (
-            "id", "correlation_id", "ts", "project_root", "category", "operation", "status",
-            "source", "client", "session_id", "pid", "duration_ms", "metrics", "error_type",
+            "id",
+            "correlation_id",
+            "ts",
+            "project_root",
+            "category",
+            "operation",
+            "status",
+            "source",
+            "client",
+            "session_id",
+            "pid",
+            "duration_ms",
+            "metrics",
+            "error_type",
         )
         if key in item
     }
@@ -138,7 +153,7 @@ def _rebuild_aggregate_state(
     state = _AggregateState()
     for path in files:
         try:
-            stat = path.stat()
+            path.stat()
         except OSError:
             continue
         offset = _read_appended_events(path, offset=0, state=state, cutoff_epoch=cutoff_epoch)
@@ -177,7 +192,9 @@ def _advance_aggregate_state(
             if int(stat.st_size) == offset and int(stat.st_mtime_ns) != previous_mtime:
                 # Same-size rewrite is not an append-only event stream; rebuild rather than trust it.
                 return _rebuild_aggregate_state(files, cutoff_epoch=cutoff_epoch)
-            offset = _read_appended_events(path, offset=offset, state=state, cutoff_epoch=cutoff_epoch)
+            offset = _read_appended_events(
+                path, offset=offset, state=state, cutoff_epoch=cutoff_epoch
+            )
         try:
             after = path.stat()
         except OSError:

@@ -2,23 +2,54 @@ from __future__ import annotations
 
 import json
 
-from ai_layer.db.models import Project, Task, TaskStage
-from ai_layer.core.redaction import redact_secrets
 from ai_layer.agents.policy import COST_POLICIES, load_policy, stage_policy
+from ai_layer.core.redaction import redact_secrets
+from ai_layer.db.models import Project, Task, TaskStage
 from ai_layer.tasks.constants import (
-    DISCOVERY_TERMS, HIGH_RISK_TERMS, MAX_RESULT_DATA_BYTES, MAX_TASK_ITEM_CHARS,
-    MAX_TASK_LIST_ITEMS, MICRO_TERMS, MUTATION_INTENT_TERMS,
- )
+    DISCOVERY_TERMS,
+    HIGH_RISK_TERMS,
+    MAX_RESULT_DATA_BYTES,
+    MAX_TASK_ITEM_CHARS,
+    MAX_TASK_LIST_ITEMS,
+    MICRO_TERMS,
+    MUTATION_INTENT_TERMS,
+)
 
 COMPLEXITY_TERMS = {
-    "architecture", "refactor", "migration", "integration", "concurrency", "distributed",
-    "state machine", "workflow", "multiple modules", "cross-cutting", "архитектур", "рефактор",
-    "миграц", "интеграц", "конкурент",
+    "architecture",
+    "refactor",
+    "migration",
+    "integration",
+    "concurrency",
+    "distributed",
+    "state machine",
+    "workflow",
+    "multiple modules",
+    "cross-cutting",
+    "архитектур",
+    "рефактор",
+    "миграц",
+    "интеграц",
+    "конкурент",
 }
 UNCERTAINTY_TERMS = {
-    "investigate", "unknown", "unfamiliar", "root cause", "diagnose", "why", "discover",
-    "uncertain", "legacy", "исслед", "неизвест", "причин", "диагност", "разобраться", "легаси",
+    "investigate",
+    "unknown",
+    "unfamiliar",
+    "root cause",
+    "diagnose",
+    "why",
+    "discover",
+    "uncertain",
+    "legacy",
+    "исслед",
+    "неизвест",
+    "причин",
+    "диагност",
+    "разобраться",
+    "легаси",
 }
+
 
 def _task_text(goal: str, acceptance_criteria: list[str], constraints: list[str]) -> str:
     return " ".join([goal, *acceptance_criteria, *constraints]).casefold()
@@ -82,13 +113,22 @@ def _bounded_result_data(value: dict | None) -> dict:
 
 
 def _classify_task(
-    project: Project, *, goal: str, acceptance_criteria: list[str], constraints: list[str],
-    workflow: str = "auto", risk: str = "auto", complexity: str = "auto",
-    uncertainty: str = "auto", cost_policy: str = "auto",
+    project: Project,
+    *,
+    goal: str,
+    acceptance_criteria: list[str],
+    constraints: list[str],
+    workflow: str = "auto",
+    risk: str = "auto",
+    complexity: str = "auto",
+    uncertainty: str = "auto",
+    cost_policy: str = "auto",
 ) -> dict:
     workflow = (workflow or "auto").strip().lower().replace("-", "_")
     if workflow not in {"auto", "micro", "standard", "discovery_first", "analysis_only"}:
-        raise ValueError("task_create workflow must be auto|micro|standard|discovery_first|analysis_only.")
+        raise ValueError(
+            "task_create workflow must be auto|micro|standard|discovery_first|analysis_only."
+        )
     risk = (risk or "auto").strip().lower()
     if risk not in {"auto", "low", "normal", "high"}:
         raise ValueError("task_create risk must be auto|low|normal|high.")

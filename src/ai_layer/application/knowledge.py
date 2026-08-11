@@ -40,7 +40,9 @@ def _active_delegated_mutation_stage(db, project, worker_id: str) -> tuple[Task,
             "discovery/review remain read-only"
         )
     if not stage.worker_id:
-        raise RuntimeError("knowledge_draft_upsert requires task_stage_delegate before writing a draft")
+        raise RuntimeError(
+            "knowledge_draft_upsert requires task_stage_delegate before writing a draft"
+        )
     if stage.worker_id != worker:
         raise RuntimeError(
             f"knowledge_draft_upsert worker mismatch: active stage belongs to `{stage.worker_id}`, not `{worker}`"

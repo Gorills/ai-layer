@@ -84,6 +84,7 @@ def test_audit_check_detects_duplicate_memory_context_in_same_flow(tmp_path: Pat
 
 def test_audit_event_identifies_server_version_and_pid(tmp_path: Path):
     import os
+
     from ai_layer import __version__
 
     register_project(tmp_path, "audit-version", tmp_path.name)
@@ -114,7 +115,9 @@ def test_audit_check_fails_when_tool_error_occurs_inside_completed_flow(tmp_path
     assert result["failures"] == [{"tool": "decision_search", "error_type": "RuntimeError"}]
 
 
-def test_unregistered_global_bootstrap_attempt_does_not_create_state_or_swallow_error(tmp_path: Path):
+def test_unregistered_global_bootstrap_attempt_does_not_create_state_or_swallow_error(
+    tmp_path: Path,
+):
     project = tmp_path / "unregistered"
     project.mkdir()
     try:
@@ -191,10 +194,24 @@ def test_audit_check_accepts_stage_specific_terminal_completion(tmp_path: Path):
         pass
     with mcp_audit(project, "task_create", arg_keys=["goal"]) as state:
         state["metrics"] = {"task": "T-0001", "status": "active", "stage": "implement"}
-    with mcp_audit(project, "task_implementation_complete", arg_keys=["summary", "checks"]) as state:
-        state["metrics"] = {"task": "T-0001", "status": "active", "next_stage": "review", "handoff_written": False}
-    with mcp_audit(project, "task_review_complete", arg_keys=["summary", "checks", "verdict"]) as state:
-        state["metrics"] = {"task": "T-0001", "status": "completed", "next_stage": None, "handoff_written": True}
+    with mcp_audit(
+        project, "task_implementation_complete", arg_keys=["summary", "checks"]
+    ) as state:
+        state["metrics"] = {
+            "task": "T-0001",
+            "status": "active",
+            "next_stage": "review",
+            "handoff_written": False,
+        }
+    with mcp_audit(
+        project, "task_review_complete", arg_keys=["summary", "checks", "verdict"]
+    ) as state:
+        state["metrics"] = {
+            "task": "T-0001",
+            "status": "completed",
+            "next_stage": None,
+            "handoff_written": True,
+        }
 
     result = check_latest_flow(project)
     assert result["ok"] is True

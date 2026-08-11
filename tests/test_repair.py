@@ -19,7 +19,9 @@ def _project_yaml(root: Path, project_id: str, *, mode: str, provenance: str) ->
     )
 
 
-def test_repair_auto_detaches_nested_registration_and_archives_ai_state(tmp_path: Path, monkeypatch):
+def test_repair_auto_detaches_nested_registration_and_archives_ai_state(
+    tmp_path: Path, monkeypatch
+):
     home = tmp_path / "home"
     parent = tmp_path / "food"
     child = parent / "main"
@@ -39,13 +41,17 @@ def test_repair_auto_detaches_nested_registration_and_archives_ai_state(tmp_path
         # A bridge produced by the accidental child init must be removed from the parent's tree.
         bridge = child / ".cursor" / "rules" / "ai-layer.mdc"
         bridge.parent.mkdir(parents=True)
-        bridge.write_text("---\ndescription: Mandatory Local AI Development Layer workflow\n---\n", encoding="utf-8")
+        bridge.write_text(
+            "---\ndescription: Mandatory Local AI Development Layer workflow\n---\n",
+            encoding="utf-8",
+        )
 
         register_project(parent, "p-parent", "food", mode="strict-private", provenance="forbid")
         external = get_settings().projects_state_dir / "p-parent"
         external.mkdir(parents=True)
         (external / "project.yaml").write_text(
-            _project_yaml(parent, "p-parent", mode="strict-private", provenance="forbid"), encoding="utf-8"
+            _project_yaml(parent, "p-parent", mode="strict-private", provenance="forbid"),
+            encoding="utf-8",
         )
 
         result = repair_registered_projects(sync=True)
@@ -56,14 +62,20 @@ def test_repair_auto_detaches_nested_registration_and_archives_ai_state(tmp_path
         assert not local.exists()
         assert not bridge.exists()
         assert user_file.read_text(encoding="utf-8") == "print('keep')\n"
-        archived = list((get_settings().home / "recovery" / "nested-projects").glob("*/local-state/project.yaml"))
+        archived = list(
+            (get_settings().home / "recovery" / "nested-projects").glob(
+                "*/local-state/project.yaml"
+            )
+        )
         assert len(archived) == 1
         assert "p-child" in archived[0].read_text(encoding="utf-8")
     finally:
         get_settings.cache_clear()
 
 
-def test_repair_moves_verified_strict_private_local_residue_out_of_repository(tmp_path: Path, monkeypatch):
+def test_repair_moves_verified_strict_private_local_residue_out_of_repository(
+    tmp_path: Path, monkeypatch
+):
     home = tmp_path / "home"
     root = tmp_path / "repo"
     root.mkdir()
@@ -75,12 +87,14 @@ def test_repair_moves_verified_strict_private_local_residue_out_of_repository(tm
         external = get_settings().projects_state_dir / "p-private"
         external.mkdir(parents=True)
         (external / "project.yaml").write_text(
-            _project_yaml(root, "p-private", mode="strict-private", provenance="forbid"), encoding="utf-8"
+            _project_yaml(root, "p-private", mode="strict-private", provenance="forbid"),
+            encoding="utf-8",
         )
         local = root / ".ai-layer"
         local.mkdir()
         (local / "project.yaml").write_text(
-            _project_yaml(root, "p-private", mode="strict-private", provenance="forbid"), encoding="utf-8"
+            _project_yaml(root, "p-private", mode="strict-private", provenance="forbid"),
+            encoding="utf-8",
         )
 
         result = repair_project(root, sync=False)
@@ -92,15 +106,21 @@ def test_repair_moves_verified_strict_private_local_residue_out_of_repository(tm
         get_settings.cache_clear()
 
 
-def test_repair_strict_private_does_not_block_on_large_clean_tracked_lockfile(tmp_path: Path, monkeypatch):
+def test_repair_strict_private_does_not_block_on_large_clean_tracked_lockfile(
+    tmp_path: Path, monkeypatch
+):
     home = tmp_path / "home"
     root = tmp_path / "repo"
     root.mkdir()
     subprocess.run(["git", "init", "-q", str(root)], check=True)
-    subprocess.run(["git", "-C", str(root), "config", "user.email", "test@example.invalid"], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "config", "user.email", "test@example.invalid"], check=True
+    )
     subprocess.run(["git", "-C", str(root), "config", "user.name", "Test"], check=True)
     lockfile = root / "package-lock.json"
-    lockfile.write_text('{"lockfileVersion": 3, "packages": {"x": "' + ("a" * 1_050_000) + '"}}\n', encoding="utf-8")
+    lockfile.write_text(
+        '{"lockfileVersion": 3, "packages": {"x": "' + ("a" * 1_050_000) + '"}}\n', encoding="utf-8"
+    )
     subprocess.run(["git", "-C", str(root), "add", "package-lock.json"], check=True)
     subprocess.run(["git", "-C", str(root), "commit", "-qm", "baseline"], check=True)
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
@@ -110,7 +130,8 @@ def test_repair_strict_private_does_not_block_on_large_clean_tracked_lockfile(tm
         external = get_settings().projects_state_dir / "p-private"
         external.mkdir(parents=True)
         (external / "project.yaml").write_text(
-            _project_yaml(root, "p-private", mode="strict-private", provenance="forbid"), encoding="utf-8"
+            _project_yaml(root, "p-private", mode="strict-private", provenance="forbid"),
+            encoding="utf-8",
         )
         result = repair_project(root, sync=False)
         assert result["ok"] is True
@@ -137,7 +158,8 @@ def test_repair_reports_user_owned_provenance_without_rewriting_it(tmp_path: Pat
         external = get_settings().projects_state_dir / "p-private"
         external.mkdir(parents=True)
         (external / "project.yaml").write_text(
-            _project_yaml(root, "p-private", mode="strict-private", provenance="forbid"), encoding="utf-8"
+            _project_yaml(root, "p-private", mode="strict-private", provenance="forbid"),
+            encoding="utf-8",
         )
 
         result = repair_project(root, sync=False)
@@ -172,6 +194,8 @@ def test_repair_refuses_nested_symlink_inside_ai_state(tmp_path: Path, monkeypat
         assert result["nested_detached"] == 0
         assert get_registered_project(child) is not None
         assert local.exists()
-        assert any("symlinked AI Layer project state" in item["error"] for item in result["unresolved"])
+        assert any(
+            "symlinked AI Layer project state" in item["error"] for item in result["unresolved"]
+        )
     finally:
         get_settings.cache_clear()

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Static release gate for version alignment and reproducible-install artifacts."""
+
 from __future__ import annotations
 
 import argparse
@@ -25,6 +26,7 @@ DOCKER = ROOT / "docker-compose.yml"
 INIT = ROOT / "src" / "ai_layer" / "__init__.py"
 PIN_RE = re.compile(r"^([A-Za-z0-9_.-]+)==([^\s;]+)$")
 DIGEST_RE = re.compile(r"pgvector/pgvector:[^\s@]+@sha256:[0-9a-f]{64}")
+
 
 def canonicalize(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
@@ -88,7 +90,11 @@ def main() -> int:
     if "psycopg-binary" not in pins:
         errors.append("psycopg[binary] requires explicit psycopg-binary pin")
     try:
-        tool_lines = [line.strip() for line in TOOLS_LOCK.read_text(encoding="utf-8").splitlines() if line.strip() and not line.lstrip().startswith("#")]
+        tool_lines = [
+            line.strip()
+            for line in TOOLS_LOCK.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
         if not tool_lines or any(PIN_RE.fullmatch(line) is None for line in tool_lines):
             errors.append("maintainer tooling lock must contain exact NAME==VERSION pins only")
     except Exception as exc:
@@ -138,12 +144,12 @@ def main() -> int:
 
     if args.check_deterministic_wheel:
         import tempfile
+
         with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
-            cmd = [sys.executable, str(ROOT / "scripts" / "build_release_wheel.py")]
             # Builder's default output is fixed, so invoke its build() directly for temp dirs.
             code = (
                 "from pathlib import Path; import sys; "
-                f"sys.path.insert(0,{str((ROOT/'scripts')).__repr__()}); "
+                f"sys.path.insert(0,{str(ROOT / 'scripts').__repr__()}); "
                 "from build_release_wheel import build; print(build(Path(sys.argv[1])))"
             )
             pa = subprocess.run([sys.executable, "-c", code, a], capture_output=True, text=True)
@@ -151,7 +157,8 @@ def main() -> int:
             if pa.returncode or pb.returncode:
                 errors.append("deterministic wheel rebuild failed")
             else:
-                wa = next(Path(a).glob("*.whl")); wb = next(Path(b).glob("*.whl"))
+                wa = next(Path(a).glob("*.whl"))
+                wb = next(Path(b).glob("*.whl"))
                 if sha256(wa) != sha256(wb):
                     errors.append("application wheel builder is not deterministic")
     payload = {
@@ -166,6 +173,7 @@ def main() -> int:
     }
     print(json.dumps(payload, indent=None if args.json else 2, sort_keys=True))
     return 0 if not errors else 1
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

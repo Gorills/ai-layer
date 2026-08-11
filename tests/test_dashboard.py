@@ -6,8 +6,8 @@ from typer.testing import CliRunner
 
 from ai_layer.cli.app import app as cli_app
 from ai_layer.core.config import get_settings
-from ai_layer.core.registry import register_project
 from ai_layer.core.paths import project_state_path
+from ai_layer.core.registry import register_project
 from ai_layer.observability.events import emit_event
 
 
@@ -28,10 +28,19 @@ def test_dashboard_web_and_overview_api(monkeypatch, tmp_path: Path):
         lambda: {"connected": True, "pgvector": True},
     )
     import ai_layer.observability.snapshot as snapshot
+
     snapshot._DB_STATUS_CACHE = None
-    emit_event(project, category="mcp", operation="memory_search", status="completed", client="cursor", metrics={"hits": 3})
+    emit_event(
+        project,
+        category="mcp",
+        operation="memory_search",
+        status="completed",
+        client="cursor",
+        metrics={"hits": 3},
+    )
 
     from ai_layer.api.app import create_app
+
     client = TestClient(create_app())
     live = client.get("/health/live")
     assert live.status_code == 200
@@ -65,27 +74,31 @@ def test_dashboard_uses_durable_task_state(monkeypatch, tmp_path: Path):
         lambda: {"connected": True, "pgvector": True},
     )
     import ai_layer.observability.snapshot as snapshot
+
     snapshot._DB_STATUS_CACHE = None
 
     task_dir = project_state_path(project, "tasks")
     task_dir.mkdir(parents=True, exist_ok=True)
     (task_dir / "current.json").write_text(
-        json.dumps({
-            "key": "T-0042",
-            "goal": "Проверить новый workflow",
-            "status": "active",
-            "review_round": 1,
-            "fix_round": 0,
-            "open_findings": 2,
-            "active_stage": {"kind": "review", "review_round": 1, "fix_round": 0},
-            "next_action": {"action": "delegate_stage", "message": "Delegate reviewer"},
-            "stages": [],
-            "findings": [],
-        }),
+        json.dumps(
+            {
+                "key": "T-0042",
+                "goal": "Проверить новый workflow",
+                "status": "active",
+                "review_round": 1,
+                "fix_round": 0,
+                "open_findings": 2,
+                "active_stage": {"kind": "review", "review_round": 1, "fix_round": 0},
+                "next_action": {"action": "delegate_stage", "message": "Delegate reviewer"},
+                "stages": [],
+                "findings": [],
+            }
+        ),
         encoding="utf-8",
     )
 
     from ai_layer.api.app import create_app
+
     client = TestClient(create_app())
     data = client.get("/api/v1/dashboard/overview").json()
     assert data["summary"]["active_tasks"] == 1
@@ -106,10 +119,20 @@ def test_dashboard_project_detail_is_read_only_metadata(monkeypatch, tmp_path: P
         lambda: {"connected": True, "pgvector": True},
     )
     import ai_layer.observability.snapshot as snapshot
+
     snapshot._DB_STATUS_CACHE = None
-    emit_event(project, category="mcp", operation="memory_context", status="completed", client="cursor", duration_ms=12.5, metrics={"memory_hits": 4, "payload": "secret prompt text"})
+    emit_event(
+        project,
+        category="mcp",
+        operation="memory_context",
+        status="completed",
+        client="cursor",
+        duration_ms=12.5,
+        metrics={"memory_hits": 4, "payload": "secret prompt text"},
+    )
 
     from ai_layer.api.app import create_app
+
     client = TestClient(create_app())
     response = client.get("/api/v1/dashboard/projects/dash-detail")
     assert response.status_code == 200
@@ -118,7 +141,7 @@ def test_dashboard_project_detail_is_read_only_metadata(monkeypatch, tmp_path: P
     assert data["metrics"]["events_24h"] >= 1
     raw = response.text
     assert "secret prompt text" not in raw.lower()
-    assert "\"payload\"" not in raw.lower()
+    assert '"payload"' not in raw.lower()
 
 
 def test_dashboard_cli_rejects_remote_bind(monkeypatch):
@@ -134,7 +157,9 @@ def test_dashboard_cli_opens_existing_service_without_starting_server(monkeypatc
     )
     monkeypatch.setattr(
         "ai_layer.cli.commands.service_commands.uvicorn.run",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("dashboard must not start uvicorn")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("dashboard must not start uvicorn")
+        ),
     )
     result = CliRunner().invoke(cli_app, ["dashboard", "--no-open"])
     assert result.exit_code == 0, result.output
@@ -143,8 +168,12 @@ def test_dashboard_cli_opens_existing_service_without_starting_server(monkeypatc
 
 def test_dashboard_cli_starts_background_service_when_needed(monkeypatch):
     probes = iter([{"running": False}, {"running": True, "version": "test"}])
-    monkeypatch.setattr("ai_layer.cli.commands.service_commands.probe_service", lambda host, port: next(probes))
-    monkeypatch.setattr("ai_layer.cli.commands.service_commands.start_user_service", lambda: {"ok": True})
+    monkeypatch.setattr(
+        "ai_layer.cli.commands.service_commands.probe_service", lambda host, port: next(probes)
+    )
+    monkeypatch.setattr(
+        "ai_layer.cli.commands.service_commands.start_user_service", lambda: {"ok": True}
+    )
     monkeypatch.setattr(
         "ai_layer.cli.commands.service_commands.wait_for_service",
         lambda host, port: {"running": True, "version": "test"},
@@ -183,7 +212,9 @@ def test_service_run_rejects_noncanonical_endpoint(monkeypatch):
     assert "fixed at 127.0.0.1:8765" in custom_host.output
 
 
-def test_dashboard_protocol_failure_is_warning_and_recovery_not_project_error(monkeypatch, tmp_path: Path):
+def test_dashboard_protocol_failure_is_warning_and_recovery_not_project_error(
+    monkeypatch, tmp_path: Path
+):
     _home(monkeypatch, tmp_path)
     project = tmp_path / "project"
     project.mkdir()
@@ -193,6 +224,7 @@ def test_dashboard_protocol_failure_is_warning_and_recovery_not_project_error(mo
         lambda: {"connected": True, "pgvector": True},
     )
     import ai_layer.observability.snapshot as snapshot
+
     snapshot._DB_STATUS_CACHE = None
 
     emit_event(
@@ -213,6 +245,7 @@ def test_dashboard_protocol_failure_is_warning_and_recovery_not_project_error(mo
     )
 
     from ai_layer.api.app import create_app
+
     client = TestClient(create_app())
     data = client.get("/api/v1/dashboard/overview").json()
     card = data["projects"][0]
@@ -236,6 +269,7 @@ def test_dashboard_protocol_recovery_requires_same_operation(monkeypatch, tmp_pa
         lambda: {"connected": True, "pgvector": True},
     )
     import ai_layer.observability.snapshot as snapshot
+
     snapshot._DB_STATUS_CACHE = None
 
     emit_event(
@@ -255,6 +289,7 @@ def test_dashboard_protocol_recovery_requires_same_operation(monkeypatch, tmp_pa
     )
 
     from ai_layer.api.app import create_app
+
     client = TestClient(create_app())
     card = client.get("/api/v1/dashboard/overview").json()["projects"][0]
     assert card["project_state"] == "healthy"
@@ -262,7 +297,9 @@ def test_dashboard_protocol_recovery_requires_same_operation(monkeypatch, tmp_pa
     assert card["protocol_state"]["recovered"] is False
 
 
-def test_dashboard_surfaces_human_attention_separately_from_generic_blocker(monkeypatch, tmp_path: Path):
+def test_dashboard_surfaces_human_attention_separately_from_generic_blocker(
+    monkeypatch, tmp_path: Path
+):
     _home(monkeypatch, tmp_path)
     project = tmp_path / "project"
     project.mkdir()
@@ -272,30 +309,39 @@ def test_dashboard_surfaces_human_attention_separately_from_generic_blocker(monk
         lambda: {"connected": True, "pgvector": True},
     )
     import ai_layer.observability.snapshot as snapshot
+
     snapshot._DB_STATUS_CACHE = None
 
     task_dir = project_state_path(project, "tasks")
     task_dir.mkdir(parents=True, exist_ok=True)
     (task_dir / "current.json").write_text(
-        json.dumps({
-            "key": "T-0007",
-            "goal": "Stop bounded remediation safely",
-            "status": "blocked",
-            "human_attention_required": True,
-            "human_attention_reason": "Automatic remediation stopped after 2 attempts.",
-            "automatic_fix_round_limit": 2,
-            "automatic_remediation_count": 2,
-            "finding_summary": {"total": 5, "open": 2, "pending_verification": 1, "verified": 2},
-            "active_findings": [],
-            "active_stage": None,
-            "next_action": {"action": "human_attention_required"},
-            "stages": [],
-            "findings": [],
-        }),
+        json.dumps(
+            {
+                "key": "T-0007",
+                "goal": "Stop bounded remediation safely",
+                "status": "blocked",
+                "human_attention_required": True,
+                "human_attention_reason": "Automatic remediation stopped after 2 attempts.",
+                "automatic_fix_round_limit": 2,
+                "automatic_remediation_count": 2,
+                "finding_summary": {
+                    "total": 5,
+                    "open": 2,
+                    "pending_verification": 1,
+                    "verified": 2,
+                },
+                "active_findings": [],
+                "active_stage": None,
+                "next_action": {"action": "human_attention_required"},
+                "stages": [],
+                "findings": [],
+            }
+        ),
         encoding="utf-8",
     )
 
     from ai_layer.api.app import create_app
+
     client = TestClient(create_app())
     data = client.get("/api/v1/dashboard/overview").json()
     assert data["summary"]["attention_tasks"] == 1
@@ -306,7 +352,9 @@ def test_dashboard_surfaces_human_attention_separately_from_generic_blocker(monk
     assert card["task"]["finding_summary"]["pending_verification"] == 1
 
 
-def test_dashboard_project_payload_exposes_native_catalog_and_observed_fetch(monkeypatch, tmp_path: Path):
+def test_dashboard_project_payload_exposes_native_catalog_and_observed_fetch(
+    monkeypatch, tmp_path: Path
+):
     import ai_layer.projections.dashboard as dashboard_service
 
     root = tmp_path / "project"
@@ -334,7 +382,11 @@ def test_dashboard_project_payload_exposes_native_catalog_and_observed_fetch(mon
     monkeypatch.setattr(
         dashboard_service,
         "native_catalog_files",
-        lambda root: {"cursor": [Path("a"), Path("b")], "codex": [Path("a"), Path("b")], "antigravity": [Path("c"), Path("d")]},
+        lambda root: {
+            "cursor": [Path("a"), Path("b")],
+            "codex": [Path("a"), Path("b")],
+            "antigravity": [Path("c"), Path("d")],
+        },
     )
     state = dashboard_service._task_skill_state(root, task, events)
     assert state["task"] == "T-0007"

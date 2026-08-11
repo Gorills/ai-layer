@@ -5,21 +5,24 @@ from pathlib import Path
 from ai_layer.core.config import get_settings
 from ai_layer.integrations.service import (
     INTEGRATION_TEMPLATE_VERSION,
-    MANAGED_START,
     install_global_integrations,
     install_project_integrations,
     integration_status,
 )
 
 
-def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(tmp_path: Path, monkeypatch):
+def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(
+    tmp_path: Path, monkeypatch
+):
     home = tmp_path / "home"
     project = tmp_path / "project"
     home.mkdir()
     project.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
-    monkeypatch.setenv("AI_LAYER_MCP_EXECUTABLE", str(home / ".local/share/ai-layer/current/bin/ai-layer-mcp"))
+    monkeypatch.setenv(
+        "AI_LAYER_MCP_EXECUTABLE", str(home / ".local/share/ai-layer/current/bin/ai-layer-mcp")
+    )
     get_settings.cache_clear()
 
     (project / "AGENTS.md").write_text("# Existing Codex instructions\n", encoding="utf-8")
@@ -27,7 +30,9 @@ def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(tmp_path
 
     cursor_mcp = project / ".cursor" / "mcp.json"
     cursor_mcp.parent.mkdir(parents=True)
-    cursor_mcp.write_text(json.dumps({"mcpServers": {"existing": {"command": "demo"}}}), encoding="utf-8")
+    cursor_mcp.write_text(
+        json.dumps({"mcpServers": {"existing": {"command": "demo"}}}), encoding="utf-8"
+    )
 
     codex_cfg = project / ".codex" / "config.toml"
     codex_cfg.parent.mkdir(parents=True)
@@ -46,17 +51,25 @@ def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(tmp_path
     cursor = json.loads(cursor_mcp.read_text(encoding="utf-8"))
     assert cursor["mcpServers"]["existing"]["command"] == "demo"
     assert cursor["mcpServers"]["ai-layer"]["command"] == expected_mcp
-    assert cursor["mcpServers"]["ai-layer"]["env"]["AI_LAYER_PROJECT_ROOT"] == str(project.resolve())
+    assert cursor["mcpServers"]["ai-layer"]["env"]["AI_LAYER_PROJECT_ROOT"] == str(
+        project.resolve()
+    )
     assert cursor["mcpServers"]["ai-layer"]["env"]["AI_LAYER_CLIENT"] == "cursor"
 
     claude = json.loads((project / ".mcp.json").read_text(encoding="utf-8"))
     assert claude["mcpServers"]["ai-layer"]["command"] == expected_mcp
     assert claude["mcpServers"]["ai-layer"]["env"]["AI_LAYER_CLIENT"] == "claude-code"
 
-    antigravity_workspace = json.loads((project / ".agents" / "mcp_config.json").read_text(encoding="utf-8"))
+    antigravity_workspace = json.loads(
+        (project / ".agents" / "mcp_config.json").read_text(encoding="utf-8")
+    )
     assert antigravity_workspace["mcpServers"]["ai-layer"]["command"] == expected_mcp
-    assert antigravity_workspace["mcpServers"]["ai-layer"]["env"]["AI_LAYER_PROJECT_ROOT"] == str(project.resolve())
-    assert antigravity_workspace["mcpServers"]["ai-layer"]["env"]["AI_LAYER_CLIENT"] == "antigravity"
+    assert antigravity_workspace["mcpServers"]["ai-layer"]["env"]["AI_LAYER_PROJECT_ROOT"] == str(
+        project.resolve()
+    )
+    assert (
+        antigravity_workspace["mcpServers"]["ai-layer"]["env"]["AI_LAYER_CLIENT"] == "antigravity"
+    )
 
     with codex_cfg.open("rb") as handle:
         codex = tomllib.load(handle)
@@ -75,13 +88,22 @@ def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(tmp_path
     assert "name: django" in shared_skill.read_text(encoding="utf-8")
     assert "skill_get" in shared_skill.read_text(encoding="utf-8")
 
-    antigravity = json.loads((home / ".gemini" / "config" / "mcp_config.json").read_text(encoding="utf-8"))
+    antigravity = json.loads(
+        (home / ".gemini" / "config" / "mcp_config.json").read_text(encoding="utf-8")
+    )
     assert antigravity["mcpServers"]["ai-layer"]["command"] == expected_mcp
     assert antigravity["mcpServers"]["ai-layer"]["env"]["AI_LAYER_CLIENT"] == "antigravity"
     global_cursor = json.loads((home / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
     assert global_cursor["mcpServers"]["ai-layer"]["env"]["AI_LAYER_CLIENT"] == "cursor"
-    assert global_cursor["mcpServers"]["ai-layer"]["env"]["AI_LAYER_MANAGED_BY"] == "local-ai-development-layer"
-    for global_rule in [home / ".codex" / "AGENTS.md", home / ".claude" / "CLAUDE.md", home / ".gemini" / "GEMINI.md"]:
+    assert (
+        global_cursor["mcpServers"]["ai-layer"]["env"]["AI_LAYER_MANAGED_BY"]
+        == "local-ai-development-layer"
+    )
+    for global_rule in [
+        home / ".codex" / "AGENTS.md",
+        home / ".claude" / "CLAUDE.md",
+        home / ".gemini" / "GEMINI.md",
+    ]:
         text = global_rule.read_text(encoding="utf-8")
         assert "memory_context(task=<actual task>" in text
         assert "task_next" in text
@@ -89,10 +111,14 @@ def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(tmp_path
         assert "Current repository source is authoritative" in text
         assert len(text.encode("utf-8")) < 2600
     cursor_plugin = home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
-    manifest = json.loads((cursor_plugin / ".cursor-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (cursor_plugin / ".cursor-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )
     assert manifest["name"] == "ai-layer-bootstrap"
     assert manifest["rules"] == "./rules/"
-    assert "alwaysApply: true" in (cursor_plugin / "rules" / "ai-layer.mdc").read_text(encoding="utf-8")
+    assert "alwaysApply: true" in (cursor_plugin / "rules" / "ai-layer.mdc").read_text(
+        encoding="utf-8"
+    )
 
     state = integration_status(project)
     assert state["template_version"] == INTEGRATION_TEMPLATE_VERSION
@@ -108,7 +134,9 @@ def test_global_merge_preserves_unrelated_servers_and_creates_backup(tmp_path: P
     get_settings.cache_clear()
     cursor = home / ".cursor" / "mcp.json"
     cursor.parent.mkdir(parents=True)
-    cursor.write_text(json.dumps({"mcpServers": {"github": {"command": "gh-mcp"}}}), encoding="utf-8")
+    cursor.write_text(
+        json.dumps({"mcpServers": {"github": {"command": "gh-mcp"}}}), encoding="utf-8"
+    )
 
     install_global_integrations()
     data = json.loads(cursor.read_text(encoding="utf-8"))
@@ -188,7 +216,9 @@ def test_project_integrations_do_not_touch_user_agents_symlink(tmp_path: Path):
     assert (tmp_path / ".agents" / "mcp_config.json").exists()
 
 
-def test_strict_private_integration_uses_global_bootstrap_and_no_project_files(tmp_path: Path, monkeypatch):
+def test_strict_private_integration_uses_global_bootstrap_and_no_project_files(
+    tmp_path: Path, monkeypatch
+):
     from ai_layer.core.registry import register_project
     from ai_layer.integrations.service import remove_project_integrations
 
@@ -203,7 +233,9 @@ def test_strict_private_integration_uses_global_bootstrap_and_no_project_files(t
     (home / "bin" / "ai-layer-mcp").write_text("#!/bin/sh\n", encoding="utf-8")
     get_settings.cache_clear()
     try:
-        register_project(project, "private-id", "private", mode="strict-private", provenance="forbid")
+        register_project(
+            project, "private-id", "private", mode="strict-private", provenance="forbid"
+        )
         install_global_integrations()
         remove_project_integrations(project)
         state = integration_status(project)
@@ -213,7 +245,14 @@ def test_strict_private_integration_uses_global_bootstrap_and_no_project_files(t
         assert state["providers"]["codex"]["bootstrap"] is True
         assert state["providers"]["antigravity"]["bootstrap"] is True
         assert state["cursor_runtime_acceptance_required"] is True
-        for rel in ["AGENTS.md", "CLAUDE.md", ".cursor/rules/ai-layer.mdc", ".mcp.json", ".codex/config.toml", ".agents/rules/ai-layer.md"]:
+        for rel in [
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".cursor/rules/ai-layer.mdc",
+            ".mcp.json",
+            ".codex/config.toml",
+            ".agents/rules/ai-layer.md",
+        ]:
             assert not (project / rel).exists()
     finally:
         get_settings.cache_clear()
@@ -328,7 +367,10 @@ def test_project_remove_is_symmetric_and_cleans_antigravity_rule(tmp_path: Path,
         ]:
             assert not (project / rel).exists(), rel
         if (project / ".cursor" / "mcp.json").exists():
-            assert "ai-layer" not in json.loads((project / ".cursor" / "mcp.json").read_text())["mcpServers"]
+            assert (
+                "ai-layer"
+                not in json.loads((project / ".cursor" / "mcp.json").read_text())["mcpServers"]
+            )
         assert not (project / ".mcp.json").exists()
         assert not (project / ".codex" / "config.toml").exists()
         assert not (project / ".agents" / "mcp_config.json").exists()
@@ -343,12 +385,16 @@ def test_global_remove_is_symmetric_and_preserves_unrelated_content(tmp_path: Pa
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("AI_LAYER_MCP_EXECUTABLE", "/stable/ai-layer-mcp")
-    monkeypatch.setattr(integrations.shutil, "which", lambda name: None if name == "claude" else None)
+    monkeypatch.setattr(
+        integrations.shutil, "which", lambda name: None if name == "claude" else None
+    )
     get_settings.cache_clear()
     try:
         cursor = home / ".cursor" / "mcp.json"
         cursor.parent.mkdir(parents=True)
-        cursor.write_text(json.dumps({"mcpServers": {"github": {"command": "gh-mcp"}}}), encoding="utf-8")
+        cursor.write_text(
+            json.dumps({"mcpServers": {"github": {"command": "gh-mcp"}}}), encoding="utf-8"
+        )
         codex = home / ".codex" / "config.toml"
         codex.parent.mkdir(parents=True)
         codex.write_text('model = "gpt-5.6"\n', encoding="utf-8")
@@ -439,6 +485,7 @@ def test_integration_status_fails_closed_on_invalid_utf8_managed_files(tmp_path:
 def test_global_upgrade_adopts_legacy_claude_ai_layer_entry(tmp_path: Path, monkeypatch):
     """Pre-marker v0.6.1 Claude entries must upgrade instead of being treated as user collisions."""
     from types import SimpleNamespace
+
     from ai_layer.integrations import service as integrations
 
     home = tmp_path / "home"
@@ -448,7 +495,9 @@ def test_global_upgrade_adopts_legacy_claude_ai_layer_entry(tmp_path: Path, monk
     stable.write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("AI_LAYER_MCP_EXECUTABLE", str(stable))
-    monkeypatch.setattr(integrations.shutil, "which", lambda name: "/fake/claude" if name == "claude" else None)
+    monkeypatch.setattr(
+        integrations.shutil, "which", lambda name: "/fake/claude" if name == "claude" else None
+    )
     get_settings.cache_clear()
 
     calls: list[list[str]] = []
@@ -486,13 +535,16 @@ def test_global_upgrade_adopts_legacy_claude_ai_layer_entry(tmp_path: Path, monk
 
 def test_claude_same_name_unknown_command_still_blocks_upgrade(tmp_path: Path, monkeypatch):
     from types import SimpleNamespace
+
     from ai_layer.integrations import service as integrations
 
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("AI_LAYER_MCP_EXECUTABLE", "/stable/ai-layer-mcp")
-    monkeypatch.setattr(integrations.shutil, "which", lambda name: "/fake/claude" if name == "claude" else None)
+    monkeypatch.setattr(
+        integrations.shutil, "which", lambda name: "/fake/claude" if name == "claude" else None
+    )
     get_settings.cache_clear()
 
     def fake_run(command, **kwargs):
@@ -516,6 +568,7 @@ def test_claude_same_name_unknown_command_still_blocks_upgrade(tmp_path: Path, m
 
 def test_remove_global_integrations_can_clean_legacy_claude_entry(tmp_path: Path, monkeypatch):
     from types import SimpleNamespace
+
     from ai_layer.integrations import service as integrations
 
     home = tmp_path / "home"
@@ -525,7 +578,9 @@ def test_remove_global_integrations_can_clean_legacy_claude_entry(tmp_path: Path
     stable.write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("AI_LAYER_MCP_EXECUTABLE", str(stable))
-    monkeypatch.setattr(integrations.shutil, "which", lambda name: "/fake/claude" if name == "claude" else None)
+    monkeypatch.setattr(
+        integrations.shutil, "which", lambda name: "/fake/claude" if name == "claude" else None
+    )
     get_settings.cache_clear()
 
     removed = False
@@ -548,7 +603,9 @@ def test_remove_global_integrations_can_clean_legacy_claude_entry(tmp_path: Path
         get_settings.cache_clear()
 
 
-def test_external_integration_uses_machine_bootstrap_without_project_files(tmp_path: Path, monkeypatch):
+def test_external_integration_uses_machine_bootstrap_without_project_files(
+    tmp_path: Path, monkeypatch
+):
     from ai_layer.core.registry import register_project
     from ai_layer.integrations.service import remove_project_integrations
 
@@ -574,7 +631,13 @@ def test_external_integration_uses_machine_bootstrap_without_project_files(tmp_p
         assert state["providers"]["cursor"]["bootstrap"] is True
         assert state["providers"]["codex"]["bootstrap"] is True
         assert state["providers"]["antigravity"]["bootstrap"] is True
-        for rel in ["AGENTS.md", "CLAUDE.md", ".cursor/rules/ai-layer.mdc", ".mcp.json", ".codex/config.toml"]:
+        for rel in [
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".cursor/rules/ai-layer.mdc",
+            ".mcp.json",
+            ".codex/config.toml",
+        ]:
             assert not (project / rel).exists()
     finally:
         get_settings.cache_clear()

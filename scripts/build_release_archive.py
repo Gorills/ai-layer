@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Build a byte-deterministic install release ZIP from an allowed development repository."""
+
 from __future__ import annotations
 
 import argparse
 import hashlib
-import os
 import stat
 import zipfile
 from pathlib import Path
@@ -14,21 +14,58 @@ FIXED_TIME = (2026, 8, 10, 0, 0, 0)
 EXCLUDED_DIRS = {".git", ".pytest_cache", "__pycache__", ".mypy_cache", ".ruff_cache"}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 EXCLUDED_ROOT_ENTRIES = {
-    ".coverage", ".git", ".idea", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv",
-    ".vscode", "__pycache__", "venv",
+    ".coverage",
+    ".git",
+    ".idea",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+    "__pycache__",
+    "venv",
 }
 # Development repository contents are intentionally broader than an install artifact.
 ALLOWED_ROOT_FILES = {
-    ".env.example", ".gitignore", "CHANGELOG.md", "MAINTAINER_INSTRUCTIONS.md", "Makefile",
-    "README.md", "PROJECT_CHARTER.md", "ARCHITECTURE.md", "QUALITY_GATES.md", "CURRENT_STATE.md",
-    "ROADMAP.md", "alembic.ini", "docker-compose.yml", "install.sh", "pyproject.toml", "uninstall.sh",
+    ".env.example",
+    ".gitignore",
+    "CHANGELOG.md",
+    "MAINTAINER_INSTRUCTIONS.md",
+    "Makefile",
+    "README.md",
+    "PROJECT_CHARTER.md",
+    "ARCHITECTURE.md",
+    "QUALITY_GATES.md",
+    "CURRENT_STATE.md",
+    "ROADMAP.md",
+    "alembic.ini",
+    "docker-compose.yml",
+    "install.sh",
+    "pyproject.toml",
+    "uninstall.sh",
 }
-ALLOWED_ROOT_DIRS = {".github", "DECISIONS", "alembic", "dist", "docs", "release", "scripts", "src", "tests"}
+ALLOWED_ROOT_DIRS = {
+    ".github",
+    "DECISIONS",
+    "alembic",
+    "dist",
+    "docs",
+    "release",
+    "scripts",
+    "src",
+    "tests",
+}
 
 # Runtime source release intentionally excludes contributor governance/history/tests. The installed
 # machine runtime itself is the pinned wheel + migration/runtime assets created by install.sh.
 RELEASE_ROOT_FILES = {
-    ".env.example", "README.md", "alembic.ini", "docker-compose.yml", "install.sh", "pyproject.toml", "uninstall.sh",
+    ".env.example",
+    "README.md",
+    "alembic.ini",
+    "docker-compose.yml",
+    "install.sh",
+    "pyproject.toml",
+    "uninstall.sh",
 }
 RELEASE_ROOT_DIRS = {"alembic", "dist", "release", "scripts", "src"}
 
@@ -41,7 +78,9 @@ def unexpected_top_level_entries(root: Path) -> list[str]:
 def validate_development_tree(root: Path) -> None:
     unexpected = unexpected_top_level_entries(root)
     if unexpected:
-        raise RuntimeError("unexpected top-level development repository artifacts: " + ", ".join(unexpected))
+        raise RuntimeError(
+            "unexpected top-level development repository artifacts: " + ", ".join(unexpected)
+        )
 
 
 def _runtime_candidate(rel: Path) -> bool:
@@ -85,7 +124,9 @@ def build(output: Path, root: Path = ROOT) -> Path:
             info.external_attr = (stat.S_IFREG | perms) << 16
             info.create_system = 3
             info.compress_type = zipfile.ZIP_DEFLATED
-            zf.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+            zf.writestr(
+                info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9
+            )
     return output
 
 

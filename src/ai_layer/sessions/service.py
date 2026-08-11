@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -11,9 +11,9 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from ai_layer.core.paths import project_state_path
+from ai_layer.core.redaction import redact_secrets
 from ai_layer.db.models import Decision, Project, WorkSession
 from ai_layer.memory.embeddings import get_embedder
-from ai_layer.core.redaction import redact_secrets
 
 SNAPSHOT_SCHEMA = 2
 SNAPSHOT_RETENTION = 200
@@ -51,7 +51,9 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
 
 
 def _is_committed_snapshot(data: dict) -> bool:
-    return data.get("snapshot_schema") == SNAPSHOT_SCHEMA and data.get("commit_state") == "committed"
+    return (
+        data.get("snapshot_schema") == SNAPSHOT_SCHEMA and data.get("commit_state") == "committed"
+    )
 
 
 def _read_snapshot(path: Path, *, committed_only: bool = True) -> dict | None:
@@ -80,7 +82,7 @@ def _created_at_key(item: dict) -> float:
     except ValueError:
         return 0.0
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
     return value.timestamp()
 
 
@@ -107,7 +109,7 @@ def _write_snapshot_index(directory: Path, snapshots: list[dict]) -> None:
         {
             "schema": SNAPSHOT_SCHEMA,
             "ids": [str(item["id"]) for item in ordered],
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         },
     )
 
@@ -178,7 +180,9 @@ def _queue_snapshot_after_commit(db: Session, project: Project, snapshot: dict) 
 
 
 @event.listens_for(Session, "after_commit")
-def _publish_committed_session_snapshots(db: Session) -> None:  # pragma: no cover - exercised via commit
+def _publish_committed_session_snapshots(
+    db: Session,
+) -> None:  # pragma: no cover - exercised via commit
     queued = list(db.info.pop(_PENDING_SNAPSHOTS_KEY, []))
     for root, snapshot in queued:
         try:
@@ -195,7 +199,9 @@ def _discard_rolled_back_session_snapshots(db: Session) -> None:  # pragma: no c
     db.info.pop(_PENDING_SNAPSHOTS_KEY, None)
 
 
-def _session_text(value: object, *, field: str, required: bool = False, max_chars: int = MAX_SESSION_TEXT_CHARS) -> str:
+def _session_text(
+    value: object, *, field: str, required: bool = False, max_chars: int = MAX_SESSION_TEXT_CHARS
+) -> str:
     text = str(value or "").strip()
     if required and not text:
         raise ValueError(f"session_save: `{field}` is required.")
@@ -207,7 +213,9 @@ def _session_text(value: object, *, field: str, required: bool = False, max_char
 def _session_list(values: list[str] | None, *, field: str) -> list[str]:
     raw = list(values or [])
     if len(raw) > MAX_SESSION_LIST_ITEMS:
-        raise ValueError(f"session_save: `{field}` exceeds the {MAX_SESSION_LIST_ITEMS}-item limit.")
+        raise ValueError(
+            f"session_save: `{field}` exceeds the {MAX_SESSION_LIST_ITEMS}-item limit."
+        )
     result: list[str] = []
     for index, value in enumerate(raw, start=1):
         text = _session_text(value, field=f"{field}[{index}]", max_chars=MAX_SESSION_ITEM_CHARS)
@@ -276,7 +284,7 @@ def save_session(
         important_decisions=payload["important_decisions"],
         verified_facts=payload["verified_facts"],
         notable_findings=payload["notable_findings"],
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(session)
     db.flush()
@@ -292,7 +300,9 @@ def save_session(
             vectors = []
         for raw, vector in zip(normalized_decisions, vectors, strict=False):
             existing = db.scalar(
-                select(Decision).where(Decision.project_id == project.id, Decision.decision == raw).limit(1)
+                select(Decision)
+                .where(Decision.project_id == project.id, Decision.decision == raw)
+                .limit(1)
             )
             if existing is None:
                 db.add(

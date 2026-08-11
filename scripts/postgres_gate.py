@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Real-PostgreSQL migration, recovery and concurrency gate for pre-Epics invariants."""
+
 from __future__ import annotations
 
 import json
@@ -30,7 +31,8 @@ def _run(argv: list[str], *, database_url: str) -> dict:
 
 
 def _database_url(base_url: str, database: str) -> str:
-    return str(make_url(base_url).set(database=database))
+    # SQLAlchemy masks credentials in normal URL string rendering; the gate must preserve them.
+    return make_url(base_url).set(database=database).render_as_string(hide_password=False)
 
 
 def _create_database(base_url: str, database: str) -> None:
@@ -48,7 +50,10 @@ def _drop_database(base_url: str, database: str) -> None:
     engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
     try:
         with engine.connect() as conn:
-            conn.execute(text("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=:name"), {"name": database})
+            conn.execute(
+                text("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=:name"),
+                {"name": database},
+            )
             conn.execute(text(f'DROP DATABASE IF EXISTS "{database}"'))
     finally:
         engine.dispose()
@@ -76,10 +81,21 @@ def main() -> int:
                 [sys.executable, "-m", "alembic", "upgrade", "0011_pre_epics_foundation"],
                 upgrade_url,
             ),
-            ("supported-source-upgrade-head", [sys.executable, "-m", "alembic", "upgrade", "head"], upgrade_url),
+            (
+                "supported-source-upgrade-head",
+                [sys.executable, "-m", "alembic", "upgrade", "head"],
+                upgrade_url,
+            ),
             (
                 "postgres-integration",
-                [sys.executable, "-m", "pytest", "-m", "postgres", "tests/test_postgres_hardening.py"],
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-m",
+                    "postgres",
+                    "tests/test_postgres_hardening.py",
+                ],
                 fresh_url,
             ),
         ]
@@ -90,13 +106,21 @@ def main() -> int:
             if not result["ok"]:
                 break
     except Exception as exc:
-        results.append({"name": "gate-infrastructure", "ok": False, "error": f"{type(exc).__name__}: {exc}"})
+        results.append(
+            {"name": "gate-infrastructure", "ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        )
     finally:
         for database in (fresh_name, upgrade_name):
             try:
                 _drop_database(base_url, database)
             except Exception as exc:
-                results.append({"name": f"cleanup-{database}", "ok": False, "error": f"{type(exc).__name__}: {exc}"})
+                results.append(
+                    {
+                        "name": f"cleanup-{database}",
+                        "ok": False,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
 
     required = {
         "fresh-upgrade-head",
@@ -105,7 +129,10 @@ def main() -> int:
         "postgres-integration",
     }
     passed = {item.get("name") for item in results if item.get("ok")}
-    payload = {"ok": required.issubset(passed) and all(item.get("ok") for item in results), "steps": results}
+    payload = {
+        "ok": required.issubset(passed) and all(item.get("ok") for item in results),
+        "steps": results,
+    }
     print(json.dumps(payload, indent=2))
     return 0 if payload["ok"] else 1
 

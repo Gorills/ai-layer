@@ -6,7 +6,13 @@ from pathlib import Path
 
 from ai_layer.core.paths import project_state_path
 from ai_layer.core.registry import get_registered_project, list_registered_projects
-from ai_layer.observability.events import EVENT_RETENTION_DAYS, aggregate_events, parse_ts, read_events, utcnow
+from ai_layer.observability.events import (
+    EVENT_RETENTION_DAYS,
+    aggregate_events,
+    parse_ts,
+    read_events,
+    utcnow,
+)
 from ai_layer.sessions.service import SNAPSHOT_SCHEMA
 
 _DB_STATUS_CACHE: tuple[float, dict] | None = None
@@ -78,7 +84,9 @@ def _open_task_flows(events: list[dict]) -> list[dict]:
                 latest_save = item
         context_ts = parse_ts((latest_context or {}).get("ts"))
         save_ts = parse_ts((latest_save or {}).get("ts"))
-        if latest_context is None or (save_ts is not None and context_ts is not None and save_ts >= context_ts):
+        if latest_context is None or (
+            save_ts is not None and context_ts is not None and save_ts >= context_ts
+        ):
             continue
         after_context = []
         for item in items:
@@ -90,8 +98,12 @@ def _open_task_flows(events: list[dict]) -> list[dict]:
                 "session_id": session_id,
                 "client": latest_context.get("client") or "unknown",
                 "started_at": latest_context.get("ts"),
-                "last_event_at": after_context[-1].get("ts") if after_context else latest_context.get("ts"),
-                "last_operation": after_context[-1].get("operation") if after_context else "memory_context",
+                "last_event_at": after_context[-1].get("ts")
+                if after_context
+                else latest_context.get("ts"),
+                "last_operation": after_context[-1].get("operation")
+                if after_context
+                else "memory_context",
                 "operations": len(after_context),
             }
         )
@@ -142,7 +154,9 @@ def _project_snapshot(
     include_handoff_text: bool = False,
     registered: dict | None = None,
 ) -> dict:
-    registered = dict(registered) if registered is not None else (get_registered_project(root) or {})
+    registered = (
+        dict(registered) if registered is not None else (get_registered_project(root) or {})
+    )
     events = read_events(root, limit=500, since_seconds=12 * 3600)
     metrics_5m = aggregate_events(root, since_seconds=300, recent_limit=20)
     scan: dict = {}
@@ -211,9 +225,7 @@ def observability_snapshot(
         entries = list_registered_projects(existing_only=True)
         roots = [Path(str(item["root"])) for item in entries if item.get("root")]
         registered_for_root = {
-            str(Path(str(item["root"])).resolve()): item
-            for item in entries
-            if item.get("root")
+            str(Path(str(item["root"])).resolve()): item for item in entries if item.get("root")
         }
     elif project_root is not None:
         resolved = resolve_registered_root(project_root)
@@ -226,10 +238,8 @@ def observability_snapshot(
             entries = list_registered_projects(existing_only=True)
             roots = [Path(str(item["root"])) for item in entries if item.get("root")]
             registered_for_root = {
-            str(Path(str(item["root"])).resolve()): item
-            for item in entries
-            if item.get("root")
-        }
+                str(Path(str(item["root"])).resolve()): item for item in entries if item.get("root")
+            }
 
     projects = [
         _project_snapshot(
@@ -240,7 +250,9 @@ def observability_snapshot(
         for root in roots
     ]
     processes = list_mcp_processes()
-    active_session_ids = {str(item.get("session_id")) for item in processes if item.get("session_id")}
+    active_session_ids = {
+        str(item.get("session_id")) for item in processes if item.get("session_id")
+    }
     for project in projects:
         project["open_task_flows"] = [
             item
@@ -258,7 +270,9 @@ def observability_snapshot(
         if process.get("current_tool"):
             deadline = float(process.get("current_deadline_seconds") or 0.0)
             process["activity_state"] = (
-                "STUCK" if idle_seconds is not None and deadline > 0 and idle_seconds > deadline + 2.0 else "ACTIVE"
+                "STUCK"
+                if idle_seconds is not None and deadline > 0 and idle_seconds > deadline + 2.0
+                else "ACTIVE"
             )
         else:
             process["activity_state"] = "IDLE"

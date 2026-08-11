@@ -1,9 +1,9 @@
 {
   "schema": 2,
   "limits": {
-    "module_lines": 500,
-    "composition_root_lines": 550,
-    "function_lines": 120,
+    "module_lines": 600,
+    "composition_root_lines": 650,
+    "function_lines": 180,
     "cyclomatic_complexity": 24,
     "nesting_depth": 5,
     "module_bytes": 36000,

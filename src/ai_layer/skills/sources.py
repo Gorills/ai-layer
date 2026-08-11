@@ -37,7 +37,9 @@ class _SafeRedirect(urllib.request.HTTPRedirectHandler):
 def read_url(url: str, *, max_bytes: int = MAX_ARCHIVE_BYTES) -> bytes:
     _validate_url(url)
     opener = urllib.request.build_opener(_SafeRedirect())
-    request = urllib.request.Request(url, headers={"User-Agent": f"ai-layer-skill-import/{__version__}"})
+    request = urllib.request.Request(
+        url, headers={"User-Agent": f"ai-layer-skill-import/{__version__}"}
+    )
     with opener.open(request, timeout=10) as response:
         length = response.headers.get("Content-Length")
         if length and int(length) > max_bytes:

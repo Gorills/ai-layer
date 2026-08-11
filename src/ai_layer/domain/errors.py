@@ -68,7 +68,7 @@ class StructuredError(Exception):
         return payload
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "StructuredError":
+    def from_dict(cls, payload: dict[str, Any]) -> StructuredError:
         category_raw = str(payload.get("category") or ErrorCategory.INTERNAL.value)
         try:
             category = ErrorCategory(category_raw)
@@ -79,7 +79,9 @@ class StructuredError(Exception):
             category=category,
             message=str(payload.get("message") or "AI Layer operation failed"),
             retryable=bool(payload.get("retryable", False)),
-            required_action=(str(payload["required_action"]) if payload.get("required_action") else None),
+            required_action=(
+                str(payload["required_action"]) if payload.get("required_action") else None
+            ),
             ids={str(k): str(v) for k, v in dict(payload.get("ids") or {}).items()} or None,
             details=dict(payload.get("details") or {}) or None,
         )

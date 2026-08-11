@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Static migration compatibility gate with no database dependency."""
+
 from __future__ import annotations
 
 import ast
@@ -14,7 +15,9 @@ MANIFEST = ROOT / "release" / "release-manifest.json"
 def _literal_assignment(path: Path, name: str):
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in tree.body:
-        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == name for t in node.targets):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == name for t in node.targets
+        ):
             return ast.literal_eval(node.value)
     raise RuntimeError(f"{path}: missing {name}")
 
@@ -28,7 +31,9 @@ def migration_graph() -> tuple[dict[str, str | None], dict[str, Path]]:
         if not isinstance(revision, str) or not revision:
             raise RuntimeError(f"{path}: revision must be a non-empty string")
         if down is not None and not isinstance(down, str):
-            raise RuntimeError(f"{path}: merge/multi-parent migrations require explicit gate support")
+            raise RuntimeError(
+                f"{path}: merge/multi-parent migrations require explicit gate support"
+            )
         if revision in parents:
             raise RuntimeError(f"duplicate migration revision: {revision}")
         parents[revision] = down

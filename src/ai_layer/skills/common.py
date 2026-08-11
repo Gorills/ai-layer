@@ -4,14 +4,15 @@ import hashlib
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from importlib.resources import files
+from pathlib import Path
 
 from ai_layer.core.config import get_settings
 
+
 def _utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _sha_bytes(data: bytes) -> str:
@@ -40,7 +41,10 @@ def _atomic_write(path: Path, data: bytes, *, mode: int = 0o600) -> None:
 
 
 def _atomic_json(path: Path, data: dict) -> None:
-    _atomic_write(path, (json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"))
+    _atomic_write(
+        path,
+        (json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+    )
 
 
 def builtin_skill_dir():

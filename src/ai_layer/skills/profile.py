@@ -33,13 +33,18 @@ TASK_SIGNAL_TERMS = {
     "stub_or_placeholder": ("notimplemented", "not implemented", "todo", "stub", "pass\n"),
 }
 
+
 def _dependency_text(dependencies: dict[str, list[str]]) -> str:
     return " ".join(str(item) for values in dependencies.values() for item in values).casefold()
 
 
 def _frameworks(languages: dict[str, int], dependencies: dict[str, list[str]]) -> list[str]:
     dep_text = _dependency_text(dependencies)
-    found = [name for name, needles in FRAMEWORK_SIGNALS.items() if any(needle.casefold() in dep_text for needle in needles)]
+    found = [
+        name
+        for name, needles in FRAMEWORK_SIGNALS.items()
+        if any(needle.casefold() in dep_text for needle in needles)
+    ]
     if "gdscript" in {str(lang).casefold() for lang in languages}:
         found.append("godot")
     return sorted(set(found))
@@ -47,7 +52,7 @@ def _frameworks(languages: dict[str, int], dependencies: dict[str, list[str]]) -
 
 def detect_project_profile(languages: dict[str, int], dependencies: dict[str, list[str]]) -> dict:
     return {
-        "languages": sorted(languages, key=languages.get, reverse=True),
+        "languages": sorted(languages, key=lambda name: languages[name], reverse=True),
         "frameworks": _frameworks(languages, dependencies),
         "dependency_ecosystems": sorted(dependencies),
     }
@@ -61,7 +66,11 @@ def extract_task_evidence(memory_hits: list[dict], max_files: int = 6) -> list[d
         if not path or path in seen:
             continue
         low = (str(path) + "\n" + str(hit.get("content", ""))).casefold()
-        signals = [name for name, needles in TASK_SIGNAL_TERMS.items() if any(needle.casefold() in low for needle in needles)]
+        signals = [
+            name
+            for name, needles in TASK_SIGNAL_TERMS.items()
+            if any(needle.casefold() in low for needle in needles)
+        ]
         risk_flags = list((hit.get("meta") or {}).get("risk_flags") or [])
         if signals or risk_flags:
             evidence.append({"path": path, "signals": signals, "risk_flags": risk_flags})
@@ -69,4 +78,3 @@ def extract_task_evidence(memory_hits: list[dict], max_files: int = 6) -> list[d
         if len(evidence) >= max_files:
             break
     return evidence
-

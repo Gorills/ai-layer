@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Executable native-first contract gate for every bundled production skill."""
+
 from __future__ import annotations
 
 import json
@@ -10,7 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ai_layer.skills.native import render_native_descriptor, validate_native_catalog  # noqa: E402
-from ai_layer.skills.service import _parse_skill_text, skill_section_content, skill_sections  # noqa: E402
+from ai_layer.skills.service import (  # noqa: E402
+    _parse_skill_text,
+    skill_section_content,
+    skill_sections,
+)
 
 SKILLS = ROOT / "src" / "ai_layer" / "builtin_skills"
 VALID_KINDS = {"core", "domain", "capability", "stack"}
@@ -31,7 +36,9 @@ def run_gate(root: Path = ROOT) -> dict:
     parsed: list[dict] = []
     errors: list[str] = []
     for path in sorted(skills_root.glob("*.md")):
-        skill = _parse_skill_text(slug=path.stem, text=path.read_text(encoding="utf-8"), path=str(path))
+        skill = _parse_skill_text(
+            slug=path.stem, text=path.read_text(encoding="utf-8"), path=str(path)
+        )
         parsed.append(skill)
 
     validation = validate_native_catalog(parsed)
@@ -47,7 +54,9 @@ def run_gate(root: Path = ROOT) -> dict:
             errors.append(f"{slug}: invalid kind")
         present_obsolete = sorted(OBSOLETE_ROUTING_KEYS & set(meta))
         if present_obsolete:
-            errors.append(f"{slug}: obsolete AI Layer runtime routing metadata present: {present_obsolete}")
+            errors.append(
+                f"{slug}: obsolete AI Layer runtime routing metadata present: {present_obsolete}"
+            )
 
         sections = list(skill_sections(skill))
         if not sections:
@@ -64,7 +73,9 @@ def run_gate(root: Path = ROOT) -> dict:
             errors.append(f"{slug}: native descriptor render failed: {exc}")
         else:
             if "skill_get(" not in descriptor:
-                errors.append(f"{slug}: native descriptor does not direct targeted authoritative retrieval")
+                errors.append(
+                    f"{slug}: native descriptor does not direct targeted authoritative retrieval"
+                )
             if 'section="full"` only' not in descriptor:
                 errors.append(f"{slug}: native descriptor does not make full retrieval exceptional")
 

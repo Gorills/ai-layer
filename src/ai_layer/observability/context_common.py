@@ -3,12 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_layer.core.config import get_settings
-from ai_layer.core.registry import get_registered_project
 from ai_layer.core.redaction import redact_secrets
+from ai_layer.core.registry import get_registered_project
 
 TRACE_TAIL_BYTES = 12 * 1024 * 1024
 
@@ -18,7 +18,9 @@ def estimate_tokens(value) -> int:
     if isinstance(value, str):
         raw = value.encode("utf-8")
     else:
-        raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        raw = json.dumps(
+            value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
+        ).encode("utf-8")
     return int(math.ceil(len(raw) / 4.0)) if raw else 0
 
 
@@ -26,7 +28,9 @@ def profile_value(value) -> dict:
     if isinstance(value, str):
         text = value
     else:
-        text = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+        text = json.dumps(
+            value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
+        )
     raw = text.encode("utf-8")
     return {
         "chars": len(text),
@@ -49,7 +53,7 @@ def redact_value(value):
 
 
 def utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def project_identity(project_root: str | Path) -> tuple[str, dict] | None:
@@ -69,7 +73,9 @@ def project_identity(project_root: str | Path) -> tuple[str, dict] | None:
 def trace_dir(project_root: str | Path) -> Path:
     identity = project_identity(project_root)
     if identity is None:
-        raise RuntimeError(f"Project is not registered: {Path(project_root).expanduser().resolve()}")
+        raise RuntimeError(
+            f"Project is not registered: {Path(project_root).expanduser().resolve()}"
+        )
     project_id, _ = identity
     base = get_settings().projects_state_dir
     if base.is_symlink():
@@ -98,7 +104,7 @@ def tail_events(path: Path, limit: int = 500) -> list[dict]:
     except OSError:
         return []
     events = []
-    for line in raw.decode("utf-8", errors="replace").splitlines()[-max(1, limit):]:
+    for line in raw.decode("utf-8", errors="replace").splitlines()[-max(1, limit) :]:
         try:
             item = json.loads(line)
         except json.JSONDecodeError:

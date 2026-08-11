@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from ai_layer import __version__
-from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
 from ai_layer.core.config import get_settings
+from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
 
 CORE_HOST = "127.0.0.1"
 CORE_PORT = 8765
@@ -22,16 +22,43 @@ CORE_MCP_HTTP_URL = f"{CORE_BASE_URL}/mcp/"
 CORE_TOKEN_HEADER = "X-AI-Layer-Core-Token"
 
 FAST_TOOLS = {
-    "project_info", "task_current", "task_next", "task_stage_delegate",
-    "task_discovery_complete", "task_implementation_complete", "task_review_complete", "task_fix_complete",
-    "task_stage_complete", "task_worker_disconnected", "task_worker_heartbeat", "task_resume", "task_cancel", "task_create", "task_adopt",
-    "skill_list", "skill_search", "skill_get", "skill_set_enabled", "skill_remove",
-    "skill_info", "session_list", "session_restore", "session_save", "knowledge_list",
-    "review_sandbox_prepare", "review_sandbox_cleanup",
+    "project_info",
+    "task_current",
+    "task_next",
+    "task_stage_delegate",
+    "task_discovery_complete",
+    "task_implementation_complete",
+    "task_review_complete",
+    "task_fix_complete",
+    "task_stage_complete",
+    "task_worker_disconnected",
+    "task_worker_heartbeat",
+    "task_resume",
+    "task_cancel",
+    "task_create",
+    "task_adopt",
+    "skill_list",
+    "skill_search",
+    "skill_get",
+    "skill_set_enabled",
+    "skill_remove",
+    "skill_info",
+    "session_list",
+    "session_restore",
+    "session_save",
+    "knowledge_list",
+    "review_sandbox_prepare",
+    "review_sandbox_cleanup",
 }
 CONTEXT_TOOLS = {"memory_context", "memory_search", "decision_search"}
 LONG_TOOLS = {
-    "review_check_run", "verification_run", "skill_project_create", "skill_import", "skill_install", "skill_update", "knowledge_draft_upsert",
+    "review_check_run",
+    "verification_run",
+    "skill_project_create",
+    "skill_import",
+    "skill_install",
+    "skill_update",
+    "knowledge_draft_upsert",
 }
 TOOL_TIMEOUTS = {"fast": 5.0, "context": 6.0, "long": 120.0}
 
@@ -96,7 +123,9 @@ def validate_core_token(value: str | None) -> bool:
         expected = ensure_core_token()
     except Exception:
         return False
-    return bool(value) and secrets.compare_digest(value, expected)
+    if not value:
+        return False
+    return secrets.compare_digest(value, expected)
 
 
 def _set_runtime_state(**updates: Any) -> None:
@@ -107,11 +136,13 @@ def _set_runtime_state(**updates: Any) -> None:
 def runtime_state() -> dict[str, Any]:
     with _STATE_LOCK:
         result = dict(_RUNTIME_STATE)
-    result.update({
-        "version": __version__,
-        "mcp_http_url": CORE_MCP_HTTP_URL,
-        "rpc_url": CORE_BASE_URL,
-    })
+    result.update(
+        {
+            "version": __version__,
+            "mcp_http_url": CORE_MCP_HTTP_URL,
+            "rpc_url": CORE_BASE_URL,
+        }
+    )
     return result
 
 
@@ -120,12 +151,14 @@ def _warm_runtime() -> None:
     _set_runtime_state(status="warming", warm_started_at=started, warm_error=None)
     try:
         from ai_layer.db.session import database_status, get_engine
+
         get_engine()
         db = database_status()
         if not db.get("connected"):
             raise RuntimeError(db.get("error") or "database unavailable")
         _set_runtime_state(database="ready")
         from ai_layer.memory.embeddings import get_embedder
+
         get_embedder().embed(["ai-layer-runtime-warmup"])
         _set_runtime_state(
             embeddings="warm",

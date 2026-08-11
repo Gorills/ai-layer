@@ -1,7 +1,8 @@
 """Store deterministic structured project intelligence for adaptive skill routing."""
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0009_project_intelligence"
 down_revision = "0008_workflow_navigation"
@@ -12,7 +13,9 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "projects",
-        sa.Column("project_intelligence", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
+        sa.Column(
+            "project_intelligence", sa.JSON(), nullable=False, server_default=sa.text("'{}'")
+        ),
     )
 
 

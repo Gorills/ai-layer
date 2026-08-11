@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from ai_layer.memory.intelligence_runtime import (
     data_topology,
@@ -20,15 +19,95 @@ from ai_layer.memory.intelligence_web import (
 )
 
 DOMAIN_TASK_TERMS = {
-    "docker": ("docker", "compose", "container", "image", "volume", "mount", "deploy", "deployment"),
+    "docker": (
+        "docker",
+        "compose",
+        "container",
+        "image",
+        "volume",
+        "mount",
+        "deploy",
+        "deployment",
+    ),
     "runtime": ("startup", "entrypoint", "worker", "queue", "scheduler", "cron", "process", "run"),
-    "data": ("database", "postgres", "mysql", "redis", "storage", "media", "upload", "persistence", "migration"),
-    "frontend": ("frontend", "ui", "component", "react", "vue", "svelte", "javascript", "typescript", "html", "css", "browser"),
-    "design": ("design", "layout", "style", "spacing", "typography", "responsive", "pixel", "visual", "ui", "ux"),
-    "seo": ("seo", "search", "google", "yandex", "index", "canonical", "sitemap", "robots", "structured data", "schema"),
-    "testing": ("test", "pytest", "phpunit", "pest", "playwright", "cypress", "regression", "coverage"),
-    "documentation": ("readme", "documentation", "docs", "deploy", "configuration", "env", "api contract", "runbook"),
-    "integrations": ("webhook", "payment", "email", "sms", "oauth", "s3", "integration", "provider"),
+    "data": (
+        "database",
+        "postgres",
+        "mysql",
+        "redis",
+        "storage",
+        "media",
+        "upload",
+        "persistence",
+        "migration",
+    ),
+    "frontend": (
+        "frontend",
+        "ui",
+        "component",
+        "react",
+        "vue",
+        "svelte",
+        "javascript",
+        "typescript",
+        "html",
+        "css",
+        "browser",
+    ),
+    "design": (
+        "design",
+        "layout",
+        "style",
+        "spacing",
+        "typography",
+        "responsive",
+        "pixel",
+        "visual",
+        "ui",
+        "ux",
+    ),
+    "seo": (
+        "seo",
+        "search",
+        "google",
+        "yandex",
+        "index",
+        "canonical",
+        "sitemap",
+        "robots",
+        "structured data",
+        "schema",
+    ),
+    "testing": (
+        "test",
+        "pytest",
+        "phpunit",
+        "pest",
+        "playwright",
+        "cypress",
+        "regression",
+        "coverage",
+    ),
+    "documentation": (
+        "readme",
+        "documentation",
+        "docs",
+        "deploy",
+        "configuration",
+        "env",
+        "api contract",
+        "runbook",
+    ),
+    "integrations": (
+        "webhook",
+        "payment",
+        "email",
+        "sms",
+        "oauth",
+        "s3",
+        "integration",
+        "provider",
+    ),
     "legacy": ("legacy", "refactor", "fragile", "brittle", "existing behavior", "compatibility"),
 }
 
@@ -37,7 +116,12 @@ def _dep_text(dependencies: dict[str, list[str]]) -> str:
     return " ".join(str(item) for values in dependencies.values() for item in values).casefold()
 
 
-def _stack_profile(root: Path, rows: Iterable[object], languages: dict[str, int], dependencies: dict[str, list[str]]) -> dict:
+def _stack_profile(
+    root: Path,
+    rows: Iterable[object],
+    languages: dict[str, int],
+    dependencies: dict[str, list[str]],
+) -> dict:
     paths = {str(getattr(row, "path", "")) for row in rows if bool(getattr(row, "indexed", True))}
     dep_text = _dep_text(dependencies)
     frameworks: list[str] = []
@@ -52,44 +136,82 @@ def _stack_profile(root: Path, rows: Iterable[object], languages: dict[str, int]
         "php": "php" in languages or "composer.json" in paths,
         "python": "python" in languages or "python" in dependencies,
     }
-    frameworks.extend(name for name, present in signals.items() if present and name not in {"php", "python", "node"})
+    frameworks.extend(
+        name
+        for name, present in signals.items()
+        if present and name not in {"php", "python", "node"}
+    )
     manifests = sorted(
-        p for p in paths
-        if Path(p).name in {
-            "pyproject.toml", "requirements.txt", "package.json", "package-lock.json", "pnpm-lock.yaml",
-            "yarn.lock", "composer.json", "composer.lock", "go.mod", "Cargo.toml", "project.godot",
+        p
+        for p in paths
+        if Path(p).name
+        in {
+            "pyproject.toml",
+            "requirements.txt",
+            "package.json",
+            "package-lock.json",
+            "pnpm-lock.yaml",
+            "yarn.lock",
+            "composer.json",
+            "composer.lock",
+            "go.mod",
+            "Cargo.toml",
+            "project.godot",
         }
     )[:30]
     details: dict[str, dict] = {}
     if signals["django"]:
-        settings = sorted(p for p in paths if Path(p).name == "settings.py" or "/settings/" in f"/{p}")[:20]
+        settings = sorted(
+            p for p in paths if Path(p).name == "settings.py" or "/settings/" in f"/{p}"
+        )[:20]
         urls = sorted(p for p in paths if Path(p).name == "urls.py")[:30]
-        apps = sorted({
-            str(Path(p).parent) for p in paths
-            if Path(p).name == "apps.py" or (Path(p).name == "models.py" and len(Path(p).parts) <= 5)
-        })[:40]
+        apps = sorted(
+            {
+                str(Path(p).parent)
+                for p in paths
+                if Path(p).name == "apps.py"
+                or (Path(p).name == "models.py" and len(Path(p).parts) <= 5)
+            }
+        )[:40]
         details["django"] = {
             "manage_py": "manage.py" in paths,
             "settings_evidence": settings,
             "urlconf_evidence": urls,
             "app_roots": apps,
-            "migration_files": sum(1 for p in paths if "/migrations/" in f"/{p}" and p.endswith(".py")),
-            "media_or_static_evidence": sorted(p for p in paths if any(part.casefold() in {"media", "static", "staticfiles"} for part in Path(p).parts))[:20],
+            "migration_files": sum(
+                1 for p in paths if "/migrations/" in f"/{p}" and p.endswith(".py")
+            ),
+            "media_or_static_evidence": sorted(
+                p
+                for p in paths
+                if any(
+                    part.casefold() in {"media", "static", "staticfiles"} for part in Path(p).parts
+                )
+            )[:20],
         }
     if signals["laravel"]:
         details["laravel"] = {
             "artisan": "artisan" in paths,
-            "route_files": sorted(p for p in paths if p.startswith("routes/") and p.endswith(".php"))[:30],
-            "config_files": sorted(p for p in paths if p.startswith("config/") and p.endswith(".php"))[:30],
-            "application_roots": sorted({
-                "/".join(Path(p).parts[:2]) for p in paths
-                if len(Path(p).parts) >= 2 and Path(p).parts[0] == "app"
-            })[:40],
-            "migration_files": sum(1 for p in paths if p.startswith("database/migrations/") and p.endswith(".php")),
+            "route_files": sorted(
+                p for p in paths if p.startswith("routes/") and p.endswith(".php")
+            )[:30],
+            "config_files": sorted(
+                p for p in paths if p.startswith("config/") and p.endswith(".php")
+            )[:30],
+            "application_roots": sorted(
+                {
+                    "/".join(Path(p).parts[:2])
+                    for p in paths
+                    if len(Path(p).parts) >= 2 and Path(p).parts[0] == "app"
+                }
+            )[:40],
+            "migration_files": sum(
+                1 for p in paths if p.startswith("database/migrations/") and p.endswith(".php")
+            ),
             "storage_evidence": sorted(p for p in paths if p.startswith("storage/"))[:20],
         }
     return {
-        "languages": sorted(languages, key=languages.get, reverse=True),
+        "languages": sorted(languages, key=lambda name: languages[name], reverse=True),
         "frameworks": sorted(set(frameworks)),
         "dependency_ecosystems": sorted(dependencies),
         "manifests": manifests,
@@ -189,15 +311,30 @@ def _domain_has_retrievable_evidence(domain: str, value: object) -> bool:
     if domain == "runtime":
         return bool(value.get("entrypoints") or value.get("workers") or value.get("schedulers"))
     if domain == "data":
-        return bool(value.get("databases") or value.get("caches") or value.get("persistent_mounts") or value.get("media_evidence_paths") or value.get("storage_roots"))
+        return bool(
+            value.get("databases")
+            or value.get("caches")
+            or value.get("persistent_mounts")
+            or value.get("media_evidence_paths")
+            or value.get("storage_roots")
+        )
     if domain == "docker":
         return bool(value.get("present"))
     if domain == "frontend":
         return bool(value.get("present"))
     if domain == "design":
-        return bool(value.get("evidence_files") or value.get("css_custom_properties") or value.get("component_libraries"))
+        return bool(
+            value.get("evidence_files")
+            or value.get("css_custom_properties")
+            or value.get("component_libraries")
+        )
     if domain == "seo":
-        return bool(value.get("public_web_surface") or value.get("robots_files") or value.get("sitemap_files") or value.get("marker_evidence"))
+        return bool(
+            value.get("public_web_surface")
+            or value.get("robots_files")
+            or value.get("sitemap_files")
+            or value.get("marker_evidence")
+        )
     if domain == "testing":
         return bool(value.get("source_files") or value.get("test_files") or value.get("frameworks"))
     if domain == "legacy":

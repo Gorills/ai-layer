@@ -3,16 +3,16 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 from uuid import uuid4
 
 from ai_layer.core.filelock import directory_lock
+from ai_layer.core.mcp_process import begin_mcp_activity, current_mcp_session_id, end_mcp_activity
 from ai_layer.core.paths import project_state_path
 from ai_layer.core.registry import get_registered_project
-from ai_layer.core.mcp_process import begin_mcp_activity, current_mcp_session_id, end_mcp_activity
 from ai_layer.observability.service import emit_event
 
 AUDIT_RELATIVE_PATH = Path("audit") / "mcp.jsonl"
@@ -33,6 +33,7 @@ AUDIT_SAFE_METRIC_KEYS = {
 def _server_version() -> str:
     try:
         from ai_layer import __version__
+
         return __version__
     except Exception:
         return "unknown"
@@ -45,7 +46,7 @@ def audit_path(project_root: str | Path) -> Path:
 def _safe_audit_metrics(metrics: dict | None) -> dict | None:
     if not isinstance(metrics, dict):
         return None
-    safe = {}
+    safe: dict[str, bool | int | float | str | None] = {}
     for key, value in metrics.items():
         if str(key) not in AUDIT_SAFE_METRIC_KEYS:
             continue
@@ -96,7 +97,9 @@ def _tail_lines(path: Path, max_bytes: int = AUDIT_TAIL_BYTES) -> list[str]:
 
 
 @contextmanager
-def mcp_audit(project_root: str | Path, tool: str, *, arg_keys: list[str] | None = None) -> Iterator[dict]:
+def mcp_audit(
+    project_root: str | Path, tool: str, *, arg_keys: list[str] | None = None
+) -> Iterator[dict]:
     """Append a privacy-minimal MCP audit event.
 
     Argument values and tool results are deliberately not logged: QA needs call observability, not a
@@ -139,7 +142,7 @@ def mcp_audit(project_root: str | Path, tool: str, *, arg_keys: list[str] | None
                 _append_event(
                     audit_path(root),
                     {
-                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "ts": datetime.now(UTC).isoformat(),
                         "tool": tool,
                         "project_root": root,
                         "server_version": _server_version(),
@@ -219,12 +222,16 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
         if event.get("tool") == "session_save":
             return "session_save"
         metrics = event.get("metrics") or {}
-        if event.get("tool") in {
-            "task_stage_complete",
-            "task_implementation_complete",
-            "task_review_complete",
-            "task_fix_complete",
-        } and metrics.get("status") == "completed":
+        if (
+            event.get("tool")
+            in {
+                "task_stage_complete",
+                "task_implementation_complete",
+                "task_review_complete",
+                "task_fix_complete",
+            }
+            and metrics.get("status") == "completed"
+        ):
             return "managed_task"
         if event.get("tool") == "task_cancel":
             return "cancelled_task"
@@ -246,7 +253,7 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
             break
 
     end = completion_index if completion_index is not None else len(events) - 1
-    flow = events[previous_terminal + 1:end + 1]
+    flow = events[previous_terminal + 1 : end + 1]
     tools = [str(item.get("tool")) for item in flow]
     failures = [
         {"tool": item.get("tool"), "error_type": item.get("error_type")}
@@ -274,7 +281,9 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
             completion_metrics.get("handoff_written")
         )
     successful_terminal = completion_kind in {"session_save", "managed_task"}
-    versions = sorted({str(item.get("server_version")) for item in flow if item.get("server_version")})
+    versions = sorted(
+        {str(item.get("server_version")) for item in flow if item.get("server_version")}
+    )
     return {
         "ok": successful_terminal and handoff_written and context_calls >= 1 and not failures,
         "tools": tools,
@@ -290,4 +299,3 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
         "server_versions": versions,
         "event_count": len(flow),
     }
-

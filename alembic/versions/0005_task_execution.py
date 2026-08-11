@@ -3,7 +3,9 @@
 Revision ID: 0005_task_execution
 Revises: 0004_incremental_identity
 """
+
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "0005_task_execution"
@@ -60,7 +62,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("task_id", "ordinal", name="uq_task_stage_ordinal"),
     )
-    op.create_index("ix_task_stages_task_status", "task_stages", ["task_id", "status"], unique=False)
+    op.create_index(
+        "ix_task_stages_task_status", "task_stages", ["task_id", "status"], unique=False
+    )
     op.create_table(
         "review_findings",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -78,7 +82,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["task_id"], ["tasks.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_review_findings_task_status", "review_findings", ["task_id", "status"], unique=False)
+    op.create_index(
+        "ix_review_findings_task_status", "review_findings", ["task_id", "status"], unique=False
+    )
 
 
 def downgrade() -> None:

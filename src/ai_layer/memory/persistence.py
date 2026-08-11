@@ -35,18 +35,26 @@ def upsert_project_file(db: Session, payload: dict) -> None:
     update_values["updated_at"] = utcnow()
     dialect = db.get_bind().dialect.name
     if dialect == "postgresql":
-        stmt = pg_insert(ProjectFile).values(**payload).on_conflict_do_update(
-            index_elements=[ProjectFile.project_id, ProjectFile.path],
-            set_=update_values,
+        pg_stmt = (
+            pg_insert(ProjectFile)
+            .values(**payload)
+            .on_conflict_do_update(
+                index_elements=[ProjectFile.project_id, ProjectFile.path],
+                set_=update_values,
+            )
         )
-        db.execute(stmt)
+        db.execute(pg_stmt)
         return
     if dialect == "sqlite":
-        stmt = sqlite_insert(ProjectFile).values(**payload).on_conflict_do_update(
-            index_elements=["project_id", "path"],
-            set_=update_values,
+        sqlite_stmt = (
+            sqlite_insert(ProjectFile)
+            .values(**payload)
+            .on_conflict_do_update(
+                index_elements=["project_id", "path"],
+                set_=update_values,
+            )
         )
-        db.execute(stmt)
+        db.execute(sqlite_stmt)
         return
 
     existing = db.scalar(

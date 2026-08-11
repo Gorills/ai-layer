@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
 import yaml
 
 from ai_layer.skills.common import _sha_text
 from ai_layer.skills.constants import (
-    HIGH_RISK_PATTERNS, MAX_SKILL_BYTES, MEDIUM_RISK_PATTERNS, SLUG_RE,
+    HIGH_RISK_PATTERNS,
+    MAX_SKILL_BYTES,
+    MEDIUM_RISK_PATTERNS,
+    SLUG_RE,
 )
+
 
 def _frontmatter(text: str) -> tuple[dict, str]:
     if text.startswith("---\n"):
@@ -57,11 +61,20 @@ def normalize_skill_text(
         raise ValueError(f"Skill is too large: {len(data)} bytes > {MAX_SKILL_BYTES}")
     meta, body = _frontmatter(text)
     heading = _first_heading(body)
-    wanted_slug = (slug or str(meta.get("slug") or meta.get("name") or "") or _slugify(heading)).strip()
+    wanted_slug = (
+        slug or str(meta.get("slug") or meta.get("name") or "") or _slugify(heading)
+    ).strip()
     wanted_slug = _slugify(wanted_slug)
     if not wanted_slug or not SLUG_RE.fullmatch(wanted_slug):
-        raise ValueError("Skill slug could not be inferred safely; provide an explicit lowercase slug.")
-    wanted_description = (description or str(meta.get("description") or "") or heading or f"Project expertise: {wanted_slug}").strip()
+        raise ValueError(
+            "Skill slug could not be inferred safely; provide an explicit lowercase slug."
+        )
+    wanted_description = (
+        description
+        or str(meta.get("description") or "")
+        or heading
+        or f"Project expertise: {wanted_slug}"
+    ).strip()
     if len(wanted_description) > 500:
         wanted_description = wanted_description[:500].rstrip()
 
@@ -74,12 +87,27 @@ def normalize_skill_text(
     # Remove fields that belonged to the retired AI Layer relevance router.
     legacy_terms = list(normalized_meta.get("task_terms") or [])
     legacy_entry = list(normalized_meta.get("autoload_sections") or [])
-    for key in ("activation", "task_terms", "autoload_sections", "routing", "priority", "requires", "evidence_languages", "intelligence_domains"):
+    for key in (
+        "activation",
+        "task_terms",
+        "autoload_sections",
+        "routing",
+        "priority",
+        "requires",
+        "evidence_languages",
+        "intelligence_domains",
+    ):
         normalized_meta.pop(key, None)
 
-    keywords = [str(item).strip().casefold() for item in (normalized_meta.get("keywords") or []) if str(item).strip()]
+    keywords = [
+        str(item).strip().casefold()
+        for item in (normalized_meta.get("keywords") or [])
+        if str(item).strip()
+    ]
     keywords.extend(str(item).strip().casefold() for item in legacy_terms if str(item).strip())
-    keywords.extend(str(item).strip().casefold() for item in (task_terms or []) if str(item).strip())
+    keywords.extend(
+        str(item).strip().casefold() for item in (task_terms or []) if str(item).strip()
+    )
     if not keywords:
         keywords = _infer_terms(wanted_slug.replace("-", " "), wanted_description, heading)
     if keywords:
@@ -89,7 +117,11 @@ def normalize_skill_text(
         headings = re.findall(r"(?m)^##\s+(.+?)\s*$", body)
         preferred = [name for name in legacy_entry if name in headings]
         if not preferred:
-            preferred = [name for name in ("Core contract", "Mandatory rules", "Apply when", "Decision rules") if name in headings]
+            preferred = [
+                name
+                for name in ("Core contract", "Mandatory rules", "Apply when", "Decision rules")
+                if name in headings
+            ]
         if not preferred and headings:
             preferred = headings[:1]
         if preferred:

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -18,7 +18,13 @@ def test_session_restore_falls_back_to_project_snapshot(tmp_path: Path, monkeypa
     (project_root / ".ai-layer" / "sessions").mkdir(parents=True)
 
     with Session(engine, expire_on_commit=False) as db:
-        project = Project(name="demo", root_path=str(project_root), languages={}, dependencies={}, architecture_summary="")
+        project = Project(
+            name="demo",
+            root_path=str(project_root),
+            languages={},
+            dependencies={},
+            architecture_summary="",
+        )
         db.add(project)
         db.commit()
 
@@ -68,7 +74,13 @@ def test_session_columns_have_server_defaults_for_stale_mcp_writers(tmp_path: Pa
     project_root.mkdir()
 
     with Session(engine) as db:
-        project = Project(name="demo", root_path=str(project_root), languages={}, dependencies={}, architecture_summary="")
+        project = Project(
+            name="demo",
+            root_path=str(project_root),
+            languages={},
+            dependencies={},
+            architecture_summary="",
+        )
         db.add(project)
         db.commit()
         # Simulate a pre-evidence MCP writer: INSERT names only the old session columns.
@@ -106,10 +118,18 @@ def test_save_session_omitted_evidence_fields_are_empty_lists(tmp_path: Path, mo
     (project_root / ".ai-layer" / "sessions").mkdir(parents=True)
 
     with Session(engine, expire_on_commit=False) as db:
-        project = Project(name="demo", root_path=str(project_root), languages={}, dependencies={}, architecture_summary="")
+        project = Project(
+            name="demo",
+            root_path=str(project_root),
+            languages={},
+            dependencies={},
+            architecture_summary="",
+        )
         db.add(project)
         db.commit()
-        monkeypatch.setattr(sessions, "get_embedder", lambda: type("E", (), {"embed": lambda self, texts: []})())
+        monkeypatch.setattr(
+            sessions, "get_embedder", lambda: type("E", (), {"embed": lambda self, texts: []})()
+        )
         saved = sessions.save_session(
             db,
             project,
@@ -125,17 +145,27 @@ def test_save_session_omitted_evidence_fields_are_empty_lists(tmp_path: Path, mo
         assert payload["notable_findings"] == []
 
 
-def test_latest_restore_prefers_committed_database_over_newer_provisional_snapshot(tmp_path: Path, monkeypatch):
+def test_latest_restore_prefers_committed_database_over_newer_provisional_snapshot(
+    tmp_path: Path, monkeypatch
+):
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     project_root = tmp_path / "newer-snapshot"
     project_root.mkdir()
 
     with Session(engine, expire_on_commit=False) as db:
-        project = Project(name="demo", root_path=str(project_root), languages={}, dependencies={}, architecture_summary="")
+        project = Project(
+            name="demo",
+            root_path=str(project_root),
+            languages={},
+            dependencies={},
+            architecture_summary="",
+        )
         db.add(project)
         db.commit()
-        monkeypatch.setattr(sessions, "get_embedder", lambda: type("E", (), {"embed": lambda self, texts: []})())
+        monkeypatch.setattr(
+            sessions, "get_embedder", lambda: type("E", (), {"embed": lambda self, texts: []})()
+        )
         old = sessions.save_session(
             db,
             project,
@@ -157,11 +187,20 @@ def test_latest_restore_prefers_committed_database_over_newer_provisional_snapsh
             "important_decisions": [],
             "verified_facts": ["DB commit failed after snapshot"],
             "notable_findings": [],
-            "created_at": (old.created_at.replace(tzinfo=timezone.utc) if old.created_at.tzinfo is None else old.created_at).astimezone(timezone.utc).replace(microsecond=0).isoformat(),
+            "created_at": (
+                old.created_at.replace(tzinfo=UTC)
+                if old.created_at.tzinfo is None
+                else old.created_at
+            )
+            .astimezone(UTC)
+            .replace(microsecond=0)
+            .isoformat(),
             "storage": "snapshot",
         }
         # Ensure strict ordering even if the original row landed on an exact second boundary.
-        newer["created_at"] = (datetime.fromisoformat(newer["created_at"]) + timedelta(seconds=1)).isoformat()
+        newer["created_at"] = (
+            datetime.fromisoformat(newer["created_at"]) + timedelta(seconds=1)
+        ).isoformat()
         sessions._persist_snapshot(project, newer)
 
         restored = sessions.restore_session(db, project, "latest")
@@ -219,10 +258,14 @@ def test_rolled_back_session_never_publishes_authoritative_snapshot(tmp_path: Pa
     root = tmp_path / "rollback-session"
     root.mkdir()
     with Session(engine, expire_on_commit=False) as db:
-        project = Project(name="demo", root_path=str(root), languages={}, dependencies={}, architecture_summary="")
+        project = Project(
+            name="demo", root_path=str(root), languages={}, dependencies={}, architecture_summary=""
+        )
         db.add(project)
         db.commit()
-        monkeypatch.setattr(sessions, "get_embedder", lambda: type("E", (), {"embed": lambda self, texts: []})())
+        monkeypatch.setattr(
+            sessions, "get_embedder", lambda: type("E", (), {"embed": lambda self, texts: []})()
+        )
         item = sessions.save_session(
             db,
             project,
@@ -246,10 +289,18 @@ def test_save_session_bounds_and_redacts_durable_handoff(tmp_path: Path, monkeyp
     project_root = tmp_path / "bounded-session"
     project_root.mkdir()
     with Session(engine, expire_on_commit=False) as db:
-        project = Project(name="demo", root_path=str(project_root), languages={}, dependencies={}, architecture_summary="")
+        project = Project(
+            name="demo",
+            root_path=str(project_root),
+            languages={},
+            dependencies={},
+            architecture_summary="",
+        )
         db.add(project)
         db.commit()
-        monkeypatch.setattr(sessions, "get_embedder", lambda: type("E", (), {"embed": lambda self, texts: []})())
+        monkeypatch.setattr(
+            sessions, "get_embedder", lambda: type("E", (), {"embed": lambda self, texts: []})()
+        )
         saved = sessions.save_session(
             db,
             project,

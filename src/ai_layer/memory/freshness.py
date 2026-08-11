@@ -3,21 +3,28 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from ai_layer.core.paths import project_state_path
 from ai_layer.core.mcp_process import current_mcp_session_id
-from ai_layer.observability.events import observed_operation
+from ai_layer.core.paths import project_state_path
 from ai_layer.db.models import Project
 from ai_layer.memory.embeddings import embedding_signature
-from ai_layer.memory.locking import project_refresh_lock
-from ai_layer.memory.identity import RepositoryChangedDuringScan, build_file_hints as build_file_state, repository_probe, state_hints_match
+from ai_layer.memory.identity import (
+    RepositoryChangedDuringScan,
+    repository_probe,
+    state_hints_match,
+)
+from ai_layer.memory.identity import (
+    build_file_hints as build_file_state,
+)
 from ai_layer.memory.indexer import scan_project
+from ai_layer.memory.locking import project_refresh_lock
 from ai_layer.memory.source import ScanLimitExceeded
 from ai_layer.memory.versioning import CONTENT_IDENTITY_VERSION, SCANNER_SCHEMA_VERSION
+from ai_layer.observability.events import observed_operation
 
 STATE_FILE = "file_state.json"
 SCAN_FILE = "scan.json"
@@ -105,10 +112,12 @@ def file_state_changes(previous: dict, current: dict) -> dict:
     }
 
 
-def write_scan_metadata(project: Project, stats, *, reason: str, repo_probe: dict | None = None) -> dict:
+def write_scan_metadata(
+    project: Project, stats, *, reason: str, repo_probe: dict | None = None
+) -> dict:
     memory_dir = _memory_dir(project)
     snapshot = {
-        "scanned_at": datetime.now(timezone.utc).isoformat(),
+        "scanned_at": datetime.now(UTC).isoformat(),
         "reason": reason,
         "files": stats.files,
         "knowledge_items": stats.knowledge_items,
@@ -182,7 +191,9 @@ def scan_until_stable(
             # Publish the stable database state only after repository verification. This keeps an
             # unstable attempt invisible to concurrent readers that already passed freshness.
             db.commit()
-            snapshot = write_scan_metadata(project, stats, reason=reason, repo_probe=probe_after_verify)
+            snapshot = write_scan_metadata(
+                project, stats, reason=reason, repo_probe=probe_after_verify
+            )
             return stats, snapshot, attempt
         db.rollback()
     raise RuntimeError(
@@ -242,7 +253,9 @@ def _fast_probe_fresh(
     elif probe_timeout_seconds is None:
         current_probe = repository_probe(Path(project.root_path))
     else:
-        current_probe = repository_probe(Path(project.root_path), budget_seconds=probe_timeout_seconds)
+        current_probe = repository_probe(
+            Path(project.root_path), budget_seconds=probe_timeout_seconds
+        )
     stored_probe = metadata.get("repository_probe")
     fresh = bool(
         state_exists
@@ -282,8 +295,18 @@ def ensure_memory_fresh(db: Session, project: Project) -> dict:
     current = build_file_state(root)
     embedding_matches = state_exists and embedding_state_matches(project)
     scanner_matches = state_exists and scanner_state_matches(project)
-    if state_exists and state_hints_match(previous, current) and embedding_matches and scanner_matches:
-        return {"status": "fresh", "refreshed": False, "files": len(current), "waited_for_refresh": False}
+    if (
+        state_exists
+        and state_hints_match(previous, current)
+        and embedding_matches
+        and scanner_matches
+    ):
+        return {
+            "status": "fresh",
+            "refreshed": False,
+            "files": len(current),
+            "waited_for_refresh": False,
+        }
 
     # A second process can reach this point at the same time. Serialize rebuilds, then re-check the
     # state after acquiring the lock so only one process performs DELETE/UPSERT/index work.
@@ -302,7 +325,12 @@ def ensure_memory_fresh(db: Session, project: Project) -> dict:
         current = build_file_state(root)
         embedding_matches = state_exists and embedding_state_matches(project)
         scanner_matches = state_exists and scanner_state_matches(project)
-        if state_exists and state_hints_match(previous, current) and embedding_matches and scanner_matches:
+        if (
+            state_exists
+            and state_hints_match(previous, current)
+            and embedding_matches
+            and scanner_matches
+        ):
             return {
                 "status": "fresh",
                 "refreshed": False,
@@ -345,7 +373,9 @@ def ensure_memory_fresh(db: Session, project: Project) -> dict:
                 "embeddings_reused": getattr(stats, "embeddings_reused", 0),
                 "embeddings_regenerated": getattr(stats, "embeddings_regenerated", 0),
                 "knowledge_reembedded": getattr(stats, "knowledge_reembedded", 0),
-                "legacy_source_knowledge_removed": getattr(stats, "legacy_source_knowledge_removed", 0),
+                "legacy_source_knowledge_removed": getattr(
+                    stats, "legacy_source_knowledge_removed", 0
+                ),
                 "knowledge_cards_staled": getattr(stats, "knowledge_cards_staled", 0),
                 "refresh_attempts": attempts,
                 "waited_for_lock": bool(lock.get("waited")),

@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.parse
 import urllib.request
@@ -35,7 +36,9 @@ def _update_error(
 ) -> UpdateError:
     return UpdateError(
         code=code,
-        category=ErrorCategory.GOVERNANCE if code == ErrorCode.UPDATE_SIGNATURE_INVALID else ErrorCategory.EXTERNAL,
+        category=ErrorCategory.GOVERNANCE
+        if code == ErrorCode.UPDATE_SIGNATURE_INVALID
+        else ErrorCategory.EXTERNAL,
         message=message,
         retryable=retryable,
         required_action=required_action,
@@ -59,11 +62,15 @@ class UpdateRelease:
 def _safe_url(value: str, *, field: str) -> str:
     parsed = urllib.parse.urlparse(value)
     if parsed.scheme not in {"https", "file"}:
-        raise _update_error(ErrorCode.UPDATE_CHANNEL_INVALID, f"{field} must use https:// or file://")
+        raise _update_error(
+            ErrorCode.UPDATE_CHANNEL_INVALID, f"{field} must use https:// or file://"
+        )
     if parsed.scheme == "https" and not parsed.hostname:
         raise _update_error(ErrorCode.UPDATE_CHANNEL_INVALID, f"{field} is missing a hostname")
     if parsed.username or parsed.password:
-        raise _update_error(ErrorCode.UPDATE_CHANNEL_INVALID, f"{field} must not contain embedded credentials")
+        raise _update_error(
+            ErrorCode.UPDATE_CHANNEL_INVALID, f"{field} must not contain embedded credentials"
+        )
     return value
 
 
@@ -73,10 +80,14 @@ def _download(url: str, *, max_bytes: int) -> bytes:
     with urllib.request.urlopen(request, timeout=20) as response:  # noqa: S310 - scheme is allowlisted above.
         length = response.headers.get("Content-Length")
         if length and int(length) > max_bytes:
-            raise _update_error(ErrorCode.UPDATE_ARTIFACT_INVALID, f"update resource exceeds {max_bytes} bytes")
+            raise _update_error(
+                ErrorCode.UPDATE_ARTIFACT_INVALID, f"update resource exceeds {max_bytes} bytes"
+            )
         payload = response.read(max_bytes + 1)
     if len(payload) > max_bytes:
-        raise _update_error(ErrorCode.UPDATE_ARTIFACT_INVALID, f"update resource exceeds {max_bytes} bytes")
+        raise _update_error(
+            ErrorCode.UPDATE_ARTIFACT_INVALID, f"update resource exceeds {max_bytes} bytes"
+        )
     return payload
 
 
@@ -87,11 +98,16 @@ def _sha256_bytes(payload: bytes) -> str:
 def _version_tuple(value: str) -> tuple[int, ...]:
     parts = value.strip().split(".")
     if not parts or any(not part.isdigit() for part in parts):
-        raise _update_error(ErrorCode.UPDATE_MANIFEST_INVALID, f"release version must be numeric dotted form, got {value!r}")
+        raise _update_error(
+            ErrorCode.UPDATE_MANIFEST_INVALID,
+            f"release version must be numeric dotted form, got {value!r}",
+        )
     return tuple(int(part) for part in parts)
 
 
-def load_channel(*, manifest_url: str | None = None, public_key: str | Path | None = None) -> UpdateChannel:
+def load_channel(
+    *, manifest_url: str | None = None, public_key: str | Path | None = None
+) -> UpdateChannel:
     settings = get_settings()
     configured: dict[str, Any] = {}
     channel_path = settings.home / CHANNEL_FILE
@@ -100,9 +116,19 @@ def load_channel(*, manifest_url: str | None = None, public_key: str | Path | No
             loaded = json.loads(channel_path.read_text(encoding="utf-8"))
             configured = loaded if isinstance(loaded, dict) else {}
         except (OSError, json.JSONDecodeError) as exc:
-            raise _update_error(ErrorCode.UPDATE_CHANNEL_INVALID, f"invalid update channel configuration: {channel_path}: {exc}") from exc
-    url = str(manifest_url or os.getenv("AI_LAYER_UPDATE_MANIFEST_URL") or configured.get("manifest_url") or "").strip()
-    key_value = public_key or os.getenv("AI_LAYER_UPDATE_PUBLIC_KEY") or configured.get("public_key")
+            raise _update_error(
+                ErrorCode.UPDATE_CHANNEL_INVALID,
+                f"invalid update channel configuration: {channel_path}: {exc}",
+            ) from exc
+    url = str(
+        manifest_url
+        or os.getenv("AI_LAYER_UPDATE_MANIFEST_URL")
+        or configured.get("manifest_url")
+        or ""
+    ).strip()
+    key_value = (
+        public_key or os.getenv("AI_LAYER_UPDATE_PUBLIC_KEY") or configured.get("public_key")
+    )
     if not url or not key_value:
         raise _update_error(
             ErrorCode.UPDATE_CHANNEL_INVALID,
@@ -111,7 +137,9 @@ def load_channel(*, manifest_url: str | None = None, public_key: str | Path | No
         )
     key = Path(str(key_value)).expanduser().resolve()
     if not key.is_file() or key.is_symlink():
-        raise _update_error(ErrorCode.UPDATE_CHANNEL_INVALID, f"update public key is missing or unsafe: {key}")
+        raise _update_error(
+            ErrorCode.UPDATE_CHANNEL_INVALID, f"update public key is missing or unsafe: {key}"
+        )
     return UpdateChannel(_safe_url(url, field="manifest_url"), key)
 
 
@@ -119,15 +147,24 @@ def _parse_release(manifest_bytes: bytes) -> UpdateRelease:
     try:
         payload = json.loads(manifest_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise _update_error(ErrorCode.UPDATE_MANIFEST_INVALID, f"signed update manifest is invalid JSON: {exc}") from exc
+        raise _update_error(
+            ErrorCode.UPDATE_MANIFEST_INVALID, f"signed update manifest is invalid JSON: {exc}"
+        ) from exc
     if not isinstance(payload, dict) or payload.get("schema") != 1:
-        raise _update_error(ErrorCode.UPDATE_MANIFEST_INVALID, "signed update manifest schema must be 1")
+        raise _update_error(
+            ErrorCode.UPDATE_MANIFEST_INVALID, "signed update manifest schema must be 1"
+        )
     version = str(payload.get("version") or "").strip()
     artifact_url = _safe_url(str(payload.get("artifact_url") or "").strip(), field="artifact_url")
-    signature_url = _safe_url(str(payload.get("signature_url") or "").strip(), field="signature_url")
+    signature_url = _safe_url(
+        str(payload.get("signature_url") or "").strip(), field="signature_url"
+    )
     digest = str(payload.get("artifact_sha256") or "").strip().lower()
     if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
-        raise _update_error(ErrorCode.UPDATE_MANIFEST_INVALID, "artifact_sha256 must be a lowercase SHA-256 hex digest")
+        raise _update_error(
+            ErrorCode.UPDATE_MANIFEST_INVALID,
+            "artifact_sha256 must be a lowercase SHA-256 hex digest",
+        )
     _version_tuple(version)
     return UpdateRelease(version, artifact_url, digest, signature_url)
 
@@ -135,7 +172,10 @@ def _parse_release(manifest_bytes: bytes) -> UpdateRelease:
 def _verify_manifest_signature(manifest_bytes: bytes, signature: bytes, public_key: Path) -> None:
     openssl = shutil.which("openssl")
     if not openssl:
-        raise _update_error(ErrorCode.UPDATE_SIGNATURE_INVALID, "openssl is required to verify signed update manifests")
+        raise _update_error(
+            ErrorCode.UPDATE_SIGNATURE_INVALID,
+            "openssl is required to verify signed update manifests",
+        )
     with tempfile.TemporaryDirectory(prefix="ai-layer-update-signature-") as temp:
         temp_dir = Path(temp)
         manifest_path = temp_dir / "manifest.json"
@@ -143,7 +183,16 @@ def _verify_manifest_signature(manifest_bytes: bytes, signature: bytes, public_k
         manifest_path.write_bytes(manifest_bytes)
         signature_path.write_bytes(signature)
         result = subprocess.run(
-            [openssl, "dgst", "-sha256", "-verify", str(public_key), "-signature", str(signature_path), str(manifest_path)],
+            [
+                openssl,
+                "dgst",
+                "-sha256",
+                "-verify",
+                str(public_key),
+                "-signature",
+                str(signature_path),
+                str(manifest_path),
+            ],
             capture_output=True,
             text=True,
             timeout=10,
@@ -161,26 +210,42 @@ def _safe_extract(archive: Path, destination: Path) -> Path:
         for item in members:
             candidate = Path(item.filename)
             if candidate.is_absolute() or ".." in candidate.parts or not candidate.parts:
-                raise _update_error(ErrorCode.UPDATE_ARTIFACT_INVALID, f"unsafe release archive member: {item.filename}")
+                raise _update_error(
+                    ErrorCode.UPDATE_ARTIFACT_INVALID,
+                    f"unsafe release archive member: {item.filename}",
+                )
             roots.add(candidate.parts[0])
             if item.is_dir():
                 continue
             target = (destination / candidate).resolve()
             if destination.resolve() not in target.parents:
-                raise _update_error(ErrorCode.UPDATE_ARTIFACT_INVALID, f"release archive escapes extraction root: {item.filename}")
+                raise _update_error(
+                    ErrorCode.UPDATE_ARTIFACT_INVALID,
+                    f"release archive escapes extraction root: {item.filename}",
+                )
             mode = (item.external_attr >> 16) & 0o170000
             if mode == 0o120000:
-                raise _update_error(ErrorCode.UPDATE_ARTIFACT_INVALID, f"release archive symlinks are forbidden: {item.filename}")
+                raise _update_error(
+                    ErrorCode.UPDATE_ARTIFACT_INVALID,
+                    f"release archive symlinks are forbidden: {item.filename}",
+                )
         if len(roots) != 1:
-            raise _update_error(ErrorCode.UPDATE_ARTIFACT_INVALID, "release archive must contain exactly one top-level directory")
+            raise _update_error(
+                ErrorCode.UPDATE_ARTIFACT_INVALID,
+                "release archive must contain exactly one top-level directory",
+            )
         bundle.extractall(destination)
     root = destination / next(iter(roots))
     if not (root / "install.sh").is_file() or not (root / "scripts" / "release_gate.py").is_file():
-        raise _update_error(ErrorCode.UPDATE_ARTIFACT_INVALID, "release archive is missing installer/release gate")
+        raise _update_error(
+            ErrorCode.UPDATE_ARTIFACT_INVALID, "release archive is missing installer/release gate"
+        )
     return root
 
 
-def check_update(*, manifest_url: str | None = None, public_key: str | Path | None = None) -> dict[str, Any]:
+def check_update(
+    *, manifest_url: str | None = None, public_key: str | Path | None = None
+) -> dict[str, Any]:
     channel = load_channel(manifest_url=manifest_url, public_key=public_key)
     manifest_bytes = _download(channel.manifest_url, max_bytes=MAX_MANIFEST_BYTES)
     release = _parse_release(manifest_bytes)
@@ -221,7 +286,7 @@ def install_update(
         archive.write_bytes(artifact_bytes)
         source_root = _safe_extract(archive, temp_dir / "unpacked")
         preflight = subprocess.run(
-            [os.sys.executable, str(source_root / "scripts" / "release_gate.py"), "--json"],
+            [sys.executable, str(source_root / "scripts" / "release_gate.py"), "--json"],
             cwd=source_root,
             capture_output=True,
             text=True,
@@ -229,7 +294,9 @@ def install_update(
             check=False,
         )
         if preflight.returncode != 0:
-            detail = (preflight.stdout or preflight.stderr or "release preflight failed").strip()[-2000:]
+            detail = (preflight.stdout or preflight.stderr or "release preflight failed").strip()[
+                -2000:
+            ]
             raise _update_error(ErrorCode.UPDATE_PREFLIGHT_FAILED, detail)
         installer = source_root / "install.sh"
         installer.chmod(installer.stat().st_mode | 0o100)

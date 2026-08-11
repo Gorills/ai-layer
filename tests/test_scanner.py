@@ -14,7 +14,9 @@ from ai_layer.memory.scanner import (
 
 
 def test_scanner_helpers(tmp_path: Path):
-    (tmp_path / "pyproject.toml").write_text('[project]\nname="x"\nversion="0.1"\ndependencies=["fastapi>=1"]\n')
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname="x"\nversion="0.1"\ndependencies=["fastapi>=1"]\n'
+    )
     assert language_for(Path("main.py")) == "python"
     assert "entry point" in infer_purpose("main.py", "", "python").lower()
     imports = extract_imports("import os\nfrom pathlib import Path\nroute='/health'\n")
@@ -30,7 +32,7 @@ def test_secret_redaction():
         "AWS_SECRET_ACCESS_KEY=aws-secret\n"
         "SERVICE_TOKEN=service-secret\n"
         "export PRIVATE_KEY=private-secret\n"
-        "\"SERVICE_TOKEN\": \"json-secret\",\n"
+        '"SERVICE_TOKEN": "json-secret",\n'
         "const API_KEY = js-secret;\n"
         "DATABASE_URL=postgres://user:db-secret@localhost/db\n"
         "registry=https://user:url-secret@example.invalid/simple?token=query-secret\n"
@@ -39,8 +41,17 @@ def test_secret_redaction():
     )
     redacted = redact_secrets(text)
     for secret in (
-        "abc123", "hunter2", "aws-secret", "service-secret", "private-secret", "json-secret",
-        "js-secret", "db-secret", "url-secret", "query-secret", "abcdefghijklmnop",
+        "abc123",
+        "hunter2",
+        "aws-secret",
+        "service-secret",
+        "private-secret",
+        "json-secret",
+        "js-secret",
+        "db-secret",
+        "url-secret",
+        "query-secret",
+        "abcdefghijklmnop",
     ):
         assert secret not in redacted
     assert "normal=value" in redacted
@@ -57,8 +68,16 @@ def test_secret_redaction_covers_minified_json_object_pairs():
 
 def test_scanner_excludes_environment_secret_variants_but_keeps_templates(tmp_path: Path):
     for name in (
-        ".env", ".env.local", ".env.staging", ".env.production", ".envrc",
-        ".git-credentials", "credentials.json", "secrets.yaml", "terraform.tfstate", "prod.tfvars",
+        ".env",
+        ".env.local",
+        ".env.staging",
+        ".env.production",
+        ".envrc",
+        ".git-credentials",
+        "credentials.json",
+        "secrets.yaml",
+        "terraform.tfstate",
+        "prod.tfvars",
     ):
         (tmp_path / name).write_text("SERVICE_TOKEN=secret\n", encoding="utf-8")
     for name in (".env.example", ".env.sample", ".env.template"):
@@ -67,14 +86,27 @@ def test_scanner_excludes_environment_secret_variants_but_keeps_templates(tmp_pa
 
     names = {path.name for path in iter_files(tmp_path)}
     assert {".env.example", ".env.sample", ".env.template", "app.py"} <= names
-    assert not ({
-        ".env", ".env.local", ".env.staging", ".env.production", ".envrc",
-        ".git-credentials", "credentials.json", "secrets.yaml", "terraform.tfstate", "prod.tfvars",
-    } & names)
+    assert not (
+        {
+            ".env",
+            ".env.local",
+            ".env.staging",
+            ".env.production",
+            ".envrc",
+            ".git-credentials",
+            "credentials.json",
+            "secrets.yaml",
+            "terraform.tfstate",
+            "prod.tfvars",
+        }
+        & names
+    )
 
 
 def test_ai_layer_bootstrap_is_not_indexed(tmp_path: Path):
-    managed = "<!-- BEGIN AI-LAYER MANAGED -->\nmandatory memory_context\n<!-- END AI-LAYER MANAGED -->"
+    managed = (
+        "<!-- BEGIN AI-LAYER MANAGED -->\nmandatory memory_context\n<!-- END AI-LAYER MANAGED -->"
+    )
     assert prepare_index_text(".cursor/rules/ai-layer.mdc", managed) is None
     assert prepare_index_text("AGENTS.md", managed) is None
     mixed = "# User rules\nKeep domain services pure.\n\n" + managed
@@ -117,7 +149,9 @@ def test_project_file_upsert_is_idempotent():
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
-        project = Project(name="demo", root_path="/demo", languages={}, dependencies={}, architecture_summary="")
+        project = Project(
+            name="demo", root_path="/demo", languages={}, dependencies={}, architecture_summary=""
+        )
         db.add(project)
         db.flush()
         base = {
@@ -190,7 +224,13 @@ def test_scan_reembeds_existing_decisions_when_vector_space_changes(tmp_path: Pa
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
-        project = Project(name="demo", root_path=str(tmp_path), languages={}, dependencies={}, architecture_summary="")
+        project = Project(
+            name="demo",
+            root_path=str(tmp_path),
+            languages={},
+            dependencies={},
+            architecture_summary="",
+        )
         db.add(project)
         db.flush()
         decision = Decision(
@@ -255,7 +295,13 @@ def test_scan_never_persists_minified_json_source_content_as_knowledge(tmp_path:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
-        project = Project(name="demo", root_path=str(tmp_path), languages={}, dependencies={}, architecture_summary="")
+        project = Project(
+            name="demo",
+            root_path=str(tmp_path),
+            languages={},
+            dependencies={},
+            architecture_summary="",
+        )
         db.add(project)
         db.flush()
         scanner.scan_project(db, project, tmp_path)
@@ -269,12 +315,14 @@ def test_scan_never_persists_minified_json_source_content_as_knowledge(tmp_path:
             )
         )
         assert evidence is not None
-        persisted = repr({
-            "purpose": evidence.purpose,
-            "imports": evidence.imports,
-            "risk_flags": evidence.risk_flags,
-            "sha256": evidence.sha256,
-        })
+        persisted = repr(
+            {
+                "purpose": evidence.purpose,
+                "imports": evidence.imports,
+                "risk_flags": evidence.risk_flags,
+                "sha256": evidence.sha256,
+            }
+        )
         assert marker not in persisted
         assert '"normal":"keep"' not in persisted
 

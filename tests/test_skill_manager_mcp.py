@@ -1,6 +1,6 @@
+import uuid
 from contextlib import contextmanager
 from types import SimpleNamespace
-import uuid
 
 
 def test_mcp_project_skill_create_uses_explicit_registered_identity_not_cwd(tmp_path, monkeypatch):
@@ -12,7 +12,8 @@ def test_mcp_project_skill_create_uses_explicit_registered_identity_not_cwd(tmp_
     home = tmp_path / "home"
     project = tmp_path / "repo"
     other = tmp_path / "other-cwd"
-    project.mkdir(); other.mkdir()
+    project.mkdir()
+    other.mkdir()
     monkeypatch.setenv("AI_LAYER_HOME", str(home))
     get_settings.cache_clear()
     register_project(project, project_id=str(uuid.uuid4()), name="repo")
@@ -29,6 +30,7 @@ def test_mcp_project_skill_create_uses_explicit_registered_identity_not_cwd(tmp_
         result = server.skill_project_create(
             slug="ide-project-skill",
             content="# IDE Project Skill\n\n## Core contract\n\nUse the established adapter seam.\n",
+            description="Apply when modifying project adapter seams, integration boundaries, or adapter contracts.",
             task_terms=["adapter-seam"],
             project_root=str(project),
         )

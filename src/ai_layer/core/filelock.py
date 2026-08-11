@@ -5,9 +5,9 @@ import json
 import os
 import shutil
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 from uuid import uuid4
 
 DEFAULT_TIMEOUT_SECONDS = 15.0
@@ -24,7 +24,7 @@ def _age_seconds(path: Path) -> float | None:
 
 def _pid_status(pid: object) -> str:
     try:
-        value = int(pid)
+        value = int(str(pid))
     except (TypeError, ValueError):
         return "unknown"
     if value <= 0:
@@ -46,7 +46,6 @@ def _pid_status(pid: object) -> str:
     return "alive"
 
 
-
 def _boot_id() -> str | None:
     try:
         value = Path("/proc/sys/kernel/random/boot_id").read_text(encoding="utf-8").strip()
@@ -66,7 +65,7 @@ def _process_start(pid: int) -> str | None:
 
 def _owner_process_matches(owner: dict) -> bool:
     try:
-        pid = int(owner.get("pid"))
+        pid = int(str(owner.get("pid")))
     except (TypeError, ValueError):
         return False
     stored_boot = owner.get("boot_id")
@@ -83,7 +82,16 @@ def _owner_process_matches(owner: dict) -> bool:
 def _write_owner(lock_dir: Path, token: str) -> None:
     owner = lock_dir / "owner.json"
     with owner.open("x", encoding="utf-8") as handle:
-        json.dump({"pid": os.getpid(), "token": token, "boot_id": _boot_id(), "process_start": _process_start(os.getpid())}, handle, separators=(",", ":"))
+        json.dump(
+            {
+                "pid": os.getpid(),
+                "token": token,
+                "boot_id": _boot_id(),
+                "process_start": _process_start(os.getpid()),
+            },
+            handle,
+            separators=(",", ":"),
+        )
         handle.write("\n")
         handle.flush()
         os.fsync(handle.fileno())
@@ -163,7 +171,7 @@ def directory_lock(
             if _try_reclaim(lock_dir, stale_after_seconds):
                 continue
             if time.monotonic() - started >= timeout_seconds:
-                raise TimeoutError(f"Timed out waiting for lock: {lock_dir}")
+                raise TimeoutError(f"Timed out waiting for lock: {lock_dir}") from None
             time.sleep(POLL_SECONDS)
     try:
         yield

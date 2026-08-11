@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Iterator
 from uuid import uuid4
 
-from ai_layer.domain.security import Actor, SYSTEM_ACTOR
+from ai_layer.domain.security import SYSTEM_ACTOR, Actor
 
 _CURRENT_TOOL: ContextVar[str | None] = ContextVar("ai_layer_current_tool", default=None)
 _CURRENT_CLASS: ContextVar[str | None] = ContextVar("ai_layer_current_tool_class", default=None)
-_CURRENT_OPERATION: ContextVar["OperationContext | None"] = ContextVar(
+_CURRENT_OPERATION: ContextVar[OperationContext | None] = ContextVar(
     "ai_layer_current_operation", default=None
 )
 

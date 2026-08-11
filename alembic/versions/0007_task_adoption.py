@@ -3,8 +3,10 @@
 Revision ID: 0007_task_adoption
 Revises: 0006_hardening
 """
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0007_task_adoption"
 down_revision = "0006_hardening"
@@ -24,12 +26,16 @@ def upgrade() -> None:
     if "execution_origin" not in columns:
         op.add_column(
             "tasks",
-            sa.Column("execution_origin", sa.String(length=32), nullable=False, server_default="managed"),
+            sa.Column(
+                "execution_origin", sa.String(length=32), nullable=False, server_default="managed"
+            ),
         )
     if "adopted_changes" not in columns:
         op.add_column(
             "tasks",
-            sa.Column("adopted_changes", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
+            sa.Column(
+                "adopted_changes", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")
+            ),
         )
     # 0006 introduced this auxiliary index, but historical create_all databases could have its
     # columns without this raw PostgreSQL-only index. Reconcile it idempotently while upgrading.

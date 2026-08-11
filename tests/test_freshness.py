@@ -31,10 +31,16 @@ def test_freshness_refreshes_legacy_state_then_stays_fresh(tmp_path: Path, monke
         selected_skills=["backend"],
         file_state=current,
     )
-    monkeypatch.setattr(freshness, "scan_project", lambda db, p, root, **kwargs: calls.append(root) or stats)
+    monkeypatch.setattr(
+        freshness, "scan_project", lambda db, p, root, **kwargs: calls.append(root) or stats
+    )
 
-    first = freshness.ensure_memory_fresh(SimpleNamespace(commit=lambda: None, rollback=lambda: None), project)
-    second = freshness.ensure_memory_fresh(SimpleNamespace(commit=lambda: None, rollback=lambda: None), project)
+    first = freshness.ensure_memory_fresh(
+        SimpleNamespace(commit=lambda: None, rollback=lambda: None), project
+    )
+    second = freshness.ensure_memory_fresh(
+        SimpleNamespace(commit=lambda: None, rollback=lambda: None), project
+    )
     assert first["refreshed"] is True
     assert second["refreshed"] is False
     assert len(calls) == 1
@@ -81,7 +87,11 @@ def test_concurrent_freshness_runs_only_one_scan(tmp_path: Path, monkeypatch):
     results = []
 
     def worker():
-        results.append(freshness.ensure_memory_fresh(SimpleNamespace(commit=lambda: None, rollback=lambda: None), project))
+        results.append(
+            freshness.ensure_memory_fresh(
+                SimpleNamespace(commit=lambda: None, rollback=lambda: None), project
+            )
+        )
 
     t1 = threading.Thread(target=worker)
     t2 = threading.Thread(target=worker)
@@ -131,7 +141,9 @@ def test_freshness_does_not_advance_state_when_database_commit_fails(tmp_path: P
     assert not (memory_dir / "refresh.lock").exists()
 
 
-def test_freshness_retries_when_repository_changes_during_committed_scan(tmp_path: Path, monkeypatch):
+def test_freshness_retries_when_repository_changes_during_committed_scan(
+    tmp_path: Path, monkeypatch
+):
     project_root = tmp_path / "moving-project"
     (project_root / ".ai-layer" / "memory").mkdir(parents=True)
     project = SimpleNamespace(root_path=str(project_root))
@@ -180,7 +192,9 @@ def test_freshness_retries_when_repository_changes_during_committed_scan(tmp_pat
     assert freshness.load_file_state(project) == new
 
 
-def test_embedding_configuration_drift_forces_refresh_and_decision_reindex(tmp_path: Path, monkeypatch):
+def test_embedding_configuration_drift_forces_refresh_and_decision_reindex(
+    tmp_path: Path, monkeypatch
+):
     import json
 
     project_root = tmp_path / "embedding-drift"
@@ -193,9 +207,11 @@ def test_embedding_configuration_drift_forces_refresh_and_decision_reindex(tmp_p
         json.dumps({"embedding": {"provider": "fastembed", "model": "old", "dimensions": 384}}),
         encoding="utf-8",
     )
-    monkeypatch.setattr(freshness, "embedding_signature", lambda: {
-        "provider": "hash", "model": "hash-v1", "dimensions": 384
-    })
+    monkeypatch.setattr(
+        freshness,
+        "embedding_signature",
+        lambda: {"provider": "hash", "model": "hash-v1", "dimensions": 384},
+    )
     monkeypatch.setattr(freshness, "build_file_state", lambda root: current)
     calls = []
     stats = SimpleNamespace(
@@ -212,7 +228,9 @@ def test_embedding_configuration_drift_forces_refresh_and_decision_reindex(tmp_p
         return stats
 
     monkeypatch.setattr(freshness, "scan_project", fake_scan)
-    result = freshness.ensure_memory_fresh(SimpleNamespace(commit=lambda: None, rollback=lambda: None), project)
+    result = freshness.ensure_memory_fresh(
+        SimpleNamespace(commit=lambda: None, rollback=lambda: None), project
+    )
 
     assert result["refreshed"] is True
     assert result["reason"] == "embedding_configuration_changed"
@@ -237,7 +255,9 @@ def test_freshness_refuses_symlinked_memory_state_directory(tmp_path: Path):
         raise AssertionError("symlinked freshness state directory must be rejected")
 
 
-def test_file_state_marker_is_not_published_when_disk_write_fails_after_commit(tmp_path: Path, monkeypatch):
+def test_file_state_marker_is_not_published_when_disk_write_fails_after_commit(
+    tmp_path: Path, monkeypatch
+):
     project_root = tmp_path / "disk-failure"
     (project_root / ".ai-layer" / "memory").mkdir(parents=True)
     project = SimpleNamespace(root_path=str(project_root))
@@ -299,7 +319,9 @@ def test_scan_limit_failure_rolls_back_before_publication(tmp_path: Path, monkey
     monkeypatch.setattr(freshness, "build_file_state", over_limit)
     commits = []
     rollbacks = []
-    db = SimpleNamespace(commit=lambda: commits.append(True), rollback=lambda: rollbacks.append(True))
+    db = SimpleNamespace(
+        commit=lambda: commits.append(True), rollback=lambda: rollbacks.append(True)
+    )
 
     try:
         freshness.scan_until_stable(db, project, project_root, reason="test")
@@ -315,8 +337,11 @@ def test_scan_limit_failure_rolls_back_before_publication(tmp_path: Path, monkey
     assert not (memory_dir / freshness.SCAN_FILE).exists()
 
 
-def test_git_generation_probe_skips_full_file_walk_on_unchanged_repository(tmp_path: Path, monkeypatch):
+def test_git_generation_probe_skips_full_file_walk_on_unchanged_repository(
+    tmp_path: Path, monkeypatch
+):
     import json
+
     from ai_layer.memory.embeddings import embedding_signature
     from ai_layer.memory.versioning import CONTENT_IDENTITY_VERSION, SCANNER_SCHEMA_VERSION
 
@@ -328,13 +353,15 @@ def test_git_generation_probe_skips_full_file_walk_on_unchanged_repository(tmp_p
     probe = {"kind": "git-v1", "head": "abc", "status_sha256": "def", "dirty": {}}
     (memory_dir / "file_state.json").write_text(json.dumps(state), encoding="utf-8")
     (memory_dir / "scan.json").write_text(
-        json.dumps({
-            "files": 1,
-            "embedding": embedding_signature(),
-            "content_identity_version": CONTENT_IDENTITY_VERSION,
-            "scanner_schema": SCANNER_SCHEMA_VERSION,
-            "repository_probe": probe,
-        }),
+        json.dumps(
+            {
+                "files": 1,
+                "embedding": embedding_signature(),
+                "content_identity_version": CONTENT_IDENTITY_VERSION,
+                "scanner_schema": SCANNER_SCHEMA_VERSION,
+                "repository_probe": probe,
+            }
+        ),
         encoding="utf-8",
     )
     monkeypatch.setattr(freshness, "repository_probe", lambda root: probe)
@@ -344,7 +371,9 @@ def test_git_generation_probe_skips_full_file_walk_on_unchanged_repository(tmp_p
         lambda root: (_ for _ in ()).throw(AssertionError("full file walk must be skipped")),
     )
 
-    result = freshness.ensure_memory_fresh(SimpleNamespace(commit=lambda: None, rollback=lambda: None), project)
+    result = freshness.ensure_memory_fresh(
+        SimpleNamespace(commit=lambda: None, rollback=lambda: None), project
+    )
     assert result["refreshed"] is False
     assert result["freshness_probe"] == "git"
     assert result["files"] == 1

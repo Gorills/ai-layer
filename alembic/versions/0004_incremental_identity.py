@@ -3,8 +3,10 @@
 Revision ID: 0004_incremental_identity
 Revises: 0003_session_evidence_defaults
 """
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0004_incremental_identity"
 down_revision = "0003_session_evidence_defaults"

@@ -41,7 +41,9 @@ def get_engine():
         with _ENGINE_LOCK:
             if _engine is None:
                 settings = get_settings()
-                engine = create_engine(settings.database_url, **_engine_options(settings.database_url))
+                engine = create_engine(
+                    settings.database_url, **_engine_options(settings.database_url)
+                )
                 session_factory = sessionmaker(bind=engine, expire_on_commit=False)
                 _engine = engine
                 _SessionLocal = session_factory
@@ -91,7 +93,9 @@ def session_scope():
     db: Session = _SessionLocal()
     try:
         if interactive and db.bind is not None and db.bind.dialect.name == "postgresql":
-            db.execute(text(f"SET LOCAL statement_timeout = '{INTERACTIVE_STATEMENT_TIMEOUT_MS}ms'"))
+            db.execute(
+                text(f"SET LOCAL statement_timeout = '{INTERACTIVE_STATEMENT_TIMEOUT_MS}ms'")
+            )
         yield db
         db.commit()
         if interactive:
@@ -117,7 +121,11 @@ def database_status() -> dict:
             conn.execute(text("SELECT 1"))
             vector = False
             if engine.dialect.name == "postgresql":
-                vector = bool(conn.scalar(text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')")))
+                vector = bool(
+                    conn.scalar(
+                        text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')")
+                    )
+                )
             _close_circuit()
             return {
                 "connected": True,
@@ -126,7 +134,12 @@ def database_status() -> dict:
             }
     except Exception as exc:
         _trip_circuit(exc)
-        return {"connected": False, "pgvector": False, "error": str(exc), "circuit": database_circuit_status()}
+        return {
+            "connected": False,
+            "pgvector": False,
+            "error": str(exc),
+            "circuit": database_circuit_status(),
+        }
 
 
 def database_ready() -> bool:

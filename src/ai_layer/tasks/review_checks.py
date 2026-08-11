@@ -22,26 +22,63 @@ MAX_COMMAND_TOTAL_CHARS = 16_000
 MAX_EVIDENCE_RECORDS = 100
 MAX_EVIDENCE_FILE_BYTES = 512_000
 SECRET_ARG_HINTS = (
-    "token", "password", "passwd", "secret", "api-key", "api_key", "credential", "authorization",
+    "token",
+    "password",
+    "passwd",
+    "secret",
+    "api-key",
+    "api_key",
+    "credential",
+    "authorization",
 )
 SECRET_ENV_HINTS = (
-    "token", "password", "passwd", "secret", "api_key", "apikey", "credential", "authorization",
-    "private_key", "access_key", "client_secret",
+    "token",
+    "password",
+    "passwd",
+    "secret",
+    "api_key",
+    "apikey",
+    "credential",
+    "authorization",
+    "private_key",
+    "access_key",
+    "client_secret",
 )
 SAFE_ENV_NAMES = {
-    "PATH", "LANG", "LANGUAGE", "TERM", "TZ", "TMP", "TEMP", "TMPDIR",
-    "VIRTUAL_ENV", "CONDA_PREFIX", "CONDA_DEFAULT_ENV", "JAVA_HOME", "GOROOT", "GOPATH",
-    "GOMODCACHE", "CARGO_HOME", "RUSTUP_HOME", "NVM_DIR", "PNPM_HOME",
-    "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT",
+    "PATH",
+    "LANG",
+    "LANGUAGE",
+    "TERM",
+    "TZ",
+    "TMP",
+    "TEMP",
+    "TMPDIR",
+    "VIRTUAL_ENV",
+    "CONDA_PREFIX",
+    "CONDA_DEFAULT_ENV",
+    "JAVA_HOME",
+    "GOROOT",
+    "GOPATH",
+    "GOMODCACHE",
+    "CARGO_HOME",
+    "RUSTUP_HOME",
+    "NVM_DIR",
+    "PNPM_HOME",
+    "SYSTEMROOT",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
 }
 COMMAND_SECRET_ASSIGNMENT_RE = re.compile(
     r"(?i)((?:api[_-]?key|access[_-]?token|token|password|passwd|secret|client[_-]?secret|"
     r"access[_-]?key|private[_-]?key|credential|authorization)[\w.-]*\s*[:=]\s*)([^\s'\";,)}\]]+)"
 )
 
+
 def _is_secret_env_name(name: str) -> bool:
     normalized = name.casefold().replace("-", "_")
     return any(hint in normalized for hint in SECRET_ENV_HINTS)
+
 
 def _sensitive_values_from_environment(environment: dict[str, str]) -> list[str]:
     values = {
@@ -50,6 +87,7 @@ def _sensitive_values_from_environment(environment: dict[str, str]) -> list[str]
         if _is_secret_env_name(str(key)) and len(str(value)) >= 6
     }
     return sorted(values, key=len, reverse=True)
+
 
 def _sensitive_values_from_argv(argv: list[str]) -> list[str]:
     values: set[str] = set()
@@ -74,6 +112,7 @@ def _sensitive_values_from_argv(argv: list[str]) -> list[str]:
             if len(value) >= 6:
                 values.add(value)
     return sorted(values, key=len, reverse=True)
+
 
 def _review_environment(sandbox_root: Path) -> tuple[dict[str, str], list[str]]:
     """Build a minimal execution environment and return host secret values for output scrubbing."""
@@ -104,11 +143,13 @@ def _review_environment(sandbox_root: Path) -> tuple[dict[str, str], list[str]]:
     )
     return env, secrets
 
+
 def _redact_output(value: str, sensitive_values: list[str]) -> str:
     redacted = redact_secrets(value)
     for secret in sensitive_values:
         redacted = redacted.replace(secret, "<redacted>")
     return redacted
+
 
 def _evidence_path(project: Project, task: Task, stage: TaskStage) -> Path:
     path = project_state_path(
@@ -120,6 +161,7 @@ def _evidence_path(project: Project, task: Task, stage: TaskStage) -> Path:
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
 
 def _append_evidence(project: Project, task: Task, stage: TaskStage, payload: dict) -> None:
     path = _evidence_path(project, task, stage)
@@ -140,6 +182,7 @@ def _append_evidence(project: Project, task: Task, stage: TaskStage, payload: di
     except OSError:
         pass
 
+
 def review_check_evidence(project: Project, task: Task, stage: TaskStage) -> list[dict]:
     path = _evidence_path(project, task, stage)
     if path.is_symlink() or not path.exists():
@@ -158,6 +201,7 @@ def review_check_evidence(project: Project, task: Task, stage: TaskStage) -> lis
             result.append(value)
     return result
 
+
 def latest_review_check_evidence(records: list[dict]) -> list[dict]:
     """Return the latest result per command/cwd so a successful rerun can supersede a failure."""
     latest: dict[tuple[tuple[str, ...], str], dict] = {}
@@ -172,6 +216,7 @@ def latest_review_check_evidence(records: list[dict]) -> list[dict]:
         latest[key] = item
     return [latest[key] for key in order]
 
+
 def _safe_cwd(root: Path, relative_cwd: str | None) -> Path:
     rel = Path(relative_cwd or ".")
     if rel.is_absolute() or ".." in rel.parts:
@@ -185,6 +230,7 @@ def _safe_cwd(root: Path, relative_cwd: str | None) -> Path:
     if not candidate.is_dir():
         raise ValueError(f"review_check_run: cwd does not exist: {rel}")
     return candidate
+
 
 def _safe_command_for_evidence(argv: list[str]) -> list[str]:
     """Keep check evidence useful without durably storing obvious credential values."""
@@ -212,6 +258,7 @@ def _safe_command_for_evidence(argv: list[str]) -> list[str]:
         safe.append(redacted)
     return safe
 
+
 def run_review_check(
     project: Project,
     task: Task,
@@ -222,12 +269,16 @@ def run_review_check(
     timeout_seconds: int = 300,
 ) -> dict:
     if stage.kind not in {"review", "discovery"} or stage.status != "active":
-        raise RuntimeError("review_check_run is available only for an active discovery/review stage.")
+        raise RuntimeError(
+            "review_check_run is available only for an active discovery/review stage."
+        )
     argv = [str(item).strip() for item in command if str(item).strip()]
     if not argv:
         raise ValueError("review_check_run: command must contain at least one argv item.")
     if len(argv) > MAX_COMMAND_ARGS:
-        raise ValueError(f"review_check_run: command exceeds the {MAX_COMMAND_ARGS}-argument limit.")
+        raise ValueError(
+            f"review_check_run: command exceeds the {MAX_COMMAND_ARGS}-argument limit."
+        )
     for index, item in enumerate(argv, start=1):
         if len(item) > MAX_COMMAND_ARG_CHARS:
             raise ValueError(
@@ -309,11 +360,14 @@ def run_review_check(
         "assurance": "executed-by-ai-layer-in-disposable-working-copy",
     }
 
+
 def evidence_check_strings(records: list[dict]) -> list[str]:
     result: list[str] = []
     for item in records:
         command = " ".join(str(part) for part in (item.get("command") or []))
-        status = "PASS" if int(item.get("exit_code", 1)) == 0 and not item.get("timed_out") else "FAIL"
+        status = (
+            "PASS" if int(item.get("exit_code", 1)) == 0 and not item.get("timed_out") else "FAIL"
+        )
         result.append(
             "[ai-layer-sandbox] "
             f"{status} {command} (exit={item.get('exit_code')}, duration_ms={item.get('duration_ms')}, "

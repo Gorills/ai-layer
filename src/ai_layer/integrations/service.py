@@ -1,61 +1,50 @@
 from __future__ import annotations
 
-import json
-import os
-import re
-import shutil
-import subprocess
-import tempfile
+# Keep these stdlib module objects on the facade: compatibility tests and hosts patch them here.
+import shutil as shutil
+import subprocess as subprocess
 from pathlib import Path
 
 from ai_layer import __version__
-from ai_layer.core.config import get_settings
-from ai_layer.agents.policy import install_cursor_profiles, remove_cursor_profiles
 from ai_layer.core.paths import project_local_path, project_mode
 from ai_layer.integrations.config_files import (
-    MANAGED_END,
     MANAGED_START,
-    MCP_OWNER_KEY,
-    MCP_OWNER_VALUE,
     OWNED_FILE_MARKER,
     TOML_END,
     TOML_START,
     _assert_codex_merge_safe,
     _assert_json_mcp_merge_safe,
-    _assert_owned_file_safe,
-    _atomic_write_text,
     _legacy_owned_file,
-    _managed_server,
-    _merge_codex_config as _merge_codex_config_file,
     _merge_mcp_json,
     _remove_codex_mcp,
     _remove_json_mcp,
     _remove_managed_markdown,
     _server_is_owned,
-    _server_matches_legacy,
-    _upsert_managed_markdown,
-    _write_owned_text,
-    _write_private_backup,
-)
-from ai_layer.integrations.templates import (
-    global_bootstrap_workflow as global_bootstrap_workflow_template,
-    workflow as workflow_template,
-)
-from ai_layer.integrations.status import (
-    IntegrationStatusDependencies,
-    _json_ai_layer_server,
-    global_bootstrap_status as _global_bootstrap_status,
-    global_integration_status as _global_integration_status,
-    integration_status as _integration_status,
 )
 from ai_layer.integrations.global_install import (
     _cursor_plugin_owned,
     _merge_codex_config,
-    _write_cursor_rule,
-    install_global_integrations,
-    remove_global_integrations,
 )
-from ai_layer.integrations.runtime_config import _mcp_command, _server, _workflow
+from ai_layer.integrations.global_install import (
+    install_global_integrations as install_global_integrations,
+)
+from ai_layer.integrations.global_install import (
+    remove_global_integrations as remove_global_integrations,
+)
+from ai_layer.integrations.runtime_config import _mcp_command, _server
+from ai_layer.integrations.runtime_config import _workflow as _workflow
+from ai_layer.integrations.status import (
+    IntegrationStatusDependencies,
+)
+from ai_layer.integrations.status import (
+    global_bootstrap_status as _global_bootstrap_status,
+)
+from ai_layer.integrations.status import (
+    global_integration_status as _global_integration_status,
+)
+from ai_layer.integrations.status import (
+    integration_status as _integration_status,
+)
 from ai_layer.skills.native import (
     remove_legacy_project_bridge,
     remove_project_native_skills,
@@ -78,46 +67,6 @@ PROJECT_MCP_PATHS = (
     ".agents/mcp_config.json",
 )
 PROJECT_INTEGRATION_PATHS = PROJECT_MCP_PATHS
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def _preflight_project_integrations(
@@ -146,7 +95,9 @@ def _remove_legacy_project_rule_bridges(root: Path) -> list[str]:
         target = root / relative
         before = target.exists()
         _remove_managed_markdown(target)
-        if before and (not target.exists() or MANAGED_START not in target.read_text(encoding="utf-8")):
+        if before and (
+            not target.exists() or MANAGED_START not in target.read_text(encoding="utf-8")
+        ):
             removed.append(relative)
     cursor_rule = root / ".cursor" / "rules" / "ai-layer.mdc"
     if cursor_rule.exists() and not cursor_rule.is_symlink():
@@ -170,7 +121,9 @@ def install_project_integrations(project_root: str | Path) -> dict:
     removed_rule_bridges = _remove_legacy_project_rule_bridges(root)
     _merge_mcp_json(root / ".cursor" / "mcp.json", cursor_server)
     _merge_mcp_json(root / ".mcp.json", claude_server)
-    _merge_codex_config(root / ".codex" / "config.toml", root, command=cursor_server["command"], client="codex")
+    _merge_codex_config(
+        root / ".codex" / "config.toml", root, command=cursor_server["command"], client="codex"
+    )
     _merge_mcp_json(root / ".agents" / "mcp_config.json", antigravity_server)
 
     legacy_bridges_removed = remove_legacy_project_bridge(root)
@@ -196,7 +149,10 @@ def remove_project_integrations(project_root: str | Path) -> dict:
     cannot follow a repository-controlled symlink outside the selected project root.
     """
     root = Path(project_root).expanduser().resolve()
-    targets = {relative: project_local_path(root, relative) for relative in PROJECT_MCP_PATHS + LEGACY_PROJECT_RULE_PATHS}
+    targets = {
+        relative: project_local_path(root, relative)
+        for relative in PROJECT_MCP_PATHS + LEGACY_PROJECT_RULE_PATHS
+    }
     _remove_managed_markdown(targets["AGENTS.md"])
     _remove_managed_markdown(targets["CLAUDE.md"])
     _remove_managed_markdown(targets[".agents/rules/ai-layer.md"])
@@ -224,8 +180,6 @@ def remove_project_integrations(project_root: str | Path) -> dict:
         "legacy_skill_bridges_removed": legacy_bridges,
         "native_skills": native_skills,
     }
-
-
 
 
 def _status_dependencies() -> IntegrationStatusDependencies:

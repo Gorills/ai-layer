@@ -4,6 +4,7 @@
 The release archive ships this prebuilt wheel, so end-user installation does not
 need a floating build backend. This builder is intentionally small and auditable.
 """
+
 from __future__ import annotations
 
 import base64
@@ -57,7 +58,9 @@ def build(output_dir: Path = DIST) -> Path:
     metadata.extend(f"Requires-Dist: {dep}" for dep in project.get("dependencies", []))
     metadata.append("")
     files[f"{dist_info}/METADATA"] = "\n".join(metadata).encode()
-    files[f"{dist_info}/WHEEL"] = b"Wheel-Version: 1.0\nGenerator: ai-layer-stdlib-release-builder\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
+    files[f"{dist_info}/WHEEL"] = (
+        b"Wheel-Version: 1.0\nGenerator: ai-layer-stdlib-release-builder\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
+    )
     scripts = project.get("scripts", {})
     entry_points = ["[console_scripts]"]
     entry_points.extend(f"{name} = {target}" for name, target in sorted(scripts.items()))

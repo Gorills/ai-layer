@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,7 +17,11 @@ from ai_layer.tasks.constants import (
 from ai_layer.tasks.contracts import _bounded_text
 from ai_layer.tasks.state_store import (
     load_stage_start as _load_stage_start,
+)
+from ai_layer.tasks.state_store import (
     materialize_stage_start,
+)
+from ai_layer.tasks.state_store import (
     task_lock as _task_lock,
 )
 from ai_layer.tasks.views import _active_stage, _create_stage, _persist_task_view
@@ -165,7 +168,11 @@ def _recover_worker_stage(
         project=project,
         aggregate_type="task_stage",
         aggregate_id=str(stage.id),
-        payload={"worker_id": worker, "reason": reason, "repository_changes": drift.get("total", 0)},
+        payload={
+            "worker_id": worker,
+            "reason": reason,
+            "repository_changes": drift.get("total", 0),
+        },
     )
     append_event(
         db,

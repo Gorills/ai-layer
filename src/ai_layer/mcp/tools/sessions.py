@@ -1,14 +1,15 @@
 from __future__ import annotations
-from ai_layer.mcp.runtime import core_tool
-from ai_layer.mcp.runtime import _list, _project, _scoped, _text, project_root_for_tool
+
+from ai_layer.application.transport import application_scope as session_scope
+from ai_layer.application.transport import decision_search as search_decisions
 from ai_layer.application.transport import list_sessions as app_list_sessions
 from ai_layer.application.transport import restore_session as app_restore_session
 from ai_layer.application.transport import save_session as app_save_session
 from ai_layer.application.transport import task_current as db_current_task
 from ai_layer.audit.service import mcp_audit
+from ai_layer.mcp.runtime import _list, _project, _scoped, _text, core_tool, project_root_for_tool
 from ai_layer.privacy.service import privacy_check
-from ai_layer.application.transport import decision_search as search_decisions
-from ai_layer.application.transport import application_scope as session_scope
+
 
 def session_list(project_root: str | None = None, limit: int = 20) -> list[dict]:
     """WHEN: explicit session-history inspection/debugging. INPUT: optional project_root and limit. For normal continuation prefer session_restore(session_id="latest")."""
@@ -17,6 +18,7 @@ def session_list(project_root: str | None = None, limit: int = 20) -> list[dict]
         with session_scope() as db:
             project = _project(db, root)
             return app_list_sessions(db, project, max(1, min(limit, 50)))
+
 
 def session_restore(session_id: str = "latest", project_root: str | None = None) -> dict | None:
     """WHEN: the user asks to continue/reuse prior work or prior state matters. INPUT: session_id="latest" (default) or exact id, optional project_root. If nothing is returned, DO NOT infer previous-session work from repository code."""
@@ -28,6 +30,7 @@ def session_restore(session_id: str = "latest", project_root: str | None = None)
             item = app_restore_session(db, project, wanted)
             audit["metrics"] = {"found": item is not None}
             return _scoped(item, root) if item else None
+
 
 def session_save(
     goal: str,
@@ -47,8 +50,14 @@ def session_save(
         root,
         "session_save",
         arg_keys=[
-            "goal", "current_state", "completed_actions", "next_steps", "important_decisions",
-            "verified_facts", "notable_findings", "project_root",
+            "goal",
+            "current_state",
+            "completed_actions",
+            "next_steps",
+            "important_decisions",
+            "verified_facts",
+            "notable_findings",
+            "project_root",
         ],
     ) as audit:
         privacy = privacy_check(root)
@@ -94,6 +103,7 @@ def session_save(
                 "findings": len(findings),
             }
             return _scoped(item, root)
+
 
 def decision_search(query: str, project_root: str | None = None, limit: int = 8) -> list[dict]:
     """WHEN: REQUIRED before choosing/designing/replacing/introducing/materially changing a consequential architecture/provider/API/migration/auth/security/concurrency/persistence approach among plausible alternatives when prior rationale may matter. INPUT: query, optional project_root/limit. Searches durable Decision/session rationale only; current source belongs to host-native tools and curated project facts belong to memory_search."""

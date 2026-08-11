@@ -19,7 +19,9 @@ def _yaml_scalar(value: str) -> str:
     return f'"{escaped}"'
 
 
-def native_descriptor_name(slug: str, *, project_root: str | Path | None = None, external_scope: bool = False) -> str:
+def native_descriptor_name(
+    slug: str, *, project_root: str | Path | None = None, external_scope: bool = False
+) -> str:
     if project_root is None or not external_scope:
         return slug
     root = str(Path(project_root).expanduser().resolve())
@@ -55,7 +57,8 @@ def routing_overlap_warnings(skills: list[dict], *, threshold: float = 0.72) -> 
         slug = str(skill.get("slug") or "")
         description = str((skill.get("meta") or {}).get("description") or "")
         tokens[slug] = {
-            word for word in re.findall(r"[a-zA-Z][a-zA-Z0-9+.#_-]{2,}", description.casefold())
+            word
+            for word in re.findall(r"[a-zA-Z][a-zA-Z0-9+.#_-]{2,}", description.casefold())
             if word not in stop
         }
     warnings: list[dict] = []
@@ -113,19 +116,27 @@ def render_native_descriptor(
     scope_note = "This is a global AI Layer skill."
     if project_root is not None:
         canonical_root = str(Path(project_root).expanduser().resolve())
-        root_hint = f'`{canonical_root}`'
+        root_hint = f"`{canonical_root}`"
         scope_note = (
             f"This descriptor is project-scoped to `{canonical_root}`. "
             if not external_scope
             else f"This zero-footprint descriptor is for the exact registered project `{canonical_root}` only. "
         )
-    root_key = hashlib.sha256(str(Path(project_root).expanduser().resolve()).encode("utf-8")).hexdigest()[:10] if project_root is not None else "-"
+    root_key = (
+        hashlib.sha256(str(Path(project_root).expanduser().resolve()).encode("utf-8")).hexdigest()[
+            :10
+        ]
+        if project_root is not None
+        else "-"
+    )
     scope = "project" if project_root is not None else "global"
     marker = f"{NATIVE_MARKER} scope={scope} project={root_key} canonical={slug} -->"
     host_description = description
     if project_root is not None and external_scope:
         canonical_root = str(Path(project_root).expanduser().resolve())
-        host_description = f"{description} Activate only for the registered project at {canonical_root}."
+        host_description = (
+            f"{description} Activate only for the registered project at {canonical_root}."
+        )
     return f"""---
 name: {name}
 description: {_yaml_scalar(host_description)}

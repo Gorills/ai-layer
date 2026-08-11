@@ -42,7 +42,9 @@ def test_refresh_lock_serializes_concurrent_agents(tmp_path: Path):
     assert not (project / ".ai-layer" / "memory" / "refresh.lock").exists()
 
 
-def test_refresh_lock_recovers_confirmed_dead_owner_without_waiting_stale_timeout(tmp_path: Path, monkeypatch):
+def test_refresh_lock_recovers_confirmed_dead_owner_without_waiting_stale_timeout(
+    tmp_path: Path, monkeypatch
+):
     project = tmp_path / "dead-owner"
     lock_dir = project / ".ai-layer" / "memory" / "refresh.lock"
     lock_dir.mkdir(parents=True)
@@ -83,6 +85,7 @@ def test_refresh_lock_never_age_steals_from_known_live_owner(tmp_path: Path, mon
 
 def test_lock_owner_process_incarnation_prevents_pid_reuse_stall(tmp_path: Path, monkeypatch):
     import json
+
     from ai_layer.core import filelock
 
     lock = tmp_path / "refresh.lock"

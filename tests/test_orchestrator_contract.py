@@ -29,7 +29,9 @@ def _db_project(tmp_path: Path):
     return db, project, root
 
 
-def test_critical_orchestrator_contract_has_one_compact_global_owner_without_project_duplication(tmp_path: Path):
+def test_critical_orchestrator_contract_has_one_compact_global_owner_without_project_duplication(
+    tmp_path: Path,
+):
     project_text = workflow(tmp_path)
     global_text = global_bootstrap_workflow()
 
@@ -51,7 +53,9 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
     assert len(project_text.encode("utf-8")) < 500
 
 
-def test_task_navigation_repeats_orchestrator_contract_at_delegation_and_completion_boundary(tmp_path: Path):
+def test_task_navigation_repeats_orchestrator_contract_at_delegation_and_completion_boundary(
+    tmp_path: Path,
+):
     db, project, _root = _db_project(tmp_path)
     try:
         tasks.create_task(
@@ -83,7 +87,10 @@ def test_task_navigation_repeats_orchestrator_contract_at_delegation_and_complet
 
         after = tasks.next_task_action(db, project)
         assert after["next_action"]["action"] == "record_stage_result"
-        assert "If the worker has not actually run yet, start it now" in after["next_action"]["message"]
+        assert (
+            "If the worker has not actually run yet, start it now"
+            in after["next_action"]["message"]
+        )
         assert "completion from orchestrator-authored work" in after["next_action"]["forbidden"]
         assert "actually ran and returned" in after["next_action"]["completion_precondition"]
     finally:
@@ -95,8 +102,12 @@ def test_cursor_worker_profiles_have_explicit_role_contracts(tmp_path: Path, mon
     user_home = tmp_path / "user-home"
     install_cursor_profiles(user_home)
 
-    writable = (user_home / ".cursor" / "agents" / "ai-layer-economy-write.md").read_text(encoding="utf-8")
-    readonly = (user_home / ".cursor" / "agents" / "ai-layer-economy-readonly.md").read_text(encoding="utf-8")
+    writable = (user_home / ".cursor" / "agents" / "ai-layer-economy-write.md").read_text(
+        encoding="utf-8"
+    )
+    readonly = (user_home / ".cursor" / "agents" / "ai-layer-economy-readonly.md").read_text(
+        encoding="utf-8"
+    )
 
     assert "CRITICAL ROLE CONTRACT" in writable
     assert "delegated WRITABLE stage worker" in writable

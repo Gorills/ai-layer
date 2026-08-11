@@ -60,7 +60,28 @@ LONG_TOOLS = {
     "skill_update",
     "knowledge_draft_upsert",
 }
-TOOL_TIMEOUTS = {"fast": 5.0, "context": 6.0, "long": 120.0}
+
+# These calls may be safely issued again after a post-dispatch transport timeout. Some of them
+# perform incidental observability/freshness bookkeeping, but they do not advance task/workflow
+# state or apply user-visible mutations. Keep mutating workflow/skill/session operations out.
+REPLAY_SAFE_TOOLS = {
+    "project_info",
+    "task_current",
+    "task_next",
+    "skill_list",
+    "skill_search",
+    "skill_get",
+    "skill_info",
+    "session_list",
+    "session_restore",
+    "knowledge_list",
+    *CONTEXT_TOOLS,
+}
+
+# Fast state transitions should fail promptly. Context reads aggregate freshness, vector search,
+# history and policy, so their transport deadline must leave headroom above the 5s per-statement
+# PostgreSQL guard instead of racing it by only one second.
+TOOL_TIMEOUTS = {"fast": 5.0, "context": 15.0, "long": 120.0}
 
 _STATE_LOCK = threading.Lock()
 _RUNTIME_STATE: dict[str, Any] = {
@@ -203,13 +224,22 @@ class CoreServiceUnavailable(StructuredError):
 
 
 class CoreRequestTimeout(StructuredError):
-    def __init__(self, message: str, *, code: ErrorCode = ErrorCode.CORE_TIMEOUT_AMBIGUOUS):
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: ErrorCode = ErrorCode.CORE_TIMEOUT_AMBIGUOUS,
+        retryable: bool = False,
+        required_action: str | None = None,
+    ):
         super().__init__(
             code=code,
             category=ErrorCategory.TRANSPORT,
             message=message,
-            retryable=False,
-            required_action="Read durable task state before deciding whether replay is safe.",
+            retryable=retryable,
+            required_action=(
+                required_action or "Read durable task state before deciding whether replay is safe."
+            ),
         )
 
 
@@ -222,6 +252,22 @@ class CoreProtocolError(StructuredError):
             retryable=False,
             required_action="Verify bridge/core version and run AI Layer diagnostics before retrying.",
         )
+
+
+def _post_dispatch_timeout(tool: str, message: str) -> CoreRequestTimeout:
+    if tool in REPLAY_SAFE_TOOLS:
+        return CoreRequestTimeout(
+            message,
+            code=ErrorCode.CORE_TIMEOUT_RETRYABLE,
+            retryable=True,
+            required_action=(
+                "Retry this read-only/replay-safe tool once. If it times out again, inspect core/database "
+                "latency instead of falling back to a mutating recovery flow."
+            ),
+        )
+    return CoreRequestTimeout(
+        message + " Do not replay a mutating tool blindly; call task_next/current state to recover."
+    )
 
 
 def _rpc_request(tool: str, arguments: dict[str, Any], timeout: float) -> Any:
@@ -249,15 +295,25 @@ def _rpc_request(tool: str, arguments: dict[str, Any], timeout: float) -> Any:
             f"Core rejected bridge request for `{tool}` with HTTP {exc.code}: {detail}"
         ) from exc
     except TimeoutError as exc:
-        raise CoreRequestTimeout(
-            f"`{tool}` exceeded {timeout:g}s after dispatch. Do not replay a mutating tool blindly; "
-            "call task_next/current state to recover."
+        raise _post_dispatch_timeout(
+            tool,
+            f"`{tool}` exceeded {timeout:g}s after dispatch.",
         ) from exc
     except urllib.error.URLError as exc:
-        # Once urlopen() has been attempted, delivery is ambiguous: a connection reset can happen
-        # after the core accepted the request. Never turn this into a local replay opportunity.
+        # Once urlopen() has been attempted, delivery is ambiguous for state-changing calls. Reads
+        # are replay-safe, so expose a retryable transport error instead of mutating recovery text.
         reason = getattr(exc, "reason", None)
         detail = f"{type(reason).__name__}: {reason}" if reason is not None else str(exc)
+        if tool in REPLAY_SAFE_TOOLS:
+            raise CoreRequestTimeout(
+                f"`{tool}` lost its core RPC connection after dispatch ({detail}).",
+                code=ErrorCode.CORE_TIMEOUT_RETRYABLE,
+                retryable=True,
+                required_action=(
+                    "Retry this read-only/replay-safe tool once. If the connection keeps dropping, "
+                    "inspect/restart the persistent core."
+                ),
+            ) from exc
         raise CoreRequestTimeout(
             f"`{tool}` lost its core RPC connection after dispatch ({detail}). Do not replay a mutating tool "
             "blindly; call task_next/current state to recover.",

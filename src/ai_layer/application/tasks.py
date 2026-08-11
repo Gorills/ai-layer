@@ -3,11 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
-
 from ai_layer.core.paths import project_state_path
 from ai_layer.core.service import get_project
-from ai_layer.db.models import Task
 from ai_layer.db.session import session_scope
 from ai_layer.tasks.service import (
     adopt_task,
@@ -23,7 +20,6 @@ from ai_layer.tasks.service import (
     recover_disconnected_worker,
     resume_task,
     run_current_review_check,
-    task_to_dict,
 )
 from ai_layer.tasks.state_store import read_json
 from ai_layer.tasks.worker_leases import heartbeat_worker, reap_stale_worker_leases
@@ -33,32 +29,45 @@ def _project(db, project_root: str | Path):
     return get_project(db, project_root)
 
 
-def read_state(project_root: str | Path) -> dict:
-    """Read Task state for projections through the application query boundary.
+def read_state(project_root: str | Path, *, include_history: bool = True) -> dict:
+    """Read cheap durable Task state for projections.
 
-    Database state is authoritative. The disk projection is a degraded-read fallback only and does
-    not invent transitions when the database is unavailable.
+    This query boundary intentionally does not call the authoritative Task navigator. `task_next`
+    may inspect repository state to enforce provenance/drift guards; a Dashboard refresh must never
+    trigger those repository scans. Database state is authoritative. The disk projection is a
+    degraded-read fallback only and does not invent transitions when the database is unavailable.
     """
     resolved = Path(project_root).expanduser().resolve()
     database_error: str | None = None
     try:
         with session_scope() as db:
             project = _project(db, resolved)
-            state = current_task(db, project, include_history=True)
-            latest = db.scalar(
-                select(Task)
-                .where(Task.project_id == project.id)
-                .order_by(Task.created_at.desc())
-                .limit(1)
+            state = current_task(db, project, include_history=include_history)
+            current_payload = dict(state.get("task") or {}) if state.get("active") else None
+            latest_payload = current_payload or state.get("latest")
+            projected_next_action = state.get("next_action") or (
+                (current_payload or latest_payload or {}).get("next_action")
             )
-            navigation = next_task_action(db, project)
-            current_payload = (
-                dict(navigation.get("task") or {}) if navigation.get("active") else None
-            )
+            if (
+                current_payload is None
+                and (projected_next_action or {}).get("action") == "create_task"
+            ):
+                projected_next_action = {
+                    **dict(projected_next_action or {}),
+                    "tool": "task_create",
+                    "required": ["goal"],
+                    "optional": [
+                        "acceptance_criteria",
+                        "constraints",
+                        "workflow",
+                        "risk",
+                        "cost_policy",
+                    ],
+                }
             return {
                 "current": current_payload,
-                "latest": task_to_dict(db, latest) if latest else state.get("latest"),
-                "next_action": navigation.get("next_action"),
+                "latest": latest_payload,
+                "next_action": projected_next_action,
                 "source": "database",
             }
     except Exception as exc:

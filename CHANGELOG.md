@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.2 — Dashboard background-load fix
+
+- Removed the Dashboard projection dependency on authoritative `task_next` navigation, so passive refreshes no longer trigger repository drift/provenance scans or repository hashing.
+- Reused Task state already captured by observability snapshots and made overview Task history lightweight, eliminating duplicate per-project Task reads.
+- Replaced the project Epic list N+1/full-history expansion with a lightweight summary query containing only list-view fields.
+- Cached native skill catalog counts between project-detail polls instead of rereading every descriptor on each refresh.
+- Replaced unconditional 2-second polling with visibility-aware adaptive polling: 3 seconds while work is active, 12 seconds while idle, and no polling for hidden tabs.
+- Avoided full Dashboard DOM reconstruction when only volatile generated-at/uptime/idle counters changed.
+- No Task/Epic transition semantics, provenance guard, schema, privacy mode or verification behavior changed.
+
 ## 0.12.0 — Epics v1
 
 - Activated the protected `ai_layer.epics` capability as a durable specification/scheduling layer over the existing Task Engine, without duplicating Task stages, worker leases, repository snapshots, verification, findings or REVIEW/FIX semantics.

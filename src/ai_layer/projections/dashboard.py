@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import select
 
-from ai_layer.application.tasks import read_state as read_task_state
 from ai_layer.core.background_service import service_runtime_payload
 from ai_layer.core.mcp_runtime import runtime_state as core_runtime_state
 from ai_layer.core.registry import list_registered_projects
@@ -17,6 +17,21 @@ from ai_layer.observability.domain_events import read_structured_events
 from ai_layer.observability.events import aggregate_events, parse_ts
 from ai_layer.observability.snapshot import observability_snapshot
 from ai_layer.skills.native import native_catalog_files
+
+_NATIVE_CATALOG_COUNT_TTL_SECONDS = 30.0
+_NATIVE_CATALOG_COUNT_CACHE: dict[str, tuple[float, dict[str, int]]] = {}
+
+
+def _native_catalog_counts(root: Path) -> dict[str, int]:
+    key = str(root.expanduser().resolve())
+    now = time.monotonic()
+    cached = _NATIVE_CATALOG_COUNT_CACHE.get(key)
+    if cached is not None and now - cached[0] < _NATIVE_CATALOG_COUNT_TTL_SECONDS:
+        return dict(cached[1])
+    catalogs = native_catalog_files(root)
+    counts = {host: len(paths) for host, paths in catalogs.items()}
+    _NATIVE_CATALOG_COUNT_CACHE[key] = (now, dict(counts))
+    return counts
 
 
 def _project_key(entry: dict) -> str:
@@ -202,12 +217,12 @@ def _task_skill_state(root: Path, task: dict | None, events: list[dict]) -> dict
                 "at": event.get("ts"),
             }
         )
-    catalogs = native_catalog_files(root)
+    catalog_counts = _native_catalog_counts(root)
     return {
         "task": task.get("key") if task and task.get("status") in {"active", "blocked"} else None,
         "routing_owner": "host-native",
         "ai_layer_planner_active": False,
-        "configured_catalog": {host: len(paths) for host, paths in catalogs.items()},
+        "configured_catalog": catalog_counts,
         "observed_fetches": fetches[-20:],
         "last_context": last_context,
         "source": "native-catalog-plus-observed-skill-get",
@@ -333,7 +348,9 @@ def _durable_read_models(root: Path, task_state: dict, agents: list[dict]) -> di
 
 
 def overview_payload() -> dict:
-    snapshot = observability_snapshot(all_projects=True, include_handoff_text=False)
+    snapshot = observability_snapshot(
+        all_projects=True, include_handoff_text=False, include_task_history=False
+    )
     processes = snapshot.get("mcp_processes") or []
     projects: list[dict] = []
     timeline: list[dict] = []
@@ -356,7 +373,7 @@ def overview_payload() -> dict:
         failed = int(stats.get("failed") or 0)
         total_completed += completed
         total_failed += failed
-        task_state = read_task_state(root)
+        task_state = project.get("task_state") or {}
         current_task = task_state.get("current") or {}
         if current_task.get("status") == "active":
             active_tasks += 1
@@ -453,7 +470,7 @@ def project_payload(key: str) -> dict | None:
     agents = _processes_for_root(snapshot.get("mcp_processes") or [], root, [root])
     metrics_24h = aggregate_events(root, since_seconds=24 * 3600, recent_limit=80)
     terminal = metrics_24h["recent_terminal"]
-    task_state = read_task_state(root)
+    task_state = project.get("task_state") or {}
     skill_state = _task_skill_state(root, task_state.get("current"), terminal)
     return {
         "version": snapshot.get("version"),

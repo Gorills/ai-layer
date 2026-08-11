@@ -29,6 +29,7 @@ dev = [
   "pytest-cov>=6,<7",
   "ruff==0.16.2",
   "mypy>=1.17,<2",
+  # PyYAML does not ship the typing metadata required by the canonical mypy gate.
   "types-PyYAML",
 ]
 

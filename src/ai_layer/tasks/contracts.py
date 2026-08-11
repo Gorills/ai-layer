@@ -155,9 +155,9 @@ def _classify_task(
         if _contains_any(text, HIGH_RISK_TERMS):
             risk_level = "high"
             reasons.append("task touches a high-risk domain")
-        elif fragility == "high":
+        elif fragility in {"medium", "high"}:
             risk_level = "normal"
-            reasons.append("project scanner reports high change fragility")
+            reasons.append(f"project scanner reports {fragility} change fragility")
         elif explicit_micro:
             risk_level = "low"
             reasons.append(

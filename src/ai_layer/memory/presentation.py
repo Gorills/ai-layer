@@ -3,18 +3,41 @@ from __future__ import annotations
 import json
 
 CONTINUATION_EXACT = {
-    "continue", "resume", "carry on", "продолжай", "продолжи", "возобнови",
+    "continue",
+    "resume",
+    "carry on",
+    "продолжай",
+    "продолжи",
+    "возобнови",
 }
 CONTINUATION_VERBS = ("continue", "resume", "carry on", "продолж", "возобнов")
 CONTINUATION_OBJECTS = (
-    "task", "work", "implementation", "plan", "previous", "prior", "earlier", "yesterday",
-    "задач", "работ", "реализац", "план", "предыдущ", "прошл", "ранее", "вчера",
+    "task",
+    "work",
+    "implementation",
+    "plan",
+    "previous",
+    "prior",
+    "earlier",
+    "yesterday",
+    "задач",
+    "работ",
+    "реализац",
+    "план",
+    "предыдущ",
+    "прошл",
+    "ранее",
+    "вчера",
 )
 
 KNOWLEDGE_AUDIT_HINTS = ("audit", "review", "провер", "аудит")
 KNOWLEDGE_SCOPE_HINTS = (
-    "project knowledge", "verified knowledge", "knowledge base",
-    "баз знаний", "база знаний", "базы знаний",
+    "project knowledge",
+    "verified knowledge",
+    "knowledge base",
+    "баз знаний",
+    "база знаний",
+    "базы знаний",
 )
 COVERAGE_HINTS = ("coverage", "completeness", "полнот", "покрыт")
 CURRENT_SCANNER_STATUSES = {"fresh", "refreshed"}
@@ -66,11 +89,18 @@ def _compact_next_action(runtime: dict) -> dict:
     next_action = dict(task.get("next_action") or runtime.get("next_action") or {})
     return {
         key: next_action.get(key)
-        for key in ("action", "tool", "stage", "stage_id", "worker_id", "required", "forbidden", "message")
+        for key in (
+            "action",
+            "tool",
+            "stage",
+            "stage_id",
+            "worker_id",
+            "required",
+            "forbidden",
+            "message",
+        )
         if next_action.get(key) is not None
     }
-
-
 
 
 def compact_task_runtime(runtime: dict) -> dict:
@@ -92,6 +122,7 @@ def compact_task_runtime(runtime: dict) -> dict:
     if preexisting:
         result["preexisting_change_count"] = int(preexisting.get("total") or 0)
     return result
+
 
 def compact_audit_runtime(runtime: dict) -> dict:
     """Keep navigation authority without previous stage reasoning or completed-task internals."""
@@ -135,7 +166,9 @@ def compact_continuation_runtime(runtime: dict) -> dict:
     return result
 
 
-def compact_audit_guidance(project_root: str, mode: str, runtime: dict, *, inventory_complete: bool) -> dict:
+def compact_audit_guidance(
+    project_root: str, mode: str, runtime: dict, *, inventory_complete: bool
+) -> dict:
     return {
         "project_context": {"canonical_root": project_root},
         "next_task_action": _compact_next_action(runtime),
@@ -143,17 +176,21 @@ def compact_audit_guidance(project_root: str, mode: str, runtime: dict, *, inven
 
 
 def compact_continuation_guidance(project_root: str, runtime: dict) -> dict:
-    calls = [{
-        "tool": "session_restore",
-        "when": "continuation was explicitly requested",
-        "args": {"session_id": "latest", "project_root": project_root},
-    }]
+    calls = [
+        {
+            "tool": "session_restore",
+            "when": "continuation was explicitly requested",
+            "args": {"session_id": "latest", "project_root": project_root},
+        }
+    ]
     if runtime.get("active"):
-        calls.append({
-            "tool": "task_next",
-            "when": "resume the active managed workflow after restoring the handoff",
-            "args": {"project_root": project_root},
-        })
+        calls.append(
+            {
+                "tool": "task_next",
+                "when": "resume the active managed workflow after restoring the handoff",
+                "args": {"project_root": project_root},
+            }
+        )
     return {
         "recommended_calls": calls,
         "project_context": {"canonical_root": project_root},
@@ -202,21 +239,23 @@ def build_task_brief(mode: str, materials: dict) -> dict:
         "source_contract": "Project Knowledge is reviewed navigation/history; current repository files remain authoritative.",
     }
     if mode.startswith("knowledge_"):
-        brief.update({
-            "presentation_mode": mode,
-            "knowledge_inventory": materials["inventory"],
-            "stale_inventory": materials["stale_inventory"],
-            "inventory_complete": materials["inventory_complete"],
-            "audit_contract": {
-                "goal": (
-                    "Find material coverage gaps in existing VERIFIED Project Knowledge."
-                    if mode == "knowledge_coverage_audit"
-                    else "Independently verify factual correctness and sufficiency of VERIFIED Project Knowledge."
-                ),
-                "independence": "Previous reviewer reasoning is intentionally excluded from this context.",
-                "expand_only_when_needed": True,
-            },
-        })
+        brief.update(
+            {
+                "presentation_mode": mode,
+                "knowledge_inventory": materials["inventory"],
+                "stale_inventory": materials["stale_inventory"],
+                "inventory_complete": materials["inventory_complete"],
+                "audit_contract": {
+                    "goal": (
+                        "Find material coverage gaps in existing VERIFIED Project Knowledge."
+                        if mode == "knowledge_coverage_audit"
+                        else "Independently verify factual correctness and sufficiency of VERIFIED Project Knowledge."
+                    ),
+                    "independence": "Previous reviewer reasoning is intentionally excluded from this context.",
+                    "expand_only_when_needed": True,
+                },
+            }
+        )
     elif mode == "continuation":
         return {
             "presentation_mode": "continuation",
@@ -231,12 +270,14 @@ def build_task_brief(mode: str, materials: dict) -> dict:
             "source_contract": "Current repository source is authoritative for implementation state.",
         }
     else:
-        brief.update({
-            "verified_knowledge": materials["knowledge"],
-            "stale_knowledge": materials["stale"],
-            "relevant_decisions": materials["decisions"],
-            "source_pointers": materials["source_pointers"],
-        })
+        brief.update(
+            {
+                "verified_knowledge": materials["knowledge"],
+                "stale_knowledge": materials["stale"],
+                "relevant_decisions": materials["decisions"],
+                "source_pointers": materials["source_pointers"],
+            }
+        )
     return brief
 
 
@@ -256,13 +297,9 @@ def context_budget(
         budget_mode = "continuation_session_first+dynamic_policy+compact_runtime"
     expansion = "Use memory_search for reviewed project knowledge, decision_search for rationale, and host-native tools for code."
     if knowledge_audit:
-        expansion = (
-            "Knowledge audit: use compact inventory first; expand only concrete cards/gaps and verify with host-native source tools."
-        )
+        expansion = "Knowledge audit: use compact inventory first; expand only concrete cards/gaps and verify with host-native source tools."
     elif mode == "continuation":
-        expansion = (
-            "Continuation: restore the latest WorkSession first; do not use generic continuation text as a memory_search query."
-        )
+        expansion = "Continuation: restore the latest WorkSession first; do not use generic continuation text as a memory_search query."
     return {
         "mode": budget_mode,
         "budgeted_content_target_chars": total_target_chars,
@@ -271,10 +308,18 @@ def context_budget(
         "policy_over_soft_target": len(policy_text) > policy_soft_target_chars,
         "automatic_skill_chars": 0,
         "raw_source_memory_chars": 0,
-        "knowledge_chars": len(json.dumps(materials["knowledge"], ensure_ascii=False, sort_keys=True)),
-        "knowledge_inventory_chars": len(json.dumps(materials["inventory"], ensure_ascii=False, sort_keys=True)),
+        "knowledge_chars": len(
+            json.dumps(materials["knowledge"], ensure_ascii=False, sort_keys=True)
+        ),
+        "knowledge_inventory_chars": len(
+            json.dumps(materials["inventory"], ensure_ascii=False, sort_keys=True)
+        ),
         "history_chars": len(json.dumps(materials["history"], ensure_ascii=False, sort_keys=True)),
-        "decision_brief_chars": len(json.dumps(materials["decisions"], ensure_ascii=False, sort_keys=True)),
-        "scanner_evidence_chars": len(json.dumps(materials["scanner_evidence"], ensure_ascii=False, sort_keys=True)),
+        "decision_brief_chars": len(
+            json.dumps(materials["decisions"], ensure_ascii=False, sort_keys=True)
+        ),
+        "scanner_evidence_chars": len(
+            json.dumps(materials["scanner_evidence"], ensure_ascii=False, sort_keys=True)
+        ),
         "expansion": expansion,
     }

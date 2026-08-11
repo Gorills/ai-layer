@@ -1,6 +1,13 @@
 from __future__ import annotations
 from ai_layer.mcp.runtime import core_tool
-from ai_layer.mcp.runtime import _compact_open_transition, _list, _project, _scoped, _text, project_root_for_tool
+from ai_layer.mcp.runtime import (
+    _compact_open_transition,
+    _list,
+    _project,
+    _scoped,
+    _text,
+    project_root_for_tool,
+)
 from ai_layer.application.transport import task_adopt as db_adopt_task
 from ai_layer.application.transport import task_cancel as db_cancel_task
 from ai_layer.application.transport import cleanup_review_sandbox as db_cleanup_review_sandbox
@@ -18,10 +25,13 @@ from ai_layer.audit.service import mcp_audit
 from ai_layer.application.transport import application_scope as session_scope
 import shlex
 
+
 def task_current(project_root: str | None = None) -> dict:
     """WHEN: recover/inspect the durable task position after restart, context loss, or before delegation. INPUT: optional project_root. RETURNS the one open task and exact next sequential stage, or create_task guidance. Does not mutate repository or task state."""
     root = project_root_for_tool(project_root, tool="task_current")
-    with mcp_audit(root, "task_current", arg_keys=["project_root"] if project_root else []) as audit:
+    with mcp_audit(
+        root, "task_current", arg_keys=["project_root"] if project_root else []
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = db_current_task(db, project, include_history=False)
@@ -32,6 +42,7 @@ def task_current(project_root: str | None = None) -> dict:
             }
             return _scoped(result, root)
 
+
 def task_next(project_root: str | None = None) -> dict:
     """PRIMARY WORKFLOW NAVIGATOR. WHEN: after memory_context, after every task transition, after a worker returns, or after context loss. RETURNS exactly one next allowed action, forbidden actions, and the stage-specific tool/schema when applicable. Do not infer the next step from chat history."""
     root = project_root_for_tool(project_root, tool="task_next")
@@ -39,7 +50,9 @@ def task_next(project_root: str | None = None) -> dict:
         with session_scope() as db:
             project = _project(db, root)
             result = db_next_task_action(db, project)
-            next_action = result.get("next_action") or ((result.get("task") or {}).get("next_action")) or {}
+            next_action = (
+                result.get("next_action") or ((result.get("task") or {}).get("next_action")) or {}
+            )
             audit["metrics"] = {
                 "active": bool(result.get("active")),
                 "state": result.get("state"),
@@ -48,15 +61,22 @@ def task_next(project_root: str | None = None) -> dict:
             }
             return _scoped(result, root)
 
+
 def review_sandbox_prepare(project_root: str | None = None) -> dict:
     """WHEN: the active delegated reviewer needs to run checks that may write files. Creates/reuses a disposable copy of the current working tree outside the canonical repository. This is filesystem/workspace isolation for normal test artifacts, not a security sandbox against malicious commands."""
     root = project_root_for_tool(project_root, tool="review_sandbox_prepare")
-    with mcp_audit(root, "review_sandbox_prepare", arg_keys=["project_root"] if project_root else []) as audit:
+    with mcp_audit(
+        root, "review_sandbox_prepare", arg_keys=["project_root"] if project_root else []
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = db_prepare_review_sandbox(db, project)
-            audit["metrics"] = {"stage_id": result.get("stage_id"), "reused": bool(result.get("reused"))}
+            audit["metrics"] = {
+                "stage_id": result.get("stage_id"),
+                "reused": bool(result.get("reused")),
+            }
             return _scoped(result, root)
+
 
 def review_check_run(
     command: list[str] | str,
@@ -103,27 +123,39 @@ def verification_run(
     argv = shlex.split(command) if isinstance(command, str) else _list(command)
     if not argv:
         raise ValueError("verification_run: `command` is required; pass argv as a list.")
-    with mcp_audit(root, "verification_run", arg_keys=["command", "cwd", "timeout_seconds", "project_root"]) as audit:
+    with mcp_audit(
+        root, "verification_run", arg_keys=["command", "cwd", "timeout_seconds", "project_root"]
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = db_run_verification(
-                db, project, command=argv, cwd=cwd, timeout_seconds=max(1, min(int(timeout_seconds), 900))
+                db,
+                project,
+                command=argv,
+                cwd=cwd,
+                timeout_seconds=max(1, min(int(timeout_seconds), 900)),
             )
             audit["metrics"] = {
-                "ok": bool(result.get("ok")), "assurance": result.get("assurance"),
-                "exit_code": result.get("exit_code"), "verification_id": result.get("id"),
+                "ok": bool(result.get("ok")),
+                "assurance": result.get("assurance"),
+                "exit_code": result.get("exit_code"),
+                "verification_id": result.get("id"),
             }
             return _scoped(result, root)
+
 
 def review_sandbox_cleanup(project_root: str | None = None) -> dict:
     """WHEN: the delegated reviewer is done with disposable verification files. Safe to omit on normal task_stage_complete because AI Layer also performs best-effort cleanup automatically."""
     root = project_root_for_tool(project_root, tool="review_sandbox_cleanup")
-    with mcp_audit(root, "review_sandbox_cleanup", arg_keys=["project_root"] if project_root else []) as audit:
+    with mcp_audit(
+        root, "review_sandbox_cleanup", arg_keys=["project_root"] if project_root else []
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = db_cleanup_review_sandbox(db, project)
             audit["metrics"] = {"removed": bool(result.get("removed"))}
             return _scoped(result, root)
+
 
 def task_create(
     goal: str,
@@ -144,7 +176,17 @@ def task_create(
     with mcp_audit(
         root,
         "task_create",
-        arg_keys=["goal", "acceptance_criteria", "constraints", "workflow", "risk", "complexity", "uncertainty", "cost_policy", "project_root"],
+        arg_keys=[
+            "goal",
+            "acceptance_criteria",
+            "constraints",
+            "workflow",
+            "risk",
+            "complexity",
+            "uncertainty",
+            "cost_policy",
+            "project_root",
+        ],
     ) as audit:
         with session_scope() as db:
             project = _project(db, root)
@@ -172,6 +214,7 @@ def task_create(
                 "preexisting_paths": (result.get("preexisting_changes") or {}).get("total", 0),
             }
             return _scoped(result, root)
+
 
 def task_adopt(
     goal: str,
@@ -205,18 +248,29 @@ def task_adopt(
             }
             return _scoped(result, root)
 
+
 def task_stage_delegate(
-    worker_id: str, project_root: str | None = None, actual_model: str | None = None,
+    worker_id: str,
+    project_root: str | None = None,
+    actual_model: str | None = None,
     model_assurance: str = "requested_unverified",
 ) -> dict:
     """WHEN: task_next says delegate_stage. INPUT: one fresh worker_id label only. AI Layer binds that worker BEFORE repository mutation and refuses delegation if undelegated repository changes already appeared. RETURNS the compact worker contract, requested cost/model tier/profile, and exact stage-specific completion contract. Use the requested host profile when available instead of inheriting the parent model blindly."""
     root = project_root_for_tool(project_root, tool="task_stage_delegate")
     worker_id = _text(worker_id, tool="task_stage_delegate", field="worker_id")
-    with mcp_audit(root, "task_stage_delegate", arg_keys=["worker_id", "actual_model", "model_assurance", "project_root"]) as audit:
+    with mcp_audit(
+        root,
+        "task_stage_delegate",
+        arg_keys=["worker_id", "actual_model", "model_assurance", "project_root"],
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = db_delegate_current_stage(
-                db, project, worker_id=worker_id, actual_model=actual_model, model_assurance=model_assurance,
+                db,
+                project,
+                worker_id=worker_id,
+                actual_model=actual_model,
+                model_assurance=model_assurance,
             )
             result = _compact_open_transition(db, project, result)
             audit["metrics"] = {
@@ -226,6 +280,7 @@ def task_stage_delegate(
                 "idempotent": bool(result.get("delegation_idempotent")),
             }
             return _scoped(result, root)
+
 
 def task_discovery_complete(
     summary: str,
@@ -248,20 +303,42 @@ def task_discovery_complete(
         "proposed_plan": _list(proposed_plan),
         "proposed_acceptance_criteria": _list(proposed_acceptance_criteria),
     }
-    with mcp_audit(root, "task_discovery_complete", arg_keys=["summary", "checks", "outcome", "verified_facts", "risks", "proposed_plan", "proposed_acceptance_criteria", "external_actions", "project_root"]) as audit:
+    with mcp_audit(
+        root,
+        "task_discovery_complete",
+        arg_keys=[
+            "summary",
+            "checks",
+            "outcome",
+            "verified_facts",
+            "risks",
+            "proposed_plan",
+            "proposed_acceptance_criteria",
+            "external_actions",
+            "project_root",
+        ],
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = db_complete_current_stage(
-                db, project, expected_kind="discovery", summary=summary, checks=check_items,
-                outcome=outcome, external_actions=external_actions, result_data=result_data,
+                db,
+                project,
+                expected_kind="discovery",
+                summary=summary,
+                checks=check_items,
+                outcome=outcome,
+                external_actions=external_actions,
+                result_data=result_data,
             )
             result = _compact_open_transition(db, project, result)
             audit["metrics"] = {
-                "task": result.get("key"), "status": result.get("status"),
+                "task": result.get("key"),
+                "status": result.get("status"),
                 "next_stage": (result.get("active_stage") or {}).get("kind"),
                 "workflow_profile": result.get("workflow_profile"),
             }
             return _scoped(result, root)
+
 
 def task_implementation_complete(
     summary: str,
@@ -274,7 +351,11 @@ def task_implementation_complete(
     root = project_root_for_tool(project_root, tool="task_implementation_complete")
     summary = _text(summary, tool="task_implementation_complete", field="summary")
     check_items = _list(checks)
-    with mcp_audit(root, "task_implementation_complete", arg_keys=["summary", "checks", "outcome", "external_actions", "project_root"]) as audit:
+    with mcp_audit(
+        root,
+        "task_implementation_complete",
+        arg_keys=["summary", "checks", "outcome", "external_actions", "project_root"],
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = db_complete_current_stage(
@@ -295,6 +376,7 @@ def task_implementation_complete(
             }
             return _scoped(result, root)
 
+
 def task_review_complete(
     summary: str,
     checks: list[str] | str | None = None,
@@ -308,7 +390,19 @@ def task_review_complete(
     root = project_root_for_tool(project_root, tool="task_review_complete")
     summary = _text(summary, tool="task_review_complete", field="summary")
     check_items = _list(checks)
-    with mcp_audit(root, "task_review_complete", arg_keys=["summary", "checks", "verdict", "findings", "verification_results", "external_actions", "project_root"]) as audit:
+    with mcp_audit(
+        root,
+        "task_review_complete",
+        arg_keys=[
+            "summary",
+            "checks",
+            "verdict",
+            "findings",
+            "verification_results",
+            "external_actions",
+            "project_root",
+        ],
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = db_complete_current_stage(
@@ -332,6 +426,7 @@ def task_review_complete(
             }
             return _scoped(result, root)
 
+
 def task_fix_complete(
     summary: str,
     checks: list[str] | str | None = None,
@@ -343,7 +438,11 @@ def task_fix_complete(
     root = project_root_for_tool(project_root, tool="task_fix_complete")
     summary = _text(summary, tool="task_fix_complete", field="summary")
     check_items = _list(checks)
-    with mcp_audit(root, "task_fix_complete", arg_keys=["summary", "checks", "outcome", "external_actions", "project_root"]) as audit:
+    with mcp_audit(
+        root,
+        "task_fix_complete",
+        arg_keys=["summary", "checks", "outcome", "external_actions", "project_root"],
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = db_complete_current_stage(
@@ -363,6 +462,7 @@ def task_fix_complete(
                 "handoff_written": bool(result.get("handoff_session_id")),
             }
             return _scoped(result, root)
+
 
 def task_stage_complete(
     stage_id: str,
@@ -385,7 +485,18 @@ def task_stage_complete(
     with mcp_audit(
         root,
         "task_stage_complete",
-        arg_keys=["stage_id", "worker_id", "summary", "checks", "outcome", "verdict", "findings", "verification_results", "external_actions", "project_root"],
+        arg_keys=[
+            "stage_id",
+            "worker_id",
+            "summary",
+            "checks",
+            "outcome",
+            "verdict",
+            "findings",
+            "verification_results",
+            "external_actions",
+            "project_root",
+        ],
     ) as audit:
         with session_scope() as db:
             project = _project(db, root)
@@ -429,6 +540,7 @@ def task_resume(project_root: str | None = None) -> dict:
                 "stage": (result.get("active_stage") or {}).get("kind"),
             }
             return _scoped(result, root)
+
 
 def task_cancel(reason: str, project_root: str | None = None) -> dict:
     """WHEN: the user/orchestrator explicitly abandons the current active or blocked task. INPUT: reason required. This is not a shortcut around review or blockers."""

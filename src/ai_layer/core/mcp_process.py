@@ -201,9 +201,7 @@ def _is_our_mcp_process(entry: Path, uid: int, exclude_pid: int) -> bool:
     # Match an argv token basename exactly. The old substring check could terminate an unrelated
     # same-user process whose argument merely mentioned "ai-layer-mcp".
     tokens = [
-        Path(part.decode("utf-8", errors="replace")).name
-        for part in raw.split(b"\x00")
-        if part
+        Path(part.decode("utf-8", errors="replace")).name for part in raw.split(b"\x00") if part
     ]
     return "ai-layer-mcp" in tokens
 

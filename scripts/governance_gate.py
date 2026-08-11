@@ -4,6 +4,7 @@
 This gate deliberately does not pretend that hashes stored in the same writable repository are a
 security boundary. CI/protected branches and a release signer are the production trust boundary.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,7 +60,11 @@ def run_gate() -> dict:
     try:
         baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
     except Exception as exc:
-        return {"ok": False, "errors": [f"governance baseline unavailable: {exc}"], "protected_files": len(expected["protected"])}
+        return {
+            "ok": False,
+            "errors": [f"governance baseline unavailable: {exc}"],
+            "protected_files": len(expected["protected"]),
+        }
     if baseline.get("schema") != 1:
         errors.append("governance baseline schema mismatch")
     if baseline.get("policy_sha256") != expected["policy_sha256"]:
@@ -85,7 +90,11 @@ def run_gate() -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", action="store_true")
-    parser.add_argument("--write-baseline", action="store_true", help="Maintainer-only: acknowledge reviewed governance changes.")
+    parser.add_argument(
+        "--write-baseline",
+        action="store_true",
+        help="Maintainer-only: acknowledge reviewed governance changes.",
+    )
     args = parser.parse_args()
     if args.write_baseline:
         payload = build_baseline()

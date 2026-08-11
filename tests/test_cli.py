@@ -82,7 +82,9 @@ def test_machine_upgrade_does_not_sync_projects_after_failed_migration(monkeypat
     monkeypatch.setattr(cli, "_install_global_files", lambda force=False: {})
     monkeypatch.setattr(cli, "install_global_integrations", lambda: {})
     monkeypatch.setattr(cli, "start_database", lambda: {"ok": True})
-    monkeypatch.setattr(cli, "migrate_database", lambda: (_ for _ in ()).throw(RuntimeError("migration failed")))
+    monkeypatch.setattr(
+        cli, "migrate_database", lambda: (_ for _ in ()).throw(RuntimeError("migration failed"))
+    )
     monkeypatch.setattr(cli, "database_health", lambda: {"connected": True, "pgvector": True})
     monkeypatch.setattr(cli, "write_install_state", lambda payload: payload)
     monkeypatch.setattr(
@@ -154,18 +156,24 @@ def test_doctor_treats_stale_mcp_as_warning_not_upgrade_blocker(monkeypatch, tmp
     monkeypatch.setattr(cli, "get_settings", lambda: settings)
     monkeypatch.setattr(cli, "docker_compose_available", lambda: (True, "/usr/bin/docker"))
     monkeypatch.setattr(cli, "database_health", lambda: {"connected": True, "pgvector": True})
-    monkeypatch.setattr(cli, "global_integration_status", lambda: {
-        "cursor": {"ready": True},
-        "antigravity": {"ready": True},
-        "codex": {"ready": True},
-    })
+    monkeypatch.setattr(
+        cli,
+        "global_integration_status",
+        lambda: {
+            "cursor": {"ready": True},
+            "antigravity": {"ready": True},
+            "codex": {"ready": True},
+        },
+    )
     monkeypatch.setattr(cli, "list_registered_projects", lambda: [])
-    monkeypatch.setattr(cli, "list_mcp_processes", lambda: [
-        {"pid": 1234, "version": "0.1.5.1", "version_match": False}
-    ])
+    monkeypatch.setattr(
+        cli,
+        "list_mcp_processes",
+        lambda: [{"pid": 1234, "version": "0.1.5.1", "version_match": False}],
+    )
     monkeypatch.setattr(cli, "read_install_state", lambda: {"version": "0.1.6"})
 
-    result = CliRunner().invoke(app, ["doctor", "--all-projects"] )
+    result = CliRunner().invoke(app, ["doctor", "--all-projects"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["ok"] is True
@@ -173,7 +181,9 @@ def test_doctor_treats_stale_mcp_as_warning_not_upgrade_blocker(monkeypatch, tmp
     assert stale and stale[0]["severity"] == "warning"
 
 
-def test_audit_check_cli_treats_duplicate_context_as_tool_economy_warning(tmp_path: Path, monkeypatch):
+def test_audit_check_cli_treats_duplicate_context_as_tool_economy_warning(
+    tmp_path: Path, monkeypatch
+):
     from ai_layer.audit.service import mcp_audit
     from ai_layer.core.config import get_settings
     from ai_layer.core.registry import register_project
@@ -195,7 +205,9 @@ def test_audit_check_cli_treats_duplicate_context_as_tool_economy_warning(tmp_pa
     assert payload["warnings"][0]["code"] == "tool_economy"
 
 
-def test_global_config_repairs_permissions_even_when_content_is_unchanged(monkeypatch, tmp_path: Path):
+def test_global_config_repairs_permissions_even_when_content_is_unchanged(
+    monkeypatch, tmp_path: Path
+):
     import importlib
     import os
     from types import SimpleNamespace
@@ -247,18 +259,24 @@ def test_doctor_machine_only_ignores_registered_project_health(monkeypatch, tmp_
     monkeypatch.setattr(cli, "get_settings", lambda: settings)
     monkeypatch.setattr(cli, "docker_compose_available", lambda: (True, "/usr/bin/docker"))
     monkeypatch.setattr(cli, "database_health", lambda: {"connected": True, "pgvector": True})
-    monkeypatch.setattr(cli, "global_integration_status", lambda: {
-        "cursor": {"ready": True},
-        "antigravity": {"ready": True},
-        "codex": {"ready": True},
-    })
+    monkeypatch.setattr(
+        cli,
+        "global_integration_status",
+        lambda: {
+            "cursor": {"ready": True},
+            "antigravity": {"ready": True},
+            "codex": {"ready": True},
+        },
+    )
     monkeypatch.setattr(cli, "list_registered_projects", lambda: [{"root": str(bad_project)}])
     monkeypatch.setattr(cli, "list_mcp_processes", lambda: [])
     monkeypatch.setattr(cli, "read_install_state", lambda: {"version": "0.1.6.2"})
     monkeypatch.setattr(
         cli,
         "integration_status",
-        lambda root: (_ for _ in ()).throw(AssertionError("machine-only doctor must not inspect projects")),
+        lambda root: (_ for _ in ()).throw(
+            AssertionError("machine-only doctor must not inspect projects")
+        ),
     )
 
     result = CliRunner().invoke(app, ["doctor", "--machine-only"])
@@ -331,7 +349,9 @@ def test_registry_hydration_skips_missing_database_roots(monkeypatch, tmp_path: 
 
     registered = []
     monkeypatch.setattr(cli, "session_scope", fake_session_scope)
-    monkeypatch.setattr(cli, "register_project", lambda root, project_id, name: registered.append(str(root)))
+    monkeypatch.setattr(
+        cli, "register_project", lambda root, project_id, name: registered.append(str(root))
+    )
 
     result = cli.hydrate_registry_from_database()
 
@@ -377,7 +397,9 @@ def test_projects_remove_requires_explicit_yes():
     assert "--yes is required" in result.output
 
 
-def test_doctor_overlap_is_error_and_nonzero_even_when_both_projects_are_otherwise_ready(monkeypatch, tmp_path: Path):
+def test_doctor_overlap_is_error_and_nonzero_even_when_both_projects_are_otherwise_ready(
+    monkeypatch, tmp_path: Path
+):
     import importlib
     from types import SimpleNamespace
 
@@ -433,7 +455,11 @@ def test_doctor_overlap_is_error_and_nonzero_even_when_both_projects_are_otherwi
         assert result.exit_code == 1, result.output
         payload = json.loads(result.output)
         assert payload["ok"] is False
-        overlap = [issue for issue in payload["issues"] if "overlapping project registrations" in issue["problem"]]
+        overlap = [
+            issue
+            for issue in payload["issues"]
+            if "overlapping project registrations" in issue["problem"]
+        ]
         assert len(overlap) == 1
         assert overlap[0]["severity"] == "error"
         assert "ai-layer repair" in overlap[0]["action"]
@@ -456,15 +482,17 @@ def test_machine_upgrade_runs_project_repair_after_successful_migration(monkeypa
     monkeypatch.setattr(
         cli,
         "repair_registered_projects",
-        lambda sync=True: calls.append(sync)
-        or {
-            "ok": True,
-            "projects_checked": 2,
-            "projects_healthy": 2,
-            "nested_detached": 1,
-            "projects": [],
-            "unresolved": [],
-        },
+        lambda sync=True: (
+            calls.append(sync)
+            or {
+                "ok": True,
+                "projects_checked": 2,
+                "projects_healthy": 2,
+                "nested_detached": 1,
+                "projects": [],
+                "unresolved": [],
+            }
+        ),
     )
 
     result = cli._machine_upgrade(force=False, skip_db=False, sync_projects=True)
@@ -472,7 +500,12 @@ def test_machine_upgrade_runs_project_repair_after_successful_migration(monkeypa
     assert calls == [True]
     assert result["machine_upgrade_ok"] is True
     assert result["project_repair"]["nested_detached"] == 1
-    assert result["project_sync"] == {"total": 2, "ok": 2, "failed": 0, "managed_by": "project_repair"}
+    assert result["project_sync"] == {
+        "total": 2,
+        "ok": 2,
+        "failed": 0,
+        "managed_by": "project_repair",
+    }
 
 
 def test_machine_upgrade_is_degraded_when_registered_project_repair_fails(monkeypatch):
@@ -551,7 +584,10 @@ def test_skill_cli_add_project_scope_stays_outside_repository(tmp_path: Path, mo
     project = tmp_path / "repo"
     project.mkdir()
     source = tmp_path / "custom.md"
-    source.write_text("---\nslug: repo-specific-contract\ndescription: Repository-specific implementation conventions, architecture constraints, local workflows and safe change guidance for this project.\n---\n# Custom Project Skill\n\n## Core contract\n\nPreserve project-specific behavior.\n", encoding="utf-8")
+    source.write_text(
+        "---\nslug: repo-specific-contract\ndescription: Repository-specific implementation conventions, architecture constraints, local workflows and safe change guidance for this project.\n---\n# Custom Project Skill\n\n## Core contract\n\nPreserve project-specific behavior.\n",
+        encoding="utf-8",
+    )
     monkeypatch.setenv("AI_LAYER_HOME", str(home))
     get_settings.cache_clear()
     try:
@@ -560,8 +596,18 @@ def test_skill_cli_add_project_scope_stays_outside_repository(tmp_path: Path, mo
         result = CliRunner().invoke(
             app,
             [
-                "skill", "add", str(source), "--scope", "project", "--project", str(project),
-                "--slug", "repo-specific-contract", "--task-term", "repo-contract", "--approve",
+                "skill",
+                "add",
+                str(source),
+                "--scope",
+                "project",
+                "--project",
+                str(project),
+                "--slug",
+                "repo-specific-contract",
+                "--task-term",
+                "repo-contract",
+                "--approve",
             ],
         )
         assert result.exit_code == 0, result.output

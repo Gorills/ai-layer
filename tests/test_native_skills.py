@@ -85,7 +85,9 @@ def test_project_skill_materializes_once_in_standard_workspace(tmp_path, monkeyp
         assert not (project / ".cursor" / "skills" / "ai-layer" / "SKILL.md").exists()
         assert not (project / ".claude" / "skills" / "ai-layer" / "SKILL.md").exists()
 
-        set_skill_enabled("food-iiko-order-rules", scope="project", enabled=False, project_root=project)
+        set_skill_enabled(
+            "food-iiko-order-rules", scope="project", enabled=False, project_root=project
+        )
         assert not target.exists()
     finally:
         get_settings.cache_clear()
@@ -100,7 +102,13 @@ def test_strict_private_project_skill_uses_namespaced_global_descriptor_only(tmp
     monkeypatch.setenv("HOME", str(home))
     get_settings.cache_clear()
     try:
-        register_project(project, project_id=str(uuid.uuid4()), name="repo", mode="strict-private", provenance="forbid")
+        register_project(
+            project,
+            project_id=str(uuid.uuid4()),
+            name="repo",
+            mode="strict-private",
+            provenance="forbid",
+        )
         create_project_skill(
             project,
             slug="private-release",
@@ -131,12 +139,17 @@ def test_native_catalog_quality_gate_rejects_generic_description(tmp_path, monke
         broken["meta"] = {**skill["meta"], "description": "Useful for software development."}
         result = validate_native_catalog([broken])
         assert result["ok"] is False
-        assert any("generic" in issue["problem"] or "short" in issue["problem"] for issue in result["issues"])
+        assert any(
+            "generic" in issue["problem"] or "short" in issue["problem"]
+            for issue in result["issues"]
+        )
     finally:
         get_settings.cache_clear()
 
 
-def test_upgrade_skips_legacy_invalid_custom_skill_without_blocking_native_catalog(tmp_path, monkeypatch):
+def test_upgrade_skips_legacy_invalid_custom_skill_without_blocking_native_catalog(
+    tmp_path, monkeypatch
+):
     home = tmp_path / "home"
     state = home / ".ai-layer"
     monkeypatch.setenv("AI_LAYER_HOME", str(state))

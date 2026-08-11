@@ -3,6 +3,7 @@
 Revision ID: 0001_initial
 Revises:
 """
+
 from alembic import op
 import sqlalchemy as sa
 from pgvector.sqlalchemy import VECTOR
@@ -15,7 +16,8 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
-    op.create_table("projects",
+    op.create_table(
+        "projects",
         sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("root_path", sa.Text(), nullable=False, unique=True),
@@ -25,9 +27,15 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_table("project_files",
+    op.create_table(
+        "project_files",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("project_id", sa.Uuid(), sa.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "project_id",
+            sa.Uuid(),
+            sa.ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("path", sa.Text(), nullable=False),
         sa.Column("language", sa.String(64)),
         sa.Column("purpose", sa.Text(), nullable=False),
@@ -38,9 +46,15 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.UniqueConstraint("project_id", "path", name="uq_project_file_path"),
     )
-    op.create_table("knowledge",
+    op.create_table(
+        "knowledge",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("project_id", sa.Uuid(), sa.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "project_id",
+            sa.Uuid(),
+            sa.ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("kind", sa.String(64), nullable=False),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
@@ -51,10 +65,18 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
     op.create_index("ix_knowledge_project_kind", "knowledge", ["project_id", "kind"])
-    op.execute("CREATE INDEX IF NOT EXISTS ix_knowledge_embedding_hnsw ON knowledge USING hnsw (embedding vector_cosine_ops)")
-    op.create_table("decisions",
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_knowledge_embedding_hnsw ON knowledge USING hnsw (embedding vector_cosine_ops)"
+    )
+    op.create_table(
+        "decisions",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("project_id", sa.Uuid(), sa.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "project_id",
+            sa.Uuid(),
+            sa.ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("context", sa.Text(), nullable=False),
         sa.Column("decision", sa.Text(), nullable=False),
@@ -62,9 +84,15 @@ def upgrade() -> None:
         sa.Column("embedding", VECTOR(384), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_table("sessions",
+    op.create_table(
+        "sessions",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("project_id", sa.Uuid(), sa.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "project_id",
+            sa.Uuid(),
+            sa.ForeignKey("projects.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("goal", sa.Text(), nullable=False),
         sa.Column("completed_actions", sa.JSON(), nullable=False),
         sa.Column("current_state", sa.Text(), nullable=False),
@@ -72,8 +100,14 @@ def upgrade() -> None:
         sa.Column("important_decisions", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_table("project_skills",
-        sa.Column("project_id", sa.Uuid(), sa.ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True),
+    op.create_table(
+        "project_skills",
+        sa.Column(
+            "project_id",
+            sa.Uuid(),
+            sa.ForeignKey("projects.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
         sa.Column("skill_slug", sa.String(128), primary_key=True),
         sa.Column("reason", sa.Text(), nullable=False),
     )

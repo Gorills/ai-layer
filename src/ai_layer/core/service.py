@@ -21,7 +21,12 @@ from ai_layer.core.paths import (
     project_provenance,
     require_initialized,
 )
-from ai_layer.core.registry import get_registered_project, overlapping_registered_projects, register_project, unregister_project
+from ai_layer.core.registry import (
+    get_registered_project,
+    overlapping_registered_projects,
+    register_project,
+    unregister_project,
+)
 from ai_layer.db.models import Project, ProjectSkill
 from ai_layer.integrations.service import (
     INTEGRATION_TEMPLATE_VERSION,
@@ -38,7 +43,11 @@ from ai_layer.memory.freshness import (
 from ai_layer.memory.locking import project_refresh_lock
 from ai_layer.memory.knowledge_store import knowledge_status
 from ai_layer.observability.events import observed_operation
-from ai_layer.privacy.service import is_git_repository, install_git_privacy_guard, remove_git_privacy_guard
+from ai_layer.privacy.service import (
+    is_git_repository,
+    install_git_privacy_guard,
+    remove_git_privacy_guard,
+)
 from ai_layer.skills.native import sync_project_native_skills
 
 PROJECT_RULES = """# Project-specific rules
@@ -81,7 +90,9 @@ def _ensure_rules(meta: Path) -> None:
         raise RuntimeError(f"Refusing symlinked AI Layer project policy: {rules_path}")
     if rules_path.exists():
         return
-    fd, temp_name = tempfile.mkstemp(prefix=rules_path.name + ".", suffix=".tmp", dir=rules_path.parent)
+    fd, temp_name = tempfile.mkstemp(
+        prefix=rules_path.name + ".", suffix=".tmp", dir=rules_path.parent
+    )
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(PROJECT_RULES)
@@ -93,7 +104,9 @@ def _ensure_rules(meta: Path) -> None:
         Path(temp_name).unlink(missing_ok=True)
 
 
-def get_project(db: Session, root: str | Path | None = None, required: bool = True) -> Project | None:
+def get_project(
+    db: Session, root: str | Path | None = None, required: bool = True
+) -> Project | None:
     path = normalize_root(root)
     project = db.scalar(select(Project).where(Project.root_path == str(path)))
     if required and project is None:
@@ -125,7 +138,9 @@ def sync_project_integrations(root: str | Path | None = None) -> dict:
             if mode == "strict-private":
                 guard = install_git_privacy_guard(path)
                 if not guard.get("ready", False):
-                    raise RuntimeError(f"Strict-private Git privacy guard is not ready: {guard.get('reason') or guard}")
+                    raise RuntimeError(
+                        f"Strict-private Git privacy guard is not ready: {guard.get('reason') or guard}"
+                    )
                 result["git_guard"] = guard
             else:
                 remove_git_privacy_guard(path)
@@ -217,7 +232,11 @@ def init_project(
         os.chmod(meta, 0o700)
     except OSError:
         pass
-    if mode in {"external", "strict-private"} and local_meta.exists() and local_meta.resolve() != meta.resolve():
+    if (
+        mode in {"external", "strict-private"}
+        and local_meta.exists()
+        and local_meta.resolve() != meta.resolve()
+    ):
         symlinks = [item for item in local_meta.rglob("*") if item.is_symlink()]
         if symlinks:
             raise RuntimeError(f"Refusing to migrate symlinked AI Layer state: {symlinks[0]}")
@@ -249,7 +268,9 @@ def init_project(
         if mode == "strict-private":
             guard = install_git_privacy_guard(path)
             if not guard.get("ready", False):
-                raise RuntimeError(f"Strict-private Git privacy guard is not ready: {guard.get('reason') or guard}")
+                raise RuntimeError(
+                    f"Strict-private Git privacy guard is not ready: {guard.get('reason') or guard}"
+                )
         else:
             remove_git_privacy_guard(path)
     else:
@@ -287,11 +308,18 @@ def remove_project_registration(db: Session, root: str | Path) -> dict:
     path = normalize_root(root)
     entry = get_registered_project(path) or {}
     project = get_project(db, path, required=False)
-    project_id = str(entry.get("project_id") or (project.id if project is not None else "")).strip() or None
+    project_id = (
+        str(entry.get("project_id") or (project.id if project is not None else "")).strip() or None
+    )
 
     if not entry and project is None:
         result = unregister_project(path)
-        return {"root": str(path), "removed": False, "reason": "project was not registered", "registry": result}
+        return {
+            "root": str(path),
+            "removed": False,
+            "reason": "project was not registered",
+            "registry": result,
+        }
 
     # Validate every state directory before mutating repository/configuration so failures are fail-closed.
     local_meta = project_local_path(path, ".ai-layer")
@@ -306,7 +334,9 @@ def remove_project_registration(db: Session, root: str | Path) -> dict:
         try:
             external_meta.resolve().relative_to(base.expanduser().resolve())
         except ValueError as exc:
-            raise RuntimeError(f"Unsafe external AI Layer project state path: {external_meta}") from exc
+            raise RuntimeError(
+                f"Unsafe external AI Layer project state path: {external_meta}"
+            ) from exc
         remove_external = _validated_ai_state_dir(external_meta, path, project_id)
 
     privacy_guard = remove_git_privacy_guard(path)
@@ -337,6 +367,7 @@ def remove_project_registration(db: Session, root: str | Path) -> dict:
         "registry": registry,
     }
 
+
 def scan_registered_project(db: Session, root: str | Path | None = None) -> dict:
     path = normalize_root(root)
     require_initialized(path)
@@ -351,7 +382,9 @@ def scan_registered_project(db: Session, root: str | Path | None = None) -> dict
         reason = (
             "embedding_configuration_changed"
             if embedding_drift
-            else "scanner_schema_changed" if scanner_drift else "manual_scan"
+            else "scanner_schema_changed"
+            if scanner_drift
+            else "manual_scan"
         )
         # A manual rebuild must not publish a new vector-space signature while explicit
         # decisions still use the previous space. Legacy/missing signatures are re-embedded too.
@@ -377,7 +410,9 @@ def scan_registered_project(db: Session, root: str | Path | None = None) -> dict
                 "embeddings_reused": getattr(stats, "embeddings_reused", 0),
                 "embeddings_regenerated": getattr(stats, "embeddings_regenerated", 0),
                 "knowledge_reembedded": getattr(stats, "knowledge_reembedded", 0),
-                "legacy_source_knowledge_removed": getattr(stats, "legacy_source_knowledge_removed", 0),
+                "legacy_source_knowledge_removed": getattr(
+                    stats, "legacy_source_knowledge_removed", 0
+                ),
                 "knowledge_cards_staled": getattr(stats, "knowledge_cards_staled", 0),
                 "refresh_attempts": attempts,
             }
@@ -420,7 +455,9 @@ def scan_registered_project(db: Session, root: str | Path | None = None) -> dict
 def project_info(db: Session, root: str | Path | None = None) -> dict:
     project = get_project(db, root)
     assert project is not None
-    legacy_skill_rows = db.scalars(select(ProjectSkill).where(ProjectSkill.project_id == project.id)).all()
+    legacy_skill_rows = db.scalars(
+        select(ProjectSkill).where(ProjectSkill.project_id == project.id)
+    ).all()
     return {
         "id": str(project.id),
         "name": project.name,

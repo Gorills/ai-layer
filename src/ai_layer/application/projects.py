@@ -46,9 +46,17 @@ def initialize_project(
     with session_scope() as db:
         project = init_project(db, path, name, private=private, external=external)
         append_event(
-            db, event_type="ProjectRegistered", project=project, aggregate_type="project",
+            db,
+            event_type="ProjectRegistered",
+            project=project,
+            aggregate_type="project",
             aggregate_id=str(project.id),
-            payload={"root_path": project.root_path, "name": project.name, "private": private, "external": external},
+            payload={
+                "root_path": project.root_path,
+                "name": project.name,
+                "private": private,
+                "external": external,
+            },
         )
         return {"id": str(project.id), "root_path": project.root_path, "name": project.name}
 

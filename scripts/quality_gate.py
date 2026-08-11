@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Canonical fail-closed contributor/release quality gate."""
+
 from __future__ import annotations
 
 import argparse

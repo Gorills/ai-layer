@@ -4,6 +4,7 @@
 The policy file may tighten these limits but may not loosen the built-in hard ceilings.
 This prevents an ordinary feature change from bypassing the gate by simply raising a JSON value.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,7 +31,16 @@ HARD_MAX_NESTING_DEPTH = 5
 SOFT_WARN_MODULE_LINES = 300
 
 _CONTROL_NODES = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.IfExp, ast.ExceptHandler)
-_NESTING_NODES = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.With, ast.AsyncWith, ast.Match)
+_NESTING_NODES = (
+    ast.If,
+    ast.For,
+    ast.AsyncFor,
+    ast.While,
+    ast.Try,
+    ast.With,
+    ast.AsyncWith,
+    ast.Match,
+)
 
 
 @dataclass(frozen=True)
@@ -165,7 +175,10 @@ def collect_metrics(source_root: Path) -> dict[str, ModuleMetric]:
             source_bytes=len(text.encode("utf-8")),
             functions=tuple(functions),
             imports=frozenset(_resolve_internal_imports(tree, module, modules)),
-            has_definitions=any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) for node in tree.body),
+            has_definitions=any(
+                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                for node in tree.body
+            ),
         )
     return result
 
@@ -208,7 +221,6 @@ def _strongly_connected_components(graph: dict[str, set[str]]) -> list[list[str]
         if node not in indexes:
             visit(node)
     return sorted(components)
-
 
 
 def _capability_for(module: str, rules: list[dict]) -> str | None:
@@ -268,20 +280,22 @@ def _capability_analysis(modules: dict[str, ModuleMetric], policy: dict) -> tupl
             examples = edge_modules.get((source, target), [])[:3]
             rendered = ", ".join(f"{a} -> {b}" for a, b in examples)
             reason = str(rule.get("reason") or "dependency is forbidden")
-            errors.append(f"capability dependency {source} -> {target} is forbidden: {reason}; {rendered}")
+            errors.append(
+                f"capability dependency {source} -> {target} is forbidden: {reason}; {rendered}"
+            )
 
     cycles = _strongly_connected_components(graph)
     for component in cycles:
         errors.append("capability dependency cycle: " + " -> ".join(component))
 
-    edge_list = [f"{source}->{target}" for source in sorted(graph) for target in sorted(graph[source])]
+    edge_list = [
+        f"{source}->{target}" for source in sorted(graph) for target in sorted(graph[source])
+    ]
     return errors, {
         "capabilities": sorted(graph),
         "capability_edges": edge_list,
         "capability_cycles": len(cycles),
     }
-
-
 
 
 _EPIC_FORBIDDEN_OWNER_NAMES = frozenset(
@@ -354,7 +368,9 @@ def _validated_limits(policy: dict) -> tuple[dict[str, int], list[str]]:
             errors.append(f"architecture policy {key} must be a positive integer")
             continue
         if value > ceiling:
-            errors.append(f"architecture policy {key}={value} exceeds built-in hard ceiling {ceiling}")
+            errors.append(
+                f"architecture policy {key}={value} exceeds built-in hard ceiling {ceiling}"
+            )
         limits[key] = min(value, ceiling)
     return limits, errors
 
@@ -389,19 +405,29 @@ def analyze(source_root: Path, policy: dict) -> dict:
         elif ratchet_rule and isinstance(ratchet_rule.get("max_lines"), int):
             # Existing oversized ordinary owners get a one-way migration ceiling: they may shrink
             # toward the normal policy limit, but they may not grow and no new module gets this exception.
-            module_limit = max(limits["module_lines"], min(int(ratchet_rule["max_lines"]), HARD_MAX_MODULE_LINES))
+            module_limit = max(
+                limits["module_lines"], min(int(ratchet_rule["max_lines"]), HARD_MAX_MODULE_LINES)
+            )
         else:
             module_limit = limits["module_lines"]
         if metric.lines > module_limit:
             errors.append(f"{relpath}: {metric.lines} lines exceeds module limit {module_limit}")
-        elif metric.lines > SOFT_WARN_MODULE_LINES and relpath not in composition and ratchet_rule is None:
+        elif (
+            metric.lines > SOFT_WARN_MODULE_LINES
+            and relpath not in composition
+            and ratchet_rule is None
+        ):
             warnings.append(
                 f"{relpath}: {metric.lines} lines exceeds soft maintainability warning {SOFT_WARN_MODULE_LINES}; "
                 "new growth should justify ownership or extract a cohesive seam"
             )
-        byte_limit = limits["composition_root_bytes"] if relpath in composition else limits["module_bytes"]
+        byte_limit = (
+            limits["composition_root_bytes"] if relpath in composition else limits["module_bytes"]
+        )
         if metric.source_bytes > byte_limit:
-            errors.append(f"{relpath}: {metric.source_bytes} source bytes exceeds module byte limit {byte_limit}")
+            errors.append(
+                f"{relpath}: {metric.source_bytes} source bytes exceeds module byte limit {byte_limit}"
+            )
         for function in metric.functions:
             if function.lines > limits["function_lines"]:
                 errors.append(
@@ -430,11 +456,19 @@ def analyze(source_root: Path, policy: dict) -> dict:
         elif metric.lines > max_lines:
             errors.append(f"{relpath}: facade grew to {metric.lines} lines; ceiling is {max_lines}")
         if metric.has_definitions:
-            errors.append(f"{relpath}: compatibility facade must not own function/class definitions")
+            errors.append(
+                f"{relpath}: compatibility facade must not own function/class definitions"
+            )
         package_prefix = metric.module.rsplit(".", 1)[0] + "."
         for importer in modules.values():
-            if importer.module.startswith(package_prefix) and importer.module != metric.module and metric.module in importer.imports:
-                errors.append(f"{importer.relpath}: focused module must not import its compatibility facade {metric.module}")
+            if (
+                importer.module.startswith(package_prefix)
+                and importer.module != metric.module
+                and metric.module in importer.imports
+            ):
+                errors.append(
+                    f"{importer.relpath}: focused module must not import its compatibility facade {metric.module}"
+                )
 
     for relpath, rule in sorted(ratchets.items()):
         metric = by_path.get(relpath)
@@ -446,10 +480,16 @@ def analyze(source_root: Path, policy: dict) -> dict:
             continue
         max_lines = int(rule["max_lines"])
         target = int(rule.get("target_lines", max_lines))
-        hard_limit = HARD_MAX_COMPOSITION_ROOT_LINES if relpath in composition else HARD_MAX_MODULE_LINES
+        hard_limit = (
+            HARD_MAX_COMPOSITION_ROOT_LINES if relpath in composition else HARD_MAX_MODULE_LINES
+        )
         if max_lines > hard_limit:
-            errors.append(f"{relpath}: ratchet max_lines {max_lines} exceeds absolute hard limit {hard_limit}")
-        target_limit = limits["composition_root_lines"] if relpath in composition else limits["module_lines"]
+            errors.append(
+                f"{relpath}: ratchet max_lines {max_lines} exceeds absolute hard limit {hard_limit}"
+            )
+        target_limit = (
+            limits["composition_root_lines"] if relpath in composition else limits["module_lines"]
+        )
         if target > target_limit:
             errors.append(
                 f"{relpath}: ratchet target {target} must reach its normal policy limit {target_limit} or lower"
@@ -486,9 +526,15 @@ def analyze(source_root: Path, policy: dict) -> dict:
             {"path": item.relpath, "lines": item.lines, "source_bytes": item.source_bytes}
             for item in sorted(modules.values(), key=lambda x: (-x.lines, x.relpath))[:10]
         ],
-        "max_function_lines": max((f.lines for m in modules.values() for f in m.functions), default=0),
-        "max_function_statements": max((f.statements for m in modules.values() for f in m.functions), default=0),
-        "max_complexity": max((f.complexity for m in modules.values() for f in m.functions), default=0),
+        "max_function_lines": max(
+            (f.lines for m in modules.values() for f in m.functions), default=0
+        ),
+        "max_function_statements": max(
+            (f.statements for m in modules.values() for f in m.functions), default=0
+        ),
+        "max_complexity": max(
+            (f.complexity for m in modules.values() for f in m.functions), default=0
+        ),
         "max_nesting": max((f.nesting for m in modules.values() for f in m.functions), default=0),
         "import_cycles": len(module_cycles),
         "soft_module_warning_lines": SOFT_WARN_MODULE_LINES,

@@ -3,6 +3,7 @@
 Revision ID: 0003_session_evidence_defaults
 Revises: 0002_session_evidence
 """
+
 from alembic import op
 import sqlalchemy as sa
 

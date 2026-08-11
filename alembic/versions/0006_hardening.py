@@ -3,6 +3,7 @@
 Revision ID: 0006_hardening
 Revises: 0005_task_execution
 """
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -39,7 +40,9 @@ def upgrade() -> None:
         ondelete="SET NULL",
     )
     op.create_index("ix_decisions_project", "decisions", ["project_id"], unique=False)
-    op.create_index("ix_sessions_project_created", "sessions", ["project_id", "created_at"], unique=False)
+    op.create_index(
+        "ix_sessions_project_created", "sessions", ["project_id", "created_at"], unique=False
+    )
     op.execute(
         "CREATE INDEX IF NOT EXISTS ix_decisions_embedding_hnsw "
         "ON decisions USING hnsw (embedding vector_cosine_ops)"

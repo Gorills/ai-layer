@@ -46,10 +46,15 @@ def read_state(project_root: str | Path) -> dict:
             project = _project(db, resolved)
             state = current_task(db, project, include_history=True)
             latest = db.scalar(
-                select(Task).where(Task.project_id == project.id).order_by(Task.created_at.desc()).limit(1)
+                select(Task)
+                .where(Task.project_id == project.id)
+                .order_by(Task.created_at.desc())
+                .limit(1)
             )
             navigation = next_task_action(db, project)
-            current_payload = dict(navigation.get("task") or {}) if navigation.get("active") else None
+            current_payload = (
+                dict(navigation.get("task") or {}) if navigation.get("active") else None
+            )
             return {
                 "current": current_payload,
                 "latest": task_to_dict(db, latest) if latest else state.get("latest"),
@@ -130,13 +135,21 @@ def adopt(project_root: str | Path, **kwargs: Any) -> dict:
 
 
 def delegate(
-    project_root: str | Path, *, worker_id: str, actual_model: str | None = None,
-    model_assurance: str = "requested_unverified", telemetry: dict | None = None,
+    project_root: str | Path,
+    *,
+    worker_id: str,
+    actual_model: str | None = None,
+    model_assurance: str = "requested_unverified",
+    telemetry: dict | None = None,
 ) -> dict:
     with session_scope() as db:
         return delegate_current_stage(
-            db, _project(db, project_root), worker_id=worker_id, actual_model=actual_model,
-            model_assurance=model_assurance, telemetry=telemetry,
+            db,
+            _project(db, project_root),
+            worker_id=worker_id,
+            actual_model=actual_model,
+            model_assurance=model_assurance,
+            telemetry=telemetry,
         )
 
 

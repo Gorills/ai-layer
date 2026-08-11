@@ -11,7 +11,11 @@ import yaml
 
 from ai_layer.core.config import get_settings
 from ai_layer.skills.common import builtin_skill_dir
-from ai_layer.skills.registry import disabled_global_skill_slugs, find_skill_record, project_skill_dir
+from ai_layer.skills.registry import (
+    disabled_global_skill_slugs,
+    find_skill_record,
+    project_skill_dir,
+)
 
 SKILL_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
@@ -90,7 +94,9 @@ def install_builtin_skills(force: bool = False) -> list[str]:
         managed_hash = previous.get("managed_hash") if isinstance(previous, dict) else None
         current = target.read_text(encoding="utf-8") if target.exists() else None
         current_hash = _sha_text(current) if current is not None else None
-        should_write = force or current is None or current_hash == managed_hash or current_hash == bundled_hash
+        should_write = (
+            force or current is None or current_hash == managed_hash or current_hash == bundled_hash
+        )
         if should_write:
             if current != bundled:
                 _atomic_write_text(target, bundled)
@@ -144,7 +150,11 @@ def skill_core_content(skill: dict, *, max_chars: int = 2400) -> str:
     sections = skill_sections(skill)
     requested = list((skill.get("meta") or {}).get("entry_sections") or [])
     if not requested:
-        requested = [name for name in ("Apply when", "Mandatory rules", "Core contract", "Decision rules") if name in sections]
+        requested = [
+            name
+            for name in ("Apply when", "Mandatory rules", "Core contract", "Decision rules")
+            if name in sections
+        ]
     if not requested:
         requested = list(sections)[:2]
     chunks: list[str] = []
@@ -167,7 +177,9 @@ def skill_section_content(skill: dict, section: str | None = None) -> tuple[str,
         return skill_core_content(skill), names
     matched = _match_section_name(sections, section)
     if matched is None:
-        raise ValueError(f"Unknown section `{section}` for skill `{skill.get('slug')}`. Available: {names}")
+        raise ValueError(
+            f"Unknown section `{section}` for skill `{skill.get('slug')}`. Available: {names}"
+        )
     return sections[matched], names
 
 
@@ -213,7 +225,9 @@ def list_skills(project_root: str | Path | None = None) -> list[dict]:
                     continue
                 if path.stem in result:
                     # Manager rejects collisions on install; fail closed if machine state was edited manually.
-                    raise RuntimeError(f"Project skill collides with global skill slug: {path.stem}")
+                    raise RuntimeError(
+                        f"Project skill collides with global skill slug: {path.stem}"
+                    )
                 result[path.stem] = _with_scope(parse_skill(path), "project", record)
     return [result[slug] for slug in sorted(result)]
 

@@ -19,7 +19,12 @@ from ai_layer.dashboard.web import router as dashboard_web_router, static_files
 from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError, normalize_error
 from ai_layer.application.runtime import database_health
 from ai_layer.application.recovery import recovery_status, worker_recovery_lifespan
-from ai_layer.application.context import get_memory_context, project_details, search_decisions, search_memory
+from ai_layer.application.context import (
+    get_memory_context,
+    project_details,
+    search_decisions,
+    search_memory,
+)
 
 
 class SearchRequest(BaseModel):
@@ -62,7 +67,6 @@ def _http_error(exc: BaseException, *, status_code: int = 400) -> HTTPException:
     return HTTPException(status_code=status_code, detail=normalize_error(exc).to_dict())
 
 
-
 def _mcp_transport(mcp_server: Any) -> tuple[Any | None, Any | None]:
     mcp_http_app = None
     session_manager = None
@@ -70,7 +74,9 @@ def _mcp_transport(mcp_server: Any) -> tuple[Any | None, Any | None]:
     if callable(streamable):
         try:
             # MCP SDK 2.x creates the Streamable HTTP session manager lazily here.
-            mcp_http_app = streamable(streamable_http_path="/", stateless_http=True, json_response=True)
+            mcp_http_app = streamable(
+                streamable_http_path="/", stateless_http=True, json_response=True
+            )
         except TypeError:
             # Keep health/dashboard/stdio usable with an incompatible host SDK.
             mcp_http_app = None

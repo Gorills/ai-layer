@@ -11,8 +11,21 @@ from typing import Iterable
 REPOSITORY_SNAPSHOT_SCHEMA = 4
 MAX_CHANGE_PATHS = 200
 FALLBACK_IGNORE_DIRS = {
-    ".git", ".ai-layer", ".idea", ".vscode", "node_modules", "vendor", "dist", "build", "target",
-    ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+    ".git",
+    ".ai-layer",
+    ".idea",
+    ".vscode",
+    "node_modules",
+    "vendor",
+    "dist",
+    "build",
+    "target",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
 }
 
 
@@ -71,7 +84,9 @@ def git_changed_paths(root: Path) -> dict:
     except (OSError, subprocess.SubprocessError) as exc:
         raise RuntimeError("task_adopt could not verify Git repository state.") from exc
     if probe.returncode != 0 or probe.stdout.strip() != "true":
-        raise RuntimeError("task_adopt requires a Git repository so unmanaged changes can be identified honestly.")
+        raise RuntimeError(
+            "task_adopt requires a Git repository so unmanaged changes can be identified honestly."
+        )
 
     def names(args: list[str], timeout: int = 10) -> list[str]:
         try:
@@ -82,9 +97,13 @@ def git_changed_paths(root: Path) -> dict:
             raise RuntimeError("task_adopt could not inspect Git worktree changes.") from exc
         if proc.returncode != 0:
             message = os.fsdecode(proc.stderr or b"").strip()
-            raise RuntimeError(f"task_adopt Git inspection failed: {message or 'unknown git error'}")
+            raise RuntimeError(
+                f"task_adopt Git inspection failed: {message or 'unknown git error'}"
+            )
         decoded = {os.fsdecode(item) for item in proc.stdout.split(b"\0") if item}
-        return sorted(path for path in decoded if path != ".ai-layer" and not path.startswith(".ai-layer/"))
+        return sorted(
+            path for path in decoded if path != ".ai-layer" and not path.startswith(".ai-layer/")
+        )
 
     staged = names(["diff", "--cached", "--name-only", "-z", "--diff-filter=ACDMRTUXB"])
     unstaged = names(["diff", "--name-only", "-z", "--diff-filter=ACDMRTUXB"])
@@ -152,7 +171,9 @@ def capture_repository_state(root: str | Path, previous: dict | None = None) -> 
         old = previous_files.get(rel) if isinstance(previous_files, dict) else None
         can_reuse = (
             isinstance(old, dict)
-            and all(int(old.get(key, -1)) == identity[key] for key in ("size", "mtime_ns", "ctime_ns"))
+            and all(
+                int(old.get(key, -1)) == identity[key] for key in ("size", "mtime_ns", "ctime_ns")
+            )
             and bool(old.get("sha256"))
         )
         try:
@@ -183,7 +204,8 @@ def repository_changes(before: dict, after: dict, *, max_paths: int = MAX_CHANGE
     added_all = sorted(new_paths - old_paths)
     deleted_all = sorted(old_paths - new_paths)
     modified_all = sorted(
-        path for path in old_paths & new_paths
+        path
+        for path in old_paths & new_paths
         if str((old.get(path) or {}).get("sha256")) != str((new.get(path) or {}).get("sha256"))
     )
     total = len(added_all) + len(modified_all) + len(deleted_all)
@@ -192,7 +214,9 @@ def repository_changes(before: dict, after: dict, *, max_paths: int = MAX_CHANGE
         "modified": modified_all[:max_paths],
         "deleted": deleted_all[:max_paths],
         "total": total,
-        "truncated": any(len(items) > max_paths for items in (added_all, modified_all, deleted_all)),
+        "truncated": any(
+            len(items) > max_paths for items in (added_all, modified_all, deleted_all)
+        ),
     }
 
 
@@ -200,19 +224,29 @@ def git_changed_line_count(root: Path, changes: dict) -> dict | None:
     git = shutil.which("git")
     if not git:
         return None
-    paths = [*(changes.get("added") or []), *(changes.get("modified") or []), *(changes.get("deleted") or [])]
+    paths = [
+        *(changes.get("added") or []),
+        *(changes.get("modified") or []),
+        *(changes.get("deleted") or []),
+    ]
     if not paths:
         return {"insertions": 0, "deletions": 0, "total": 0, "binary": False}
     try:
         probe = subprocess.run(
             [git, "-C", str(root), "rev-parse", "--verify", "HEAD"],
-            capture_output=True, text=True, timeout=2, check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
         )
         if probe.returncode != 0:
             return None
         proc = subprocess.run(
             [git, "-C", str(root), "diff", "--numstat", "HEAD", "--", *paths],
-            capture_output=True, text=True, timeout=3, check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -247,4 +281,9 @@ def git_changed_line_count(root: Path, changes: dict) -> dict | None:
             binary = True
             continue
         insertions += len(data.decode("utf-8", errors="replace").splitlines())
-    return {"insertions": insertions, "deletions": deletions, "total": insertions + deletions, "binary": binary}
+    return {
+        "insertions": insertions,
+        "deletions": deletions,
+        "total": insertions + deletions,
+        "binary": binary,
+    }

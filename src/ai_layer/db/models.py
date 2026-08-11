@@ -37,7 +37,9 @@ class Project(Base):
     architecture_summary: Mapped[str] = mapped_column(Text, default="")
     project_intelligence: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class ProjectFile(Base):
@@ -57,7 +59,9 @@ class ProjectFile(Base):
     ctime_ns: Mapped[int] = mapped_column(BigInteger, default=0)
     indexed: Mapped[bool] = mapped_column(Boolean, default=True)
     scanner_schema: Mapped[int] = mapped_column(Integer, default=0)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class Knowledge(Base):
@@ -72,7 +76,9 @@ class Knowledge(Base):
     meta: Mapped[dict] = mapped_column(JSON, default=dict)
     embedding: Mapped[list[float]] = mapped_column(VECTOR(384))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class Decision(Base):
@@ -175,7 +181,9 @@ class Task(Base):
     cost_policy: Mapped[str] = mapped_column(String(16), default="economy")
     discovery_result: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -209,8 +217,12 @@ class TaskStage(Base):
     fix_round: Mapped[int] = mapped_column(Integer, default=0)
     delegation_required: Mapped[bool] = mapped_column(Boolean, default=True)
     delegated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    worker_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    worker_lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    worker_heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    worker_lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     worker_id: Mapped[str] = mapped_column(String(128), default="")
     agent_tier: Mapped[str] = mapped_column(String(16), default="")
     agent_profile: Mapped[str] = mapped_column(String(96), default="")
@@ -243,8 +255,12 @@ class VerificationRun(Base):
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
-    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
-    stage_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("task_stages.id", ondelete="CASCADE"), nullable=True)
+    task_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True
+    )
+    stage_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("task_stages.id", ondelete="CASCADE"), nullable=True
+    )
     assurance: Mapped[str] = mapped_column(String(32))
     command: Mapped[list] = mapped_column(JSON, default=list)
     cwd: Mapped[str] = mapped_column(Text)
@@ -265,7 +281,9 @@ class RuntimeEvent(Base):
         Index("ix_runtime_events_aggregate", "aggregate_type", "aggregate_id", "created_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=True
+    )
     event_type: Mapped[str] = mapped_column(String(96))
     aggregate_type: Mapped[str] = mapped_column(String(64), default="")
     aggregate_id: Mapped[str] = mapped_column(String(128), default="")
@@ -295,7 +313,9 @@ class ReviewFinding(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     verification_evidence: Mapped[str] = mapped_column(Text, default="")
-    verification_history: Mapped[list] = mapped_column(JSON, default=list, server_default=text("'[]'"))
+    verification_history: Mapped[list] = mapped_column(
+        JSON, default=list, server_default=text("'[]'")
+    )
     provenance: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     verified_by_stage_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("task_stages.id", ondelete="SET NULL"), nullable=True
@@ -304,7 +324,9 @@ class ReviewFinding(Base):
 
 class ProjectSkill(Base):
     __tablename__ = "project_skills"
-    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
     skill_slug: Mapped[str] = mapped_column(String(128), primary_key=True)
     reason: Mapped[str] = mapped_column(Text)
 
@@ -315,7 +337,9 @@ class EventConsumerCheckpoint(Base):
     last_event_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("runtime_events.id", ondelete="SET NULL"), nullable=True
     )
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class CommandReceipt(Base):

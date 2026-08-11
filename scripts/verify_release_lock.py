@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Fail-closed verifier for the current closed-world runtime lock."""
+
 from __future__ import annotations
 
 import argparse
@@ -82,7 +83,9 @@ def main() -> int:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
     else:
-        print(f"Release lock verified: {payload['locked_packages']} pinned runtime packages + application wheel.")
+        print(
+            f"Release lock verified: {payload['locked_packages']} pinned runtime packages + application wheel."
+        )
     return 0 if not errors else 1
 
 

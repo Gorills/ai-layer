@@ -40,7 +40,9 @@ def _external_state_entries() -> list[dict]:
     try:
         children = list(base.iterdir())
     except OSError as exc:
-        raise RegistryCorruptError(f"AI Layer external projects state root is unreadable: {base}") from exc
+        raise RegistryCorruptError(
+            f"AI Layer external projects state root is unreadable: {base}"
+        ) from exc
     for child in children:
         if child.is_symlink() or not child.is_dir():
             continue
@@ -50,7 +52,9 @@ def _external_state_entries() -> list[dict]:
         try:
             data = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
         except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
-            raise RegistryCorruptError(f"AI Layer external project state is unreadable: {config}") from exc
+            raise RegistryCorruptError(
+                f"AI Layer external project state is unreadable: {config}"
+            ) from exc
         if not isinstance(data, dict):
             raise RegistryCorruptError(f"AI Layer external project state is invalid: {config}")
         mode = str(data.get("mode") or "")
@@ -66,7 +70,9 @@ def _external_state_entries() -> list[dict]:
                 "project_id": project_id,
                 "name": str(data.get("name") or Path(root).name),
                 "mode": mode,
-                "provenance": str(data.get("provenance") or ("forbid" if mode == "strict-private" else "allow")),
+                "provenance": str(
+                    data.get("provenance") or ("forbid" if mode == "strict-private" else "allow")
+                ),
                 "recovered_from_external_state": True,
             }
         )
@@ -103,7 +109,9 @@ def _atomic_json_write(path: Path, payload: dict) -> None:
 def load_registry() -> dict:
     path = get_settings().projects_registry_file
     if not path.exists():
-        return _merge_external_private_entries({"version": REGISTRY_VERSION, "projects": [], "forgotten_roots": []})
+        return _merge_external_private_entries(
+            {"version": REGISTRY_VERSION, "projects": [], "forgotten_roots": []}
+        )
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
@@ -124,10 +132,14 @@ def load_registry() -> dict:
     seen_forgotten: set[str] = set()
     for raw in forgotten:
         if not isinstance(raw, str) or not raw.strip():
-            raise RegistryCorruptError(f"AI Layer project registry contains invalid forgotten root: {path}")
+            raise RegistryCorruptError(
+                f"AI Layer project registry contains invalid forgotten root: {path}"
+            )
         canonical = str(Path(raw).expanduser().resolve())
         if canonical != raw or raw in seen_forgotten:
-            raise RegistryCorruptError(f"AI Layer project registry contains non-canonical/duplicate forgotten root: {raw}")
+            raise RegistryCorruptError(
+                f"AI Layer project registry contains non-canonical/duplicate forgotten root: {raw}"
+            )
         seen_forgotten.add(raw)
         normalized_forgotten.append(raw)
     data["forgotten_roots"] = normalized_forgotten
@@ -139,7 +151,9 @@ def load_registry() -> dict:
             )
         root = item.get("root")
         if not isinstance(root, str) or not root.strip():
-            raise RegistryCorruptError(f"AI Layer project registry contains an invalid root: {path}")
+            raise RegistryCorruptError(
+                f"AI Layer project registry contains an invalid root: {path}"
+            )
         canonical_root = str(Path(root).expanduser().resolve())
         if canonical_root != root or root in seen_roots:
             raise RegistryCorruptError(
@@ -161,7 +175,6 @@ def load_registry() -> dict:
                 f"AI Layer project registry contains a root as both active and forgotten: {root}"
             )
     return _merge_external_private_entries(data)
-
 
 
 def overlapping_registered_projects(root: str | Path) -> list[dict]:
@@ -188,9 +201,12 @@ def overlapping_registered_projects(root: str | Path) -> list[dict]:
             conflicts.append(dict(item))
     return sorted(conflicts, key=lambda item: str(item.get("root", "")))
 
+
 def get_registered_project(root: str | Path) -> dict | None:
     resolved = str(Path(root).expanduser().resolve())
-    return next((item for item in load_registry().get("projects", []) if item.get("root") == resolved), None)
+    return next(
+        (item for item in load_registry().get("projects", []) if item.get("root") == resolved), None
+    )
 
 
 def register_project(
@@ -209,7 +225,9 @@ def register_project(
     with directory_lock(_registry_lock_path()):
         data = load_registry()
         projects = data["projects"]
-        data["forgotten_roots"] = [item for item in data.get("forgotten_roots", []) if item != resolved]
+        data["forgotten_roots"] = [
+            item for item in data.get("forgotten_roots", []) if item != resolved
+        ]
         entry = next((item for item in projects if item.get("root") == resolved), None)
         if entry is None:
             entry = {"root": resolved, "mode": "standard", "provenance": "allow"}
@@ -247,10 +265,10 @@ def unregister_project(root: str | Path) -> dict:
         return {"root": resolved, "removed": removed, "forgotten": True}
 
 
-
 def is_project_forgotten(root: str | Path) -> bool:
     resolved = str(Path(root).expanduser().resolve())
     return resolved in set(load_registry().get("forgotten_roots", []))
+
 
 def list_registered_projects(*, existing_only: bool = False) -> list[dict]:
     projects = list(load_registry().get("projects", []))
@@ -263,6 +281,12 @@ def prune_registry() -> dict:
     with directory_lock(_registry_lock_path()):
         data = load_registry()
         before = len(data["projects"])
-        data["projects"] = [item for item in data["projects"] if Path(str(item.get("root", ""))).exists()]
+        data["projects"] = [
+            item for item in data["projects"] if Path(str(item.get("root", ""))).exists()
+        ]
         _atomic_json_write(get_settings().projects_registry_file, data)
-        return {"before": before, "after": len(data["projects"]), "removed": before - len(data["projects"])}
+        return {
+            "before": before,
+            "after": len(data["projects"]),
+            "removed": before - len(data["projects"]),
+        }

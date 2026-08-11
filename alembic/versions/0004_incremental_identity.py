@@ -3,6 +3,7 @@
 Revision ID: 0004_incremental_identity
 Revises: 0003_session_evidence_defaults
 """
+
 from alembic import op
 import sqlalchemy as sa
 

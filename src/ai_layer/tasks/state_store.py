@@ -198,6 +198,7 @@ def create_repository_snapshot(
         snapshot_kind=snapshot_kind,
     )
 
+
 def bind_task_baseline(db: Session, project: Project, task: Task, state: dict) -> SnapshotReference:
     if task.baseline_snapshot_id is not None:
         ref = snapshot_store(db).get(task.baseline_snapshot_id)

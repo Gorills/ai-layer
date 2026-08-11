@@ -46,7 +46,9 @@ def descriptor_owned(path: Path) -> bool:
     return descriptor_metadata(path) is not None
 
 
-def sync_native_root(root: Path, desired: dict[str, str], *, scope: str, project_key: str = "-") -> dict:
+def sync_native_root(
+    root: Path, desired: dict[str, str], *, scope: str, project_key: str = "-"
+) -> dict:
     root.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
     removed: list[str] = []
@@ -117,7 +119,11 @@ def remove_project_native_skills(project_root: str | Path, *, home: Path | None 
             if target is None:
                 continue
             metadata = descriptor_metadata(target)
-            if not metadata or metadata.get("scope") != "project" or metadata.get("project") != project_key:
+            if (
+                not metadata
+                or metadata.get("scope") != "project"
+                or metadata.get("project") != project_key
+            ):
                 continue
             shutil.rmtree(child)
             removed.append(str(child))
@@ -169,7 +175,9 @@ def assert_native_targets_available(
             )
 
 
-def native_catalog_files(project_root: str | Path, *, home: Path | None = None) -> dict[str, list[Path]]:
+def native_catalog_files(
+    project_root: str | Path, *, home: Path | None = None
+) -> dict[str, list[Path]]:
     root = Path(project_root).expanduser().resolve()
     project_key = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:10]
     global_roots = global_native_roots(home)

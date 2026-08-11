@@ -15,7 +15,9 @@ from ai_layer.privacy.service import (
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False)
+    return subprocess.run(
+        ["git", "-C", str(root), *args], capture_output=True, text=True, check=False
+    )
 
 
 def _private_project(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
@@ -26,7 +28,9 @@ def _private_project(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
     get_settings.cache_clear()
-    register_project(project, "private-project-id", "private", mode="strict-private", provenance="forbid")
+    register_project(
+        project, "private-project-id", "private", mode="strict-private", provenance="forbid"
+    )
     return home, project
 
 
@@ -42,7 +46,9 @@ def test_strict_private_state_is_external_to_repository(tmp_path: Path, monkeypa
         get_settings.cache_clear()
 
 
-def test_privacy_check_blocks_provenance_but_allows_legitimate_ai_domain_content(tmp_path: Path, monkeypatch):
+def test_privacy_check_blocks_provenance_but_allows_legitimate_ai_domain_content(
+    tmp_path: Path, monkeypatch
+):
     _, project = _private_project(tmp_path, monkeypatch)
     _git(project, "init")
     _git(project, "config", "user.email", "test@example.invalid")
@@ -53,7 +59,9 @@ def test_privacy_check_blocks_provenance_but_allows_legitimate_ai_domain_content
         assert result["ok"] is False
         assert any(v["code"] == "generated-by-ai" for v in result["violations"])
 
-        (project / "service.py").write_text("# AI layer for recommendation inference\nvalue = 1\n", encoding="utf-8")
+        (project / "service.py").write_text(
+            "# AI layer for recommendation inference\nvalue = 1\n", encoding="utf-8"
+        )
         result = privacy_check(project)
         assert result["ok"] is True
     finally:
@@ -75,14 +83,19 @@ def test_privacy_check_blocks_ai_layer_artifact_even_if_force_staged(tmp_path: P
         get_settings.cache_clear()
 
 
-def test_repository_footprint_streams_large_tracked_text_without_false_blocker(tmp_path: Path, monkeypatch):
+def test_repository_footprint_streams_large_tracked_text_without_false_blocker(
+    tmp_path: Path, monkeypatch
+):
     _, project = _private_project(tmp_path, monkeypatch)
     _git(project, "init")
     _git(project, "config", "user.email", "test@example.invalid")
     _git(project, "config", "user.name", "Test")
     try:
         lockfile = project / "package-lock.json"
-        lockfile.write_text('{"lockfileVersion": 3, "packages": {"x": "' + ("a" * 1_050_000) + '"}}\n', encoding="utf-8")
+        lockfile.write_text(
+            '{"lockfileVersion": 3, "packages": {"x": "' + ("a" * 1_050_000) + '"}}\n',
+            encoding="utf-8",
+        )
         _git(project, "add", "package-lock.json")
         _git(project, "commit", "-m", "baseline")
         footprint = repository_footprint(project)
@@ -92,7 +105,9 @@ def test_repository_footprint_streams_large_tracked_text_without_false_blocker(t
         get_settings.cache_clear()
 
 
-def test_repository_footprint_streams_large_tracked_text_and_detects_provenance(tmp_path: Path, monkeypatch):
+def test_repository_footprint_streams_large_tracked_text_and_detects_provenance(
+    tmp_path: Path, monkeypatch
+):
     _, project = _private_project(tmp_path, monkeypatch)
     _git(project, "init")
     _git(project, "config", "user.email", "test@example.invalid")
@@ -124,7 +139,9 @@ def test_repository_footprint_detects_tracked_provenance(tmp_path: Path, monkeyp
         get_settings.cache_clear()
 
 
-def test_external_git_guard_chains_executable_legacy_hook_and_blocks_provenance(tmp_path: Path, monkeypatch):
+def test_external_git_guard_chains_executable_legacy_hook_and_blocks_provenance(
+    tmp_path: Path, monkeypatch
+):
     home, project = _private_project(tmp_path, monkeypatch)
     _git(project, "init")
     _git(project, "config", "user.email", "test@example.invalid")
@@ -136,11 +153,11 @@ def test_external_git_guard_chains_executable_legacy_hook_and_blocks_provenance(
     source_root = str((Path(__file__).parents[1] / "src").resolve())
     cli.write_text(
         "#!/bin/sh\n"
-        "msg=\"\"\n"
-        "if [ \"${5:-}\" = \"--commit-message\" ]; then msg=\"${6:-}\"; fi\n"
-        f"PYTHONPATH=\"{source_root}\" python -c 'import sys; from ai_layer.privacy.service import privacy_check; "
+        'msg=""\n'
+        'if [ "${5:-}" = "--commit-message" ]; then msg="${6:-}"; fi\n'
+        f'PYTHONPATH="{source_root}" python -c \'import sys; from ai_layer.privacy.service import privacy_check; '
         "r=privacy_check(sys.argv[1], staged=True, commit_message=(sys.argv[2] or None)); print(r); "
-        "raise SystemExit(0 if r[\"ok\"] else 1)' \"$3\" \"$msg\"\n",
+        'raise SystemExit(0 if r["ok"] else 1)\' "$3" "$msg"\n',
         encoding="utf-8",
     )
     cli.chmod(0o700)
@@ -157,8 +174,13 @@ def test_external_git_guard_chains_executable_legacy_hook_and_blocks_provenance(
         result = install_git_privacy_guard(project)
         assert result["ready"] is True
         assert git_privacy_guard_status(project)["ready"] is True
-        configured = Path(_git(project, "config", "--local", "--get", "core.hooksPath").stdout.strip())
-        assert configured == (home / ".ai-layer" / "projects" / "private-project-id" / "git-hooks").resolve()
+        configured = Path(
+            _git(project, "config", "--local", "--get", "core.hooksPath").stdout.strip()
+        )
+        assert (
+            configured
+            == (home / ".ai-layer" / "projects" / "private-project-id" / "git-hooks").resolve()
+        )
         assert str(project) not in str(configured)
         assert "pre-commit" in result["chained_legacy_hooks"]
 
@@ -171,8 +193,12 @@ def test_external_git_guard_chains_executable_legacy_hook_and_blocks_provenance(
         _git(project, "reset")
         (project / "bad.py").unlink()
         message = tmp_path / "COMMIT_EDITMSG"
-        message.write_text("Normal subject\n\nCo-authored-by: ChatGPT <test@example.invalid>\n", encoding="utf-8")
-        proc = subprocess.run([str(configured / "commit-msg"), str(message)], capture_output=True, text=True)
+        message.write_text(
+            "Normal subject\n\nCo-authored-by: ChatGPT <test@example.invalid>\n", encoding="utf-8"
+        )
+        proc = subprocess.run(
+            [str(configured / "commit-msg"), str(message)], capture_output=True, text=True
+        )
         assert proc.returncode != 0
         assert "ai-coauthor" in proc.stdout
     finally:
@@ -203,15 +229,21 @@ def test_git_guard_reinstall_preserves_legacy_hooks(tmp_path: Path, monkeypatch)
         assert first["ready"] is True and second["ready"] is True
         assert "pre-commit" in second["chained_legacy_hooks"]
 
-        configured = Path(_git(project, "config", "--local", "--get", "core.hooksPath").stdout.strip())
-        proc = subprocess.run([str(configured / "pre-commit")], capture_output=True, text=True, check=False)
+        configured = Path(
+            _git(project, "config", "--local", "--get", "core.hooksPath").stdout.strip()
+        )
+        proc = subprocess.run(
+            [str(configured / "pre-commit")], capture_output=True, text=True, check=False
+        )
         assert proc.returncode == 0
         assert legacy_log.read_text(encoding="utf-8").splitlines() == ["legacy"]
     finally:
         get_settings.cache_clear()
 
 
-def test_git_guard_status_fails_closed_for_corrupt_or_non_executable_hooks(tmp_path: Path, monkeypatch):
+def test_git_guard_status_fails_closed_for_corrupt_or_non_executable_hooks(
+    tmp_path: Path, monkeypatch
+):
     _, project = _private_project(tmp_path, monkeypatch)
     _git(project, "init")
     try:
@@ -236,7 +268,10 @@ def test_git_guard_refuses_existing_custom_hooks_path(tmp_path: Path, monkeypatc
         result = install_git_privacy_guard(project)
         assert result["ready"] is False
         assert result["conflict"] == "/custom/hooks"
-        assert _git(project, "config", "--local", "--get", "core.hooksPath").stdout.strip() == "/custom/hooks"
+        assert (
+            _git(project, "config", "--local", "--get", "core.hooksPath").stdout.strip()
+            == "/custom/hooks"
+        )
     finally:
         get_settings.cache_clear()
 
@@ -276,7 +311,9 @@ def test_privacy_check_fails_closed_for_oversized_text(tmp_path: Path, monkeypat
     _, project = _private_project(tmp_path, monkeypatch)
     _git(project, "init")
     try:
-        (project / "large.py").write_text("# Generated by ChatGPT\n" + ("x" * 1_050_000), encoding="utf-8")
+        (project / "large.py").write_text(
+            "# Generated by ChatGPT\n" + ("x" * 1_050_000), encoding="utf-8"
+        )
         _git(project, "add", "large.py")
         result = privacy_check(project, staged=True)
         assert result["ok"] is False

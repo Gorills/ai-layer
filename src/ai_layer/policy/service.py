@@ -37,6 +37,7 @@ DEFAULT_POLICY = """# Global AI Engineering Policy
 15. Production writes, deploys, destructive migrations, repository history rewrites/resets and other irreversible external operations require explicit authorization from the user or an established project workflow.
 """
 
+
 def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -69,13 +70,18 @@ def ensure_global_policy(force: bool = False) -> Path:
     current_hash = _sha(current) if current is not None else None
     managed_hash = manifest.get("managed_hash")
     bundled_hash = _sha(DEFAULT_POLICY)
-    should_write = force or current is None or current_hash == managed_hash or current_hash == bundled_hash
+    should_write = (
+        force or current is None or current_hash == managed_hash or current_hash == bundled_hash
+    )
     if should_write:
         if current != DEFAULT_POLICY:
             _atomic_write_text(path, DEFAULT_POLICY)
         managed_hash = bundled_hash
     manifest_content = (
-        json.dumps({"version": 2, "bundled_hash": bundled_hash, "managed_hash": managed_hash}, indent=2) + "\n"
+        json.dumps(
+            {"version": 2, "bundled_hash": bundled_hash, "managed_hash": managed_hash}, indent=2
+        )
+        + "\n"
     )
     if not manifest_path.exists() or manifest_path.read_text(encoding="utf-8") != manifest_content:
         _atomic_write_text(manifest_path, manifest_content)
@@ -108,12 +114,16 @@ def dynamic_policy(project_root: str | Path, *, read_only: bool = False) -> str:
             parts.append("# Project Rules\n\n" + project_text)
 
     if project_provenance(project_root) == "forbid":
-        parts.append("""# Strict Private Repository Policy
+        parts.append(
+            """# Strict Private Repository Policy
 
 - Do not create AI Layer artifacts or AI-development provenance inside the repository.
 - Never bypass the privacy guard or rewrite user Git state merely to satisfy AI Layer.
-""".strip())
+""".strip()
+        )
 
     if read_only and parts:
-        parts.append("Read-only stage: do not mutate product files or consequential external state.")
+        parts.append(
+            "Read-only stage: do not mutate product files or consequential external state."
+        )
     return "\n\n".join(parts)

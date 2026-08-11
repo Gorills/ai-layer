@@ -50,7 +50,9 @@ def _bounded_text(value: object, *, field: str, max_chars: int, required: bool =
     return text
 
 
-def _bounded_list(values: list[str] | None, *, field: str, max_items: int, max_chars: int) -> list[str]:
+def _bounded_list(
+    values: list[str] | None, *, field: str, max_items: int, max_chars: int
+) -> list[str]:
     result: list[str] = []
     for raw in list(values or []):
         text = _bounded_text(raw, field=field, max_chars=max_chars)
@@ -94,12 +96,18 @@ def normalize_card_input(
         "key": normalize_key(key),
         "category": normalized_category,
         "title": _bounded_text(title, field="title", max_chars=MAX_TITLE_CHARS, required=True),
-        "summary": _bounded_text(summary, field="summary", max_chars=MAX_SUMMARY_CHARS, required=True),
-        "claims": _bounded_list(claims, field="claims", max_items=MAX_CLAIMS, max_chars=MAX_CLAIM_CHARS),
+        "summary": _bounded_text(
+            summary, field="summary", max_chars=MAX_SUMMARY_CHARS, required=True
+        ),
+        "claims": _bounded_list(
+            claims, field="claims", max_items=MAX_CLAIMS, max_chars=MAX_CLAIM_CHARS
+        ),
         "constraints": _bounded_list(
             constraints, field="constraints", max_items=MAX_CONSTRAINTS, max_chars=MAX_CLAIM_CHARS
         ),
-        "unknowns": _bounded_list(unknowns, field="unknowns", max_items=MAX_UNKNOWNS, max_chars=MAX_CLAIM_CHARS),
+        "unknowns": _bounded_list(
+            unknowns, field="unknowns", max_items=MAX_UNKNOWNS, max_chars=MAX_CLAIM_CHARS
+        ),
         "evidence_paths": paths,
     }
 

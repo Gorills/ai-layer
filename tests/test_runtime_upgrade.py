@@ -92,7 +92,14 @@ def test_start_database_refuses_unrelated_name_conflict(monkeypatch, tmp_path: P
 def test_legacy_migration_stamps_0001_then_upgrades_head(monkeypatch):
     class Inspector:
         def get_table_names(self):
-            return ["projects", "project_files", "knowledge", "decisions", "sessions", "project_skills"]
+            return [
+                "projects",
+                "project_files",
+                "knowledge",
+                "decisions",
+                "sessions",
+                "project_skills",
+            ]
 
         def get_columns(self, table):
             if table == "sessions":
@@ -115,10 +122,12 @@ def test_legacy_migration_stamps_0001_then_upgrades_head(monkeypatch):
 
 
 def test_session_evidence_default_migration_is_present_and_backward_compatible():
-    migration = Path(__file__).parents[1] / "alembic" / "versions" / "0003_session_evidence_defaults.py"
+    migration = (
+        Path(__file__).parents[1] / "alembic" / "versions" / "0003_session_evidence_defaults.py"
+    )
     text = migration.read_text(encoding="utf-8")
     assert 'down_revision = "0002_session_evidence"' in text
-    assert 'server_default=sa.text("\'[]\'::json")' in text
+    assert "server_default=sa.text(\"'[]'::json\")" in text
     assert 'op.alter_column(\n        "sessions",\n        "verified_facts"' in text
 
 
@@ -142,8 +151,8 @@ def test_install_state_write_is_private_and_atomic(monkeypatch, tmp_path: Path):
 
 def test_installer_restarts_mcp_only_after_success_gate():
     script = (Path(__file__).parents[1] / "install.sh").read_text(encoding="utf-8")
-    fail_gate = script.index('if [[ $UPGRADE_STATUS -ne 0 ]]')
-    restart = script.index('mcp-stop')
+    fail_gate = script.index("if [[ $UPGRADE_STATUS -ne 0 ]]")
+    restart = script.index("mcp-stop")
     cleanup = script.index('rm -rf "$STATE_HOME/runtime.previous"', restart)
     assert restart > fail_gate
     assert cleanup > restart
@@ -151,9 +160,13 @@ def test_installer_restarts_mcp_only_after_success_gate():
 
 def test_installer_success_gate_checks_machine_only_not_all_registered_projects():
     script = (Path(__file__).parents[1] / "install.sh").read_text(encoding="utf-8")
-    gate_section = script[script.index('if [[ $UPGRADE_STATUS -eq 0 && $SKIP_DB -eq 0 ]]'):script.index('if [[ $UPGRADE_STATUS -ne 0 ]]')]
-    assert 'doctor --machine-only' in gate_section
-    assert 'doctor --all-projects' not in gate_section
+    gate_section = script[
+        script.index("if [[ $UPGRADE_STATUS -eq 0 && $SKIP_DB -eq 0 ]]") : script.index(
+            "if [[ $UPGRADE_STATUS -ne 0 ]]"
+        )
+    ]
+    assert "doctor --machine-only" in gate_section
+    assert "doctor --all-projects" not in gate_section
 
 
 def test_alembic_revision_ids_fit_default_version_table_column():
@@ -164,7 +177,9 @@ def test_alembic_revision_ids_fit_default_version_table_column():
         for node in tree.body:
             if not isinstance(node, ast.Assign):
                 continue
-            if any(isinstance(target, ast.Name) and target.id == "revision" for target in node.targets):
+            if any(
+                isinstance(target, ast.Name) and target.id == "revision" for target in node.targets
+            ):
                 if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
                     revision = node.value.value
                     break
@@ -192,8 +207,15 @@ def test_unversioned_current_head_schema_is_stamped_at_0005_not_0001(monkeypatch
     class Inspector:
         def get_table_names(self):
             return [
-                "projects", "project_files", "knowledge", "decisions", "sessions", "project_skills",
-                "tasks", "task_stages", "review_findings",
+                "projects",
+                "project_files",
+                "knowledge",
+                "decisions",
+                "sessions",
+                "project_skills",
+                "tasks",
+                "task_stages",
+                "review_findings",
             ]
 
         def get_columns(self, table):
@@ -205,8 +227,12 @@ def test_unversioned_current_head_schema_is_stamped_at_0005_not_0001(monkeypatch
                 ]
             if table == "project_files":
                 return [
-                    {"name": "id"}, {"name": "content_sha256"}, {"name": "mtime_ns"},
-                    {"name": "ctime_ns"}, {"name": "indexed"}, {"name": "scanner_schema"},
+                    {"name": "id"},
+                    {"name": "content_sha256"},
+                    {"name": "mtime_ns"},
+                    {"name": "ctime_ns"},
+                    {"name": "indexed"},
+                    {"name": "scanner_schema"},
                 ]
             return [{"name": "id"}]
 
@@ -244,8 +270,15 @@ def test_unversioned_hardened_task_schema_is_stamped_at_0006(monkeypatch):
     class Inspector:
         def get_table_names(self):
             return [
-                "projects", "project_files", "knowledge", "decisions", "sessions", "project_skills",
-                "tasks", "task_stages", "review_findings",
+                "projects",
+                "project_files",
+                "knowledge",
+                "decisions",
+                "sessions",
+                "project_skills",
+                "tasks",
+                "task_stages",
+                "review_findings",
             ]
 
         def get_columns(self, table):
@@ -257,13 +290,19 @@ def test_unversioned_hardened_task_schema_is_stamped_at_0006(monkeypatch):
                 ]
             if table == "project_files":
                 return [
-                    {"name": "id"}, {"name": "content_sha256"}, {"name": "mtime_ns"},
-                    {"name": "ctime_ns"}, {"name": "indexed"}, {"name": "scanner_schema"},
+                    {"name": "id"},
+                    {"name": "content_sha256"},
+                    {"name": "mtime_ns"},
+                    {"name": "ctime_ns"},
+                    {"name": "indexed"},
+                    {"name": "scanner_schema"},
                 ]
             if table == "review_findings":
                 return [
-                    {"name": "id"}, {"name": "verification_evidence"},
-                    {"name": "verification_history"}, {"name": "verified_by_stage_id"},
+                    {"name": "id"},
+                    {"name": "verification_evidence"},
+                    {"name": "verification_history"},
+                    {"name": "verified_by_stage_id"},
                 ]
             if table == "tasks":
                 # A current create_all schema may already contain 0007 ORM columns. Stamping 0006
@@ -294,16 +333,27 @@ def test_unversioned_partial_hardening_fails_closed():
                 ]
             if table == "project_files":
                 return [
-                    {"name": "id"}, {"name": "content_sha256"}, {"name": "mtime_ns"},
-                    {"name": "ctime_ns"}, {"name": "indexed"}, {"name": "scanner_schema"},
+                    {"name": "id"},
+                    {"name": "content_sha256"},
+                    {"name": "mtime_ns"},
+                    {"name": "ctime_ns"},
+                    {"name": "indexed"},
+                    {"name": "scanner_schema"},
                 ]
             if table == "review_findings":
                 return [{"name": "id"}, {"name": "verification_evidence"}]
             return [{"name": "id"}]
 
     tables = {
-        "projects", "project_files", "knowledge", "decisions", "sessions", "project_skills",
-        "tasks", "task_stages", "review_findings",
+        "projects",
+        "project_files",
+        "knowledge",
+        "decisions",
+        "sessions",
+        "project_skills",
+        "tasks",
+        "task_stages",
+        "review_findings",
     }
     with pytest.raises(RuntimeError, match="partially hardened"):
         runtime._detect_unversioned_revision(Inspector(), tables)
@@ -313,7 +363,10 @@ def test_workflow_navigation_migration_preserves_legacy_active_stage_compatibili
     migration = Path(__file__).parents[1] / "alembic" / "versions" / "0008_workflow_navigation.py"
     text = migration.read_text(encoding="utf-8")
     assert 'down_revision = "0007_task_adoption"' in text
-    assert 'sa.Column("delegation_required", sa.Boolean(), nullable=False, server_default=sa.false())' in text
+    assert (
+        'sa.Column("delegation_required", sa.Boolean(), nullable=False, server_default=sa.false())'
+        in text
+    )
     assert 'sa.Column("delegated_at", sa.DateTime(timezone=True), nullable=True)' in text
     assert 'sa.Column("external_actions", sa.JSON(), nullable=False' in text
     assert 'op.alter_column("task_stages", "delegation_required", server_default=None)' in text
@@ -324,13 +377,15 @@ def test_project_intelligence_migration_adds_durable_json_without_rewriting_task
     text = migration.read_text(encoding="utf-8")
     assert 'down_revision = "0008_workflow_navigation"' in text
     assert 'sa.Column("project_intelligence", sa.JSON(), nullable=False' in text
-    assert 'server_default=sa.text("\'{}\'")' in text
+    assert "server_default=sa.text(\"'{}'\")" in text
     assert '"task_stages"' not in text
     assert '"tasks"' not in text
 
 
 def test_adaptive_workflow_migration_keeps_existing_tasks_on_legacy_v1():
-    migration = Path(__file__).parents[1] / "alembic" / "versions" / "0010_adaptive_task_workflow.py"
+    migration = (
+        Path(__file__).parents[1] / "alembic" / "versions" / "0010_adaptive_task_workflow.py"
+    )
     text = migration.read_text(encoding="utf-8")
     assert 'server_default="1"' in text
     assert 'server_default="legacy_standard"' in text
@@ -354,6 +409,6 @@ def test_dirty_task_baseline_migration_adds_preexisting_provenance_without_conte
     text = migration.read_text(encoding="utf-8")
     assert 'down_revision = "0012_architecture_hardening"' in text
     assert '"preexisting_changes"' in text
-    assert 'sa.JSON()' in text
-    assert 'repository_snapshots' not in text
-    assert 'LargeBinary' not in text
+    assert "sa.JSON()" in text
+    assert "repository_snapshots" not in text
+    assert "LargeBinary" not in text

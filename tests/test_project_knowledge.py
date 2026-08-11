@@ -7,7 +7,10 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from ai_layer.application.knowledge import _active_delegated_mutation_stage, _record_draft_review_inspection
+from ai_layer.application.knowledge import (
+    _active_delegated_mutation_stage,
+    _record_draft_review_inspection,
+)
 from ai_layer.db.base import Base
 from ai_layer.db.models import Knowledge, Project
 from ai_layer.memory import indexer, knowledge_store, scanner, service
@@ -33,9 +36,15 @@ def _db_project(tmp_path: Path):
     root = tmp_path / "project"
     root.mkdir()
     (root / "backend").mkdir()
-    (root / "backend" / "food_search.py").write_text("def rank_foods(query, foods):\n    return foods\n", encoding="utf-8")
-    (root / "backend" / "test_food_search.py").write_text("def test_word_order():\n    assert True\n", encoding="utf-8")
-    project = Project(name="demo", root_path=str(root), languages={}, dependencies={}, architecture_summary="")
+    (root / "backend" / "food_search.py").write_text(
+        "def rank_foods(query, foods):\n    return foods\n", encoding="utf-8"
+    )
+    (root / "backend" / "test_food_search.py").write_text(
+        "def test_word_order():\n    assert True\n", encoding="utf-8"
+    )
+    project = Project(
+        name="demo", root_path=str(root), languages={}, dependencies={}, architecture_summary=""
+    )
     db.add(project)
     db.commit()
     scanner.scan_project(db, project, root)
@@ -58,7 +67,6 @@ def _draft_food_search(db, project, task_id="task-1"):
     )
 
 
-
 def _draft_overview(db, project, task_id="task-1"):
     return upsert_draft(
         db,
@@ -78,17 +86,32 @@ def _draft_overview(db, project, task_id="task-1"):
 def test_knowledge_contract_requires_repository_evidence_and_rejects_unsafe_paths():
     with pytest.raises(ValueError, match="at least one repository evidence path"):
         normalize_card_input(
-            key="food-search", category="subsystem", title="Food Search", summary="Search behavior",
-            claims=[], constraints=[], evidence_paths=[],
+            key="food-search",
+            category="subsystem",
+            title="Food Search",
+            summary="Search behavior",
+            claims=[],
+            constraints=[],
+            evidence_paths=[],
         )
     with pytest.raises(ValueError, match="unsafe evidence path"):
         normalize_card_input(
-            key="food-search", category="subsystem", title="Food Search", summary="Search behavior",
-            claims=[], constraints=[], evidence_paths=["../secret.txt"],
+            key="food-search",
+            category="subsystem",
+            title="Food Search",
+            summary="Search behavior",
+            claims=[],
+            constraints=[],
+            evidence_paths=["../secret.txt"],
         )
     card = normalize_card_input(
-        key="food-search", category="subsystem", title="Food Search", summary="Search behavior",
-        claims=[], constraints=[], unknowns=["Typo tolerance behavior is not established."],
+        key="food-search",
+        category="subsystem",
+        title="Food Search",
+        summary="Search behavior",
+        claims=[],
+        constraints=[],
+        unknowns=["Typo tolerance behavior is not established."],
         evidence_paths=["backend/food_search.py"],
     )
     assert card["unknowns"] == ["Typo tolerance behavior is not established."]
@@ -106,8 +129,9 @@ def test_scan_keeps_deterministic_evidence_but_never_creates_raw_source_knowledg
         db.close()
 
 
-
-def test_verified_subsystem_does_not_claim_complete_baseline_without_reviewed_overview(tmp_path: Path, monkeypatch):
+def test_verified_subsystem_does_not_claim_complete_baseline_without_reviewed_overview(
+    tmp_path: Path, monkeypatch
+):
     db, project, _ = _db_project(tmp_path)
     monkeypatch.setattr(knowledge_store, "get_embedder", lambda: StableEmbedder())
     try:
@@ -131,15 +155,25 @@ def test_verified_subsystem_does_not_claim_complete_baseline_without_reviewed_ov
     finally:
         db.close()
 
-def test_scan_purges_legacy_scanner_memory_but_preserves_curated_project_knowledge(tmp_path: Path, monkeypatch):
+
+def test_scan_purges_legacy_scanner_memory_but_preserves_curated_project_knowledge(
+    tmp_path: Path, monkeypatch
+):
     db, project, root = _db_project(tmp_path)
     monkeypatch.setattr(knowledge_store, "get_embedder", lambda: StableEmbedder())
     try:
         for kind in ("file", "architecture", "project-intelligence"):
-            db.add(Knowledge(
-                project_id=project.id, kind=kind, title=kind, content="legacy", source_path=None,
-                meta={}, embedding=[0.0] * 384,
-            ))
+            db.add(
+                Knowledge(
+                    project_id=project.id,
+                    kind=kind,
+                    title=kind,
+                    content="legacy",
+                    source_path=None,
+                    meta={},
+                    embedding=[0.0] * 384,
+                )
+            )
         _draft_food_search(db, project)
         publish_task_drafts(db, project, "task-1")
         db.commit()
@@ -148,7 +182,9 @@ def test_scan_purges_legacy_scanner_memory_but_preserves_curated_project_knowled
         db.commit()
 
         assert stats.legacy_source_knowledge_removed == 3
-        kinds = set(db.scalars(select(Knowledge.kind).where(Knowledge.project_id == project.id)).all())
+        kinds = set(
+            db.scalars(select(Knowledge.kind).where(Knowledge.project_id == project.id)).all()
+        )
         assert kinds == {KNOWLEDGE_KIND}
         assert knowledge_status(db, project)["verified"] == 1
     finally:
@@ -182,7 +218,10 @@ def test_review_gated_task_completion_publishes_mapper_drafts(tmp_path: Path, mo
             db,
             project,
             goal="Build verified Project Knowledge baseline",
-            acceptance_criteria=["Project knowledge cards cite current repository evidence", "Independent review passes"],
+            acceptance_criteria=[
+                "Project knowledge cards cite current repository evidence",
+                "Independent review passes",
+            ],
             constraints=["Do not modify repository source"],
             workflow="standard",
             complexity="high",
@@ -198,7 +237,10 @@ def test_review_gated_task_completion_publishes_mapper_drafts(tmp_path: Path, mo
         assert knowledge_status(db, project)["verified"] == 0
 
         review = tasks.complete_current_stage(
-            db, project, expected_kind="implement", summary="Mapped Project Knowledge with source evidence.",
+            db,
+            project,
+            expected_kind="implement",
+            summary="Mapped Project Knowledge with source evidence.",
             checks=["inspected current repository source"],
         )
         assert review["active_stage"]["kind"] == "review"
@@ -208,15 +250,23 @@ def test_review_gated_task_completion_publishes_mapper_drafts(tmp_path: Path, mo
         tasks.delegate_current_stage(db, project, worker_id="reviewer-1")
         with pytest.raises(RuntimeError, match="PROJECT_KNOWLEDGE_REVIEW_REQUIRED"):
             tasks.complete_current_stage(
-                db, project, expected_kind="review", summary="Attempted pass before reading Project Knowledge drafts.",
-                checks=["repository review"], verdict="pass",
+                db,
+                project,
+                expected_kind="review",
+                summary="Attempted pass before reading Project Knowledge drafts.",
+                checks=["repository review"],
+                verdict="pass",
             )
         drafts = list_knowledge(db, project, status="DRAFT", source_task_id=str(task.id))
         assert _record_draft_review_inspection(db, project, str(task.id), drafts) is True
         db.flush()
         completed = tasks.complete_current_stage(
-            db, project, expected_kind="review", summary="Independently verified all knowledge claims.",
-            checks=["knowledge_list DRAFT reviewed against cited source"], verdict="pass",
+            db,
+            project,
+            expected_kind="review",
+            summary="Independently verified all knowledge claims.",
+            checks=["knowledge_list DRAFT reviewed against cited source"],
+            verdict="pass",
         )
         assert completed["status"] == "completed"
         state = knowledge_status(db, project)
@@ -225,7 +275,9 @@ def test_review_gated_task_completion_publishes_mapper_drafts(tmp_path: Path, mo
         cards = list_knowledge(db, project, status="VERIFIED")
         assert all(card["confidence"] == "independent_review_passed" for card in cards)
         overview = next(card for card in cards if card["category"] == "overview")
-        assert overview["unknowns"] == ["Deployment topology is not established by this minimal fixture."]
+        assert overview["unknowns"] == [
+            "Deployment topology is not established by this minimal fixture."
+        ]
     finally:
         db.close()
 
@@ -234,8 +286,15 @@ def test_micro_and_analysis_only_workflows_cannot_write_project_knowledge(tmp_pa
     db, project, _ = _db_project(tmp_path)
     try:
         tasks.create_task(
-            db, project, goal="Tiny local correction", acceptance_criteria=[], constraints=[],
-            workflow="micro", risk="low", complexity="low", uncertainty="low",
+            db,
+            project,
+            goal="Tiny local correction",
+            acceptance_criteria=[],
+            constraints=[],
+            workflow="micro",
+            risk="low",
+            complexity="low",
+            uncertainty="low",
         )
         tasks.delegate_current_stage(db, project, worker_id="micro-worker")
         with pytest.raises(RuntimeError, match="review-gated"):
@@ -243,7 +302,11 @@ def test_micro_and_analysis_only_workflows_cannot_write_project_knowledge(tmp_pa
         tasks.cancel_task(db, project, reason="test")
 
         tasks.create_task(
-            db, project, goal="Analyze architecture only", acceptance_criteria=[], constraints=[],
+            db,
+            project,
+            goal="Analyze architecture only",
+            acceptance_criteria=[],
+            constraints=[],
             workflow="analysis_only",
         )
         tasks.delegate_current_stage(db, project, worker_id="discovery-worker")
@@ -279,9 +342,17 @@ def test_changed_supporting_source_marks_verified_card_stale(tmp_path: Path, mon
 
 def test_food_search_memory_context_is_a_compact_project_brief_not_diagnostic_dump(monkeypatch):
     project = SimpleNamespace(
-        id="p1", name="trener", root_path="/repo", languages={"python": 173, "typescript": 204}, dependencies={},
+        id="p1",
+        name="trener",
+        root_path="/repo",
+        languages={"python": 173, "typescript": 204},
+        dependencies={},
         project_intelligence={
-            "stack": {"languages": ["python", "typescript"], "frameworks": ["expo"], "manifests": ["pyproject.toml", "mobile/package.json"]},
+            "stack": {
+                "languages": ["python", "typescript"],
+                "frameworks": ["expo"],
+                "manifests": ["pyproject.toml", "mobile/package.json"],
+            },
             "runtime": {"entrypoints": ["backend/app/main.py", "mobile/src/app/_layout.tsx"]},
             "data": {"databases": ["postgresql"], "caches": []},
             "testing": {"test_files": 77, "frameworks": ["pytest"]},
@@ -290,33 +361,66 @@ def test_food_search_memory_context_is_a_compact_project_brief_not_diagnostic_du
         },
     )
     card = {
-        "id": "k1", "key": "nutrition.food-search", "category": "subsystem", "title": "Food Search",
+        "id": "k1",
+        "key": "nutrition.food-search",
+        "category": "subsystem",
+        "title": "Food Search",
         "summary": "Ranks foods for nutrition search.",
         "claims": ["Word-order-independent matching already exists."],
         "constraints": ["Keep one canonical ranking implementation."],
-        "source_pointers": ["backend/app/utils/food_search.py", "backend/tests/utils/test_food_search.py"],
-        "status": "VERIFIED", "score": 0.92,
+        "source_pointers": [
+            "backend/app/utils/food_search.py",
+            "backend/tests/utils/test_food_search.py",
+        ],
+        "status": "VERIFIED",
+        "score": 0.92,
     }
-    monkeypatch.setattr(service, "_freshness_for_request", lambda *args, **kwargs: {"status": "fresh", "refreshed": False, "changed_paths": []})
-    monkeypatch.setattr(service, "knowledge_status", lambda *args, **kwargs: {
-        "verified": 1, "stale": 0, "draft": 0, "superseded": 0, "baseline_ready": True, "onboarding_recommended": False,
-    })
+    monkeypatch.setattr(
+        service,
+        "_freshness_for_request",
+        lambda *args, **kwargs: {"status": "fresh", "refreshed": False, "changed_paths": []},
+    )
+    monkeypatch.setattr(
+        service,
+        "knowledge_status",
+        lambda *args, **kwargs: {
+            "verified": 1,
+            "stale": 0,
+            "draft": 0,
+            "superseded": 0,
+            "baseline_ready": True,
+            "onboarding_recommended": False,
+        },
+    )
     monkeypatch.setattr(service, "_search_memory", lambda *args, **kwargs: [card])
-    monkeypatch.setattr(service, "relevant_task_history", lambda *args, **kwargs: [{
-        "key": "T-0042", "goal": "Add word-order-independent food ranking", "outcome": "Implemented ranking behavior",
-    }])
+    monkeypatch.setattr(
+        service,
+        "relevant_task_history",
+        lambda *args, **kwargs: [
+            {
+                "key": "T-0042",
+                "goal": "Add word-order-independent food ranking",
+                "outcome": "Implemented ranking behavior",
+            }
+        ],
+    )
     monkeypatch.setattr(service, "relevant_decision_brief", lambda *args, **kwargs: [])
     monkeypatch.setattr(service, "dynamic_policy", lambda root, read_only=False: "policy")
     monkeypatch.setattr(service, "detect_project_profile", lambda *args, **kwargs: {})
-    monkeypatch.setattr(service, "build_tool_guidance", lambda *args, **kwargs: {"recommended_calls": []})
+    monkeypatch.setattr(
+        service, "build_tool_guidance", lambda *args, **kwargs: {"recommended_calls": []}
+    )
 
     payload = service.memory_context(
-        SimpleNamespace(), project, "Добавь tolerance к опечаткам в food search",
+        SimpleNamespace(),
+        project,
+        "Добавь tolerance к опечаткам в food search",
         task_runtime={"active": False, "next_action": {"action": "create_task"}},
     )
     brief = payload["task_brief"]
     assert brief["source_pointers"] == [
-        "backend/app/utils/food_search.py", "backend/tests/utils/test_food_search.py"
+        "backend/app/utils/food_search.py",
+        "backend/tests/utils/test_food_search.py",
     ]
     assert brief["verified_knowledge"][0]["title"] == "Food Search"
     assert brief["relevant_history"][0]["key"] == "T-0042"

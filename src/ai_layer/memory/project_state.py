@@ -31,7 +31,9 @@ def refresh_project_snapshot(
     dependencies = parse_dependencies(root)
     intelligence = build_project_intelligence(root, rows, languages, dependencies)
     summary = compact_architecture_summary(root, intelligence)
-    selected: list[tuple[str, str]] = []  # Native hosts own skill relevance; keep scan shape compatible.
+    selected: list[
+        tuple[str, str]
+    ] = []  # Native hosts own skill relevance; keep scan shape compatible.
     return rows, languages, dependencies, summary, intelligence, selected
 
 

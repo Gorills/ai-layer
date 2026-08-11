@@ -9,7 +9,6 @@ from ai_layer.observability.context_common import profile_value, redact_value
 from ai_layer.skills.native import native_catalog_files
 
 
-
 def _native_skill_catalog_snapshot(project_root: Path) -> dict:
     hosts: dict[str, dict] = {}
     for host, paths in native_catalog_files(project_root).items():
@@ -47,13 +46,22 @@ def _native_skill_catalog_snapshot(project_root: Path) -> dict:
         "hosts": hosts,
     }
 
+
 def configured_context_snapshot(
     project_root: str,
     mcp_instructions: str | None,
     mcp_tool_catalog: tuple[dict, ...] | None,
 ) -> dict:
     root = Path(project_root).expanduser().resolve()
-    cursor_global = Path.home() / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap" / "rules" / "ai-layer.mdc"
+    cursor_global = (
+        Path.home()
+        / ".cursor"
+        / "plugins"
+        / "local"
+        / "ai-layer-bootstrap"
+        / "rules"
+        / "ai-layer.mdc"
+    )
     cursor_project = root / ".cursor" / "rules" / "ai-layer.mdc"
 
     def configured_file(path: Path, label: str) -> dict:
@@ -95,8 +103,7 @@ def configured_context_snapshot(
         "tool_count": len(catalog),
         "profile": profile_value(catalog),
         "tools": [
-            {**item, "profile": profile_value(item)}
-            for item in catalog if isinstance(item, dict)
+            {**item, "profile": profile_value(item)} for item in catalog if isinstance(item, dict)
         ],
     }
     agents_dir = Path.home() / ".cursor" / "agents"
@@ -109,12 +116,14 @@ def configured_context_snapshot(
                 content = redact_secrets(path.read_text(encoding="utf-8"))
             except (OSError, UnicodeDecodeError):
                 continue
-            profiles.append({
-                "name": path.name,
-                "path": str(path),
-                "delivery_visibility": "loaded_only_if_host_selects_this_worker_profile",
-                "profile": profile_value(content),
-                "content": content,
-            })
+            profiles.append(
+                {
+                    "name": path.name,
+                    "path": str(path),
+                    "delivery_visibility": "loaded_only_if_host_selects_this_worker_profile",
+                    "profile": profile_value(content),
+                    "content": content,
+                }
+            )
     snapshot["configured_worker_profiles"] = profiles
     return snapshot

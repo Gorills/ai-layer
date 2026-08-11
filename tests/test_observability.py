@@ -8,7 +8,12 @@ from ai_layer.cli.app import app
 from ai_layer.core.config import get_settings
 from ai_layer.core.mcp_process import list_mcp_processes, registered_mcp_process
 from ai_layer.core.registry import register_project
-from ai_layer.observability.service import event_path, observability_snapshot, read_events, resolve_registered_root
+from ai_layer.observability.service import (
+    event_path,
+    observability_snapshot,
+    read_events,
+    resolve_registered_root,
+)
 
 
 def _home(monkeypatch, tmp_path: Path) -> Path:
@@ -18,7 +23,9 @@ def _home(monkeypatch, tmp_path: Path) -> Path:
     return home
 
 
-def test_mcp_observability_has_live_started_and_terminal_events_without_payload(monkeypatch, tmp_path: Path):
+def test_mcp_observability_has_live_started_and_terminal_events_without_payload(
+    monkeypatch, tmp_path: Path
+):
     _home(monkeypatch, tmp_path)
     project = tmp_path / "project"
     project.mkdir()
@@ -206,13 +213,16 @@ def test_exact_aggregate_advances_from_appended_bytes(tmp_path: Path, monkeypatc
     path = project / f"{event_service.utcnow().date().isoformat()}.jsonl"
     path.write_text(
         "".join(
-            json.dumps({
-                "ts": event_service.utcnow().isoformat(),
-                "status": "completed",
-                "operation": "memory_context",
-                "client": "cursor",
-                "duration_ms": 10,
-            }) + "\n"
+            json.dumps(
+                {
+                    "ts": event_service.utcnow().isoformat(),
+                    "status": "completed",
+                    "operation": "memory_context",
+                    "client": "cursor",
+                    "duration_ms": 10,
+                }
+            )
+            + "\n"
             for _ in range(25)
         ),
         encoding="utf-8",
@@ -222,13 +232,18 @@ def test_exact_aggregate_advances_from_appended_bytes(tmp_path: Path, monkeypatc
     first_offset = next(iter(event_service._AGGREGATE_CACHE.values())).files[str(path)][1]
 
     with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({
-            "ts": event_service.utcnow().isoformat(),
-            "status": "failed",
-            "operation": "task_stage_complete",
-            "client": "cursor",
-            "duration_ms": 20,
-        }) + "\n")
+        handle.write(
+            json.dumps(
+                {
+                    "ts": event_service.utcnow().isoformat(),
+                    "status": "failed",
+                    "operation": "task_stage_complete",
+                    "client": "cursor",
+                    "duration_ms": 20,
+                }
+            )
+            + "\n"
+        )
     second = event_service.aggregate_events(None, since_seconds=300)
     second_offset = next(iter(event_service._AGGREGATE_CACHE.values())).files[str(path)][1]
     assert second["terminal"] == 26
@@ -253,24 +268,39 @@ def test_handoff_telemetry_ignores_uncommitted_disk_snapshot(monkeypatch, tmp_pa
 
     latest = project_state_path(project, "sessions", "latest.json")
     latest.parent.mkdir(parents=True, exist_ok=True)
-    latest.write_text(json.dumps({
-        "id": "provisional",
-        "goal": "must not leak",
-        "current_state": "rolled back",
-        "created_at": "2026-08-09T00:00:00+00:00",
-        "snapshot_schema": SNAPSHOT_SCHEMA,
-        "commit_state": "provisional",
-    }), encoding="utf-8")
-    assert observability_snapshot(project, include_handoff_text=True)["projects"][0]["last_handoff"] is None
+    latest.write_text(
+        json.dumps(
+            {
+                "id": "provisional",
+                "goal": "must not leak",
+                "current_state": "rolled back",
+                "created_at": "2026-08-09T00:00:00+00:00",
+                "snapshot_schema": SNAPSHOT_SCHEMA,
+                "commit_state": "provisional",
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        observability_snapshot(project, include_handoff_text=True)["projects"][0]["last_handoff"]
+        is None
+    )
 
-    latest.write_text(json.dumps({
-        "id": "committed",
-        "goal": "safe handoff",
-        "current_state": "committed",
-        "created_at": "2026-08-09T00:00:01+00:00",
-        "snapshot_schema": SNAPSHOT_SCHEMA,
-        "commit_state": "committed",
-    }), encoding="utf-8")
-    handoff = observability_snapshot(project, include_handoff_text=True)["projects"][0]["last_handoff"]
+    latest.write_text(
+        json.dumps(
+            {
+                "id": "committed",
+                "goal": "safe handoff",
+                "current_state": "committed",
+                "created_at": "2026-08-09T00:00:01+00:00",
+                "snapshot_schema": SNAPSHOT_SCHEMA,
+                "commit_state": "committed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    handoff = observability_snapshot(project, include_handoff_text=True)["projects"][0][
+        "last_handoff"
+    ]
     assert handoff["goal"] == "safe handoff"
     assert handoff["current_state"] == "committed"

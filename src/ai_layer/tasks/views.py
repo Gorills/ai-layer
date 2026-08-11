@@ -16,8 +16,14 @@ from ai_layer.db.models import (
     VerificationRun,
 )
 from ai_layer.tasks.constants import (
-    HUMAN_ATTENTION_PREFIX, MAX_AUTOMATIC_FIX_ROUNDS, MAX_FINDINGS, MAX_STAGE_HISTORY,
-    MAX_WORKER_ID_CHARS, OPEN_TASK_STATUSES, READ_ONLY_STAGES, TASK_STATE_SCHEMA,
+    HUMAN_ATTENTION_PREFIX,
+    MAX_AUTOMATIC_FIX_ROUNDS,
+    MAX_FINDINGS,
+    MAX_STAGE_HISTORY,
+    MAX_WORKER_ID_CHARS,
+    OPEN_TASK_STATUSES,
+    READ_ONLY_STAGES,
+    TASK_STATE_SCHEMA,
 )
 from ai_layer.tasks.contracts import _configure_stage_agent, _stage_agent_policy
 from ai_layer.tasks.delegation_contract import build_delegation_contract
@@ -29,6 +35,7 @@ from ai_layer.tasks.state_store import (
     task_root as _task_root,
 )
 from ai_layer.tasks.review_workspace import cleanup_review_sandbox
+
 
 def _stage_label(stage: TaskStage) -> str:
     if stage.kind == "review":
@@ -111,7 +118,9 @@ def _create_stage(
         if snapshot is None or snapshot.project_id != task.project_id:
             raise RuntimeError("Stage start snapshot is missing or belongs to another project.")
         if snapshot.digest != str(state.get("digest") or ""):
-            raise RuntimeError("Stage start snapshot does not match the requested repository state.")
+            raise RuntimeError(
+                "Stage start snapshot does not match the requested repository state."
+            )
     else:
         snapshot = create_repository_snapshot(
             db,
@@ -152,7 +161,9 @@ def _finding_payload(item: ReviewFinding) -> dict:
         "verification_history": history,
         "provenance": dict(item.provenance or {}),
         "regression_count": sum(1 for entry in history if entry.get("status") == "regression"),
-        "verified_by_stage_id": str(item.verified_by_stage_id) if item.verified_by_stage_id else None,
+        "verified_by_stage_id": str(item.verified_by_stage_id)
+        if item.verified_by_stage_id
+        else None,
     }
 
 
@@ -172,7 +183,9 @@ def _stage_payload(stage: TaskStage) -> dict:
         "delegated": bool(stage.delegated_at),
         "explicitly_delegated": bool(stage.delegated_at),
         "delegated_at": stage.delegated_at.isoformat() if stage.delegated_at else None,
-        "worker_heartbeat_at": stage.worker_heartbeat_at.isoformat() if stage.worker_heartbeat_at else None,
+        "worker_heartbeat_at": stage.worker_heartbeat_at.isoformat()
+        if stage.worker_heartbeat_at
+        else None,
         "worker_lease_expires_at": (
             stage.worker_lease_expires_at.isoformat() if stage.worker_lease_expires_at else None
         ),
@@ -213,14 +226,23 @@ def _stage_payload(stage: TaskStage) -> dict:
 
 def _verification_payloads(db: Session, stage: TaskStage) -> list[dict]:
     rows = db.scalars(
-        select(VerificationRun).where(VerificationRun.stage_id == stage.id).order_by(VerificationRun.created_at)
+        select(VerificationRun)
+        .where(VerificationRun.stage_id == stage.id)
+        .order_by(VerificationRun.created_at)
     ).all()
     return [
         {
-            "id": str(row.id), "assurance": row.assurance, "command": list(row.command or []),
-            "cwd": row.cwd, "started_at": row.started_at.isoformat(), "completed_at": row.completed_at.isoformat(),
-            "exit_code": row.exit_code, "timed_out": bool(row.timed_out), "passed": (not row.timed_out and row.exit_code == 0),
-            "output_summary": row.output_summary, "evidence_ref": row.evidence_ref,
+            "id": str(row.id),
+            "assurance": row.assurance,
+            "command": list(row.command or []),
+            "cwd": row.cwd,
+            "started_at": row.started_at.isoformat(),
+            "completed_at": row.completed_at.isoformat(),
+            "exit_code": row.exit_code,
+            "timed_out": bool(row.timed_out),
+            "passed": (not row.timed_out and row.exit_code == 0),
+            "output_summary": row.output_summary,
+            "evidence_ref": row.evidence_ref,
         }
         for row in rows
     ]
@@ -246,14 +268,26 @@ def _completion_contract(stage: TaskStage, findings: list[dict]) -> dict:
             **common,
             "tool": "task_discovery_complete",
             "required": ["summary", "checks", "outcome"],
-            "optional": ["verified_facts", "risks", "proposed_plan", "proposed_acceptance_criteria", "external_actions"],
-            "outcomes": ["ready_for_implementation", "analysis_complete", "no_change_needed", "blocked"],
+            "optional": [
+                "verified_facts",
+                "risks",
+                "proposed_plan",
+                "proposed_acceptance_criteria",
+                "external_actions",
+            ],
+            "outcomes": [
+                "ready_for_implementation",
+                "analysis_complete",
+                "no_change_needed",
+                "blocked",
+            ],
         }
     if stage.kind == "review":
         return {
             **common,
             "tool": "task_review_complete",
-            "required": ["summary", "checks", "verdict"] + (["verification_results"] if pending else []),
+            "required": ["summary", "checks", "verdict"]
+            + (["verification_results"] if pending else []),
             "optional": ["findings", "external_actions"],
             "verdicts": ["pass", "changes_required"],
             "finding_required_fields": ["severity", "problem"],
@@ -284,7 +318,10 @@ def _next_action(task: Task, stage: TaskStage | None) -> dict:
                 "action": "done",
                 "message": "Adopted unmanaged changes passed the managed review/remediation gates; original implementation was not claimed as Task Layer work.",
             }
-        return {"action": "done", "message": f"Task completed through workflow profile {task.workflow_profile or 'legacy_standard'}."}
+        return {
+            "action": "done",
+            "message": f"Task completed through workflow profile {task.workflow_profile or 'legacy_standard'}.",
+        }
     if task.status == "cancelled":
         return {"action": "none", "message": "Task is cancelled."}
     if task.status == "blocked":
@@ -300,7 +337,10 @@ def _next_action(task: Task, stage: TaskStage | None) -> dict:
             "message": task.blocked_reason or "Task is blocked and must be resumed explicitly.",
         }
     if stage is None:
-        return {"action": "inspect_state", "message": "No active stage was found for an active task."}
+        return {
+            "action": "inspect_state",
+            "message": "No active stage was found for an active task.",
+        }
     role = stage_definition(stage.kind).role
     if stage.worker_id:
         return {
@@ -333,8 +373,11 @@ def _next_action(task: Task, stage: TaskStage | None) -> dict:
         "tool": "task_stage_delegate",
         "required": ["worker_id"],
         "agent_policy": _stage_agent_policy(stage),
-        "orchestrator_contract": orchestrator_stage_instruction(stage_kind=stage.kind, delegated=False),
-        "message": message + " After binding, start that worker; never perform the stage yourself as fallback.",
+        "orchestrator_contract": orchestrator_stage_instruction(
+            stage_kind=stage.kind, delegated=False
+        ),
+        "message": message
+        + " After binding, start that worker; never perform the stage yourself as fallback.",
     }
 
 
@@ -346,7 +389,9 @@ def _delegation_contract(db: Session, task: Task, stage: TaskStage | None) -> di
         for item in _findings(db, task)
         if item.status in {"open", "pending_verification"}
     ]
-    return build_delegation_contract(task, stage, open_findings, _completion_contract(stage, open_findings))
+    return build_delegation_contract(
+        task, stage, open_findings, _completion_contract(stage, open_findings)
+    )
 
 
 def task_to_dict(db: Session, task: Task, *, include_history: bool = True) -> dict:
@@ -385,7 +430,9 @@ def task_to_dict(db: Session, task: Task, *, include_history: bool = True) -> di
         "constraints": list(task.constraints or []),
         "status": task.status,
         "version": int(task.version or 1),
-        "baseline_snapshot_id": str(task.baseline_snapshot_id) if task.baseline_snapshot_id else None,
+        "baseline_snapshot_id": str(task.baseline_snapshot_id)
+        if task.baseline_snapshot_id
+        else None,
         "review_round": task.review_round,
         "fix_round": task.fix_round,
         "baseline_files": task.baseline_files,
@@ -416,14 +463,16 @@ def task_to_dict(db: Session, task: Task, *, include_history: bool = True) -> di
         "next_action": _next_action(task, stage),
         "delegation_contract": _delegation_contract(db, task, stage),
         "completion_contract": (
-            _completion_contract(stage, active_finding_payloads) if stage and stage.worker_id else None
+            _completion_contract(stage, active_finding_payloads)
+            if stage and stage.worker_id
+            else None
         ),
-        "stages": [_stage_payload_with_verification(db, item) for item in stages[-MAX_STAGE_HISTORY:]],
+        "stages": [
+            _stage_payload_with_verification(db, item) for item in stages[-MAX_STAGE_HISTORY:]
+        ],
         "findings": [
             _finding_payload(item)
-            for item in (
-                findings[-MAX_FINDINGS:] if include_history else active_findings[-20:]
-            )
+            for item in (findings[-MAX_FINDINGS:] if include_history else active_findings[-20:])
         ],
         "active_findings": active_finding_payloads,
         "finding_summary": {"total": len(findings), **finding_status_counts},
@@ -445,7 +494,9 @@ def _persist_task_view(db: Session, project: Project, task: Task) -> dict:
         # PostgreSQL is canonical. Projection/serialization failure must not turn a committed
         # transition into an apparent state-machine failure that an orchestrator could retry.
         payload = dict(payload)
-        payload["projection_warning"] = f"task dashboard projection not updated: {type(exc).__name__}"
+        payload["projection_warning"] = (
+            f"task dashboard projection not updated: {type(exc).__name__}"
+        )
     return payload
 
 
@@ -458,7 +509,10 @@ def current_task(db: Session, project: Project, *, include_history: bool = True)
     )
     if task is None:
         latest = db.scalar(
-            select(Task).where(Task.project_id == project.id).order_by(Task.created_at.desc()).limit(1)
+            select(Task)
+            .where(Task.project_id == project.id)
+            .order_by(Task.created_at.desc())
+            .limit(1)
         )
         return {
             "active": False,

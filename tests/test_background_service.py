@@ -66,11 +66,15 @@ def test_install_user_service_restarts_existing_unit_on_upgrade(monkeypatch, tmp
 
 def test_service_status_keeps_http_liveness_separate_from_autostart(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    monkeypatch.setattr(background, "probe_service", lambda: {
-        "running": True,
-        "version": "0.6.0",
-        "service": {"background": True, "pid": 123},
-    })
+    monkeypatch.setattr(
+        background,
+        "probe_service",
+        lambda: {
+            "running": True,
+            "version": "0.6.0",
+            "service": {"background": True, "pid": 123},
+        },
+    )
     monkeypatch.setattr(background.platform, "system", lambda: "Linux")
     monkeypatch.setattr(background, "systemd_user_available", lambda: False)
 

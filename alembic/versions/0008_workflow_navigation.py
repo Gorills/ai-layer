@@ -3,6 +3,7 @@
 Revision ID: 0008_workflow_navigation
 Revises: 0007_task_adoption
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -24,14 +25,20 @@ def upgrade() -> None:
     if "delegation_required" not in columns:
         op.add_column(
             "task_stages",
-            sa.Column("delegation_required", sa.Boolean(), nullable=False, server_default=sa.false()),
+            sa.Column(
+                "delegation_required", sa.Boolean(), nullable=False, server_default=sa.false()
+            ),
         )
     if "delegated_at" not in columns:
-        op.add_column("task_stages", sa.Column("delegated_at", sa.DateTime(timezone=True), nullable=True))
+        op.add_column(
+            "task_stages", sa.Column("delegated_at", sa.DateTime(timezone=True), nullable=True)
+        )
     if "external_actions" not in columns:
         op.add_column(
             "task_stages",
-            sa.Column("external_actions", sa.JSON(), nullable=False, server_default=sa.text("'[]'::json")),
+            sa.Column(
+                "external_actions", sa.JSON(), nullable=False, server_default=sa.text("'[]'::json")
+            ),
         )
     op.alter_column("task_stages", "delegation_required", server_default=None)
     op.alter_column("task_stages", "external_actions", server_default=None)

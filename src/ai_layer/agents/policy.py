@@ -30,18 +30,21 @@ def policy_path() -> Path:
     return get_settings().home / "agent-policy.json"
 
 
-
 def ensure_policy_file() -> Path:
     path = policy_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         return path
-    path.write_text(json.dumps(DEFAULT_POLICY, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(DEFAULT_POLICY, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     try:
         path.chmod(0o600)
     except OSError:
         pass
     return path
+
 
 def load_policy() -> dict:
     path = policy_path()
@@ -64,8 +67,6 @@ def load_policy() -> dict:
     return result
 
 
-
-
 def save_policy(policy: dict) -> Path:
     path = policy_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -73,7 +74,10 @@ def save_policy(policy: dict) -> Path:
         "schema": POLICY_SCHEMA,
         "default_cost_policy": str(policy.get("default_cost_policy") or "economy"),
         "cursor_models": {
-            tier: str((policy.get("cursor_models") or {}).get(tier) or DEFAULT_POLICY["cursor_models"][tier])
+            tier: str(
+                (policy.get("cursor_models") or {}).get(tier)
+                or DEFAULT_POLICY["cursor_models"][tier]
+            )
             for tier in TIERS
         },
     }
@@ -126,6 +130,7 @@ def configure_policy(
     path = save_policy(payload)
     return {"path": str(path), **load_policy()}
 
+
 def build_agent_requirement(
     *,
     stage_kind: str,
@@ -140,27 +145,61 @@ def build_agent_requirement(
     uncertainty = uncertainty_level if uncertainty_level in {"low", "normal", "high"} else "normal"
     preference = cost_policy if cost_policy in COST_POLICIES else "economy"
     readonly = stage_kind in {"review", "discovery"}
-    role = {"implement": "implementer", "review": "reviewer", "fix": "fixer", "discovery": "discovery"}.get(stage_kind, stage_kind)
-    minimum = "advanced" if "high" in {risk, complexity, uncertainty} else ("standard" if "normal" in {risk, complexity, uncertainty} else "basic")
-    context = "deep" if complexity == "high" or uncertainty == "high" else ("normal" if complexity == "normal" else "focused")
+    role = {
+        "implement": "implementer",
+        "review": "reviewer",
+        "fix": "fixer",
+        "discovery": "discovery",
+    }.get(stage_kind, stage_kind)
+    minimum = (
+        "advanced"
+        if "high" in {risk, complexity, uncertainty}
+        else ("standard" if "normal" in {risk, complexity, uncertainty} else "basic")
+    )
+    context = (
+        "deep"
+        if complexity == "high" or uncertainty == "high"
+        else ("normal" if complexity == "normal" else "focused")
+    )
     isolation = "read_only_workspace" if readonly else "managed_repository_write"
     reason = f"{role}: risk={risk}, complexity={complexity}, uncertainty={uncertainty}, preference={preference}"
     return AgentRequirement(
-        role=role, minimum_capability=minimum, risk=risk, complexity=complexity, uncertainty=uncertainty,
-        context_requirement=context, readonly=readonly, isolation=isolation, quality_cost_preference=preference, reason=reason,
+        role=role,
+        minimum_capability=minimum,
+        risk=risk,
+        complexity=complexity,
+        uncertainty=uncertainty,
+        context_requirement=context,
+        readonly=readonly,
+        isolation=isolation,
+        quality_cost_preference=preference,
+        reason=reason,
         metadata={"workflow_profile": workflow_profile},
     )
 
 
 def requested_tier(
-    *, stage_kind: str, workflow_profile: str, risk_level: str, complexity_level: str = "normal",
-    uncertainty_level: str = "normal", cost_policy: str
+    *,
+    stage_kind: str,
+    workflow_profile: str,
+    risk_level: str,
+    complexity_level: str = "normal",
+    uncertainty_level: str = "normal",
+    cost_policy: str,
 ) -> tuple[str, str]:
     requirement = build_agent_requirement(
-        stage_kind=stage_kind, workflow_profile=workflow_profile, risk_level=risk_level,
-        complexity_level=complexity_level, uncertainty_level=uncertainty_level, cost_policy=cost_policy,
+        stage_kind=stage_kind,
+        workflow_profile=workflow_profile,
+        risk_level=risk_level,
+        complexity_level=complexity_level,
+        uncertainty_level=uncertainty_level,
+        cost_policy=cost_policy,
     )
-    risk, complexity, uncertainty = requirement.risk, requirement.complexity, requirement.uncertainty
+    risk, complexity, uncertainty = (
+        requirement.risk,
+        requirement.complexity,
+        requirement.uncertainty,
+    )
     cost = requirement.quality_cost_preference
     if stage_kind in {"discovery", "review"}:
         tier = {"low": "economy", "normal": "balanced", "high": "strong"}[risk]
@@ -183,22 +222,36 @@ def requested_tier(
             tier = "balanced"
     return tier, requirement.reason
 
+
 def agent_profile(*, tier: str, readonly: bool) -> str:
     suffix = "readonly" if readonly else "write"
     return f"ai-layer-{tier}-{suffix}"
 
 
 def stage_policy(
-    *, stage_kind: str, workflow_profile: str, risk_level: str, complexity_level: str = "normal",
-    uncertainty_level: str = "normal", cost_policy: str
+    *,
+    stage_kind: str,
+    workflow_profile: str,
+    risk_level: str,
+    complexity_level: str = "normal",
+    uncertainty_level: str = "normal",
+    cost_policy: str,
 ) -> dict:
     requirement = build_agent_requirement(
-        stage_kind=stage_kind, workflow_profile=workflow_profile, risk_level=risk_level,
-        complexity_level=complexity_level, uncertainty_level=uncertainty_level, cost_policy=cost_policy,
+        stage_kind=stage_kind,
+        workflow_profile=workflow_profile,
+        risk_level=risk_level,
+        complexity_level=complexity_level,
+        uncertainty_level=uncertainty_level,
+        cost_policy=cost_policy,
     )
     tier, reason = requested_tier(
-        stage_kind=stage_kind, workflow_profile=workflow_profile, risk_level=risk_level,
-        complexity_level=complexity_level, uncertainty_level=uncertainty_level, cost_policy=cost_policy,
+        stage_kind=stage_kind,
+        workflow_profile=workflow_profile,
+        risk_level=risk_level,
+        complexity_level=complexity_level,
+        uncertainty_level=uncertainty_level,
+        cost_policy=cost_policy,
     )
     policy = load_policy()
     return {
@@ -211,14 +264,18 @@ def stage_policy(
         "actual_model_assurance": "requested_unverified",
     }
 
+
 def _profile_text(*, tier: str, readonly: bool, model: str) -> str:
     name = agent_profile(tier=tier, readonly=readonly)
-    mode = "read-only discovery/review" if readonly else "repository-writing implementation/remediation"
+    mode = (
+        "read-only discovery/review"
+        if readonly
+        else "repository-writing implementation/remediation"
+    )
     mutation_contract = (
         "You are READ-ONLY. Never edit repository files or perform consequential external mutations. "
         if readonly
-        else
-        "You are the delegated WRITABLE stage worker. Repository mutations required by the assigned IMPLEMENT/FIX stage belong to you, not the parent orchestrator. "
+        else "You are the delegated WRITABLE stage worker. Repository mutations required by the assigned IMPLEMENT/FIX stage belong to you, not the parent orchestrator. "
     )
     return (
         "---\n"
@@ -252,7 +309,9 @@ def install_cursor_profiles(home: Path | None = None) -> dict:
                 if OWNED_MARKER not in existing:
                     skipped.append(str(path))
                     continue
-            path.write_text(_profile_text(tier=tier, readonly=readonly, model=model), encoding="utf-8")
+            path.write_text(
+                _profile_text(tier=tier, readonly=readonly, model=model), encoding="utf-8"
+            )
             written.append(str(path))
     return {"written": written, "skipped_unmanaged": skipped, "restart_may_be_required": True}
 

@@ -32,24 +32,6 @@ def test_builtin_skill_catalog_is_native_first_and_compact(tmp_path, monkeypatch
         get_settings.cache_clear()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def test_builtin_update_preserves_user_modified_skill(tmp_path, monkeypatch):
     from ai_layer.core.config import get_settings
     from ai_layer.skills.service import install_builtin_skills
@@ -129,8 +111,6 @@ def test_load_skill_rejects_symlink_outside_skills(tmp_path: Path, monkeypatch):
         get_settings.cache_clear()
 
 
-
-
 def test_skill_get_sections_support_deep_on_demand_loading(tmp_path, monkeypatch):
     from ai_layer.core.config import get_settings
     from ai_layer.skills.service import load_skill
@@ -146,10 +126,6 @@ def test_skill_get_sections_support_deep_on_demand_loading(tmp_path, monkeypatch
         assert len(skill_core_content(skill)) < len(skill["content"])
     finally:
         get_settings.cache_clear()
-
-
-
-
 
 
 def test_external_skill_import_is_quarantined_until_explicit_install(tmp_path, monkeypatch):
@@ -244,7 +220,11 @@ def test_project_skill_collision_with_builtin_is_rejected(tmp_path, monkeypatch)
     try:
         register_project(project, project_id=str(uuid.uuid4()), name="repo")
         try:
-            create_project_skill(project, slug="security", content="# Override\n\n## Core contract\n\nProject rules.\n")
+            create_project_skill(
+                project,
+                slug="security",
+                content="# Override\n\n## Core contract\n\nProject rules.\n",
+            )
         except RuntimeError as exc:
             assert "built-in" in str(exc).casefold()
         else:
@@ -253,7 +233,9 @@ def test_project_skill_collision_with_builtin_is_rejected(tmp_path, monkeypatch)
         get_settings.cache_clear()
 
 
-def test_large_package_skill_keeps_markdown_bounded_and_assets_out_of_context(tmp_path, monkeypatch):
+def test_large_package_skill_keeps_markdown_bounded_and_assets_out_of_context(
+    tmp_path, monkeypatch
+):
     import zipfile
 
     from ai_layer.core.config import get_settings
@@ -318,8 +300,14 @@ def test_default_catalog_uiux_uses_pinned_package_and_selected_skill_member(tmp_
     try:
         payload = io.BytesIO()
         with zipfile.ZipFile(payload, "w") as zf:
-            zf.writestr("ui-ux-pro-max-skill-2.14.1/.claude/skills/ui-ux-pro-max/SKILL.md", "---\nname: ui-ux-pro-max\ndescription: UI UX intelligence.\n---\n# UI UX\n\n## When to Apply\n\nUse for design.\n")
-            zf.writestr("ui-ux-pro-max-skill-2.14.1/.claude/skills/ui-ux-pro-max/scripts/search.py", "print('ok')\n")
+            zf.writestr(
+                "ui-ux-pro-max-skill-2.14.1/.claude/skills/ui-ux-pro-max/SKILL.md",
+                "---\nname: ui-ux-pro-max\ndescription: UI UX intelligence.\n---\n# UI UX\n\n## When to Apply\n\nUse for design.\n",
+            )
+            zf.writestr(
+                "ui-ux-pro-max-skill-2.14.1/.claude/skills/ui-ux-pro-max/scripts/search.py",
+                "print('ok')\n",
+            )
             zf.writestr("ui-ux-pro-max-skill-2.14.1/.claude/skills/other/SKILL.md", "# Other\n")
         monkeypatch.setattr(packages, "_read_url", lambda url: payload.getvalue())
         previews = manager.import_skills("catalog:ui-ux-pro-max", scope="global")
@@ -333,8 +321,6 @@ def test_default_catalog_uiux_uses_pinned_package_and_selected_skill_member(tmp_
         assert catalog[0]["source"].endswith("/abb7f2fd5a083fa1ff55c326a963ff0d95c33f99.zip")
     finally:
         get_settings.cache_clear()
-
-
 
 
 def test_package_install_failure_does_not_leave_unmanaged_skill_file(tmp_path, monkeypatch):

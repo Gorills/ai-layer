@@ -8,21 +8,66 @@ import subprocess
 from pathlib import Path
 
 from ai_layer.core.config import get_settings
-from ai_layer.core.paths import project_meta_dir, project_mode, project_provenance, project_state_path
+from ai_layer.core.paths import (
+    project_meta_dir,
+    project_mode,
+    project_provenance,
+    project_state_path,
+)
 
 MAX_SCAN_BYTES = 1_000_000
 TRACKED_STREAM_CHUNK_BYTES = 256_000
 TRACKED_STREAM_OVERLAP_CHARS = 2_048
 BINARY_EXTENSIONS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".gz", ".7z", ".rar",
-    ".exe", ".dll", ".so", ".dylib", ".woff", ".woff2", ".ttf", ".otf", ".mp3", ".wav", ".mp4",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".ico",
+    ".pdf",
+    ".zip",
+    ".gz",
+    ".7z",
+    ".rar",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
+    ".mp3",
+    ".wav",
+    ".mp4",
 }
 PROVENANCE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("ai-layer-reference", re.compile(r"(?i)(?:local\s+ai\s+development\s+layer|\.ai-layer(?:/|\\)|\bai[- ]layer\s+(?:mcp|workflow|memory|session|integration|policy|skill|bootstrap|project\s+state))")),
-    ("generated-by-ai", re.compile(r"(?i)(?:generated|written|created|implemented|modified|edited)\s+(?:by|with|using)\s+(?:an?\s+)?(?:ai|chatgpt|openai|claude|cursor|gemini|copilot|coding agent)")),
+    (
+        "ai-layer-reference",
+        re.compile(
+            r"(?i)(?:local\s+ai\s+development\s+layer|\.ai-layer(?:/|\\)|\bai[- ]layer\s+(?:mcp|workflow|memory|session|integration|policy|skill|bootstrap|project\s+state))"
+        ),
+    ),
+    (
+        "generated-by-ai",
+        re.compile(
+            r"(?i)(?:generated|written|created|implemented|modified|edited)\s+(?:by|with|using)\s+(?:an?\s+)?(?:ai|chatgpt|openai|claude|cursor|gemini|copilot|coding agent)"
+        ),
+    ),
     ("ai-assisted", re.compile(r"(?i)\bai[- ]assisted\b|\bwith\s+ai\s+assistance\b")),
-    ("agent-provenance", re.compile(r"(?i)(?:coding|ai)\s+agent\s+(?:generated|created|implemented|modified|edited|work|workflow)")),
-    ("ai-coauthor", re.compile(r"(?im)^\s*co-authored-by:\s*.*(?:chatgpt|openai|anthropic|claude|cursor|gemini|copilot|\bai\b)")),
+    (
+        "agent-provenance",
+        re.compile(
+            r"(?i)(?:coding|ai)\s+agent\s+(?:generated|created|implemented|modified|edited|work|workflow)"
+        ),
+    ),
+    (
+        "ai-coauthor",
+        re.compile(
+            r"(?im)^\s*co-authored-by:\s*.*(?:chatgpt|openai|anthropic|claude|cursor|gemini|copilot|\bai\b)"
+        ),
+    ),
 )
 AI_ARTIFACT_PATHS = {
     ".ai-layer",
@@ -39,17 +84,23 @@ def _run_git(root: Path, *args: str, timeout: float = 10.0) -> subprocess.Comple
     try:
         return subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired as exc:
-        return subprocess.CompletedProcess(command, 124, stdout=exc.stdout or "", stderr="git command timed out")
+        return subprocess.CompletedProcess(
+            command, 124, stdout=exc.stdout or "", stderr="git command timed out"
+        )
     except OSError as exc:
         return subprocess.CompletedProcess(command, 127, stdout="", stderr=str(exc))
 
 
-def _run_git_bytes(root: Path, *args: str, timeout: float = 10.0) -> subprocess.CompletedProcess[bytes]:
+def _run_git_bytes(
+    root: Path, *args: str, timeout: float = 10.0
+) -> subprocess.CompletedProcess[bytes]:
     command = ["git", "-C", str(root), *args]
     try:
         return subprocess.run(command, capture_output=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired as exc:
-        return subprocess.CompletedProcess(command, 124, stdout=exc.stdout or b"", stderr=b"git command timed out")
+        return subprocess.CompletedProcess(
+            command, 124, stdout=exc.stdout or b"", stderr=b"git command timed out"
+        )
     except OSError as exc:
         return subprocess.CompletedProcess(command, 127, stdout=b"", stderr=str(exc).encode())
 
@@ -151,8 +202,16 @@ def _path_violation(rel: str) -> dict | None:
     normalized = rel.replace("\\", "/")
     while normalized.startswith("./"):
         normalized = normalized[2:]
-    if normalized == ".ai-layer" or normalized.startswith(".ai-layer/") or normalized in AI_ARTIFACT_PATHS:
-        return {"code": "ai-artifact-path", "path": rel, "message": "AI Layer project artifact is forbidden in strict-private repositories."}
+    if (
+        normalized == ".ai-layer"
+        or normalized.startswith(".ai-layer/")
+        or normalized in AI_ARTIFACT_PATHS
+    ):
+        return {
+            "code": "ai-artifact-path",
+            "path": rel,
+            "message": "AI Layer project artifact is forbidden in strict-private repositories.",
+        }
     return None
 
 
@@ -162,11 +221,20 @@ def _content_violations(rel: str, text: str) -> list[dict]:
         match = pattern.search(text)
         if match:
             line = text.count("\n", 0, match.start()) + 1
-            result.append({"code": code, "path": rel, "line": line, "message": "AI-development provenance/reference is forbidden by project privacy policy."})
+            result.append(
+                {
+                    "code": code,
+                    "path": rel,
+                    "line": line,
+                    "message": "AI-development provenance/reference is forbidden by project privacy policy.",
+                }
+            )
     return result
 
 
-def privacy_check(root: str | Path, *, staged: bool = False, commit_message: str | Path | None = None) -> dict:
+def privacy_check(
+    root: str | Path, *, staged: bool = False, commit_message: str | Path | None = None
+) -> dict:
     path = Path(root).expanduser().resolve()
     enabled = project_mode(path) == "strict-private" or project_provenance(path) == "forbid"
     if not enabled:
@@ -174,11 +242,13 @@ def privacy_check(root: str | Path, *, staged: bool = False, commit_message: str
     violations: list[dict] = []
     git_repo = is_git_repository(path)
     if not git_repo:
-        violations.append({
-            "code": "git-required",
-            "path": "",
-            "message": "Strict-private mode requires a working Git repository; privacy safety cannot be proven otherwise.",
-        })
+        violations.append(
+            {
+                "code": "git-required",
+                "path": "",
+                "message": "Strict-private mode requires a working Git repository; privacy safety cannot be proven otherwise.",
+            }
+        )
         return {
             "ok": False,
             "enabled": True,
@@ -189,11 +259,13 @@ def privacy_check(root: str | Path, *, staged: bool = False, commit_message: str
     try:
         paths = _staged_paths(path) if staged else _status_paths(path)
     except RuntimeError as exc:
-        violations.append({
-            "code": "git-query-failed",
-            "path": "",
-            "message": f"Strict-private Git query failed; privacy safety cannot be proven: {exc}",
-        })
+        violations.append(
+            {
+                "code": "git-query-failed",
+                "path": "",
+                "message": f"Strict-private Git query failed; privacy safety cannot be proven: {exc}",
+            }
+        )
         return {
             "ok": False,
             "enabled": True,
@@ -206,7 +278,9 @@ def privacy_check(root: str | Path, *, staged: bool = False, commit_message: str
         if violation:
             violations.append(violation)
             continue
-        text, read_error = _read_staged_file(path, rel) if staged else _read_worktree_file(path, rel)
+        text, read_error = (
+            _read_staged_file(path, rel) if staged else _read_worktree_file(path, rel)
+        )
         if read_error:
             violations.append(_read_error_violation(rel, read_error))
         elif text is not None:
@@ -219,7 +293,13 @@ def privacy_check(root: str | Path, *, staged: bool = False, commit_message: str
             violations.append(_read_error_violation("<commit-message>", "privacy-read-error"))
         else:
             violations.extend(_content_violations("<commit-message>", text))
-    return {"ok": not violations, "enabled": True, "git": git_repo, "scope": "staged" if staged else "changed", "violations": violations}
+    return {
+        "ok": not violations,
+        "enabled": True,
+        "git": git_repo,
+        "scope": "staged" if staged else "changed",
+        "violations": violations,
+    }
 
 
 def _tracked_file_contains_provenance(root: Path, rel: str) -> tuple[bool, str | None]:
@@ -277,8 +357,14 @@ def _tracked_privacy_footprint(path: Path) -> tuple[list[str], list[str]]:
 
 def repository_footprint(root: str | Path) -> dict:
     path = Path(root).expanduser().resolve()
-    candidates = [path / ".ai-layer"] + [path / rel for rel in sorted(AI_ARTIFACT_PATHS) if rel != ".ai-layer"]
-    artifacts = [candidate.relative_to(path).as_posix() for candidate in candidates if candidate.exists() or candidate.is_symlink()]
+    candidates = [path / ".ai-layer"] + [
+        path / rel for rel in sorted(AI_ARTIFACT_PATHS) if rel != ".ai-layer"
+    ]
+    artifacts = [
+        candidate.relative_to(path).as_posix()
+        for candidate in candidates
+        if candidate.exists() or candidate.is_symlink()
+    ]
     tracked, unscannable = _tracked_privacy_footprint(path)
     return {
         "repository_ai_artifacts": sorted(set(artifacts)),
@@ -309,7 +395,11 @@ def _existing_default_hooks(root: Path) -> list[Path]:
     hooks_dir = git_dir / "hooks"
     if not hooks_dir.exists():
         return []
-    return [p.resolve() for p in hooks_dir.iterdir() if p.is_file() and os.access(p, os.X_OK) and not p.name.endswith(".sample")]
+    return [
+        p.resolve()
+        for p in hooks_dir.iterdir()
+        if p.is_file() and os.access(p, os.X_OK) and not p.name.endswith(".sample")
+    ]
 
 
 def install_git_privacy_guard(root: str | Path) -> dict:
@@ -329,7 +419,12 @@ def install_git_privacy_guard(root: str | Path) -> dict:
         except OSError:
             same = False
         if not same:
-            return {"ready": False, "applicable": True, "conflict": configured, "reason": "existing core.hooksPath must not be overwritten automatically"}
+            return {
+                "ready": False,
+                "applicable": True,
+                "conflict": configured,
+                "reason": "existing core.hooksPath must not be overwritten automatically",
+            }
     hooks = project_state_path(path, "git-hooks")
     hooks.mkdir(parents=True, exist_ok=True)
     legacy_hooks = _existing_default_hooks(path)
@@ -341,17 +436,26 @@ def install_git_privacy_guard(root: str | Path) -> dict:
         lines = ["#!/bin/sh", "set -e"]
         legacy = legacy_by_name.get(name)
         if legacy and legacy.resolve() != (hooks / name).resolve():
-            lines.append(f"{shlex.quote(str(legacy))} \"$@\"")
+            lines.append(f'{shlex.quote(str(legacy))} "$@"')
         if name == "pre-commit":
             lines.append(f"{cli} privacy-check --path {root_q} --staged")
         elif name == "commit-msg":
-            lines.append(f"{cli} privacy-check --path {root_q} --staged --commit-message \"$1\"")
+            lines.append(f'{cli} privacy-check --path {root_q} --staged --commit-message "$1"')
         (hooks / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
         os.chmod(hooks / name, 0o700)
     proc = _run_git(path, "config", "--local", "core.hooksPath", str(hooks.resolve()))
     if proc.returncode != 0:
-        return {"ready": False, "applicable": True, "reason": proc.stderr.strip() or "failed to configure core.hooksPath"}
-    return {"ready": True, "applicable": True, "path": str(hooks.resolve()), "chained_legacy_hooks": sorted(legacy_by_name)}
+        return {
+            "ready": False,
+            "applicable": True,
+            "reason": proc.stderr.strip() or "failed to configure core.hooksPath",
+        }
+    return {
+        "ready": True,
+        "applicable": True,
+        "path": str(hooks.resolve()),
+        "chained_legacy_hooks": sorted(legacy_by_name),
+    }
 
 
 def remove_git_privacy_guard(root: str | Path) -> dict:
@@ -367,9 +471,17 @@ def remove_git_privacy_guard(root: str | Path) -> dict:
     try:
         configured_path = Path(configured).expanduser().resolve()
     except OSError:
-        return {"removed": False, "applicable": True, "reason": "configured hooks path is unreadable"}
+        return {
+            "removed": False,
+            "applicable": True,
+            "reason": "configured hooks path is unreadable",
+        }
     if configured_path != expected:
-        return {"removed": False, "applicable": True, "reason": "hooks path belongs to another configuration"}
+        return {
+            "removed": False,
+            "applicable": True,
+            "reason": "hooks path belongs to another configuration",
+        }
     unset = _run_git(path, "config", "--local", "--unset", "core.hooksPath")
     if unset.returncode not in (0, 5):
         raise RuntimeError(unset.stderr.strip() or "failed to remove AI Layer core.hooksPath")
@@ -383,6 +495,7 @@ def git_privacy_guard_status(root: str | Path) -> dict:
     proc = _run_git(path, "config", "--local", "--get", "core.hooksPath")
     expected = project_state_path(path, "git-hooks").resolve()
     configured = proc.stdout.strip() if proc.returncode == 0 else ""
+
     def hook_ready(name: str) -> bool:
         hook = expected / name
         if hook.is_symlink() or not hook.is_file() or not os.access(hook, os.X_OK):
@@ -397,8 +510,15 @@ def git_privacy_guard_status(root: str | Path) -> dict:
         return required
 
     try:
-        configured_matches = bool(configured) and Path(configured).expanduser().resolve() == expected
+        configured_matches = (
+            bool(configured) and Path(configured).expanduser().resolve() == expected
+        )
     except OSError:
         configured_matches = False
     ready = configured_matches and hook_ready("pre-commit") and hook_ready("commit-msg")
-    return {"ready": ready, "applicable": True, "configured": configured or None, "expected": str(expected)}
+    return {
+        "ready": ready,
+        "applicable": True,
+        "configured": configured or None,
+        "expected": str(expected),
+    }

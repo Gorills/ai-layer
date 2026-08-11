@@ -43,7 +43,6 @@ def active_stage_for_update(db: Session, task: Task) -> TaskStage | None:
     )
 
 
-
 def assert_expected_version(task: Task, expected_version: int | None) -> None:
     """Reject stale remote-style mutations without weakening local call compatibility."""
     if expected_version is None:
@@ -54,6 +53,7 @@ def assert_expected_version(task: Task, expected_version: int | None) -> None:
         raise RuntimeError(
             f"STALE_TASK_VERSION: expected task version {expected}, current version is {actual}."
         )
+
 
 def bump_task_version(task: Task) -> None:
     """Advance the optimistic-concurrency token for every authoritative mutation."""

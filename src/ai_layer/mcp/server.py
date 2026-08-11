@@ -1,4 +1,5 @@
 """MCP composition root. Tool adapters are registered by focused modules."""
+
 from __future__ import annotations
 
 import os
@@ -6,17 +7,47 @@ import os
 from ai_layer.core.mcp_process import registered_mcp_process
 from ai_layer.mcp.runtime import MCP_INSTRUCTIONS, TOOL_HANDLERS, core_tool, execute_core_tool, mcp
 from ai_layer.mcp.tools.project_context import (
-    project_info, memory_search, memory_context,
+    project_info,
+    memory_search,
+    memory_context,
 )
 from ai_layer.mcp.tools.tasks import (
-    task_current, task_next, review_sandbox_prepare, review_check_run, verification_run, review_sandbox_cleanup, task_create, task_adopt, task_stage_delegate, task_discovery_complete, task_implementation_complete, task_review_complete, task_fix_complete, task_stage_complete, task_resume, task_cancel,
+    task_current,
+    task_next,
+    review_sandbox_prepare,
+    review_check_run,
+    verification_run,
+    review_sandbox_cleanup,
+    task_create,
+    task_adopt,
+    task_stage_delegate,
+    task_discovery_complete,
+    task_implementation_complete,
+    task_review_complete,
+    task_fix_complete,
+    task_stage_complete,
+    task_resume,
+    task_cancel,
 )
 from ai_layer.mcp.tools.worker_control import task_worker_disconnected, task_worker_heartbeat
 from ai_layer.mcp.tools.skills import (
-    skill_list, skill_search, skill_get, skill_project_create, skill_import, skill_catalog, skill_install, skill_update, skill_set_enabled, skill_remove, skill_info,
+    skill_list,
+    skill_search,
+    skill_get,
+    skill_project_create,
+    skill_import,
+    skill_catalog,
+    skill_install,
+    skill_update,
+    skill_set_enabled,
+    skill_remove,
+    skill_info,
 )
 from ai_layer.mcp.tools.sessions import (
-    session_list, session_restore, session_save, decision_search,
+    session_list,
+    session_restore,
+    session_save,
+    decision_search,
 )
 from ai_layer.mcp.tools.knowledge import knowledge_list, knowledge_draft_upsert
 
@@ -28,7 +59,11 @@ def main() -> None:
 
 
 __all__ = [
-    "mcp", "MCP_INSTRUCTIONS", "TOOL_HANDLERS", "core_tool", "execute_core_tool",
+    "mcp",
+    "MCP_INSTRUCTIONS",
+    "TOOL_HANDLERS",
+    "core_tool",
+    "execute_core_tool",
     "project_info",
     "memory_search",
     "memory_context",

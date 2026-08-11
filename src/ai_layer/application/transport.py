@@ -4,6 +4,7 @@ The pre-foundation transports historically opened ORM sessions themselves.  This
 those call shapes while moving transaction ownership behind the application boundary.  New transport
 code should prefer the focused use-case modules directly.
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -55,7 +56,9 @@ def decision_search(_scope: ApplicationScope, project: ProjectRef, query: str, l
     return context_uc.search_decisions(project.root_path, query, limit)
 
 
-def task_current(_scope: ApplicationScope, project: ProjectRef, *, include_history: bool = True) -> dict:
+def task_current(
+    _scope: ApplicationScope, project: ProjectRef, *, include_history: bool = True
+) -> dict:
     return tasks_uc.current(project.root_path, include_history=include_history)
 
 
@@ -71,7 +74,9 @@ def task_adopt(_scope: ApplicationScope, project: ProjectRef, **kwargs: Any) -> 
     return tasks_uc.adopt(project.root_path, **kwargs)
 
 
-def task_delegate(_scope: ApplicationScope, project: ProjectRef, *, worker_id: str, **kwargs: Any) -> dict:
+def task_delegate(
+    _scope: ApplicationScope, project: ProjectRef, *, worker_id: str, **kwargs: Any
+) -> dict:
     return tasks_uc.delegate(project.root_path, worker_id=worker_id, **kwargs)
 
 

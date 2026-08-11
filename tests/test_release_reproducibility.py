@@ -29,8 +29,8 @@ def test_release_runtime_is_intentionally_limited_to_python_312():
     assert data["project"]["requires-python"] == ">=3.12,<3.13"
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     assert 'platform.python_implementation() == "CPython"' in installer
-    assert 'sys.version_info[:2] == (3, 12)' in installer
-    assert 'sys.version_info >= (3, 12)' not in installer
+    assert "sys.version_info[:2] == (3, 12)" in installer
+    assert "sys.version_info >= (3, 12)" not in installer
 
 
 def test_runtime_lock_is_closed_world_exact_and_contains_every_direct_dependency():
@@ -51,7 +51,7 @@ def test_installer_cannot_resolve_floating_dependencies_or_build_application_fro
     lock_install = text.index('--only-binary=:all: --no-deps -r "$LOCK_FILE"')
     wheel_install = text.index('--no-cache-dir --no-deps "$WHEEL_FILE"')
     pip_check = text.index('"$RELEASE_DIR/bin/python" -m pip check')
-    exact_set = text.index('scripts/verify_release_lock.py')
+    exact_set = text.index("scripts/verify_release_lock.py")
     switch = text.index('ln -sfn "$RELEASE_DIR" "$RUNTIME_HOME/current.next"')
     assert lock_install < wheel_install < pip_check < exact_set < switch
     assert 'pip install --disable-pip-version-check "$SOURCE_DIR"' not in text
@@ -89,7 +89,9 @@ def test_application_wheel_console_scripts_match_pyproject(tmp_path: Path):
     import zipfile
 
     with zipfile.ZipFile(wheel) as archive:
-        entry_name = next(name for name in archive.namelist() if name.endswith(".dist-info/entry_points.txt"))
+        entry_name = next(
+            name for name in archive.namelist() if name.endswith(".dist-info/entry_points.txt")
+        )
         entry_points = archive.read(entry_name).decode("utf-8")
 
     for name, target in project["scripts"].items():
@@ -102,7 +104,10 @@ def test_application_wheel_builder_is_deterministic():
     with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
         first = builder.build(Path(a))
         second = builder.build(Path(b))
-        assert hashlib.sha256(first.read_bytes()).digest() == hashlib.sha256(second.read_bytes()).digest()
+        assert (
+            hashlib.sha256(first.read_bytes()).digest()
+            == hashlib.sha256(second.read_bytes()).digest()
+        )
 
 
 def test_canonical_pytest_stage_is_hermetic_from_global_plugins(monkeypatch):
@@ -128,7 +133,12 @@ def test_canonical_pytest_stage_is_hermetic_from_global_plugins(monkeypatch):
 
 def test_release_gate_passes_for_archive_artifacts():
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "release_gate.py"), "--check-deterministic-wheel", "--json"],
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "release_gate.py"),
+            "--check-deterministic-wheel",
+            "--json",
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -150,13 +160,20 @@ def test_exact_set_verifier_rejects_missing_wrong_and_unexpected_distributions()
 def test_release_archive_builder_is_deterministic_and_excludes_test_cache():
     builder = _load_script("build_release_archive.py")
     import zipfile
+
     with tempfile.TemporaryDirectory() as tmp:
         first = builder.build(Path(tmp) / "first.zip", ROOT)
         second = builder.build(Path(tmp) / "second.zip", ROOT)
-        assert hashlib.sha256(first.read_bytes()).digest() == hashlib.sha256(second.read_bytes()).digest()
+        assert (
+            hashlib.sha256(first.read_bytes()).digest()
+            == hashlib.sha256(second.read_bytes()).digest()
+        )
         with zipfile.ZipFile(first) as archive:
             names = archive.namelist()
-        assert not any("/.pytest_cache/" in name or "/__pycache__/" in name or name.endswith(".pyc") for name in names)
+        assert not any(
+            "/.pytest_cache/" in name or "/__pycache__/" in name or name.endswith(".pyc")
+            for name in names
+        )
 
 
 def test_release_archive_builder_rejects_unknown_top_level_artifacts(tmp_path: Path):
@@ -166,6 +183,7 @@ def test_release_archive_builder_rejects_unknown_top_level_artifacts(tmp_path: P
     (root / "README.md").write_text("ok\n", encoding="utf-8")
     (root / "accidental-worker-label").write_text("", encoding="utf-8")
     import pytest
+
     with pytest.raises(RuntimeError, match="unexpected top-level development repository artifacts"):
         builder.included_files(root)
 
@@ -186,4 +204,9 @@ def test_bootstrap_release_gate_is_dependency_free_and_passes_in_isolated_python
 def test_release_trust_chain_files_are_governance_protected():
     policy = json.loads((ROOT / "release" / "governance-policy.json").read_text(encoding="utf-8"))
     protected = set(policy["protected_paths"])
-    assert {"install.sh", "scripts/bootstrap_release_gate.py", "scripts/verify_release_lock.py", "scripts/build_release_wheel.py"} <= protected
+    assert {
+        "install.sh",
+        "scripts/bootstrap_release_gate.py",
+        "scripts/verify_release_lock.py",
+        "scripts/build_release_wheel.py",
+    } <= protected

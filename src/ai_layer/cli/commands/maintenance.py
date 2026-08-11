@@ -24,6 +24,7 @@ import typer
 from ai_layer.core.runtime import write_install_state
 import yaml
 
+
 def _atomic_private_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
@@ -36,6 +37,7 @@ def _atomic_private_text(path: Path, content: str) -> None:
         os.replace(temp_name, path)
     finally:
         Path(temp_name).unlink(missing_ok=True)
+
 
 def _install_global_files(force: bool = False) -> dict:
     settings = get_settings()
@@ -73,12 +75,14 @@ def _install_global_files(force: bool = False) -> dict:
         os.chmod(settings.config_file, 0o600)
     return {"home": str(settings.home), "skills": installed, "policy": str(policy)}
 
+
 def _hydrate_registry_from_db() -> dict:
     """Import legacy database rows into the durable machine registry through an application use case."""
     try:
         return hydrate_registry_from_database()
     except Exception as exc:
         return {"ok": False, "imported": 0, "error": str(exc)}
+
 
 def _sync_registered_projects() -> dict:
     results: list[dict] = []
@@ -92,7 +96,9 @@ def _sync_registered_projects() -> dict:
             continue
         try:
             synced = sync_project_integrations(root)
-            results.append({"root": str(root), "ok": True, "template_version": synced["template_version"]})
+            results.append(
+                {"root": str(root), "ok": True, "template_version": synced["template_version"]}
+            )
         except Exception as exc:  # doctor/upgrade should continue through other projects
             results.append({"root": str(root), "ok": False, "status": "error", "error": str(exc)})
     return {
@@ -101,6 +107,7 @@ def _sync_registered_projects() -> dict:
         "failed": sum(1 for item in results if not item.get("ok")),
         "projects": results,
     }
+
 
 def _machine_upgrade(*, force: bool, skip_db: bool, sync_projects: bool) -> dict:
     result: dict = {
@@ -126,7 +133,11 @@ def _machine_upgrade(*, force: bool, skip_db: bool, sync_projects: bool) -> dict
             else:
                 result["registry_import"] = {"ok": False, "skipped": True}
         else:
-            result["database_migration"] = {"ok": False, "skipped": True, "reason": started.get("error")}
+            result["database_migration"] = {
+                "ok": False,
+                "skipped": True,
+                "reason": started.get("error"),
+            }
             result["registry_import"] = {"ok": False, "skipped": True}
     if sync_projects and database_pipeline_ok:
         repair = repair_registered_projects(sync=True)
@@ -141,8 +152,14 @@ def _machine_upgrade(*, force: bool, skip_db: bool, sync_projects: bool) -> dict
             "managed_by": "project_repair",
         }
     elif sync_projects:
-        result["project_repair"] = {"skipped": True, "reason": "database migration/bootstrap did not complete"}
-        result["project_sync"] = {"skipped": True, "reason": "database migration/bootstrap did not complete"}
+        result["project_repair"] = {
+            "skipped": True,
+            "reason": "database migration/bootstrap did not complete",
+        }
+        result["project_sync"] = {
+            "skipped": True,
+            "reason": "database migration/bootstrap did not complete",
+        }
     else:
         result["project_repair"] = {"skipped": True}
         result["project_sync"] = {"skipped": True}
@@ -164,9 +181,17 @@ def _machine_upgrade(*, force: bool, skip_db: bool, sync_projects: bool) -> dict
     )
     return result
 
+
 def install(force: bool = typer.Option(False, help="Rewrite built-in global files.")):
     """Low-level install of ~/.ai-layer files. Normal users should use ./install.sh."""
-    echo({"ok": True, **_install_global_files(force=force), "next": "Use ./install.sh for full machine setup."})
+    echo(
+        {
+            "ok": True,
+            **_install_global_files(force=force),
+            "next": "Use ./install.sh for full machine setup.",
+        }
+    )
+
 
 def uninstall_integrations():
     """Remove AI Layer-owned host/project integration residue without touching user-owned files."""
@@ -183,7 +208,12 @@ def uninstall_integrations():
             integration = remove_project_integrations(root)
             privacy_guard = remove_git_privacy_guard(root)
             projects.append(
-                {"root": str(root), "removed": True, "integration": integration, "privacy_guard": privacy_guard}
+                {
+                    "root": str(root),
+                    "removed": True,
+                    "integration": integration,
+                    "privacy_guard": privacy_guard,
+                }
             )
         except Exception as exc:
             projects.append({"root": str(root), "removed": False, "error": str(exc)})

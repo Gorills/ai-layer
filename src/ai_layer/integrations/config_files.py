@@ -77,7 +77,6 @@ def _upsert_managed_markdown(path: Path, body: str) -> None:
     _atomic_write_text(path, updated)
 
 
-
 def _managed_server(server: dict) -> dict:
     managed = json.loads(json.dumps(server))
     env = managed.setdefault("env", {})
@@ -102,7 +101,9 @@ def _server_matches_legacy(existing: dict, desired: dict) -> bool:
     existing_copy = json.loads(json.dumps(existing))
     wanted_env = dict(wanted.get("env") or {})
     wanted_env.pop(MCP_OWNER_KEY, None)
-    existing_env = dict(existing_copy.get("env") or {}) if isinstance(existing_copy.get("env"), dict) else {}
+    existing_env = (
+        dict(existing_copy.get("env") or {}) if isinstance(existing_copy.get("env"), dict) else {}
+    )
     existing_copy["env"] = existing_env
     wanted["env"] = wanted_env
     return existing_copy == wanted
@@ -138,7 +139,9 @@ def _assert_owned_file_safe(path: Path) -> None:
     if not path.exists():
         return
     if path.is_symlink():
-        raise RuntimeError(f"Integration ownership conflict: refusing symlinked managed file: {path}")
+        raise RuntimeError(
+            f"Integration ownership conflict: refusing symlinked managed file: {path}"
+        )
     content = path.read_text(encoding="utf-8")
     if OWNED_FILE_MARKER in content or _legacy_owned_file(path, content):
         return
@@ -219,11 +222,14 @@ def _merge_codex_config(
         updated = current + sep + block + "\n"
     _atomic_write_text(path, updated, backup=backup)
 
+
 def _remove_managed_markdown(path: Path) -> None:
     if not path.exists() or path.is_symlink():
         return
     current = path.read_text(encoding="utf-8")
-    pattern = re.compile(r"\n?" + re.escape(MANAGED_START) + r".*?" + re.escape(MANAGED_END) + r"\n?", re.DOTALL)
+    pattern = re.compile(
+        r"\n?" + re.escape(MANAGED_START) + r".*?" + re.escape(MANAGED_END) + r"\n?", re.DOTALL
+    )
     updated = pattern.sub("\n", current).strip("\n")
     if updated.strip():
         _atomic_write_text(path, updated + "\n")
@@ -255,10 +261,11 @@ def _remove_codex_mcp(path: Path) -> None:
     if not path.exists() or path.is_symlink():
         return
     current = path.read_text(encoding="utf-8")
-    pattern = re.compile(r"\n?" + re.escape(TOML_START) + r".*?" + re.escape(TOML_END) + r"\n?", re.DOTALL)
+    pattern = re.compile(
+        r"\n?" + re.escape(TOML_START) + r".*?" + re.escape(TOML_END) + r"\n?", re.DOTALL
+    )
     updated = pattern.sub("\n", current).strip("\n")
     if updated.strip():
         _atomic_write_text(path, updated + "\n")
     else:
         path.unlink(missing_ok=True)
-

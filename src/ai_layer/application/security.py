@@ -12,7 +12,9 @@ from ai_layer.domain.security import Actor, Capability, DANGEROUS_CAPABILITIES, 
 from ai_layer.observability.domain_events import append_event
 
 
-def decide(actor: Actor, capability: Capability | str, *, require_approval: bool = False) -> PolicyDecision:
+def decide(
+    actor: Actor, capability: Capability | str, *, require_approval: bool = False
+) -> PolicyDecision:
     wanted = str(capability)
     if not actor.authenticated:
         return PolicyDecision(False, wanted, "actor is not authenticated")
@@ -76,7 +78,9 @@ def resolve_approval(
         raise ValueError("approval decision must be approved|denied")
     with session_scope() as db:
         row = db.scalar(
-            select(ApprovalRequest).where(ApprovalRequest.id == UUID(str(approval_id))).with_for_update()
+            select(ApprovalRequest)
+            .where(ApprovalRequest.id == UUID(str(approval_id)))
+            .with_for_update()
         )
         if row is None:
             raise RuntimeError("Approval request does not exist.")

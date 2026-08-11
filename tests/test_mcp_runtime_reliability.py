@@ -31,7 +31,9 @@ def test_core_tool_client_uses_persistent_service_and_deadline(monkeypatch):
     monkeypatch.setattr(
         mcp_runtime,
         "_rpc_request",
-        lambda tool, arguments, timeout: seen.update(tool=tool, arguments=arguments, timeout=timeout) or {"ok": True},
+        lambda tool, arguments, timeout: (
+            seen.update(tool=tool, arguments=arguments, timeout=timeout) or {"ok": True}
+        ),
     )
 
     result = mcp_runtime.call_core_tool("task_next", {"project_root": "/tmp/project"})
@@ -54,8 +56,10 @@ def test_ready_runtime_does_not_rewarm_on_every_context_call(monkeypatch):
     class FakeThread:
         def __init__(self, *args, **kwargs):
             started.append(True)
+
         def is_alive(self):
             return False
+
         def start(self):
             pass
 
@@ -104,7 +108,9 @@ def test_interactive_freshness_never_runs_full_refresh(monkeypatch):
     monkeypatch.setattr(
         refresh_runtime,
         "ensure_memory_fresh",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("full refresh must not run inline")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("full refresh must not run inline")
+        ),
     )
 
     result = refresh_runtime.interactive_freshness(project)
@@ -206,6 +212,7 @@ def test_ambiguous_core_timeout_is_not_replayed_locally(monkeypatch):
     )
 
     import pytest
+
     with pytest.raises(CoreRequestTimeout, match="ambiguous timeout"):
         server.project_info(project_root="/tmp/example")
 
@@ -219,7 +226,9 @@ def test_connection_loss_after_dispatch_is_ambiguous(monkeypatch):
     monkeypatch.setattr(
         mcp_runtime.urllib.request,
         "urlopen",
-        lambda *args, **kwargs: (_ for _ in ()).throw(urllib.error.URLError(ConnectionResetError("reset"))),
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            urllib.error.URLError(ConnectionResetError("reset"))
+        ),
     )
     with pytest.raises(mcp_runtime.CoreRequestTimeout, match="DELIVERY_AMBIGUOUS"):
         mcp_runtime._rpc_request("task_stage_delegate", {"worker_id": "w"}, 1.0)
@@ -232,7 +241,9 @@ def test_internal_core_rpc_requires_token_and_dispatches(monkeypatch):
 
     monkeypatch.setattr(api_module, "start_runtime_warmup", lambda: None)
     monkeypatch.setattr(api_module, "validate_core_token", lambda token: token == "good-token")
-    monkeypatch.setattr(server, "execute_core_tool", lambda name, arguments: {"name": name, "arguments": arguments})
+    monkeypatch.setattr(
+        server, "execute_core_tool", lambda name, arguments: {"name": name, "arguments": arguments}
+    )
     app = api_module.create_app()
     with TestClient(app) as client:
         denied = client.post("/internal/mcp/tools/task_next", json={"arguments": {}})
@@ -240,7 +251,10 @@ def test_internal_core_rpc_requires_token_and_dispatches(monkeypatch):
         allowed = client.post(
             "/internal/mcp/tools/task_next",
             json={"arguments": {"project_root": "/tmp/p"}},
-            headers={"X-AI-Layer-Core-Token": "good-token", "X-AI-Layer-Bridge-Version": api_module.__version__},
+            headers={
+                "X-AI-Layer-Core-Token": "good-token",
+                "X-AI-Layer-Bridge-Version": api_module.__version__,
+            },
         )
     assert allowed.status_code == 200
     assert allowed.json()["result"]["name"] == "task_next"

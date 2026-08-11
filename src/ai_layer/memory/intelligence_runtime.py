@@ -72,7 +72,9 @@ def _volume_parts(raw: object) -> tuple[str | None, str | None, str | None]:
 
 def _mount_role(target: str | None) -> str:
     low = (target or "").casefold()
-    if any(x in low for x in ("/var/lib/postgresql", "/var/lib/mysql", "/var/lib/mongodb", "/data/db")):
+    if any(
+        x in low for x in ("/var/lib/postgresql", "/var/lib/mysql", "/var/lib/mongodb", "/data/db")
+    ):
         return "database_data"
     if any(x in low for x in ("/media", "/uploads", "/storage/app/public", "/public/uploads")):
         return "user_media"
@@ -82,7 +84,15 @@ def _mount_role(target: str | None) -> str:
         return "dependency_cache"
     if any(x in low for x in ("/tmp", "/cache", "/var/cache")):
         return "cache_or_temporary"
-    if low in {"/app", "/workspace", "/srv/app", "/code", "/var/www/html", "/var/www", "/usr/src/app"} or low.endswith("/src"):
+    if low in {
+        "/app",
+        "/workspace",
+        "/srv/app",
+        "/code",
+        "/var/www/html",
+        "/var/www",
+        "/usr/src/app",
+    } or low.endswith("/src"):
         return "source_code"
     return "generic_storage"
 
@@ -123,7 +133,12 @@ def docker_topology(root: Path, rows: Iterable[object]) -> dict:
                 if not target:
                     continue
                 inferred_type = declared_type or (
-                    "bind" if source and (source.startswith(".") or source.startswith("/") or source.startswith("${")) else "volume"
+                    "bind"
+                    if source
+                    and (
+                        source.startswith(".") or source.startswith("/") or source.startswith("${")
+                    )
+                    else "volume"
                 )
                 item = {
                     "compose": rel,
@@ -155,7 +170,9 @@ def docker_topology(root: Path, rows: Iterable[object]) -> dict:
                 "mounts": service_mounts,
             }
     source_binds = [m for m in mounts if m["type"] == "bind" and m["role"] == "source_code"]
-    persistent = [m for m in mounts if m["role"] in {"database_data", "user_media", "generic_storage"}]
+    persistent = [
+        m for m in mounts if m["role"] in {"database_data", "user_media", "generic_storage"}
+    ]
     signals = []
     if compose_files or dockerfiles:
         signals.append("docker")
@@ -177,13 +194,25 @@ def docker_topology(root: Path, rows: Iterable[object]) -> dict:
     }
 
 
-def runtime_topology(root: Path, rows: Iterable[object], dependencies: dict[str, list[str]], docker: dict) -> dict:
+def runtime_topology(
+    root: Path, rows: Iterable[object], dependencies: dict[str, list[str]], docker: dict
+) -> dict:
     paths = _paths(rows)
     names = {Path(p).name for p in paths}
     entries: list[str] = []
     for rel in paths:
         name = Path(rel).name.casefold()
-        if name in {"manage.py", "artisan", "app.py", "main.py", "server.py", "wsgi.py", "asgi.py", "index.js", "index.ts"}:
+        if name in {
+            "manage.py",
+            "artisan",
+            "app.py",
+            "main.py",
+            "server.py",
+            "wsgi.py",
+            "asgi.py",
+            "index.js",
+            "index.ts",
+        }:
             entries.append(rel)
         elif rel.startswith(("routes/", "config/routes", "cmd/")) and len(Path(rel).parts) <= 4:
             entries.append(rel)
@@ -195,7 +224,10 @@ def runtime_topology(root: Path, rows: Iterable[object], dependencies: dict[str,
             workers.append(label)
     for service in docker.get("services", {}).values():
         command = str(service.get("command") or "").casefold()
-        if any(x in command for x in ("celery worker", "queue:work", "horizon", "rq worker", "dramatiq")):
+        if any(
+            x in command
+            for x in ("celery worker", "queue:work", "horizon", "rq worker", "dramatiq")
+        ):
             workers.append(command[:180])
         if any(x in command for x in ("celery beat", "schedule:work", "schedule:run", "cron")):
             schedulers.append(command[:180])
@@ -209,7 +241,9 @@ def runtime_topology(root: Path, rows: Iterable[object], dependencies: dict[str,
     }
 
 
-def data_topology(root: Path, rows: Iterable[object], dependencies: dict[str, list[str]], docker: dict) -> dict:
+def data_topology(
+    root: Path, rows: Iterable[object], dependencies: dict[str, list[str]], docker: dict
+) -> dict:
     paths = _paths(rows)
     dep_text = _dep_text(dependencies)
     stores: set[str] = set()
@@ -232,10 +266,17 @@ def data_topology(root: Path, rows: Iterable[object], dependencies: dict[str, li
     if any(Path(p).name in {"db.sqlite3", "database.sqlite"} for p in paths):
         stores.add("sqlite")
     media_paths = sorted(
-        p for p in paths
+        p
+        for p in paths
         if any(part.casefold() in {"media", "uploads"} for part in Path(p).parts[:-1])
     )[:30]
-    storage_dirs = sorted({Path(p).parts[0] for p in paths if Path(p).parts and Path(p).parts[0] in {"storage", "media", "uploads"}})
+    storage_dirs = sorted(
+        {
+            Path(p).parts[0]
+            for p in paths
+            if Path(p).parts and Path(p).parts[0] in {"storage", "media", "uploads"}
+        }
+    )
     return {
         "databases": sorted(stores),
         "caches": sorted(caches),
@@ -248,14 +289,36 @@ def data_topology(root: Path, rows: Iterable[object], dependencies: dict[str, li
 def testing_topology(rows: Iterable[object], dependencies: dict[str, list[str]]) -> dict:
     paths = _paths(rows)
     test_paths = [
-        p for p in paths
-        if any(part.casefold() in {"test", "tests", "spec", "specs", "__tests__"} for part in Path(p).parts[:-1])
+        p
+        for p in paths
+        if any(
+            part.casefold() in {"test", "tests", "spec", "specs", "__tests__"}
+            for part in Path(p).parts[:-1]
+        )
         or Path(p).name.casefold().startswith(("test_", "spec_"))
         or Path(p).stem.casefold().endswith(("_test", ".test", ".spec"))
     ]
-    source_paths = [p for p in paths if Path(p).suffix.casefold() in {".py", ".php", ".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte"}]
+    source_paths = [
+        p
+        for p in paths
+        if Path(p).suffix.casefold()
+        in {".py", ".php", ".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte"}
+    ]
     dep_text = _dep_text(dependencies)
-    frameworks = [name for name in ("pytest", "unittest", "phpunit", "pest", "jest", "vitest", "playwright", "cypress") if name in dep_text]
+    frameworks = [
+        name
+        for name in (
+            "pytest",
+            "unittest",
+            "phpunit",
+            "pest",
+            "jest",
+            "vitest",
+            "playwright",
+            "cypress",
+        )
+        if name in dep_text
+    ]
     ratio = round(len(test_paths) / max(1, len(source_paths)), 3)
     if not source_paths:
         evidence = "unknown_no_code_surface"
@@ -279,10 +342,20 @@ def testing_topology(rows: Iterable[object], dependencies: dict[str, list[str]])
 
 def legacy_fragility(rows: Iterable[object], runtime: dict, testing: dict) -> dict:
     indexed = [row for row in rows if bool(getattr(row, "indexed", True))]
-    large_files = [str(getattr(row, "path", "")) for row in indexed if "large_file" in (getattr(row, "risk_flags", None) or [])]
-    todo_files = [str(getattr(row, "path", "")) for row in indexed if "contains_todo_or_fixme" in (getattr(row, "risk_flags", None) or [])]
+    large_files = [
+        str(getattr(row, "path", ""))
+        for row in indexed
+        if "large_file" in (getattr(row, "risk_flags", None) or [])
+    ]
+    todo_files = [
+        str(getattr(row, "path", ""))
+        for row in indexed
+        if "contains_todo_or_fixme" in (getattr(row, "risk_flags", None) or [])
+    ]
     paths = [str(getattr(row, "path", "")) for row in indexed]
-    migration_count = sum(1 for p in paths if "migration" in p.casefold() or "/migrations/" in f"/{p.casefold()}/")
+    migration_count = sum(
+        1 for p in paths if "migration" in p.casefold() or "/migrations/" in f"/{p.casefold()}/"
+    )
     signals: list[dict] = []
     score = 0
     if testing.get("test_evidence") == "none_detected":
@@ -294,7 +367,9 @@ def legacy_fragility(rows: Iterable[object], runtime: dict, testing: dict) -> di
     if large_files:
         weight = 2 if len(large_files) >= 3 else 1
         score += weight
-        signals.append({"signal": "large_ownership_files", "weight": weight, "evidence": large_files[:8]})
+        signals.append(
+            {"signal": "large_ownership_files", "weight": weight, "evidence": large_files[:8]}
+        )
     if runtime.get("multiple_runtime_entrypoints"):
         score += 1
         signals.append({"signal": "multiple_runtime_entrypoints", "weight": 1})
@@ -319,10 +394,7 @@ def integration_topology(rows: Iterable[object], dependencies: dict[str, list[st
     result: dict[str, list[str]] = {}
     for domain, hints in INTEGRATION_HINTS.items():
         evidence = [hint for hint in hints if hint in dep_text]
-        evidence.extend(
-            p for p in paths[:5000]
-            if any(hint in p.casefold() for hint in hints)
-        )
+        evidence.extend(p for p in paths[:5000] if any(hint in p.casefold() for hint in hints))
         if evidence:
             result[domain] = sorted(set(evidence))[:20]
     return result

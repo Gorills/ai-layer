@@ -35,7 +35,9 @@ def knowledge_status(db: Session, project: Project) -> dict:
     verified = [row for row in rows if str((row.meta or {}).get("status") or "DRAFT") == "VERIFIED"]
     category_counts = Counter(str((row.meta or {}).get("category") or "other") for row in verified)
     verified_categories = sorted(category_counts)
-    overview_verified = any(str((row.meta or {}).get("category") or "") == "overview" for row in verified)
+    overview_verified = any(
+        str((row.meta or {}).get("category") or "") == "overview" for row in verified
+    )
     subsystem_count = int(category_counts.get("subsystem", 0))
     return {
         "verified": counts.get("VERIFIED", 0),
@@ -126,12 +128,15 @@ def upsert_draft(
     text = build_card_text(card)
     vectors = get_embedder().embed([text])
     if len(vectors) != 1:
-        raise RuntimeError("Embedding provider returned an incomplete Project Knowledge vector batch.")
+        raise RuntimeError(
+            "Embedding provider returned an incomplete Project Knowledge vector batch."
+        )
     vector = vectors[0]
     rows = _project_knowledge_rows(db, project)
     existing = next(
         (
-            row for row in rows
+            row
+            for row in rows
             if (row.meta or {}).get("status") == "DRAFT"
             and (row.meta or {}).get("knowledge_key") == card["key"]
             and str((row.meta or {}).get("source_task_id") or "") == str(source_task_id)
@@ -184,7 +189,8 @@ def has_task_drafts(db: Session, project: Project, task_id: str) -> bool:
 def publish_task_drafts(db: Session, project: Project, task_id: str) -> dict:
     rows = _project_knowledge_rows(db, project)
     drafts = [
-        row for row in rows
+        row
+        for row in rows
         if (row.meta or {}).get("status") == "DRAFT"
         and str((row.meta or {}).get("source_task_id") or "") == str(task_id)
     ]
@@ -205,12 +211,14 @@ def publish_task_drafts(db: Session, project: Project, task_id: str) -> dict:
                 row.meta = meta
                 superseded += 1
         meta = dict(draft.meta or {})
-        meta.update({
-            "status": "VERIFIED",
-            "confidence": "independent_review_passed",
-            "validated_at": utc_iso(),
-            "stale_reason": None,
-        })
+        meta.update(
+            {
+                "status": "VERIFIED",
+                "confidence": "independent_review_passed",
+                "validated_at": utc_iso(),
+                "stale_reason": None,
+            }
+        )
         draft.meta = meta
         published += 1
     db.flush()
@@ -259,10 +267,14 @@ def invalidate_stale_knowledge(db: Session, project: Project) -> int:
     return changed
 
 
-def search_knowledge(db: Session, project: Project, query: str, *, status: str = "VERIFIED", limit: int = 6) -> list[dict]:
+def search_knowledge(
+    db: Session, project: Project, query: str, *, status: str = "VERIFIED", limit: int = 6
+) -> list[dict]:
     vectors = get_embedder().embed([query])
     if len(vectors) != 1:
-        raise RuntimeError("Embedding provider returned an incomplete Project Knowledge query vector batch.")
+        raise RuntimeError(
+            "Embedding provider returned an incomplete Project Knowledge query vector batch."
+        )
     vector = vectors[0]
     candidate_limit = max(40, int(limit) * 8)
     rows = db.execute(

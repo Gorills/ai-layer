@@ -46,7 +46,6 @@ def _pid_status(pid: object) -> str:
     return "alive"
 
 
-
 def _boot_id() -> str | None:
     try:
         value = Path("/proc/sys/kernel/random/boot_id").read_text(encoding="utf-8").strip()
@@ -83,7 +82,16 @@ def _owner_process_matches(owner: dict) -> bool:
 def _write_owner(lock_dir: Path, token: str) -> None:
     owner = lock_dir / "owner.json"
     with owner.open("x", encoding="utf-8") as handle:
-        json.dump({"pid": os.getpid(), "token": token, "boot_id": _boot_id(), "process_start": _process_start(os.getpid())}, handle, separators=(",", ":"))
+        json.dump(
+            {
+                "pid": os.getpid(),
+                "token": token,
+                "boot_id": _boot_id(),
+                "process_start": _process_start(os.getpid()),
+            },
+            handle,
+            separators=(",", ":"),
+        )
         handle.write("\n")
         handle.flush()
         os.fsync(handle.fileno())

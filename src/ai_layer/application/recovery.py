@@ -61,11 +61,14 @@ async def _run_reaper(stop: asyncio.Event, interval_seconds: float) -> None:
 
 @asynccontextmanager
 async def worker_recovery_lifespan(
-    *, interval_seconds: float = _REAPER_INTERVAL_SECONDS,
+    *,
+    interval_seconds: float = _REAPER_INTERVAL_SECONDS,
 ) -> AsyncIterator[None]:
     await asyncio.to_thread(reconcile_stale_workers)
     stop = asyncio.Event()
-    task = asyncio.create_task(_run_reaper(stop, interval_seconds), name="ai-layer-worker-lease-reaper")
+    task = asyncio.create_task(
+        _run_reaper(stop, interval_seconds), name="ai-layer-worker-lease-reaper"
+    )
     try:
         yield
     finally:

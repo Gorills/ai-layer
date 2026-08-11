@@ -23,7 +23,10 @@ def test_running_mcp_process_registers_version(tmp_path, monkeypatch):
 
 def test_mcp_server_main_registers_process_lifecycle():
     from pathlib import Path
-    source = (Path(__file__).parents[1] / "src" / "ai_layer" / "mcp" / "server.py").read_text(encoding="utf-8")
+
+    source = (Path(__file__).parents[1] / "src" / "ai_layer" / "mcp" / "server.py").read_text(
+        encoding="utf-8"
+    )
     assert "with registered_mcp_process():" in source
     assert "mcp.run()" in source
 
@@ -59,13 +62,18 @@ def test_mcp_stop_targets_only_registered_exact_processes(tmp_path, monkeypatch)
     (unrelated / "cmdline").write_bytes(b"/usr/bin/editor\x00ai-layer-mcp-notes\x00")
 
     monkeypatch.setattr(mcp_process, "_process_dir", lambda: process_dir)
-    monkeypatch.setattr(mcp_process, "Path", lambda value: proc_root if str(value) == "/proc" else __import__("pathlib").Path(value))
+    monkeypatch.setattr(
+        mcp_process,
+        "Path",
+        lambda value: proc_root if str(value) == "/proc" else __import__("pathlib").Path(value),
+    )
     calls = []
 
     def fake_kill(pid, sig):
         calls.append((pid, sig))
         if pid == registered_pid and sig == signal.SIGTERM:
             import shutil
+
             shutil.rmtree(reg_entry)
 
     monkeypatch.setattr(mcp_process.os, "kill", fake_kill)

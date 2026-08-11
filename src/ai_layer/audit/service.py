@@ -33,6 +33,7 @@ AUDIT_SAFE_METRIC_KEYS = {
 def _server_version() -> str:
     try:
         from ai_layer import __version__
+
         return __version__
     except Exception:
         return "unknown"
@@ -96,7 +97,9 @@ def _tail_lines(path: Path, max_bytes: int = AUDIT_TAIL_BYTES) -> list[str]:
 
 
 @contextmanager
-def mcp_audit(project_root: str | Path, tool: str, *, arg_keys: list[str] | None = None) -> Iterator[dict]:
+def mcp_audit(
+    project_root: str | Path, tool: str, *, arg_keys: list[str] | None = None
+) -> Iterator[dict]:
     """Append a privacy-minimal MCP audit event.
 
     Argument values and tool results are deliberately not logged: QA needs call observability, not a
@@ -219,12 +222,16 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
         if event.get("tool") == "session_save":
             return "session_save"
         metrics = event.get("metrics") or {}
-        if event.get("tool") in {
-            "task_stage_complete",
-            "task_implementation_complete",
-            "task_review_complete",
-            "task_fix_complete",
-        } and metrics.get("status") == "completed":
+        if (
+            event.get("tool")
+            in {
+                "task_stage_complete",
+                "task_implementation_complete",
+                "task_review_complete",
+                "task_fix_complete",
+            }
+            and metrics.get("status") == "completed"
+        ):
             return "managed_task"
         if event.get("tool") == "task_cancel":
             return "cancelled_task"
@@ -246,7 +253,7 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
             break
 
     end = completion_index if completion_index is not None else len(events) - 1
-    flow = events[previous_terminal + 1:end + 1]
+    flow = events[previous_terminal + 1 : end + 1]
     tools = [str(item.get("tool")) for item in flow]
     failures = [
         {"tool": item.get("tool"), "error_type": item.get("error_type")}
@@ -274,7 +281,9 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
             completion_metrics.get("handoff_written")
         )
     successful_terminal = completion_kind in {"session_save", "managed_task"}
-    versions = sorted({str(item.get("server_version")) for item in flow if item.get("server_version")})
+    versions = sorted(
+        {str(item.get("server_version")) for item in flow if item.get("server_version")}
+    )
     return {
         "ok": successful_terminal and handoff_written and context_calls >= 1 and not failures,
         "tools": tools,
@@ -290,4 +299,3 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
         "server_versions": versions,
         "event_count": len(flow),
     }
-

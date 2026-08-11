@@ -25,63 +25,74 @@ def _build_findings(events: list[dict]) -> list[dict]:
         by_session[str(event.get("mcp_session_id") or "unknown")].append(event)
     for session_id, session_events in by_session.items():
         context_calls = [
-            event for event in session_events
+            event
+            for event in session_events
             if event.get("tool") == "memory_context" and event.get("ok")
         ]
         if len(context_calls) > 1:
-            findings.append({
-                "severity": "warning",
-                "code": "DUPLICATE_MEMORY_CONTEXT",
-                "session_id": session_id,
-                "count": len(context_calls),
-                "message": (
-                    "memory_context was delivered more than once in one MCP session; verify that "
-                    "task goal or external repository state actually changed."
-                ),
-            })
+            findings.append(
+                {
+                    "severity": "warning",
+                    "code": "DUPLICATE_MEMORY_CONTEXT",
+                    "session_id": session_id,
+                    "count": len(context_calls),
+                    "message": (
+                        "memory_context was delivered more than once in one MCP session; verify that "
+                        "task goal or external repository state actually changed."
+                    ),
+                }
+            )
         for event in context_calls:
             result = event.get("result") or {}
             budget = result.get("context_budget") or {}
             if budget.get("policy_over_soft_target"):
-                findings.append({
-                    "severity": "warning",
-                    "code": "POLICY_OVER_SOFT_TARGET",
-                    "session_id": session_id,
-                    "policy_chars": budget.get("policy_chars"),
-                    "message": (
-                        "Mandatory policy exceeded its configured soft target and cannot be "
-                        "silently truncated."
-                    ),
-                })
+                findings.append(
+                    {
+                        "severity": "warning",
+                        "code": "POLICY_OVER_SOFT_TARGET",
+                        "session_id": session_id,
+                        "policy_chars": budget.get("policy_chars"),
+                        "message": (
+                            "Mandatory policy exceeded its configured soft target and cannot be "
+                            "silently truncated."
+                        ),
+                    }
+                )
             if int(budget.get("raw_source_memory_chars") or 0) > 0:
-                findings.append({
-                    "severity": "error",
-                    "code": "RAW_SOURCE_MEMORY_REGRESSION",
-                    "session_id": session_id,
-                    "raw_source_memory_chars": budget.get("raw_source_memory_chars"),
-                    "message": "Current-source text entered memory_context; host-native source discovery should own current code.",
-                })
+                findings.append(
+                    {
+                        "severity": "error",
+                        "code": "RAW_SOURCE_MEMORY_REGRESSION",
+                        "session_id": session_id,
+                        "raw_source_memory_chars": budget.get("raw_source_memory_chars"),
+                        "message": "Current-source text entered memory_context; host-native source discovery should own current code.",
+                    }
+                )
             stale = list(((result.get("task_brief") or {}).get("stale_knowledge") or []))
             if stale:
-                findings.append({
-                    "severity": "info",
-                    "code": "STALE_PROJECT_KNOWLEDGE_RETURNED",
-                    "session_id": session_id,
-                    "count": len(stale),
-                    "message": "Relevant reviewed knowledge is stale; inspect current source before relying on implementation details.",
-                })
+                findings.append(
+                    {
+                        "severity": "info",
+                        "code": "STALE_PROJECT_KNOWLEDGE_RETURNED",
+                        "session_id": session_id,
+                        "count": len(stale),
+                        "message": "Relevant reviewed knowledge is stale; inspect current source before relying on implementation details.",
+                    }
+                )
             # Old traces remain readable after the native-first migration, but are explicitly
             # marked as legacy instead of being interpreted as the current routing model.
             if result.get("skill_plan") or result.get("skills"):
-                findings.append({
-                    "severity": "info",
-                    "code": "LEGACY_SKILL_ROUTING_TRACE",
-                    "session_id": session_id,
-                    "message": (
-                        "This trace predates host-native skill routing and contains the retired "
-                        "AI Layer planner/autoload payload."
-                    ),
-                })
+                findings.append(
+                    {
+                        "severity": "info",
+                        "code": "LEGACY_SKILL_ROUTING_TRACE",
+                        "session_id": session_id,
+                        "message": (
+                            "This trace predates host-native skill routing and contains the retired "
+                            "AI Layer planner/autoload payload."
+                        ),
+                    }
+                )
         fetch_counter: Counter[tuple[str, str]] = Counter()
         for event in session_events:
             fetch = event.get("skill_fetch") or {}
@@ -91,28 +102,32 @@ def _build_findings(events: list[dict]) -> list[dict]:
                 continue
             fetch_counter[(slug, section)] += 1
             if fetch.get("full_skill"):
-                findings.append({
-                    "severity": "warning",
-                    "code": "FULL_SKILL_FETCH",
-                    "session_id": session_id,
-                    "skill": slug,
-                    "estimated_tokens": (fetch.get("content") or {}).get("estimated_tokens"),
-                    "message": (
-                        "A full authoritative skill was fetched; verify that one targeted section "
-                        "would not have been sufficient."
-                    ),
-                })
+                findings.append(
+                    {
+                        "severity": "warning",
+                        "code": "FULL_SKILL_FETCH",
+                        "session_id": session_id,
+                        "skill": slug,
+                        "estimated_tokens": (fetch.get("content") or {}).get("estimated_tokens"),
+                        "message": (
+                            "A full authoritative skill was fetched; verify that one targeted section "
+                            "would not have been sufficient."
+                        ),
+                    }
+                )
         for (slug, section), count in fetch_counter.items():
             if count > 1:
-                findings.append({
-                    "severity": "warning",
-                    "code": "REPEATED_SKILL_FETCH",
-                    "session_id": session_id,
-                    "skill": slug,
-                    "section": section,
-                    "count": count,
-                    "message": "The same skill section was fetched repeatedly in one MCP session.",
-                })
+                findings.append(
+                    {
+                        "severity": "warning",
+                        "code": "REPEATED_SKILL_FETCH",
+                        "session_id": session_id,
+                        "skill": slug,
+                        "section": section,
+                        "count": count,
+                        "message": "The same skill section was fetched repeatedly in one MCP session.",
+                    }
+                )
     return findings
 
 
@@ -122,7 +137,9 @@ def _configured_token_summary(configured: dict) -> dict:
         profile = (configured.get(key) or {}).get("profile") or {}
         result[key] = int(profile.get("estimated_tokens") or 0)
     result["worker_profiles"] = {
-        str(item.get("name") or "unknown"): int(((item.get("profile") or {}).get("estimated_tokens") or 0))
+        str(item.get("name") or "unknown"): int(
+            ((item.get("profile") or {}).get("estimated_tokens") or 0)
+        )
         for item in (configured.get("configured_worker_profiles") or [])
     }
     native = configured.get("native_skill_catalog") or {}
@@ -149,15 +166,23 @@ def _aggregate_dynamic_context(events: list[dict]) -> dict:
         delivered_tokens[tool] += int(profile.get("estimated_tokens") or 0)
         delivered_bytes[tool] += int(profile.get("utf8_bytes") or 0)
         if tool == "memory_context":
-            for name, item_profile in ((event.get("breakdown") or {}).get("components") or {}).items():
-                component_tokens[str(name)] += int((item_profile or {}).get("estimated_tokens") or 0)
-            for item in ((event.get("breakdown") or {}).get("skills") or []):
-                legacy_autoload_tokens += int((item.get("content") or {}).get("estimated_tokens") or 0)
+            for name, item_profile in (
+                (event.get("breakdown") or {}).get("components") or {}
+            ).items():
+                component_tokens[str(name)] += int(
+                    (item_profile or {}).get("estimated_tokens") or 0
+                )
+            for item in (event.get("breakdown") or {}).get("skills") or []:
+                legacy_autoload_tokens += int(
+                    (item.get("content") or {}).get("estimated_tokens") or 0
+                )
         fetch = event.get("skill_fetch") or {}
         if fetch.get("slug"):
             key = f"{fetch.get('slug')}:{fetch.get('section') or 'full'}"
             skill_gets[key] += 1
-            skill_get_tokens[str(fetch.get("slug"))] += int((fetch.get("content") or {}).get("estimated_tokens") or 0)
+            skill_get_tokens[str(fetch.get("slug"))] += int(
+                (fetch.get("content") or {}).get("estimated_tokens") or 0
+            )
             full_fetches += int(bool(fetch.get("full_skill")))
     return {
         "delivered_tokens": delivered_tokens,
@@ -189,7 +214,8 @@ def build_report(project_root: str | Path, *, limit: int = 500) -> dict:
 
     latest_context = next(
         (
-            event for event in reversed(events)
+            event
+            for event in reversed(events)
             if event.get("tool") == "memory_context" and event.get("ok")
         ),
         None,
@@ -250,9 +276,20 @@ def build_report(project_root: str | Path, *, limit: int = 500) -> dict:
             "current_source_owner": "host-native",
             "scanner_role": "deterministic_repository_evidence",
             "raw_source_semantic_index_default": False,
-            "memory_context_raw_source_chars": int((((latest_context or {}).get("result") or {}).get("context_budget") or {}).get("raw_source_memory_chars") or 0),
-            "knowledge_baseline_ready": bool((((latest_context or {}).get("result") or {}).get("knowledge_state") or {}).get("baseline_ready")),
-            "knowledge_status": (((latest_context or {}).get("result") or {}).get("knowledge_state") or None),
+            "memory_context_raw_source_chars": int(
+                (((latest_context or {}).get("result") or {}).get("context_budget") or {}).get(
+                    "raw_source_memory_chars"
+                )
+                or 0
+            ),
+            "knowledge_baseline_ready": bool(
+                (((latest_context or {}).get("result") or {}).get("knowledge_state") or {}).get(
+                    "baseline_ready"
+                )
+            ),
+            "knowledge_status": (
+                ((latest_context or {}).get("result") or {}).get("knowledge_state") or None
+            ),
             "selection_note": "AI Layer observes delivered reviewed knowledge; it cannot prove the host/model cognitively used it.",
         },
         "skill_flow": {

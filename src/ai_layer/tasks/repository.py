@@ -3,6 +3,7 @@
 New repository identity/delta behavior belongs to :mod:`ai_layer.workspace.repository`.
 Task-owned durable snapshot paths belong to :mod:`ai_layer.tasks.state_store`.
 """
+
 from ai_layer.tasks.state_store import (
     atomic_write_json as _atomic_write_json,
     baseline_path as _baseline_path,

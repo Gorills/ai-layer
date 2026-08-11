@@ -93,7 +93,9 @@ def test_agent_requirement_and_host_tier_matrix(
     assert selected == tier
 
 
-def test_verification_runner_executes_command_and_persists_private_evidence(tmp_path: Path, monkeypatch) -> None:
+def test_verification_runner_executes_command_and_persists_private_evidence(
+    tmp_path: Path, monkeypatch
+) -> None:
     root = tmp_path / "target"
     root.mkdir()
     state = tmp_path / "machine-state"
@@ -108,7 +110,11 @@ def test_verification_runner_executes_command_and_persists_private_evidence(tmp_
     monkeypatch.setattr(runner, "get_settings", lambda: SimpleNamespace(projects_state_dir=state))
 
     request = VerificationRequest.from_values(
-        [sys.executable, "-c", "import os; print('verified=' + os.environ['AI_LAYER_VERIFY_CASE'])"],
+        [
+            sys.executable,
+            "-c",
+            "import os; print('verified=' + os.environ['AI_LAYER_VERIFY_CASE'])",
+        ],
         environment={"AI_LAYER_VERIFY_CASE": "foundation"},
         timeout_seconds=10,
     )
@@ -128,14 +134,25 @@ def test_verification_runner_executes_command_and_persists_private_evidence(tmp_
     assert payload["evidence_ref"] == str(evidence)
 
 
-def _write_signed_update_channel(tmp_path: Path, *, artifact_digest_override: str | None = None) -> tuple[Path, Path, Path]:
+def _write_signed_update_channel(
+    tmp_path: Path, *, artifact_digest_override: str | None = None
+) -> tuple[Path, Path, Path]:
     openssl = shutil.which("openssl")
     if not openssl:
         pytest.skip("openssl is required for signed updater test")
     private_key = tmp_path / "private.pem"
     public_key = tmp_path / "public.pem"
     subprocess.run(
-        [openssl, "genpkey", "-algorithm", "RSA", "-pkeyopt", "rsa_keygen_bits:2048", "-out", str(private_key)],
+        [
+            openssl,
+            "genpkey",
+            "-algorithm",
+            "RSA",
+            "-pkeyopt",
+            "rsa_keygen_bits:2048",
+            "-out",
+            str(private_key),
+        ],
         check=True,
         capture_output=True,
     )
@@ -162,14 +179,25 @@ def _write_signed_update_channel(tmp_path: Path, *, artifact_digest_override: st
     }
     manifest.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
     subprocess.run(
-        [openssl, "dgst", "-sha256", "-sign", str(private_key), "-out", str(signature), str(manifest)],
+        [
+            openssl,
+            "dgst",
+            "-sha256",
+            "-sign",
+            str(private_key),
+            "-out",
+            str(signature),
+            str(manifest),
+        ],
         check=True,
         capture_output=True,
     )
     return manifest, public_key, artifact
 
 
-def test_signed_one_command_updater_checks_and_installs_local_release(tmp_path: Path, monkeypatch) -> None:
+def test_signed_one_command_updater_checks_and_installs_local_release(
+    tmp_path: Path, monkeypatch
+) -> None:
     manifest, public_key, _ = _write_signed_update_channel(tmp_path)
     machine_home = tmp_path / "machine-home"
     machine_home.mkdir()
@@ -189,7 +217,9 @@ def test_signed_one_command_updater_checks_and_installs_local_release(tmp_path: 
 
 
 def test_signed_updater_rejects_checksum_mismatch(tmp_path: Path, monkeypatch) -> None:
-    manifest, public_key, _ = _write_signed_update_channel(tmp_path, artifact_digest_override="0" * 64)
+    manifest, public_key, _ = _write_signed_update_channel(
+        tmp_path, artifact_digest_override="0" * 64
+    )
     machine_home = tmp_path / "machine-home"
     machine_home.mkdir()
     monkeypatch.setattr(updater, "get_settings", lambda: SimpleNamespace(home=machine_home))
@@ -211,11 +241,15 @@ def test_release_archive_extraction_rejects_path_traversal(tmp_path: Path) -> No
 def test_worker_disconnect_without_changes_redelegates_same_stage(tmp_path: Path) -> None:
     db, project, _ = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Change value", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Change value", acceptance_criteria=[], constraints=[]
+        )
         delegated = tasks.delegate_current_stage(db, project, worker_id="lost-worker")
         previous_stage_id = delegated["active_stage"]["id"]
 
-        recovered = tasks.recover_disconnected_worker(db, project, reason="host session disappeared")
+        recovered = tasks.recover_disconnected_worker(
+            db, project, reason="host session disappeared"
+        )
 
         assert recovered["status"] == "active"
         assert recovered["active_stage"]["kind"] == created["active_stage"]["kind"]
@@ -237,7 +271,9 @@ def test_worker_disconnect_with_changes_blocks_without_rebinding_provenance(tmp_
         stage_id = delegated["active_stage"]["id"]
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
 
-        blocked = tasks.recover_disconnected_worker(db, project, reason="worker disconnected after mutation")
+        blocked = tasks.recover_disconnected_worker(
+            db, project, reason="worker disconnected after mutation"
+        )
 
         assert blocked["status"] == "blocked"
         assert blocked["active_stage"] is None
@@ -335,7 +371,10 @@ def test_expired_worker_lease_with_changes_blocks_fail_closed(tmp_path: Path) ->
 
 
 def _command_names(typer_app) -> set[str]:
-    return {str(item.name or item.callback.__name__).replace("_", "-") for item in typer_app.registered_commands}
+    return {
+        str(item.name or item.callback.__name__).replace("_", "-")
+        for item in typer_app.registered_commands
+    }
 
 
 def test_cli_and_mcp_composition_register_foundation_contracts() -> None:
@@ -344,7 +383,14 @@ def test_cli_and_mcp_composition_register_foundation_contracts() -> None:
     from ai_layer.mcp.server import TOOL_HANDLERS
 
     assert {"update", "dashboard", "doctor", "init"} <= _command_names(app)
-    assert {"current", "next", "resume", "cancel", "worker-disconnected", "worker-heartbeat"} <= _command_names(task_app)
+    assert {
+        "current",
+        "next",
+        "resume",
+        "cancel",
+        "worker-disconnected",
+        "worker-heartbeat",
+    } <= _command_names(task_app)
     assert {"list", "add", "update", "remove"} <= _command_names(skill_app)
     assert {"run", "restart", "status"} <= _command_names(service_app)
     assert {"policy", "configure"} <= _command_names(agent_app)

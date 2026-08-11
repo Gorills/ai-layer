@@ -20,7 +20,9 @@ def _prepare(tmp_path: Path, monkeypatch):
     return repo, home
 
 
-def test_context_trace_captures_redacted_memory_payload_and_skill_economy(monkeypatch, tmp_path: Path):
+def test_context_trace_captures_redacted_memory_payload_and_skill_economy(
+    monkeypatch, tmp_path: Path
+):
     repo, home = _prepare(tmp_path, monkeypatch)
 
     def memory_context(task=None, project_root=None):
@@ -42,7 +44,11 @@ def test_context_trace_captures_redacted_memory_payload_and_skill_economy(monkey
             "automatic_domain_skill_injection": False,
             "retrieval_tool": "skill_get",
         },
-        "context_budget": {"policy_over_soft_target": False, "policy_chars": 42, "automatic_skill_chars": 0},
+        "context_budget": {
+            "policy_over_soft_target": False,
+            "policy_chars": 42,
+            "automatic_skill_chars": 0,
+        },
     }
     context_trace.record_tool_delivery(
         memory_context,
@@ -51,10 +57,17 @@ def test_context_trace_captures_redacted_memory_payload_and_skill_economy(monkey
         {"task": "Fix payment token=another-secret", "project_root": str(repo)},
         payload,
         mcp_instructions="critical instructions",
-        mcp_tool_catalog=({"name": "memory_context", "signature": "(task, project_root)", "description": "context"},),
+        mcp_tool_catalog=(
+            {
+                "name": "memory_context",
+                "signature": "(task, project_root)",
+                "description": "context",
+            },
+        ),
     )
 
     from ai_layer.observability.context_common import trace_path, report_path
+
     trace = trace_path(repo)
     report = report_path(repo)
     assert trace.is_file()
@@ -75,7 +88,10 @@ def test_context_trace_captures_redacted_memory_payload_and_skill_economy(monkey
     assert data["skill_flow"]["ai_layer_runtime_planner_active"] is False
     assert data["skill_flow"]["automatic_domain_skill_estimated_tokens_current"] == 0
     assert data["coverage"]["HOST_HIDDEN"]
-    assert data["latest_configured_context"]["mcp_server_instructions"]["content"] == "critical instructions"
+    assert (
+        data["latest_configured_context"]["mcp_server_instructions"]["content"]
+        == "critical instructions"
+    )
     assert data["latest_configured_context"]["mcp_tool_catalog"]["tool_count"] == 1
     assert data["summary"]["configured_context_estimated_tokens"]["mcp_tool_catalog"] > 0
 
@@ -94,7 +110,10 @@ def test_context_trace_flags_full_and_repeated_skill_fetch(monkeypatch, tmp_path
         {
             "project_root": str(repo),
             "policy": "p",
-            "skill_access": {"routing_owner": "host-native", "automatic_domain_skill_injection": False},
+            "skill_access": {
+                "routing_owner": "host-native",
+                "automatic_domain_skill_injection": False,
+            },
             "memory": [],
             "context_budget": {"policy_over_soft_target": False, "automatic_skill_chars": 0},
         },
@@ -110,7 +129,12 @@ def test_context_trace_flags_full_and_repeated_skill_fetch(monkeypatch, tmp_path
             "skill_get",
             (),
             {"slug": "testing", "project_root": str(repo)},
-            {"slug": "testing", "section": "full", "content": "X" * 4000, "project_root": str(repo)},
+            {
+                "slug": "testing",
+                "section": "full",
+                "content": "X" * 4000,
+                "project_root": str(repo),
+            },
         )
 
     report = build_report(repo)
@@ -132,17 +156,32 @@ def test_mcp_execution_boundary_records_successful_tool_delivery(monkeypatch):
     seen = {}
 
     def fake_record(
-        func, tool, args, kwargs, result, *, mcp_instructions=None,
-        mcp_tool_catalog=None, resolved_project_root=None,
+        func,
+        tool,
+        args,
+        kwargs,
+        result,
+        *,
+        mcp_instructions=None,
+        mcp_tool_catalog=None,
+        resolved_project_root=None,
     ):
-        seen.update({
-            "tool": tool, "args": args, "kwargs": kwargs, "result": result,
-            "instructions": mcp_instructions, "catalog": mcp_tool_catalog,
-            "resolved_project_root": resolved_project_root,
-        })
+        seen.update(
+            {
+                "tool": tool,
+                "args": args,
+                "kwargs": kwargs,
+                "result": result,
+                "instructions": mcp_instructions,
+                "catalog": mcp_tool_catalog,
+                "resolved_project_root": resolved_project_root,
+            }
+        )
 
     monkeypatch.setattr(context_trace, "record_tool_delivery", fake_record)
-    result = mcp_runtime._execute_local_tool(lambda value=1: {"value": value}, "project_info", (), {"value": 7})
+    result = mcp_runtime._execute_local_tool(
+        lambda value=1: {"value": value}, "project_info", (), {"value": 7}
+    )
     assert result == {"value": 7}
     assert seen["tool"] == "project_info"
     assert seen["kwargs"] == {"value": 7}
@@ -159,8 +198,15 @@ def test_mcp_boundary_resolves_bound_project_for_telemetry(monkeypatch, tmp_path
     seen = {}
 
     def fake_record(
-        func, tool, args, kwargs, result, *, mcp_instructions=None,
-        mcp_tool_catalog=None, resolved_project_root=None,
+        func,
+        tool,
+        args,
+        kwargs,
+        result,
+        *,
+        mcp_instructions=None,
+        mcp_tool_catalog=None,
+        resolved_project_root=None,
     ):
         seen["root"] = resolved_project_root
 
@@ -188,7 +234,15 @@ def test_context_report_cli_exports_one_portable_file(monkeypatch, tmp_path: Pat
         "memory_context",
         (),
         {"task": "Inspect token economy", "project_root": str(repo)},
-        {"project_root": str(repo), "policy": "policy", "skill_access": {"routing_owner": "host-native", "automatic_domain_skill_injection": False}, "memory": []},
+        {
+            "project_root": str(repo),
+            "policy": "policy",
+            "skill_access": {
+                "routing_owner": "host-native",
+                "automatic_domain_skill_injection": False,
+            },
+            "memory": [],
+        },
         mcp_instructions="mcp",
     )
     exported = tmp_path / "portable-context-report.json"

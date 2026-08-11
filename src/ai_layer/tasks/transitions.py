@@ -9,28 +9,47 @@ from ai_layer.sessions.service import save_session
 from ai_layer.memory.knowledge_store import has_task_drafts, publish_task_drafts
 from ai_layer.observability.domain_events import append_event
 from ai_layer.tasks.concurrency import bump_task_version
-from ai_layer.tasks.constants import HIGH_RISK_TERMS, HUMAN_ATTENTION_PREFIX, MAX_AUTOMATIC_FIX_ROUNDS
+from ai_layer.tasks.constants import (
+    HIGH_RISK_TERMS,
+    HUMAN_ATTENTION_PREFIX,
+    MAX_AUTOMATIC_FIX_ROUNDS,
+)
 from ai_layer.tasks.contracts import _contains_any
 from ai_layer.tasks.micro_policy import micro_envelope as _micro_envelope
-from ai_layer.tasks.review_contracts import _add_findings, _apply_verification_results, _open_findings
+from ai_layer.tasks.review_contracts import (
+    _add_findings,
+    _apply_verification_results,
+    _open_findings,
+)
 from ai_layer.tasks.state_store import load_baseline as _load_baseline, task_key
-from ai_layer.tasks.views import _create_stage, _findings, _remediation_fix_count, _stage_label, _stages
+from ai_layer.tasks.views import (
+    _create_stage,
+    _findings,
+    _remediation_fix_count,
+    _stage_label,
+    _stages,
+)
 from ai_layer.workspace.repository import repository_changes
 
 
 def _knowledge_review_inspected(db: Session, stage: TaskStage) -> bool:
-    return db.scalar(
-        select(RuntimeEvent.id)
-        .where(
-            RuntimeEvent.event_type == "KnowledgeReviewInspected",
-            RuntimeEvent.aggregate_type == "knowledge_review",
-            RuntimeEvent.aggregate_id == str(stage.id),
+    return (
+        db.scalar(
+            select(RuntimeEvent.id)
+            .where(
+                RuntimeEvent.event_type == "KnowledgeReviewInspected",
+                RuntimeEvent.aggregate_type == "knowledge_review",
+                RuntimeEvent.aggregate_id == str(stage.id),
+            )
+            .limit(1)
         )
-        .limit(1)
-    ) is not None
+        is not None
+    )
 
 
-def _complete_task(db: Session, project: Project, task: Task, final_state: dict, summary: str) -> None:
+def _complete_task(
+    db: Session, project: Project, task: Task, final_state: dict, summary: str
+) -> None:
     baseline = _load_baseline(db, project, task)
     task.final_changes = repository_changes(baseline, final_state)
     task.status = "completed"
@@ -135,6 +154,7 @@ def _complete_task(db: Session, project: Project, task: Task, final_state: dict,
     )
     task.handoff_session_id = str(handoff.id)
 
+
 def _privacy_findings(project: Project) -> list[dict]:
     result = privacy_check(project.root_path)
     if result.get("ok", True):
@@ -164,6 +184,7 @@ def _privacy_findings(project: Project) -> list[dict]:
         }
     ]
 
+
 def _advance_discovery(
     db: Session,
     project: Project,
@@ -188,10 +209,12 @@ def _advance_discovery(
     if outcome != "ready_for_implementation":
         _complete_task(db, project, task, current_state, summary)
         return None
-    discovery_text = " ".join([
-        *list(result_data.get("risks") or []),
-        *list(result_data.get("proposed_plan") or []),
-    ]).casefold()
+    discovery_text = " ".join(
+        [
+            *list(result_data.get("risks") or []),
+            *list(result_data.get("proposed_plan") or []),
+        ]
+    ).casefold()
     if _contains_any(discovery_text, HIGH_RISK_TERMS) and task.risk_level != "high":
         task.risk_level = "high"
         task.risk_reasons = [
@@ -199,6 +222,7 @@ def _advance_discovery(
             "discovery identified a high-risk implementation domain",
         ]
     return _create_stage(db, task, kind="implement", state=current_state)
+
 
 def _advance_review(
     db: Session,
@@ -259,11 +283,14 @@ def _advance_review(
         _add_findings(db, task, stage, privacy_findings)
         task.fix_round += 1
         return _create_stage(db, task, kind="fix", state=current_state, fix_round=task.fix_round)
-    if int(task.workflow_version or 1) < 2 and not (stage.review_round >= 2 and task.fix_round >= 1):
+    if int(task.workflow_version or 1) < 2 and not (
+        stage.review_round >= 2 and task.fix_round >= 1
+    ):
         task.fix_round += 1
         return _create_stage(db, task, kind="fix", state=current_state, fix_round=task.fix_round)
     _complete_task(db, project, task, current_state, summary)
     return None
+
 
 def _advance_implement(
     db: Session,
@@ -293,13 +320,18 @@ def _advance_implement(
             ]
             _add_findings(db, task, stage, privacy_findings)
             task.fix_round += 1
-            return _create_stage(db, task, kind="fix", state=current_state, fix_round=task.fix_round)
+            return _create_stage(
+                db, task, kind="fix", state=current_state, fix_round=task.fix_round
+            )
         task.risk_reasons = [
             *list(task.risk_reasons or []),
             *[f"micro escalation: {reason}" for reason in reasons],
         ]
     task.review_round = max(task.review_round, 1)
-    return _create_stage(db, task, kind="review", state=current_state, review_round=task.review_round)
+    return _create_stage(
+        db, task, kind="review", state=current_state, review_round=task.review_round
+    )
+
 
 def _advance_fix(
     db: Session,

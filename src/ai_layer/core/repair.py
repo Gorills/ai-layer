@@ -9,7 +9,11 @@ import yaml
 
 from ai_layer.core.config import get_settings
 from ai_layer.core.paths import project_config_path, project_local_path, project_mode
-from ai_layer.core.registry import get_registered_project, list_registered_projects, unregister_project
+from ai_layer.core.registry import (
+    get_registered_project,
+    list_registered_projects,
+    unregister_project,
+)
 from ai_layer.core.service import sync_project_integrations
 from ai_layer.integrations.service import remove_project_integrations
 from ai_layer.privacy.service import (
@@ -40,16 +44,22 @@ def _validated_owned_state(path: Path, root: Path, project_id: str | None) -> bo
     try:
         nested_symlink = next((item for item in path.rglob("*") if item.is_symlink()), None)
     except OSError as exc:
-        raise RuntimeError(f"Refusing to archive unreadable AI Layer project state: {path}") from exc
+        raise RuntimeError(
+            f"Refusing to archive unreadable AI Layer project state: {path}"
+        ) from exc
     if nested_symlink is not None:
-        raise RuntimeError(f"Refusing to archive symlinked AI Layer project state: {nested_symlink}")
+        raise RuntimeError(
+            f"Refusing to archive symlinked AI Layer project state: {nested_symlink}"
+        )
     config = path / "project.yaml"
     if config.is_symlink() or not config.is_file():
         raise RuntimeError(f"Refusing to archive unverified AI Layer project state: {path}")
     try:
         data = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
-        raise RuntimeError(f"Refusing to archive unreadable AI Layer project state: {path}") from exc
+        raise RuntimeError(
+            f"Refusing to archive unreadable AI Layer project state: {path}"
+        ) from exc
     if not isinstance(data, dict):
         raise RuntimeError(f"Refusing to archive invalid AI Layer project state: {path}")
     configured_root = str(data.get("root") or "").strip()
@@ -91,7 +101,11 @@ def _archive_dir(source: Path, destination_root: Path, name: str) -> str:
 def _registered_overlap_groups() -> list[tuple[Path, list[Path]]]:
     """Return canonical parent roots and every registered descendant below each parent."""
     roots = sorted(
-        {Path(str(item["root"])).expanduser().resolve() for item in list_registered_projects() if item.get("root")},
+        {
+            Path(str(item["root"])).expanduser().resolve()
+            for item in list_registered_projects()
+            if item.get("root")
+        },
         key=lambda path: (len(path.parts), str(path)),
     )
     detached: set[Path] = set()
@@ -142,7 +156,9 @@ def detach_nested_registration(child: str | Path, parent: str | Path) -> dict:
         try:
             external_meta.resolve().relative_to(base.expanduser().resolve())
         except ValueError as exc:
-            raise RuntimeError(f"Unsafe external AI Layer project state path: {external_meta}") from exc
+            raise RuntimeError(
+                f"Unsafe external AI Layer project state path: {external_meta}"
+            ) from exc
         external_owned = _validated_owned_state(external_meta, child_root, project_id)
 
     # Remove only bridges managed by AI Layer. This preserves any surrounding user content.
@@ -216,7 +232,9 @@ def repair_project(root: str | Path, *, sync: bool = True) -> dict:
                 guard = install_git_privacy_guard(path)
                 result["git_guard"] = guard
                 if not guard.get("ready", False):
-                    result["manual"].append(f"Git privacy guard conflict: {guard.get('reason') or guard}")
+                    result["manual"].append(
+                        f"Git privacy guard conflict: {guard.get('reason') or guard}"
+                    )
             else:
                 remove_git_privacy_guard(path)
         if sync:
@@ -237,7 +255,8 @@ def repair_project(root: str | Path, *, sync: bool = True) -> dict:
         result["git_guard"] = guard_state
         if footprint.get("repository_ai_artifacts"):
             result["manual"].append(
-                "repository still contains AI Layer artifacts: " + ", ".join(footprint["repository_ai_artifacts"])
+                "repository still contains AI Layer artifacts: "
+                + ", ".join(footprint["repository_ai_artifacts"])
             )
         if footprint.get("tracked_ai_or_provenance"):
             result["manual"].append(
@@ -246,12 +265,20 @@ def repair_project(root: str | Path, *, sync: bool = True) -> dict:
             )
         if footprint.get("tracked_unscannable"):
             result["manual"].append(
-                "tracked files could not be privacy-scanned safely: " + ", ".join(footprint["tracked_unscannable"])
+                "tracked files could not be privacy-scanned safely: "
+                + ", ".join(footprint["tracked_unscannable"])
             )
         if not changed_check.get("ok", False):
-            paths = sorted({str(item.get("path")) for item in changed_check.get("violations", []) if item.get("path")})
+            paths = sorted(
+                {
+                    str(item.get("path"))
+                    for item in changed_check.get("violations", [])
+                    if item.get("path")
+                }
+            )
             result["manual"].append(
-                "changed/staged privacy violations require user review" + (": " + ", ".join(paths) if paths else "")
+                "changed/staged privacy violations require user review"
+                + (": " + ", ".join(paths) if paths else "")
             )
         if not guard_state.get("ready", False):
             result["manual"].append("Git privacy guard is not ready")

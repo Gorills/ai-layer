@@ -11,11 +11,21 @@ from sqlalchemy.orm import Session
 
 from ai_layer.core.config import get_settings
 from ai_layer.db.models import Project, TaskStage, VerificationRun
-from ai_layer.domain.verification import VerificationAssurance, VerificationRequest, VerificationResult
+from ai_layer.domain.verification import (
+    VerificationAssurance,
+    VerificationRequest,
+    VerificationResult,
+)
 
 MAX_OUTPUT_CHARS = 16_000
 SAFE_ENV_KEYS = {
-    "CI", "LANG", "LC_ALL", "PYTHONHASHSEED", "PYTHONPATH", "NODE_ENV", "RUST_BACKTRACE",
+    "CI",
+    "LANG",
+    "LC_ALL",
+    "PYTHONHASHSEED",
+    "PYTHONPATH",
+    "NODE_ENV",
+    "RUST_BACKTRACE",
 }
 
 
@@ -54,7 +64,7 @@ def _summary(stdout: str, stderr: str) -> str:
     marker = "\n...[verification output truncated]...\n"
     available = MAX_OUTPUT_CHARS - len(marker)
     head = available * 2 // 3
-    return text[:head] + marker + text[-(available - head):]
+    return text[:head] + marker + text[-(available - head) :]
 
 
 def _write_evidence(project_id: str, payload: dict) -> str:
@@ -62,13 +72,17 @@ def _write_evidence(project_id: str, payload: dict) -> str:
     root.mkdir(parents=True, exist_ok=True)
     path = root / f"{payload['id']}.json"
     temp = path.with_suffix(".tmp")
-    temp.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    temp.write_text(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+    )
     os.chmod(temp, 0o600)
     os.replace(temp, path)
     return str(path)
 
 
-def _execute_verification(*, project_id: str, project_root: str | Path, request: VerificationRequest) -> tuple[VerificationResult, dict]:
+def _execute_verification(
+    *, project_id: str, project_root: str | Path, request: VerificationRequest
+) -> tuple[VerificationResult, dict]:
     project_root = Path(project_root).resolve()
     cwd = _safe_cwd(project_root, request.cwd)
     env, recorded_env = _environment(request.environment)
@@ -92,8 +106,16 @@ def _execute_verification(*, project_id: str, project_root: str | Path, request:
         stdout, stderr = proc.stdout, proc.stderr
     except subprocess.TimeoutExpired as exc:
         timed_out = True
-        stdout = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else str(exc.stdout or "")
-        stderr = exc.stderr.decode(errors="replace") if isinstance(exc.stderr, bytes) else str(exc.stderr or "")
+        stdout = (
+            exc.stdout.decode(errors="replace")
+            if isinstance(exc.stdout, bytes)
+            else str(exc.stdout or "")
+        )
+        stderr = (
+            exc.stderr.decode(errors="replace")
+            if isinstance(exc.stderr, bytes)
+            else str(exc.stderr or "")
+        )
     except OSError as exc:
         exit_code = 127
         stderr = f"{type(exc).__name__}: {exc}"
@@ -131,7 +153,6 @@ def _execute_verification(*, project_id: str, project_root: str | Path, request:
     return result, {**payload, "evidence_ref": evidence_ref}
 
 
-
 class SubprocessVerificationExecutor:
     """Trusted-local subprocess adapter; deliberately not a sandbox."""
 
@@ -149,13 +170,16 @@ class SubprocessVerificationExecutor:
         )
 
 
-def execute_verification(project: Project, request: VerificationRequest) -> tuple[VerificationResult, dict]:
+def execute_verification(
+    project: Project, request: VerificationRequest
+) -> tuple[VerificationResult, dict]:
     """Compatibility facade for existing local callers."""
     return SubprocessVerificationExecutor().execute(
         project_id=project.id,
         project_root=project.root_path,
         request=request,
     )
+
 
 def persist_verification(
     db: Session,

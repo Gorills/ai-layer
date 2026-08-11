@@ -11,7 +11,12 @@ from ai_layer import __version__
 from ai_layer.core.filelock import directory_lock
 from ai_layer.core.mcp_process import current_mcp_session_id
 from ai_layer.observability.context_common import (
-    estimate_tokens, profile_value as _profile, project_identity, redact_value as _redact, trace_path, utcnow_iso,
+    estimate_tokens,
+    profile_value as _profile,
+    project_identity,
+    redact_value as _redact,
+    trace_path,
+    utcnow_iso,
 )
 from ai_layer.observability.context_config import configured_context_snapshot
 
@@ -70,6 +75,7 @@ def _memory_context_breakdown(payload: dict) -> dict:
         "automatic_skill_profile": _profile(""),
     }
 
+
 def _append(path: Path, event: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     raw = (json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
@@ -101,7 +107,9 @@ def _tool_arguments(func, args: tuple, kwargs: dict) -> dict:
 
 
 def _safe_project_root(
-    arguments: dict, result: Any, resolved_project_root: str | None = None,
+    arguments: dict,
+    result: Any,
+    resolved_project_root: str | None = None,
 ) -> str | None:
     if isinstance(result, dict) and result.get("project_root"):
         return str(result["project_root"])
@@ -117,7 +125,12 @@ def _safe_project_root(
 
 
 def record_tool_delivery(
-    func, tool: str, args: tuple, kwargs: dict, result: Any, *,
+    func,
+    tool: str,
+    args: tuple,
+    kwargs: dict,
+    result: Any,
+    *,
     mcp_instructions: str | None = None,
     mcp_tool_catalog: tuple[dict, ...] | None = None,
     resolved_project_root: str | None = None,
@@ -153,7 +166,9 @@ def record_tool_delivery(
         event["result_preview"] = preview
     if tool == "memory_context" and isinstance(redacted_result, dict):
         event["breakdown"] = _memory_context_breakdown(redacted_result)
-        event["configured_context"] = configured_context_snapshot(root, mcp_instructions, mcp_tool_catalog)
+        event["configured_context"] = configured_context_snapshot(
+            root, mcp_instructions, mcp_tool_catalog
+        )
     if tool == "skill_get" and isinstance(redacted_result, dict):
         section = str(redacted_result.get("section") or "full")
         event["skill_fetch"] = {
@@ -170,7 +185,12 @@ def record_tool_delivery(
 
 
 def record_tool_failure(
-    func, tool: str, args: tuple, kwargs: dict, exc: BaseException, *,
+    func,
+    tool: str,
+    args: tuple,
+    kwargs: dict,
+    exc: BaseException,
+    *,
     resolved_project_root: str | None = None,
 ) -> None:
     arguments = _tool_arguments(func, args, kwargs)

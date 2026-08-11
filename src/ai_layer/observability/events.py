@@ -245,7 +245,9 @@ def read_events(
         files = sorted(directory.glob("*.jsonl"), reverse=True)[: min(EVENT_RETENTION_DAYS + 1, 8)]
     except OSError:
         return []
-    cutoff = utcnow() - timedelta(seconds=max(0.0, since_seconds)) if since_seconds is not None else None
+    cutoff = (
+        utcnow() - timedelta(seconds=max(0.0, since_seconds)) if since_seconds is not None else None
+    )
     events: list[dict] = []
     for path in files:
         lines = _tail_lines(path)
@@ -266,7 +268,6 @@ def read_events(
             if len(events) >= max(1, limit):
                 return list(reversed(events))
     return list(reversed(events))
-
 
 
 from ai_layer.observability.event_aggregation import aggregate_events

@@ -12,7 +12,9 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "projects",
-        sa.Column("project_intelligence", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
+        sa.Column(
+            "project_intelligence", sa.JSON(), nullable=False, server_default=sa.text("'{}'")
+        ),
     )
 
 

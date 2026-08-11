@@ -8,19 +8,36 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from ai_layer.skills.constants import (
-    ALLOWED_PACKAGE_NAMES, ALLOWED_PACKAGE_SUFFIXES, HIGH_RISK_PATTERNS, MAX_ARCHIVE_BYTES,
-    MAX_ARCHIVE_EXPANDED_BYTES, MAX_ARCHIVE_FILES, MAX_ARCHIVE_MEMBER_BYTES, MAX_SKILL_BYTES,
-    MEDIUM_RISK_PATTERNS, PACKAGE_SCRIPT_HIGH_RISK_PATTERNS,
+    ALLOWED_PACKAGE_NAMES,
+    ALLOWED_PACKAGE_SUFFIXES,
+    HIGH_RISK_PATTERNS,
+    MAX_ARCHIVE_BYTES,
+    MAX_ARCHIVE_EXPANDED_BYTES,
+    MAX_ARCHIVE_FILES,
+    MAX_ARCHIVE_MEMBER_BYTES,
+    MAX_SKILL_BYTES,
+    MEDIUM_RISK_PATTERNS,
+    PACKAGE_SCRIPT_HIGH_RISK_PATTERNS,
 )
 from ai_layer.skills.contracts import _frontmatter
-from ai_layer.skills.sources import _catalog_source, _normalize_remote_skill_url, _validate_url, read_url as _read_url_impl
+from ai_layer.skills.sources import (
+    _catalog_source,
+    _normalize_remote_skill_url,
+    _validate_url,
+    read_url as _read_url_impl,
+)
+
 
 def _read_url(url: str) -> bytes:
     return _read_url_impl(url, max_bytes=MAX_ARCHIVE_BYTES)
 
+
 def _safe_package_name(name: str) -> bool:
     path = PurePosixPath(name)
-    return path.name.casefold() in ALLOWED_PACKAGE_NAMES or path.suffix.casefold() in ALLOWED_PACKAGE_SUFFIXES
+    return (
+        path.name.casefold() in ALLOWED_PACKAGE_NAMES
+        or path.suffix.casefold() in ALLOWED_PACKAGE_SUFFIXES
+    )
 
 
 def _normalized_archive_path(name: str) -> str:
@@ -33,7 +50,9 @@ def _normalized_archive_path(name: str) -> str:
     return cleaned
 
 
-def _read_zip_members(archive: zipfile.ZipFile) -> tuple[dict[str, bytes], list[tuple[str, str]], int]:
+def _read_zip_members(
+    archive: zipfile.ZipFile,
+) -> tuple[dict[str, bytes], list[tuple[str, str]], int]:
     members = archive.infolist()
     if len(members) > MAX_ARCHIVE_FILES:
         raise ValueError("Skill archive contains too many files")
@@ -54,9 +73,13 @@ def _read_zip_members(archive: zipfile.ZipFile) -> tuple[dict[str, bytes], list[
             try:
                 target = raw_target.decode("utf-8").strip()
             except UnicodeDecodeError as exc:
-                raise ValueError(f"Invalid symlink target in skill archive: {info.filename}") from exc
+                raise ValueError(
+                    f"Invalid symlink target in skill archive: {info.filename}"
+                ) from exc
             if not target or target.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:[\\/]", target):
-                raise ValueError(f"Unsafe symlink target in skill archive: {info.filename} -> {target}")
+                raise ValueError(
+                    f"Unsafe symlink target in skill archive: {info.filename} -> {target}"
+                )
             symlinks.append((name, target))
             continue
         if not _safe_package_name(name):
@@ -77,7 +100,9 @@ def _resolved_link_target(link_name: str, raw_target: str) -> str:
             continue
         if part == "..":
             if not parts:
-                raise ValueError(f"Skill archive symlink escapes source: {link_name} -> {raw_target}")
+                raise ValueError(
+                    f"Skill archive symlink escapes source: {link_name} -> {raw_target}"
+                )
             parts.pop()
         else:
             parts.append(part)
@@ -91,25 +116,31 @@ def _add_materialized(regular: dict[str, bytes], name: str, payload: bytes, expa
         return expanded
     next_expanded = expanded + len(payload)
     if next_expanded > MAX_ARCHIVE_EXPANDED_BYTES:
-        raise ValueError("Expanded skill archive exceeds safety budget after symlink materialization")
+        raise ValueError(
+            "Expanded skill archive exceeds safety budget after symlink materialization"
+        )
     if name not in regular and len(regular) + 1 > MAX_ARCHIVE_FILES:
         raise ValueError("Skill archive expands to too many package files")
     regular[name] = payload
     return next_expanded
 
 
-def _materialize_links(regular: dict[str, bytes], symlinks: list[tuple[str, str]], expanded: int) -> int:
+def _materialize_links(
+    regular: dict[str, bytes], symlinks: list[tuple[str, str]], expanded: int
+) -> int:
     for link_name, raw_target in symlinks:
         target = _resolved_link_target(link_name, raw_target)
         if target in regular:
             expanded = _add_materialized(regular, link_name, regular[target], expanded)
             continue
         prefix = target.rstrip("/") + "/"
-        matches = [(name, payload) for name, payload in list(regular.items()) if name.startswith(prefix)]
+        matches = [
+            (name, payload) for name, payload in list(regular.items()) if name.startswith(prefix)
+        ]
         if not matches:
             raise ValueError(f"Unresolved skill archive symlink: {link_name} -> {raw_target}")
         for name, payload in matches:
-            virtual = f"{link_name.rstrip('/')}/{name[len(prefix):]}"
+            virtual = f"{link_name.rstrip('/')}/{name[len(prefix) :]}"
             expanded = _add_materialized(regular, virtual, payload, expanded)
     return expanded
 
@@ -127,7 +158,11 @@ def _safe_zip_files(data: bytes) -> dict[str, bytes]:
 
 
 def _skill_docs(files: dict[str, bytes]) -> list[tuple[str, bytes]]:
-    markdown = [(name, data) for name, data in files.items() if PurePosixPath(name).suffix.casefold() == ".md"]
+    markdown = [
+        (name, data)
+        for name, data in files.items()
+        if PurePosixPath(name).suffix.casefold() == ".md"
+    ]
     native = [item for item in markdown if PurePosixPath(item[0]).name.casefold() == "skill.md"]
     result = native or markdown
     if not result:
@@ -170,7 +205,9 @@ def _read_local_package_files(source_root: Path) -> dict[str, bytes]:
                 try:
                     resolved.relative_to(source_root.resolve())
                 except ValueError as exc:
-                    raise RuntimeError(f"Symlinked skill source escapes import root: {child} -> {resolved}") from exc
+                    raise RuntimeError(
+                        f"Symlinked skill source escapes import root: {child} -> {resolved}"
+                    ) from exc
                 if resolved.is_dir():
                     walk(virtual, resolved)
                 elif resolved.is_file():
@@ -187,7 +224,9 @@ def _read_local_package_files(source_root: Path) -> dict[str, bytes]:
     return {name.removeprefix("./"): payload for name, payload in files.items()}
 
 
-def _source_documents(source: str | None, *, content: str | None = None) -> tuple[str, str, list[tuple[str, bytes]], dict[str, bytes]]:
+def _source_documents(
+    source: str | None, *, content: str | None = None
+) -> tuple[str, str, list[tuple[str, bytes]], dict[str, bytes]]:
     if content is not None:
         payload = content.encode("utf-8")
         return "inline", "inline", [("skill.md", payload)], {"skill.md": payload}
@@ -220,7 +259,9 @@ def _source_documents(source: str | None, *, content: str | None = None) -> tupl
         try:
             resolved.relative_to(raw_path.parent.resolve())
         except ValueError as exc:
-            raise RuntimeError(f"Refusing skill source symlink outside its parent: {raw_path} -> {resolved}") from exc
+            raise RuntimeError(
+                f"Refusing skill source symlink outside its parent: {raw_path} -> {resolved}"
+            ) from exc
     path = raw_path.resolve()
     if path.is_file():
         data = path.read_bytes()
@@ -244,7 +285,7 @@ def _package_files_for_doc(files: dict[str, bytes], doc_name: str) -> dict[str, 
     for name, payload in files.items():
         if parent and not name.startswith(parent):
             continue
-        rel = name[len(parent):] if parent else name
+        rel = name[len(parent) :] if parent else name
         if not rel or rel.startswith("../"):
             continue
         selected[rel] = payload
@@ -282,4 +323,3 @@ def _decode_document(name: str, data: bytes) -> str:
         return data.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise ValueError(f"Skill {name} must be UTF-8 text") from exc
-

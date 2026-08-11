@@ -8,7 +8,6 @@ from typing import Any
 from ai_layer.domain.security import Capability
 
 
-
 MAX_TIMEOUT_SECONDS = 900
 MAX_COMMAND_PARTS = 64
 MAX_COMMAND_PART_CHARS = 2_000

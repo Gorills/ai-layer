@@ -53,10 +53,12 @@ import time
 import typer
 from ai_layer.core.registry import unregister_project
 
+
 def db_init():
     """Initialize/repair the database exclusively through Alembic migrations."""
     result = migrate_database()
     echo({"ok": bool(result.get("ok")), "database": "initialized", "migration": result})
+
 
 def bootstrap(
     skip_db: bool = typer.Option(False, "--skip-db", help="Do not start/migrate PostgreSQL."),
@@ -65,6 +67,7 @@ def bootstrap(
     """Initialize machine state after the package is installed. Idempotent."""
     result = _machine_upgrade(force=True, skip_db=skip_db, sync_projects=not no_sync)
     echo({"ok": bool(result.get("machine_upgrade_ok")), **result})
+
 
 def upgrade(
     skip_db: bool = typer.Option(False, "--skip-db", help="Do not start/migrate PostgreSQL."),
@@ -86,9 +89,12 @@ def upgrade(
     if not ok:
         raise typer.Exit(1)
 
+
 def sync(
     path: str = typer.Argument("."),
-    scan: bool = typer.Option(False, "--scan", help="Also rebuild project memory after syncing adapters."),
+    scan: bool = typer.Option(
+        False, "--scan", help="Also rebuild project memory after syncing adapters."
+    ),
 ):
     """Idempotently refresh host rules/skills/MCP adapters for one initialized project."""
     result = sync_project_integrations(path)
@@ -97,9 +103,16 @@ def sync(
         payload["scan"] = app_scan_project(path)
     echo(payload)
 
+
 def repair(
-    path: str | None = typer.Option(None, "--path", help="Repair one registered project instead of all registered projects."),
-    no_sync: bool = typer.Option(False, "--no-sync", help="Repair structural/privacy residue without refreshing current integration templates."),
+    path: str | None = typer.Option(
+        None, "--path", help="Repair one registered project instead of all registered projects."
+    ),
+    no_sync: bool = typer.Option(
+        False,
+        "--no-sync",
+        help="Repair structural/privacy residue without refreshing current integration templates.",
+    ),
 ):
     """Safely repair registered projects; defaults to the whole machine registry.
 
@@ -107,15 +120,28 @@ def repair(
     are detached with their AI-owned state archived under ~/.ai-layer/recovery. Remaining
     user-owned privacy/provenance conflicts are reported with exact paths for manual review.
     """
-    result = repair_project(path, sync=not no_sync) if path else repair_registered_projects(sync=not no_sync)
+    result = (
+        repair_project(path, sync=not no_sync)
+        if path
+        else repair_registered_projects(sync=not no_sync)
+    )
     echo({"ok": bool(result.get("ok")), "repair": result})
     if not result.get("ok", False):
         raise typer.Exit(1)
 
+
 def doctor(
-    path: str | None = typer.Option(None, "--path", help="Check one project in addition to machine state."),
-    all_projects: bool = typer.Option(False, "--all-projects", help="Check every project in the machine registry."),
-    machine_only: bool = typer.Option(False, "--machine-only", help="Check only machine/runtime dependencies; ignore project health."),
+    path: str | None = typer.Option(
+        None, "--path", help="Check one project in addition to machine state."
+    ),
+    all_projects: bool = typer.Option(
+        False, "--all-projects", help="Check every project in the machine registry."
+    ),
+    machine_only: bool = typer.Option(
+        False,
+        "--machine-only",
+        help="Check only machine/runtime dependencies; ignore project health.",
+    ),
 ):
     """Diagnose the installed release, DB, global MCP and project integration drift."""
     deps = DoctorDependencies(
@@ -143,26 +169,34 @@ def doctor(
         overlapping_registered_projects=overlapping_registered_projects,
     )
     try:
-        result = doctor_report(deps, path=path, all_projects=all_projects, machine_only=machine_only)
+        result = doctor_report(
+            deps, path=path, all_projects=all_projects, machine_only=machine_only
+        )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     echo(result)
     if not result["ok"]:
         raise typer.Exit(1)
 
+
 def mcp_stop():
     """Internal installer hook: terminate long-lived MCP processes after a successful upgrade."""
     echo(stop_user_mcp_processes())
 
+
 def status(
-    human: bool = typer.Option(False, "--human", help="Show a compact human-readable runtime snapshot."),
+    human: bool = typer.Option(
+        False, "--human", help="Show a compact human-readable runtime snapshot."
+    ),
 ):
     """Compact current status. Use `ai-layer monitor` for live activity and `doctor` for diagnostics."""
     if human:
         typer.echo(render_status(observability_snapshot(include_handoff_text=True)))
         return
     settings = get_settings()
-    registered = get_registered_project(Path.cwd()) is not None and project_config_path(Path.cwd()).exists()
+    registered = (
+        get_registered_project(Path.cwd()) is not None and project_config_path(Path.cwd()).exists()
+    )
     task_recovery = None
     if registered:
         try:
@@ -192,16 +226,23 @@ def status(
         }
     )
 
+
 def task_current_cmd(
     path: str = typer.Option(".", "--path", help="Registered project path."),
-    history: bool = typer.Option(False, "--history", help="Include completed stage/finding history; compact recovery is the default."),
+    history: bool = typer.Option(
+        False,
+        "--history",
+        help="Include completed stage/finding history; compact recovery is the default.",
+    ),
 ):
     """Read durable task state directly from PostgreSQL; does not require a live MCP transport."""
     echo(app_task_current(path, include_history=history))
 
+
 def task_next_cmd(path: str = typer.Option(".", "--path", help="Registered project path.")):
     """Return the one next allowed workflow action directly from durable state."""
     echo(app_task_next(path))
+
 
 def task_cancel_cmd(
     reason: str = typer.Option(..., "--reason", help="Why the current task is being abandoned."),
@@ -212,7 +253,9 @@ def task_cancel_cmd(
 
 
 def task_worker_disconnected_cmd(
-    reason: str = typer.Option(..., "--reason", help="Why the bound worker is known to be disconnected."),
+    reason: str = typer.Option(
+        ..., "--reason", help="Why the bound worker is known to be disconnected."
+    ),
     path: str = typer.Option(".", "--path", help="Registered project path."),
 ):
     """Recover a host-reported lost worker without retroactively rebinding its changes."""
@@ -231,12 +274,19 @@ def task_resume_cmd(path: str = typer.Option(".", "--path", help="Registered pro
     """Explicitly resume a blocked task directly through PostgreSQL, including human-attention stops."""
     echo(app_task_resume(path))
 
+
 def monitor(
-    path: str | None = typer.Option(None, "--path", help="Monitor the registered project containing this path."),
+    path: str | None = typer.Option(
+        None, "--path", help="Monitor the registered project containing this path."
+    ),
     all_projects: bool = typer.Option(False, "--all", help="Monitor every registered project."),
     once: bool = typer.Option(False, "--once", help="Render one snapshot and exit."),
-    interval: float = typer.Option(1.0, "--interval", min=0.2, max=30.0, help="Live refresh interval in seconds."),
-    json_output: bool = typer.Option(False, "--json", help="Return one machine-readable snapshot and exit."),
+    interval: float = typer.Option(
+        1.0, "--interval", min=0.2, max=30.0, help="Live refresh interval in seconds."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Return one machine-readable snapshot and exit."
+    ),
 ):
     """Live privacy-minimal view of agents, MCP calls, memory refreshes and recent activity."""
     if path and all_projects:
@@ -265,11 +315,20 @@ def monitor(
     except KeyboardInterrupt:
         typer.echo()
 
+
 def init(
     path: str = typer.Argument("."),
     name: str | None = typer.Option(None),
-    private: bool = typer.Option(False, "--private", help="Use zero-footprint external state and forbid AI-development provenance."),
-    external: bool = typer.Option(False, "--external", help="Use zero-footprint external state without enabling provenance restrictions."),
+    private: bool = typer.Option(
+        False,
+        "--private",
+        help="Use zero-footprint external state and forbid AI-development provenance.",
+    ),
+    external: bool = typer.Option(
+        False,
+        "--external",
+        help="Use zero-footprint external state without enabling provenance restrictions.",
+    ),
 ):
     """Register a project using standard adapters or zero-footprint external attachment."""
     if private and external:
@@ -277,36 +336,46 @@ def init(
     project = initialize_project(path, name, private=private, external=external)
     root = Path(project["root_path"])
     echo(
-            {
-                "ok": True,
-                "project_id": project["id"],
-                "root": project["root_path"],
-                "mode": project_mode(root),
-                "provenance": project_provenance(root),
-                "integration_template_version": INTEGRATION_TEMPLATE_VERSION,
-                "workflow": "AI Layer MCP is mandatory for registered-project engineering tasks.",
-                "repository_footprint": repository_footprint(root) if project_mode(root) in {"external", "strict-private"} else None,
-                "next": "ai-layer scan",
-            }
-        )
+        {
+            "ok": True,
+            "project_id": project["id"],
+            "root": project["root_path"],
+            "mode": project_mode(root),
+            "provenance": project_provenance(root),
+            "integration_template_version": INTEGRATION_TEMPLATE_VERSION,
+            "workflow": "AI Layer MCP is mandatory for registered-project engineering tasks.",
+            "repository_footprint": repository_footprint(root)
+            if project_mode(root) in {"external", "strict-private"}
+            else None,
+            "next": "ai-layer scan",
+        }
+    )
+
 
 def privacy_enable(path: str = typer.Argument(".")):
     """Convert an initialized/registered project to strict-private external-state mode."""
     project = initialize_project(path, private=True)
     root = Path(project["root_path"])
-    echo({
+    echo(
+        {
             "ok": True,
             "root": project["root_path"],
             "mode": project_mode(root),
             "provenance": project_provenance(root),
             "footprint": repository_footprint(root),
             "git_guard": git_privacy_guard_status(root),
-        })
+        }
+    )
+
 
 def privacy_check_cmd(
     path: str = typer.Option(".", "--path", help="Project path."),
-    staged: bool = typer.Option(False, "--staged", help="Check staged Git content instead of working-tree changes."),
-    commit_message: str | None = typer.Option(None, "--commit-message", help="Commit message file path for commit-msg hook."),
+    staged: bool = typer.Option(
+        False, "--staged", help="Check staged Git content instead of working-tree changes."
+    ),
+    commit_message: str | None = typer.Option(
+        None, "--commit-message", help="Commit message file path for commit-msg hook."
+    ),
 ):
     """Fail when strict-private changed/staged content contains prohibited AI provenance."""
     result = privacy_check(path, staged=staged, commit_message=commit_message)
@@ -314,31 +383,42 @@ def privacy_check_cmd(
     if not result.get("ok", False):
         raise typer.Exit(1)
 
+
 def scan(path: str = typer.Argument(".")):
     """Refresh deterministic repository evidence/freshness; does not build a parallel source-code memory index."""
     echo({"ok": True, **app_scan_project(path)})
 
+
 def info(path: str = typer.Argument(".")):
     echo(app_project_info(path))
 
+
 def projects_list():
     echo({"projects": list_registered_projects()})
+
 
 def projects_unregister(path: str = typer.Argument(".")):
     """Durably forget exactly one project without deleting its AI Layer data."""
     echo({"ok": True, **unregister_project(path)})
 
+
 def projects_remove(
     path: str = typer.Argument("."),
-    yes: bool = typer.Option(False, "--yes", help="Confirm deletion of AI Layer-owned state for this exact root."),
+    yes: bool = typer.Option(
+        False, "--yes", help="Confirm deletion of AI Layer-owned state for this exact root."
+    ),
 ):
     """Remove an accidental project registration, its AI-owned bridges/state, and its DB project row."""
     if not yes:
-        raise typer.BadParameter("--yes is required because this deletes AI Layer memory/session/decision state for the selected root")
+        raise typer.BadParameter(
+            "--yes is required because this deletes AI Layer memory/session/decision state for the selected root"
+        )
     echo({"ok": True, **app_remove_project(path)})
+
 
 def projects_prune():
     echo({"ok": True, **prune_registry()})
+
 
 def audit_tail(
     path: str = typer.Option(".", "--path", help="Initialized project path."),
@@ -347,6 +427,7 @@ def audit_tail(
     """Show recent MCP tool calls without prompt/result contents."""
     root = normalize_root(path)
     echo({"path": str(audit_path(root)), "events": read_audit(root, limit)})
+
 
 def audit_check(
     path: str = typer.Option(".", "--path", help="Initialized project path."),

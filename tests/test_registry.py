@@ -61,7 +61,9 @@ def test_registry_persists_strict_private_mode_and_provenance(tmp_path: Path, mo
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
     get_settings.cache_clear()
     try:
-        register_project(project, "private-1", "private", mode="strict-private", provenance="forbid")
+        register_project(
+            project, "private-1", "private", mode="strict-private", provenance="forbid"
+        )
         item = list_registered_projects()[0]
         assert item["mode"] == "strict-private"
         assert item["provenance"] == "forbid"
@@ -80,7 +82,9 @@ def test_registry_corruption_fails_closed(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
     get_settings.cache_clear()
     try:
-        register_project(project, "private-corrupt", "private", mode="strict-private", provenance="forbid")
+        register_project(
+            project, "private-corrupt", "private", mode="strict-private", provenance="forbid"
+        )
         get_settings().projects_registry_file.write_text("{not-json", encoding="utf-8")
 
         try:
@@ -130,7 +134,9 @@ def test_missing_registry_recovers_existing_strict_private_state(tmp_path: Path,
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
     get_settings.cache_clear()
     try:
-        register_project(project, "private-recover", "private", mode="strict-private", provenance="forbid")
+        register_project(
+            project, "private-recover", "private", mode="strict-private", provenance="forbid"
+        )
         meta = project_meta_dir(project)
         meta.mkdir(parents=True)
         (meta / "project.yaml").write_text(
@@ -210,7 +216,9 @@ def test_overlapping_registered_projects_detects_parent_and_child(tmp_path: Path
     try:
         register_project(parent, "p-parent", "parent", mode="strict-private", provenance="forbid")
         register_project(sibling, "p-other", "other")
-        assert [item["root"] for item in overlapping_registered_projects(child)] == [str(parent.resolve())]
+        assert [item["root"] for item in overlapping_registered_projects(child)] == [
+            str(parent.resolve())
+        ]
         assert overlapping_registered_projects(parent) == []
     finally:
         get_settings.cache_clear()
@@ -226,7 +234,9 @@ def test_unregister_strict_private_is_durable_against_external_state(tmp_path: P
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
     get_settings.cache_clear()
     try:
-        register_project(project, "p-private", "repo-private", mode="strict-private", provenance="forbid")
+        register_project(
+            project, "p-private", "repo-private", mode="strict-private", provenance="forbid"
+        )
         state = home / ".ai-layer" / "projects" / "p-private"
         state.mkdir(parents=True)
         (state / "project.yaml").write_text(
@@ -271,7 +281,9 @@ def test_registry_invalid_utf8_fails_closed(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
     get_settings.cache_clear()
     try:
-        register_project(project, "private-invalid-utf8", "private", mode="strict-private", provenance="forbid")
+        register_project(
+            project, "private-invalid-utf8", "private", mode="strict-private", provenance="forbid"
+        )
         get_settings().projects_registry_file.write_bytes(b"\xff\xfe")
         with __import__("pytest").raises(RegistryCorruptError):
             project_mode(project)

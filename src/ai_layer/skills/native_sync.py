@@ -30,7 +30,9 @@ def _publishable_catalog(
     blocked_by_slug: dict[str, list[str]] = {}
     for issue in validation["issues"]:
         slug = str(issue.get("slug") or "")
-        blocked_by_slug.setdefault(slug, []).append(str(issue.get("problem") or "invalid descriptor"))
+        blocked_by_slug.setdefault(slug, []).append(
+            str(issue.get("problem") or "invalid descriptor")
+        )
 
     desired: dict[str, str] = {}
     published: list[str] = []
@@ -38,7 +40,9 @@ def _publishable_catalog(
         slug = str(skill.get("slug") or "")
         if slug in blocked_by_slug:
             continue
-        name = native_descriptor_name(slug, project_root=project_root, external_scope=external_scope)
+        name = native_descriptor_name(
+            slug, project_root=project_root, external_scope=external_scope
+        )
         desired[name] = render_native_descriptor(
             skill,
             project_root=project_root,
@@ -50,8 +54,7 @@ def _publishable_catalog(
         "published": sorted(published),
         "published_count": len(published),
         "blocked": [
-            {"slug": slug, "issues": problems}
-            for slug, problems in sorted(blocked_by_slug.items())
+            {"slug": slug, "issues": problems} for slug, problems in sorted(blocked_by_slug.items())
         ],
         "blocked_count": len(blocked_by_slug),
     }

@@ -48,7 +48,9 @@ class ScanStats:
     knowledge_cards_staled: int = 0
 
 
-def _identity_payload(project: Project, snapshot: SourceSnapshot, *, indexed: bool, **semantic) -> dict:
+def _identity_payload(
+    project: Project, snapshot: SourceSnapshot, *, indexed: bool, **semantic
+) -> dict:
     return {
         "project_id": project.id,
         "path": snapshot.path,
@@ -214,7 +216,9 @@ def _embed_rows_in_batches(db: Session, rows, *, text_attr: str) -> int:
 
 def _reembed_semantic_memory(db: Session, project: Project) -> tuple[int, int]:
     decisions = list(
-        db.scalars(select(Decision).where(Decision.project_id == project.id).order_by(Decision.id)).all()
+        db.scalars(
+            select(Decision).where(Decision.project_id == project.id).order_by(Decision.id)
+        ).all()
     )
     knowledge = list(
         db.scalars(
@@ -247,13 +251,17 @@ def scan_project(
         )
         or 0
     )
-    previous_rows = db.scalars(select(ProjectFile).where(ProjectFile.project_id == project.id)).all()
+    previous_rows = db.scalars(
+        select(ProjectFile).where(ProjectFile.project_id == project.id)
+    ).all()
     previous = {row.path: row for row in previous_rows}
     changes = classify_changes(root, previous_rows, force_verify_all=force_reparse)
     _apply_source_changes(db, project, previous, changes, force_reparse=force_reparse)
     db.flush()
 
-    rows, languages, dependencies, summary, intelligence, selected = refresh_project_snapshot(db, project, root)
+    rows, languages, dependencies, summary, intelligence, selected = refresh_project_snapshot(
+        db, project, root
+    )
     sync_project_metadata(
         db,
         project,

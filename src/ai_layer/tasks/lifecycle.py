@@ -17,7 +17,8 @@ from ai_layer.tasks.constants import MAX_TASK_GOAL_CHARS, OPEN_TASK_STATUSES, RE
 from ai_layer.tasks.concurrency import assert_expected_version, bump_task_version, lock_project
 from ai_layer.tasks.contracts import _bounded_text, _bounded_text_list, _classify_task
 from ai_layer.tasks.navigation import (
-    _latest_resumable_stage, _safe_git_changes,
+    _latest_resumable_stage,
+    _safe_git_changes,
 )
 from ai_layer.tasks.state_store import (
     bind_task_baseline,
@@ -29,12 +30,22 @@ from ai_layer.tasks.state_store import (
     task_lock as _task_lock,
     task_work_dir as _task_work_dir,
 )
-from ai_layer.workspace.repository import git_changed_paths as _git_changed_paths, capture_repository_state, repository_changes
+from ai_layer.workspace.repository import (
+    git_changed_paths as _git_changed_paths,
+    capture_repository_state,
+    repository_changes,
+)
 from ai_layer.tasks.views import (
-    _active_stage, _cleanup_task_review_sandboxes, _create_stage, _human_attention_reason, _persist_task_view,
-    _validate_worker_id, task_to_dict,
+    _active_stage,
+    _cleanup_task_review_sandboxes,
+    _create_stage,
+    _human_attention_reason,
+    _persist_task_view,
+    _validate_worker_id,
+    task_to_dict,
 )
 from ai_layer.tasks.worker_leases import recover_disconnected_worker, start_worker_lease
+
 
 def _materialize_recovery_cache(
     db: Session, project: Project, task: Task, stage: TaskStage | None
@@ -61,12 +72,25 @@ def create_task(
     uncertainty: str = "auto",
     cost_policy: str = "auto",
 ) -> dict:
-    goal = _bounded_text(goal, field="task_create: `goal`", max_chars=MAX_TASK_GOAL_CHARS, required=True, redact=True)
-    criteria = _bounded_text_list(acceptance_criteria, field="task_create: `acceptance_criteria`", redact=True)
-    task_constraints = _bounded_text_list(constraints, field="task_create: `constraints`", redact=True)
+    goal = _bounded_text(
+        goal, field="task_create: `goal`", max_chars=MAX_TASK_GOAL_CHARS, required=True, redact=True
+    )
+    criteria = _bounded_text_list(
+        acceptance_criteria, field="task_create: `acceptance_criteria`", redact=True
+    )
+    task_constraints = _bounded_text_list(
+        constraints, field="task_create: `constraints`", redact=True
+    )
     classification = _classify_task(
-        project, goal=goal, acceptance_criteria=criteria, constraints=task_constraints,
-        workflow=workflow, risk=risk, complexity=complexity, uncertainty=uncertainty, cost_policy=cost_policy,
+        project,
+        goal=goal,
+        acceptance_criteria=criteria,
+        constraints=task_constraints,
+        workflow=workflow,
+        risk=risk,
+        complexity=complexity,
+        uncertainty=uncertainty,
+        cost_policy=cost_policy,
     )
     with directory_lock(_task_lock(project), timeout_seconds=15):
         lock_project(db, project)
@@ -90,7 +114,9 @@ def create_task(
             preexisting["task_delta_contract"] = (
                 "managed changes are measured against the captured task baseline, not against Git HEAD"
             )
-        previous_sequence = db.scalar(select(func.max(Task.sequence)).where(Task.project_id == project.id))
+        previous_sequence = db.scalar(
+            select(func.max(Task.sequence)).where(Task.project_id == project.id)
+        )
         baseline = capture_repository_state(project.root_path, previous=_memory_hash_seed(project))
         task = Task(
             project_id=project.id,
@@ -124,8 +150,32 @@ def create_task(
         stage = _create_stage(
             db, task, kind=first_kind, state=baseline, start_snapshot_id=baseline_snapshot.id
         )
-        append_event(db, event_type="TaskCreated", project=project, aggregate_type="task", aggregate_id=str(task.id), payload={"key": task_key(task), "workflow_profile": task.workflow_profile, "preexisting_paths": int(preexisting.get("total") or 0), "baseline_mode": "captured_worktree"})
-        append_event(db, event_type="TaskClassified", project=project, aggregate_type="task", aggregate_id=str(task.id), payload={"risk": task.risk_level, "complexity": task.complexity_level, "uncertainty": task.uncertainty_level, "cost_policy": task.cost_policy})
+        append_event(
+            db,
+            event_type="TaskCreated",
+            project=project,
+            aggregate_type="task",
+            aggregate_id=str(task.id),
+            payload={
+                "key": task_key(task),
+                "workflow_profile": task.workflow_profile,
+                "preexisting_paths": int(preexisting.get("total") or 0),
+                "baseline_mode": "captured_worktree",
+            },
+        )
+        append_event(
+            db,
+            event_type="TaskClassified",
+            project=project,
+            aggregate_type="task",
+            aggregate_id=str(task.id),
+            payload={
+                "risk": task.risk_level,
+                "complexity": task.complexity_level,
+                "uncertainty": task.uncertainty_level,
+                "cost_policy": task.cost_policy,
+            },
+        )
         db.commit()
         _materialize_recovery_cache(db, project, task, stage)
         return _persist_task_view(db, project, task)
@@ -145,7 +195,9 @@ def adopt_task(
     the task starts directly at REVIEW. Any later fixer changes are measured separately from the
     adopted work.
     """
-    goal = _bounded_text(goal, field="task_adopt: `goal`", max_chars=MAX_TASK_GOAL_CHARS, required=True, redact=True)
+    goal = _bounded_text(
+        goal, field="task_adopt: `goal`", max_chars=MAX_TASK_GOAL_CHARS, required=True, redact=True
+    )
     root = Path(project.root_path).expanduser().resolve()
     with directory_lock(_task_lock(project), timeout_seconds=15):
         lock_project(db, project)
@@ -167,8 +219,12 @@ def adopt_task(
             )
         current_state = capture_repository_state(root, previous=_memory_hash_seed(project))
         adopted["repository_digest_at_adoption"] = str(current_state.get("digest") or "")
-        criteria = _bounded_text_list(acceptance_criteria, field="task_adopt: `acceptance_criteria`", redact=True)
-        task_constraints = _bounded_text_list(constraints, field="task_adopt: `constraints`", redact=True)
+        criteria = _bounded_text_list(
+            acceptance_criteria, field="task_adopt: `acceptance_criteria`", redact=True
+        )
+        task_constraints = _bounded_text_list(
+            constraints, field="task_adopt: `constraints`", redact=True
+        )
         adopted_paths = [str(item) for item in (adopted.get("paths") or [])[:40]]
         adopted_classification = _classify_task(
             project,
@@ -183,7 +239,9 @@ def adopt_task(
             "explicitly-declared unmanaged pre-task work; Git identifies the dirty paths, but AI Layer "
             "does not claim who created them or when they were first edited"
         )
-        previous_sequence = db.scalar(select(func.max(Task.sequence)).where(Task.project_id == project.id))
+        previous_sequence = db.scalar(
+            select(func.max(Task.sequence)).where(Task.project_id == project.id)
+        )
         task = Task(
             project_id=project.id,
             sequence=int(previous_sequence or 0) + 1,
@@ -220,15 +278,27 @@ def adopt_task(
             review_round=1,
             start_snapshot_id=baseline_snapshot.id,
         )
-        append_event(db, event_type="TaskAdopted", project=project, aggregate_type="task", aggregate_id=str(task.id), payload={"key": task_key(task), "adopted_paths": adopted.get("total", 0)})
+        append_event(
+            db,
+            event_type="TaskAdopted",
+            project=project,
+            aggregate_type="task",
+            aggregate_id=str(task.id),
+            payload={"key": task_key(task), "adopted_paths": adopted.get("total", 0)},
+        )
         db.commit()
         _materialize_recovery_cache(db, project, task, stage)
         return _persist_task_view(db, project, task)
 
 
 def delegate_current_stage(
-    db: Session, project: Project, *, worker_id: str, actual_model: str | None = None,
-    model_assurance: str = "requested_unverified", telemetry: dict | None = None,
+    db: Session,
+    project: Project,
+    *,
+    worker_id: str,
+    actual_model: str | None = None,
+    model_assurance: str = "requested_unverified",
+    telemetry: dict | None = None,
     expected_version: int | None = None,
 ) -> dict:
     """Bind a fresh worker before any managed stage mutation can be attributed to that worker."""
@@ -276,7 +346,9 @@ def delegate_current_stage(
             )
         assurance = str(model_assurance or "requested_unverified").strip().lower()
         if assurance not in {"requested_unverified", "host_reported"}:
-            raise ValueError("model_assurance must be requested_unverified|host_reported; verified requires a trusted host adapter.")
+            raise ValueError(
+                "model_assurance must be requested_unverified|host_reported; verified requires a trusted host adapter."
+            )
         actual = str(actual_model or "").strip()
         if assurance == "host_reported" and not actual:
             raise ValueError("actual_model is required when model_assurance=host_reported.")
@@ -289,24 +361,39 @@ def delegate_current_stage(
         bump_task_version(task)
         task.updated_at = utcnow()
         append_event(
-            db, event_type="StageDelegated", project=project, aggregate_type="task_stage",
-            aggregate_id=str(stage.id), payload={"task_id": str(task.id), "worker_id": worker, "kind": stage.kind},
+            db,
+            event_type="StageDelegated",
+            project=project,
+            aggregate_type="task_stage",
+            aggregate_id=str(stage.id),
+            payload={"task_id": str(task.id), "worker_id": worker, "kind": stage.kind},
         )
         append_event(
-            db, event_type="AgentAssigned", project=project, aggregate_type="task_stage",
-            aggregate_id=str(stage.id), payload={
-                "worker_id": worker, "requested_model": stage.agent_model, "actual_model": actual or None,
-                "model_assurance": assurance, "tier": stage.agent_tier, "profile": stage.agent_profile,
+            db,
+            event_type="AgentAssigned",
+            project=project,
+            aggregate_type="task_stage",
+            aggregate_id=str(stage.id),
+            payload={
+                "worker_id": worker,
+                "requested_model": stage.agent_model,
+                "actual_model": actual or None,
+                "model_assurance": assurance,
+                "tier": stage.agent_tier,
+                "profile": stage.agent_profile,
             },
         )
         db.commit()
         payload = _persist_task_view(db, project, task)
         payload["orchestrator_handoff"] = {
-            **orchestrator_stage_instruction(stage_kind=stage.kind, delegated=True, worker_id=worker),
+            **orchestrator_stage_instruction(
+                stage_kind=stage.kind, delegated=True, worker_id=worker
+            ),
             "next_host_action": "START_THE_DELEGATED_WORKER_NOW",
             "delegation_contract": payload.get("delegation_contract"),
         }
         return payload
+
 
 def resume_task(db: Session, project: Project, *, expected_version: int | None = None) -> dict:
     with directory_lock(_task_lock(project), timeout_seconds=15):
@@ -358,7 +445,14 @@ def resume_task(db: Session, project: Project, *, expected_version: int | None =
             )
             bump_task_version(task)
             task.updated_at = utcnow()
-            append_event(db, event_type="TaskResumed", project=project, aggregate_type="task", aggregate_id=str(task.id), payload={"from": "human_attention", "stage_id": str(replacement.id)})
+            append_event(
+                db,
+                event_type="TaskResumed",
+                project=project,
+                aggregate_type="task",
+                aggregate_id=str(task.id),
+                payload={"from": "human_attention", "stage_id": str(replacement.id)},
+            )
             db.commit()
             return _persist_task_view(db, project, task)
 
@@ -399,12 +493,21 @@ def resume_task(db: Session, project: Project, *, expected_version: int | None =
         )
         bump_task_version(task)
         task.updated_at = utcnow()
-        append_event(db, event_type="TaskResumed", project=project, aggregate_type="task", aggregate_id=str(task.id), payload={"stage_id": str(replacement.id)})
+        append_event(
+            db,
+            event_type="TaskResumed",
+            project=project,
+            aggregate_type="task",
+            aggregate_id=str(task.id),
+            payload={"stage_id": str(replacement.id)},
+        )
         db.commit()
         return _persist_task_view(db, project, task)
 
 
-def cancel_task(db: Session, project: Project, *, reason: str, expected_version: int | None = None) -> dict:
+def cancel_task(
+    db: Session, project: Project, *, reason: str, expected_version: int | None = None
+) -> dict:
     with directory_lock(_task_lock(project), timeout_seconds=15):
         task = db.scalar(
             select(Task)

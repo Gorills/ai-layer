@@ -9,8 +9,10 @@ from ai_layer.core.registry import get_registered_project
 
 EVENTS_RELATIVE_DIR = Path("observability") / "events"
 
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
 
 def parse_ts(value: object) -> datetime | None:
     if not isinstance(value, str) or not value:
@@ -20,6 +22,7 @@ def parse_ts(value: object) -> datetime | None:
     except ValueError:
         return None
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
 
 def event_dir(project_root: str | Path | None = None) -> Path:
     if project_root is None:

@@ -165,7 +165,11 @@ def _recover_worker_stage(
         project=project,
         aggregate_type="task_stage",
         aggregate_id=str(stage.id),
-        payload={"worker_id": worker, "reason": reason, "repository_changes": drift.get("total", 0)},
+        payload={
+            "worker_id": worker,
+            "reason": reason,
+            "repository_changes": drift.get("total", 0),
+        },
     )
     append_event(
         db,

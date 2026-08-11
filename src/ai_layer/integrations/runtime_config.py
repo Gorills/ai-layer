@@ -6,7 +6,11 @@ from pathlib import Path
 
 from ai_layer.core.config import get_settings
 from ai_layer.integrations.config_files import MCP_OWNER_KEY, MCP_OWNER_VALUE
-from ai_layer.integrations.templates import global_bootstrap_workflow as global_bootstrap_workflow_template, workflow as workflow_template
+from ai_layer.integrations.templates import (
+    global_bootstrap_workflow as global_bootstrap_workflow_template,
+    workflow as workflow_template,
+)
+
 
 def _mcp_command() -> str:
     override = os.getenv("AI_LAYER_MCP_EXECUTABLE")
@@ -18,11 +22,14 @@ def _mcp_command() -> str:
     found = shutil.which("ai-layer-mcp")
     return found or "ai-layer-mcp"
 
+
 def _workflow(project_root: Path) -> str:
     return workflow_template(project_root)
 
+
 def _global_bootstrap_workflow() -> str:
     return global_bootstrap_workflow_template()
+
 
 def _server(*, project_root: Path | None = None, client: str | None = None) -> dict:
     env: dict[str, str] = {}

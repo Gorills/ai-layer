@@ -140,7 +140,9 @@ def upgrade() -> None:
     op.add_column("runtime_events", sa.Column("causation_id", sa.String(length=64), nullable=True))
     op.add_column(
         "runtime_events",
-        sa.Column("actor_id", sa.String(length=128), nullable=False, server_default="system:legacy"),
+        sa.Column(
+            "actor_id", sa.String(length=128), nullable=False, server_default="system:legacy"
+        ),
     )
     op.add_column(
         "runtime_events",

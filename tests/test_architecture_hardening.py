@@ -35,7 +35,9 @@ def _db_project(tmp_path: Path) -> tuple[Session, Project, Path]:
     root = tmp_path / "project"
     root.mkdir()
     (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
-    project = Project(name="demo", root_path=str(root), languages={}, dependencies={}, architecture_summary="")
+    project = Project(
+        name="demo", root_path=str(root), languages={}, dependencies={}, architecture_summary=""
+    )
     db.add(project)
     db.commit()
     return db, project, root
@@ -54,7 +56,9 @@ def test_new_task_recovery_state_is_durable_without_filesystem_snapshot(tmp_path
         )
         task = db.get(Task, UUID(created["id"]))
         assert task is not None and task.baseline_snapshot_id is not None
-        stage = db.scalar(select(TaskStage).where(TaskStage.task_id == task.id, TaskStage.status == "active"))
+        stage = db.scalar(
+            select(TaskStage).where(TaskStage.task_id == task.id, TaskStage.status == "active")
+        )
         assert stage is not None and stage.start_snapshot_id is not None
         assert db.get(RepositorySnapshot, task.baseline_snapshot_id) is not None
 
@@ -91,14 +95,26 @@ def test_new_task_recovery_state_is_durable_without_filesystem_snapshot(tmp_path
         db.close()
 
 
-def test_projection_failure_after_commit_does_not_lose_canonical_state(tmp_path: Path, monkeypatch) -> None:
+def test_projection_failure_after_commit_does_not_lose_canonical_state(
+    tmp_path: Path, monkeypatch
+) -> None:
     db, project, _ = _db_project(tmp_path)
     import ai_layer.tasks.lifecycle as lifecycle
 
-    monkeypatch.setattr(lifecycle, "materialize_baseline", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk gone")))
-    monkeypatch.setattr(lifecycle, "materialize_stage_start", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk gone")))
+    monkeypatch.setattr(
+        lifecycle,
+        "materialize_baseline",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk gone")),
+    )
+    monkeypatch.setattr(
+        lifecycle,
+        "materialize_stage_start",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk gone")),
+    )
     try:
-        created = tasks.create_task(db, project, goal="Durable", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Durable", acceptance_criteria=[], constraints=[]
+        )
         task = db.get(Task, UUID(created["id"]))
         assert task is not None
         assert task.baseline_snapshot_id is not None
@@ -107,8 +123,9 @@ def test_projection_failure_after_commit_does_not_lose_canonical_state(tmp_path:
         db.close()
 
 
-
-def test_commit_failure_does_not_publish_required_filesystem_state(tmp_path: Path, monkeypatch) -> None:
+def test_commit_failure_does_not_publish_required_filesystem_state(
+    tmp_path: Path, monkeypatch
+) -> None:
     db, project, _ = _db_project(tmp_path)
     import ai_layer.tasks.lifecycle as lifecycle
 
@@ -131,7 +148,9 @@ def test_commit_failure_does_not_publish_required_filesystem_state(tmp_path: Pat
     monkeypatch.setattr(db, "commit", fail_commit)
     try:
         with pytest.raises(RuntimeError, match="injected commit failure"):
-            tasks.create_task(db, project, goal="Crash before commit", acceptance_criteria=[], constraints=[])
+            tasks.create_task(
+                db, project, goal="Crash before commit", acceptance_criteria=[], constraints=[]
+            )
         assert published["count"] == 0
         db.rollback()
         assert db.scalar(select(func.count()).select_from(Task)) == 0
@@ -145,7 +164,9 @@ def test_commit_failure_does_not_publish_required_filesystem_state(tmp_path: Pat
 def test_worker_recovery_uses_database_snapshot_after_local_cache_loss(tmp_path: Path) -> None:
     db, project, _ = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Recover worker", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Recover worker", acceptance_criteria=[], constraints=[]
+        )
         delegated = tasks.delegate_current_stage(db, project, worker_id="lost-worker")
         task_id = UUID(created["id"])
         shutil.rmtree(task_work_dir(project, task_id), ignore_errors=True)
@@ -156,6 +177,7 @@ def test_worker_recovery_uses_database_snapshot_after_local_cache_loss(tmp_path:
         assert recovered["active_stage"]["start_snapshot_id"]
     finally:
         db.close()
+
 
 def test_database_prevents_two_open_tasks_even_if_service_guard_is_bypassed(tmp_path: Path) -> None:
     db, project, _ = _db_project(tmp_path)
@@ -172,7 +194,9 @@ def test_database_prevents_two_open_tasks_even_if_service_guard_is_bypassed(tmp_
         db.close()
 
 
-def test_database_prevents_two_active_stages_even_if_service_guard_is_bypassed(tmp_path: Path) -> None:
+def test_database_prevents_two_active_stages_even_if_service_guard_is_bypassed(
+    tmp_path: Path,
+) -> None:
     db, project, _ = _db_project(tmp_path)
     try:
         task = Task(project_id=project.id, sequence=1, goal="one", status="active")
@@ -189,11 +213,12 @@ def test_database_prevents_two_active_stages_even_if_service_guard_is_bypassed(t
         db.close()
 
 
-
 def test_stale_expected_task_version_is_rejected(tmp_path: Path) -> None:
     db, project, _ = _db_project(tmp_path)
     try:
-        created = tasks.create_task(db, project, goal="Versioned mutation", acceptance_criteria=[], constraints=[])
+        created = tasks.create_task(
+            db, project, goal="Versioned mutation", acceptance_criteria=[], constraints=[]
+        )
         assert created["version"] == 1
         with pytest.raises(RuntimeError, match="STALE_TASK_VERSION"):
             tasks.delegate_current_stage(
@@ -211,6 +236,7 @@ def test_stale_expected_task_version_is_rejected(tmp_path: Path) -> None:
         assert delegated["version"] == 2
     finally:
         db.close()
+
 
 def test_workflow_registry_is_complete_and_classifies_every_stage() -> None:
     assert validate_workflow_registry() == []
@@ -265,7 +291,9 @@ def test_event_metadata_is_attributed_from_operation_context(tmp_path: Path) -> 
         db.close()
 
 
-def test_idempotent_command_retry_returns_original_result_without_second_mutation(tmp_path: Path) -> None:
+def test_idempotent_command_retry_returns_original_result_without_second_mutation(
+    tmp_path: Path,
+) -> None:
     db, project, _ = _db_project(tmp_path)
     actor = Actor("user:7", "user", frozenset({Capability.TASK_CREATE}), authenticated=True)
     calls = {"count": 0}
@@ -299,7 +327,14 @@ def test_idempotent_command_retry_returns_original_result_without_second_mutatio
         assert first == second == {"created": 1}
         assert calls["count"] == 1
         assert db.scalar(select(func.count()).select_from(CommandReceipt)) == 1
-        assert db.scalar(select(func.count()).select_from(RuntimeEvent).where(RuntimeEvent.event_type == "CommandExecuted")) == 1
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(RuntimeEvent)
+                .where(RuntimeEvent.event_type == "CommandExecuted")
+            )
+            == 1
+        )
         with pytest.raises(RuntimeError, match="IDEMPOTENCY_KEY_REUSED"):
             execute_idempotent(
                 db,

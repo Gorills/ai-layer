@@ -44,7 +44,9 @@ def _configure(monkeypatch):
     return embedder
 
 
-def test_incremental_scan_hashes_and_refreshes_only_affected_source_evidence(tmp_path: Path, monkeypatch):
+def test_incremental_scan_hashes_and_refreshes_only_affected_source_evidence(
+    tmp_path: Path, monkeypatch
+):
     for number in range(50):
         (tmp_path / f"file_{number:02d}.py").write_text(f"VALUE = {number}\n", encoding="utf-8")
     embedder = _configure(monkeypatch)
@@ -73,9 +75,7 @@ def test_incremental_scan_hashes_and_refreshes_only_affected_source_evidence(tmp
         assert embedder.calls == []
 
         sources = set(
-            db.scalars(
-                select(ProjectFile.path).where(ProjectFile.project_id == project.id)
-            ).all()
+            db.scalars(select(ProjectFile.path).where(ProjectFile.project_id == project.id)).all()
         )
         assert "file_40.py" not in sources
         assert "new_file.py" in sources
@@ -84,7 +84,9 @@ def test_incremental_scan_hashes_and_refreshes_only_affected_source_evidence(tmp
         db.close()
 
 
-def test_unchanged_scan_reuses_deterministic_file_identity_without_embeddings(tmp_path: Path, monkeypatch):
+def test_unchanged_scan_reuses_deterministic_file_identity_without_embeddings(
+    tmp_path: Path, monkeypatch
+):
     (tmp_path / "app.py").write_text("print('ok')\n", encoding="utf-8")
     embedder = _configure(monkeypatch)
     db, project = _project_db(tmp_path)
@@ -105,7 +107,9 @@ def test_unchanged_scan_reuses_deterministic_file_identity_without_embeddings(tm
         db.close()
 
 
-def test_same_size_and_mtime_change_is_hash_verified_via_metadata_candidate(tmp_path: Path, monkeypatch):
+def test_same_size_and_mtime_change_is_hash_verified_via_metadata_candidate(
+    tmp_path: Path, monkeypatch
+):
     path = tmp_path / "app.py"
     path.write_text("alpha\n", encoding="utf-8")
     _configure(monkeypatch)
@@ -123,7 +127,11 @@ def test_same_size_and_mtime_change_is_hash_verified_via_metadata_candidate(tmp_
 
         assert second.hashes_calculated == 1
         assert second.changes["modified"] == ["app.py"]
-        row = db.scalar(select(ProjectFile).where(ProjectFile.project_id == project.id, ProjectFile.path == "app.py"))
+        row = db.scalar(
+            select(ProjectFile).where(
+                ProjectFile.project_id == project.id, ProjectFile.path == "app.py"
+            )
+        )
         assert row is not None
         assert row.content_sha256
         assert db.scalar(select(Knowledge).where(Knowledge.project_id == project.id)) is None
@@ -146,9 +154,7 @@ def test_equal_content_rename_is_reported_and_file_evidence_moves(tmp_path: Path
 
         assert second.changes["renamed"] == [{"from": "old_name.py", "to": "new_name.py"}]
         paths = set(
-            db.scalars(
-                select(ProjectFile.path).where(ProjectFile.project_id == project.id)
-            ).all()
+            db.scalars(select(ProjectFile.path).where(ProjectFile.project_id == project.id)).all()
         )
         assert "old_name.py" not in paths
         assert "new_name.py" in paths
@@ -179,12 +185,15 @@ def test_deleted_source_removes_file_evidence_but_keeps_decisions(tmp_path: Path
         scanner.scan_project(db, project, tmp_path)
         db.commit()
 
-        assert db.scalar(
-            select(ProjectFile).where(
-                ProjectFile.project_id == project.id,
-                ProjectFile.path == "obsolete.py",
+        assert (
+            db.scalar(
+                select(ProjectFile).where(
+                    ProjectFile.project_id == project.id,
+                    ProjectFile.path == "obsolete.py",
+                )
             )
-        ) is None
+            is None
+        )
         assert db.scalar(select(Decision).where(Decision.project_id == project.id)) is not None
     finally:
         db.close()
@@ -211,10 +220,12 @@ def test_unstable_attempt_is_rolled_back_before_stable_commit(tmp_path: Path, mo
             "indexed": True,
         }
     }
-    observed = iter([
-        {"app.py": {"size": 11, "mtime_ns": 200, "ctime_ns": 200}},
-        {"app.py": {"size": 11, "mtime_ns": 200, "ctime_ns": 200}},
-    ])
+    observed = iter(
+        [
+            {"app.py": {"size": 11, "mtime_ns": 200, "ctime_ns": 200}},
+            {"app.py": {"size": 11, "mtime_ns": 200, "ctime_ns": 200}},
+        ]
+    )
     monkeypatch.setattr(freshness, "build_file_state", lambda root: next(observed))
     monkeypatch.setattr(
         freshness,
@@ -256,14 +267,18 @@ def test_unstable_attempt_is_rolled_back_before_stable_commit(tmp_path: Path, mo
         )
         assert attempt_count == 2
         slugs = set(
-            db.scalars(select(ProjectSkill.skill_slug).where(ProjectSkill.project_id == project.id)).all()
+            db.scalars(
+                select(ProjectSkill.skill_slug).where(ProjectSkill.project_id == project.id)
+            ).all()
         )
         assert slugs == {"stable"}
     finally:
         db.close()
 
 
-def test_change_detection_scales_to_10000_known_files_without_rehashing_unchanged(tmp_path: Path, monkeypatch):
+def test_change_detection_scales_to_10000_known_files_without_rehashing_unchanged(
+    tmp_path: Path, monkeypatch
+):
     import hashlib
 
     digest = hashlib.sha256(b"x\n").hexdigest()
@@ -315,10 +330,15 @@ def test_source_scan_does_not_depend_on_embedding_provider(tmp_path: Path, monke
         result = scanner.scan_project(db, project, project_root)
         db.commit()
         assert result.embeddings_regenerated == 0
-        row = db.scalar(select(ProjectFile).where(ProjectFile.project_id == project.id, ProjectFile.path == "app.py"))
+        row = db.scalar(
+            select(ProjectFile).where(
+                ProjectFile.project_id == project.id, ProjectFile.path == "app.py"
+            )
+        )
         assert row is not None and row.content_sha256
     finally:
         db.close()
+
 
 def test_scanner_schema_drift_forces_reparse_of_unchanged_source(tmp_path: Path, monkeypatch):
     import json
@@ -342,14 +362,28 @@ def test_scanner_schema_drift_forces_reparse_of_unchanged_source(tmp_path: Path,
         metadata = json.loads(scan_file.read_text(encoding="utf-8"))
         metadata["scanner_schema"] = 3
         scan_file.write_text(json.dumps(metadata), encoding="utf-8")
-        db.add(Knowledge(
-            project_id=project.id, kind="file", title="legacy source chunk", content="VALUE = 1",
-            source_path="app.py", meta={"scanner_schema": 3}, embedding=[0.0] * 384,
-        ))
-        db.add(Knowledge(
-            project_id=project.id, kind="architecture", title="legacy architecture", content="old summary",
-            source_path=None, meta={"scanner_schema": 3}, embedding=[0.0] * 384,
-        ))
+        db.add(
+            Knowledge(
+                project_id=project.id,
+                kind="file",
+                title="legacy source chunk",
+                content="VALUE = 1",
+                source_path="app.py",
+                meta={"scanner_schema": 3},
+                embedding=[0.0] * 384,
+            )
+        )
+        db.add(
+            Knowledge(
+                project_id=project.id,
+                kind="architecture",
+                title="legacy architecture",
+                content="old summary",
+                source_path=None,
+                meta={"scanner_schema": 3},
+                embedding=[0.0] * 384,
+            )
+        )
         db.commit()
 
         result = freshness.ensure_memory_fresh(db, project)
@@ -382,7 +416,9 @@ def test_git_is_optional_evidence_for_dirty_and_untracked_sources(tmp_path: Path
     if not git:
         return
     subprocess.run([git, "init", "-q", str(tmp_path)], check=True)
-    subprocess.run([git, "-C", str(tmp_path), "config", "user.email", "test@example.invalid"], check=True)
+    subprocess.run(
+        [git, "-C", str(tmp_path), "config", "user.email", "test@example.invalid"], check=True
+    )
     subprocess.run([git, "-C", str(tmp_path), "config", "user.name", "AI Layer Test"], check=True)
     tracked = tmp_path / "tracked.py"
     tracked.write_text("VALUE = 1\n", encoding="utf-8")
@@ -416,9 +452,9 @@ def test_git_is_optional_evidence_for_dirty_and_untracked_sources(tmp_path: Path
     assert fallback.added == ["untracked.py"]
 
 
-
-
-def test_scan_limit_exceeded_fails_closed_without_deleting_committed_knowledge(tmp_path: Path, monkeypatch):
+def test_scan_limit_exceeded_fails_closed_without_deleting_committed_knowledge(
+    tmp_path: Path, monkeypatch
+):
     from ai_layer.memory import source as source_module
 
     (tmp_path / "a.py").write_text("A = 1\n", encoding="utf-8")
@@ -455,7 +491,10 @@ def test_scan_limit_exceeded_fails_closed_without_deleting_committed_knowledge(t
     finally:
         db.close()
 
-def test_embedding_provider_vector_count_mismatch_aborts_explicit_decision_reembed(tmp_path: Path, monkeypatch):
+
+def test_embedding_provider_vector_count_mismatch_aborts_explicit_decision_reembed(
+    tmp_path: Path, monkeypatch
+):
     (tmp_path / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
     monkeypatch.setattr(identity, "_git_changed_paths", lambda root: set())
 
@@ -466,14 +505,16 @@ def test_embedding_provider_vector_count_mismatch_aborts_explicit_decision_reemb
     monkeypatch.setattr(indexer, "get_embedder", lambda: ShortEmbedder())
     db, project = _project_db(tmp_path)
     try:
-        db.add(Decision(
-            project_id=project.id,
-            title="Existing decision",
-            context="test",
-            decision="Keep current design",
-            rationale="test",
-            embedding=[0.0] * 384,
-        ))
+        db.add(
+            Decision(
+                project_id=project.id,
+                title="Existing decision",
+                context="test",
+                decision="Keep current design",
+                rationale="test",
+                embedding=[0.0] * 384,
+            )
+        )
         db.commit()
         with pytest.raises(RuntimeError, match="Embedding provider returned"):
             scanner.scan_project(db, project, tmp_path, reembed_decisions=True)
@@ -481,7 +522,10 @@ def test_embedding_provider_vector_count_mismatch_aborts_explicit_decision_reemb
     finally:
         db.close()
 
-def test_unknown_binary_extension_is_identity_tracked_but_not_semantically_indexed(tmp_path: Path, monkeypatch):
+
+def test_unknown_binary_extension_is_identity_tracked_but_not_semantically_indexed(
+    tmp_path: Path, monkeypatch
+):
     binary = tmp_path / "artifact.custom"
     binary.write_bytes(b"header\x00payload")
     embedder = _configure(monkeypatch)
@@ -493,12 +537,15 @@ def test_unknown_binary_extension_is_identity_tracked_but_not_semantically_index
         assert first.files == 0
         assert first.hashes_calculated == 1
         assert first.embeddings_regenerated == 0
-        assert db.scalar(
-            select(Knowledge).where(
-                Knowledge.project_id == project.id,
-                Knowledge.source_path == "artifact.custom",
+        assert (
+            db.scalar(
+                select(Knowledge).where(
+                    Knowledge.project_id == project.id,
+                    Knowledge.source_path == "artifact.custom",
+                )
             )
-        ) is None
+            is None
+        )
 
         calls = len(embedder.calls)
         second = scanner.scan_project(db, project, tmp_path)
@@ -508,5 +555,3 @@ def test_unknown_binary_extension_is_identity_tracked_but_not_semantically_index
         assert len(embedder.calls) == calls
     finally:
         db.close()
-
-

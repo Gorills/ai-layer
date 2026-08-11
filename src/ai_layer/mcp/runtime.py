@@ -26,6 +26,7 @@ mcp = MCPServer("Local AI Development Layer", instructions=MCP_INSTRUCTIONS)
 
 TOOL_HANDLERS: dict[str, object] = {}
 
+
 @functools.lru_cache(maxsize=1)
 def _configured_tool_catalog() -> tuple[dict, ...]:
     """AI Layer's registered MCP contracts; host-side schema inclusion remains unobservable."""
@@ -35,12 +36,15 @@ def _configured_tool_catalog() -> tuple[dict, ...]:
             signature = str(inspect.signature(handler))
         except (TypeError, ValueError):
             signature = "<unavailable>"
-        catalog.append({
-            "name": tool_name,
-            "signature": signature,
-            "description": inspect.getdoc(handler) or "",
-        })
+        catalog.append(
+            {
+                "name": tool_name,
+                "signature": signature,
+                "description": inspect.getdoc(handler) or "",
+            }
+        )
     return tuple(catalog)
+
 
 def _telemetry_project_root(func, name: str, args, kwargs) -> str | None:
     try:
@@ -57,7 +61,8 @@ def _execute_local_tool(func, name: str, args, kwargs):
     tool_class = tool_runtime_class(name)
     with tool_execution_context(name, tool_class):
         if tool_class == "context" and (
-            os.getenv("AI_LAYER_SERVICE_MODE") == "background" or os.getenv("AI_LAYER_MCP_BRIDGE") == "1"
+            os.getenv("AI_LAYER_SERVICE_MODE") == "background"
+            or os.getenv("AI_LAYER_MCP_BRIDGE") == "1"
         ):
             # Warmup belongs to process/service startup, never to the request's latency budget.
             start_runtime_warmup()
@@ -76,10 +81,17 @@ def _execute_local_tool(func, name: str, args, kwargs):
             result = func(*args, **kwargs)
             try:
                 from ai_layer.observability.context_trace import record_tool_delivery
+
                 record_tool_delivery(
-                    func, name, args, kwargs, result,
+                    func,
+                    name,
+                    args,
+                    kwargs,
+                    result,
                     mcp_instructions=MCP_INSTRUCTIONS,
-                    mcp_tool_catalog=_configured_tool_catalog() if name == "memory_context" else None,
+                    mcp_tool_catalog=_configured_tool_catalog()
+                    if name == "memory_context"
+                    else None,
                     resolved_project_root=_telemetry_project_root(func, name, args, kwargs),
                 )
             except Exception:
@@ -89,16 +101,23 @@ def _execute_local_tool(func, name: str, args, kwargs):
         except Exception as exc:
             try:
                 from ai_layer.observability.context_trace import record_tool_failure
+
                 record_tool_failure(
-                    func, name, args, kwargs, exc,
+                    func,
+                    name,
+                    args,
+                    kwargs,
+                    exc,
                     resolved_project_root=_telemetry_project_root(func, name, args, kwargs),
                 )
             except Exception:
                 pass
             raise normalize_error(exc) from exc
 
+
 def core_tool():
     """Register one schema for both direct Streamable HTTP and the thin stdio bridge."""
+
     def decorate(func):
         name = func.__name__
         TOOL_HANDLERS[name] = func
@@ -111,6 +130,7 @@ def core_tool():
             bound = signature.bind_partial(*args, **kwargs)
             arguments = dict(bound.arguments)
             from uuid import uuid4
+
             correlation_id = uuid4().hex
             begin_bridge_activity(name, correlation_id, TOOL_TIMEOUTS[tool_runtime_class(name)])
             try:
@@ -124,7 +144,9 @@ def core_tool():
                 end_bridge_activity(correlation_id)
 
         return mcp.tool()(wrapper)
+
     return decorate
+
 
 def execute_core_tool(name: str, arguments: dict):
     func = TOOL_HANDLERS.get(name)
@@ -134,13 +156,16 @@ def execute_core_tool(name: str, arguments: dict):
         raise ValueError("MCP tool arguments must be an object")
     return _execute_local_tool(func, name, (), arguments)
 
+
 def project_root_for_tool(project_root: str | None, *, tool: str) -> str:
     return resolve_project_root(project_root, tool=tool)
+
 
 def _project(db, root: str):
     project = app_get_project(db, root)
     bind_project_root(project.root_path)
     return project
+
 
 def _scoped(result: dict, root: str) -> dict:
     payload = dict(result)
@@ -152,11 +177,15 @@ def _scoped(result: dict, root: str) -> dict:
         payload["task"] = task
     return payload
 
+
 def _text(value: str | None, *, tool: str, field: str) -> str:
     result = (value or "").strip()
     if not result:
-        raise ValueError(f"{tool}: `{field}` is required. Use {tool}({field}=\"<text>\", project_root=\"<workspace>\").")
+        raise ValueError(
+            f'{tool}: `{field}` is required. Use {tool}({field}="<text>", project_root="<workspace>").'
+        )
     return result
+
 
 def _list(value: list[str] | str | None) -> list[str]:
     if value is None:
@@ -165,6 +194,7 @@ def _list(value: list[str] | str | None) -> list[str]:
         text = value.strip()
         return [text] if text else []
     return [str(item).strip() for item in value if str(item).strip()]
+
 
 def _compact_open_transition(db, project, result: dict) -> dict:
     """Keep next-stage delegation output free of completed-worker self-assessments by default."""

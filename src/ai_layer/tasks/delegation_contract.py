@@ -30,8 +30,6 @@ def _knowledge_review_contract(task: Task) -> dict:
     }
 
 
-
-
 def _provenance_notice(task: Task) -> str | None:
     if (task.execution_origin or "managed") == "adopted_unmanaged_changes":
         return (
@@ -46,17 +44,28 @@ def _provenance_notice(task: Task) -> str | None:
         )
     return None
 
-def build_delegation_contract(task: Task, stage: TaskStage, open_findings: list[dict], completion_contract: dict) -> dict:
+
+def build_delegation_contract(
+    task: Task, stage: TaskStage, open_findings: list[dict], completion_contract: dict
+) -> dict:
     contract = {
         "task": task_key(task),
         "stage_id": str(stage.id),
         "stage": stage.kind,
-        "role": {"implement": "implementer", "review": "reviewer", "fix": "fixer", "discovery": "discovery"}.get(stage.kind),
+        "role": {
+            "implement": "implementer",
+            "review": "reviewer",
+            "fix": "fixer",
+            "discovery": "discovery",
+        }.get(stage.kind),
         "goal": task.goal,
         "acceptance_criteria": list(task.acceptance_criteria or []),
         "constraints": list(task.constraints or []),
         "execution_origin": task.execution_origin or "managed",
-        "workflow": {"version": int(task.workflow_version or 1), "profile": task.workflow_profile or "legacy_standard"},
+        "workflow": {
+            "version": int(task.workflow_version or 1),
+            "profile": task.workflow_profile or "legacy_standard",
+        },
         "risk": {"level": task.risk_level or "normal", "reasons": list(task.risk_reasons or [])},
         "cost_policy": task.cost_policy or "economy",
         "agent_policy": _stage_agent_policy(stage),
@@ -90,8 +99,16 @@ def build_delegation_contract(task: Task, stage: TaskStage, open_findings: list[
                 "repository_mode": "read-only",
                 "context_policy": {
                     "mode": "isolated_discovery",
-                    "include": ["task goal and constraints", "current source/project intelligence", "host-selected relevant skill instructions", "read-only verification evidence"],
-                    "exclude": ["implementation assumptions presented as facts", "full orchestration transcript when isolated context is available"],
+                    "include": [
+                        "task goal and constraints",
+                        "current source/project intelligence",
+                        "host-selected relevant skill instructions",
+                        "read-only verification evidence",
+                    ],
+                    "exclude": [
+                        "implementation assumptions presented as facts",
+                        "full orchestration transcript when isolated context is available",
+                    ],
                 },
                 "requirements": [
                     "Investigate the actual repository before proposing implementation.",
@@ -102,7 +119,9 @@ def build_delegation_contract(task: Task, stage: TaskStage, open_findings: list[
             }
         )
     elif stage.kind == "review":
-        pending_verification = [item for item in open_findings if item.get("status") == "pending_verification"]
+        pending_verification = [
+            item for item in open_findings if item.get("status") == "pending_verification"
+        ]
         contract.update(
             {
                 "repository_mode": "read-only",
@@ -164,4 +183,3 @@ def build_delegation_contract(task: Task, stage: TaskStage, open_findings: list[
         )
     contract["completion_contract"] = completion_contract
     return contract
-

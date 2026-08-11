@@ -80,46 +80,6 @@ PROJECT_MCP_PATHS = (
 PROJECT_INTEGRATION_PATHS = PROJECT_MCP_PATHS
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def _preflight_project_integrations(
     root: Path, cursor_server: dict, claude_server: dict, antigravity_server: dict
 ) -> None:
@@ -146,7 +106,9 @@ def _remove_legacy_project_rule_bridges(root: Path) -> list[str]:
         target = root / relative
         before = target.exists()
         _remove_managed_markdown(target)
-        if before and (not target.exists() or MANAGED_START not in target.read_text(encoding="utf-8")):
+        if before and (
+            not target.exists() or MANAGED_START not in target.read_text(encoding="utf-8")
+        ):
             removed.append(relative)
     cursor_rule = root / ".cursor" / "rules" / "ai-layer.mdc"
     if cursor_rule.exists() and not cursor_rule.is_symlink():
@@ -170,7 +132,9 @@ def install_project_integrations(project_root: str | Path) -> dict:
     removed_rule_bridges = _remove_legacy_project_rule_bridges(root)
     _merge_mcp_json(root / ".cursor" / "mcp.json", cursor_server)
     _merge_mcp_json(root / ".mcp.json", claude_server)
-    _merge_codex_config(root / ".codex" / "config.toml", root, command=cursor_server["command"], client="codex")
+    _merge_codex_config(
+        root / ".codex" / "config.toml", root, command=cursor_server["command"], client="codex"
+    )
     _merge_mcp_json(root / ".agents" / "mcp_config.json", antigravity_server)
 
     legacy_bridges_removed = remove_legacy_project_bridge(root)
@@ -196,7 +160,10 @@ def remove_project_integrations(project_root: str | Path) -> dict:
     cannot follow a repository-controlled symlink outside the selected project root.
     """
     root = Path(project_root).expanduser().resolve()
-    targets = {relative: project_local_path(root, relative) for relative in PROJECT_MCP_PATHS + LEGACY_PROJECT_RULE_PATHS}
+    targets = {
+        relative: project_local_path(root, relative)
+        for relative in PROJECT_MCP_PATHS + LEGACY_PROJECT_RULE_PATHS
+    }
     _remove_managed_markdown(targets["AGENTS.md"])
     _remove_managed_markdown(targets["CLAUDE.md"])
     _remove_managed_markdown(targets[".agents/rules/ai-layer.md"])
@@ -224,8 +191,6 @@ def remove_project_integrations(project_root: str | Path) -> dict:
         "legacy_skill_bridges_removed": legacy_bridges,
         "native_skills": native_skills,
     }
-
-
 
 
 def _status_dependencies() -> IntegrationStatusDependencies:

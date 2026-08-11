@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.12.0 — Epics v1
+
+- Activated the protected `ai_layer.epics` capability as a durable specification/scheduling layer over the existing Task Engine, without duplicating Task stages, worker leases, repository snapshots, verification, findings or REVIEW/FIX semantics.
+- Added immutable human-readable Epic specification versions, unlimited pre-approval independent audit records, explicit human approval and preserved `approved_spec_version` history.
+- Added mandatory source-authoritative Phase 0 as an ordinary read-only `analysis_only` Task before any implementation plan is finalized; obvious/non-branching and clearly superior durable corrections update the execution specification automatically, while genuine material product/architecture trade-offs block for human input.
+- Added post-Phase0 ordered Epic plans whose implementation/final items always execute sequentially as ordinary `STANDARD` Tasks through the existing full IMPLEMENT → REVIEW → FIX → REVIEW lifecycle.
+- Added repository-drift detection between accepted Epic Task boundaries and targeted read-only reconciliation before future planned work can continue.
+- Added the mandatory final closure Task: update project documentation and DRAFT Project Knowledge, independently review the whole implemented Epic against the execution specification/Definition of Done, reuse the existing finding/remediation loop, and mechanically require both documentation changes and reviewed `KnowledgePublished` evidence before completion/archive.
+- Added `epic_next` as the authoritative durable Epic navigator plus compact active-Epic recovery state in `memory_context`; weak/new chats no longer need to reconstruct Epic position from conversation history.
+- Added the built-in native `epics` skill and bootstrap rules covering create/audit/revise/approve/Phase0/plan/continuous execution/drift/final-review/archive behavior, including the rule that MVP may reduce scope but may not justify knowingly temporary or incomplete selected-scope architecture.
+- Added read-only Dashboard Epic list/detail projections and UI for readable specification Markdown, approved/execution versions, audit history, Task plan and immutable spec history.
+- Added migration `0014_epics_v1` for durable Epic/spec/audit/plan state and extended structured runtime events for Epic lifecycle/scheduling evidence.
+- Added lifecycle, drift, final mechanical closure and Dashboard regression tests plus ADR 0016; real PostgreSQL/pgvector CI exercises the supported `0010_adaptive_task_workflow -> 0014_epics_v1` upgrade path.
+- Bumped the installable release to 0.12.0; the committed wheel remains subject to the existing source-fresh deterministic wheel gate.
+
 ## 0.11.4 — single-owner policy/bootstrap context economy
 
 - Made the global native host bootstrap the single static AI Layer instruction owner for Cursor, Codex, Claude Code and Antigravity; detailed runtime procedure remains owned by `task_next`.

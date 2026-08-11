@@ -1,6 +1,6 @@
 {
-  "application_wheel": "dist/local_ai_development_layer-0.12.0-py3-none-any.whl",
-  "application_wheel_sha256": "39e6ed282f29250fdb1e9b06224f698b25370d4140015c841b7c383d584a44f7",
+  "application_wheel": "dist/local_ai_development_layer-0.12.1-py3-none-any.whl",
+  "application_wheel_sha256": "d9923d27e1cc427dbf326e845032a16962f7dfe13af2c2100953820be6356681",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -14,7 +14,7 @@
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
     "target_schema": "0014_epics_v1"
   },
-  "notes": "0.12.0 activates durable Epics v1: versioned human-approved specs, unlimited pre-execution audits, mandatory Phase 0 source reconciliation, sequential STANDARD Task execution, verified Task-boundary drift reconciliation, whole-Epic final review, documentation/Project Knowledge closure, native weak-model guidance and Dashboard views. The committed wheel is rebuilt from this exact source.",
+  "notes": "0.12.1 hardens the existing global registered-project bootstrap: memory_context is the mandatory first project-related tool call for read-only and write work alike; project reads/search/shell/SSH/edits/subagents must not precede it; epic_next or task_next then owns navigation, including after every workflow transition or worker return. No hooks, new workflow state machine, or schema change.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",
@@ -41,5 +41,5 @@
     "task_workflow_black_box": "required_before_promotion_on_supported_host",
     "update_black_box": "required_before_promotion_on_supported_host"
   },
-  "version": "0.12.0"
+  "version": "0.12.1"
 }

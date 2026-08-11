@@ -97,9 +97,10 @@ def test_committed_application_wheel_matches_current_source(tmp_path: Path):
     manifest = json.loads((ROOT / "release" / "release-manifest.json").read_text(encoding="utf-8"))
     committed = ROOT / manifest["application_wheel"]
     assert committed.is_file()
-    assert hashlib.sha256(rebuilt.read_bytes()).digest() == hashlib.sha256(
-        committed.read_bytes()
-    ).digest()
+    assert (
+        hashlib.sha256(rebuilt.read_bytes()).digest()
+        == hashlib.sha256(committed.read_bytes()).digest()
+    )
 
 
 def test_application_wheel_console_scripts_match_pyproject(tmp_path: Path):

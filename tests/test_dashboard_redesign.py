@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from ai_layer.core.config import get_settings
+from ai_layer.core.registry import register_project
 from ai_layer.projections.dashboard_common import page_info
 from ai_layer.projections.dashboard_reference import rules_payload, skills_payload
 
@@ -62,6 +63,31 @@ def test_dashboard_rules_fall_back_to_bundled_policy_without_writing(
     assert "Token economy is mandatory" in payload["global"]["content"]
     assert not global_path.exists()
     assert not home.exists()
+    get_settings.cache_clear()
+
+
+def test_dashboard_strict_private_rule_read_does_not_create_project_state(
+    monkeypatch, tmp_path: Path
+):
+    home = _home(monkeypatch, tmp_path)
+    project = tmp_path / "private-project"
+    project.mkdir()
+    register_project(
+        project,
+        "private-rules",
+        "Private Rules",
+        mode="strict-private",
+        provenance="forbid",
+    )
+    project_state_root = home / "projects"
+    assert not project_state_root.exists()
+
+    payload = rules_payload("private-rules")
+
+    assert payload is not None
+    assert payload["project"]["strict_private"] is True
+    assert payload["project"]["content"] == ""
+    assert not project_state_root.exists()
     get_settings.cache_clear()
 
 

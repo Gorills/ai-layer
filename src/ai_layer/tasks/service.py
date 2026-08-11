@@ -16,8 +16,13 @@ from ai_layer.tasks.contracts import (
     _stage_agent_policy,
     _task_text,
 )
-from ai_layer.tasks.lifecycle import adopt_task, cancel_task, create_task, resume_task
-from ai_layer.tasks.lifecycle import delegate_current_stage as _delegate_current_stage
+from ai_layer.tasks.lifecycle import (
+    adopt_task,
+    cancel_task,
+    create_task,
+    delegate_current_stage,
+    resume_task,
+)
 from ai_layer.tasks.micro_policy import micro_envelope as _micro_envelope
 from ai_layer.tasks.navigation import (
     _blocked_stage_repository_guard,
@@ -27,6 +32,8 @@ from ai_layer.tasks.navigation import (
     cleanup_current_review_sandbox,
     next_task_action,
     prepare_current_review_sandbox,
+    recover_disconnected_worker,
+    resume_task,
     run_current_review_check,
 )
 from ai_layer.tasks.review_contracts import (
@@ -84,16 +91,3 @@ _git_changed_paths = _workspace_repository.git_changed_paths
 _git_visible_paths = _workspace_repository.git_visible_paths
 _hash_file = _workspace_repository.hash_file
 _repository_files = _workspace_repository.repository_files
-
-
-def delegate_current_stage(db, project, **kwargs):
-    """Compatibility no-op when an older host delegates a workflow-v3 inline MICRO stage."""
-    state = current_task(db, project, include_history=False)
-    task = dict(state.get("task") or {}) if state.get("active") else {}
-    if (task.get("active_stage") or {}).get("execution_mode") == "inline_micro":
-        task["delegation_skipped_inline_micro"] = True
-        task["delegation_compatibility"] = (
-            "This MICRO stage is already authorized inline; do not spawn a worker. Follow next_action."
-        )
-        return task
-    return _delegate_current_stage(db, project, **kwargs)

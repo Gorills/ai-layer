@@ -127,6 +127,7 @@ def test_high_risk_or_fragile_micro_request_never_gets_inline_authority(tmp_path
             acceptance_criteria=[],
             constraints=[],
             workflow="micro",
+            risk="low",
         )
         assert high_risk["workflow_profile"] == "standard"
         assert high_risk["risk_level"] == "high"
@@ -188,7 +189,8 @@ def test_review_contract_mentions_project_knowledge_only_when_drafts_exist(
             "knowledge_list"
         )
         assert any(
-            "knowledge_list" in item for item in with_drafts["delegation_contract"]["requirements"]
+            "knowledge_list" in item
+            for item in with_drafts["delegation_contract"]["requirements"]
         )
     finally:
         db.close()

@@ -1,13 +1,14 @@
 # Epics v1 — supported-host acceptance
 
-This checklist is the promotion/field-validation contract for `0.12.0`. It does not replace canonical CI and must be executed on a supported Linux x86_64 / CPython 3.12 host against the installed release.
+This checklist is the promotion/field-validation contract for `0.12.1`. It does not replace canonical CI and must be executed on a supported Linux x86_64 / CPython 3.12 host against the installed release.
 
 ## Install and runtime
 
-- Clean-install or update the committed `0.12.0` release artifact.
+- Clean-install or update the committed `0.12.1` release artifact.
 - Confirm the installed wheel SHA-256 matches `release/release-manifest.json` before running black-box acceptance.
-- Confirm `ai-layer` reports `0.12.0` and Alembic reaches `0014_epics_v1` without resetting existing Project/Task/Knowledge state.
+- Confirm `ai-layer` reports `0.12.1` and Alembic reaches `0014_epics_v1` without resetting existing Project/Task/Knowledge state.
 - Confirm the user service, persistent core, MCP bridge and Dashboard recover after a real `systemd --user` restart.
+- In a fresh Cursor turn for a registered project, even a simple read-only/search request must call `memory_context` before any project read/search/grep/shell/SSH/edit/subagent action, then follow `epic_next` or `task_next`; after a workflow transition or worker return, the owning navigator must run again before further project work.
 
 ## Real Epic black-box
 
@@ -33,4 +34,4 @@ Use a disposable or real test project and natural agent instructions rather than
 - Run multi-project reconcile/sync with an active or archived Epic present.
 - Run `ai-layer doctor --all-projects` and confirm no new target-repository AI Layer footprint appears beyond the configured standard/external/strict-private contract.
 
-Only after these checks pass should `0.12.0` be called fully promoted on a supported host. Failures should produce concrete fixes; they are not a reason for another speculative architecture-hardening phase.
+Only after these checks pass should `0.12.1` be called fully promoted on a supported host. Failures should produce concrete fixes; they are not a reason for another speculative architecture-hardening phase.

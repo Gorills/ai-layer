@@ -29,7 +29,7 @@
     },
     {
       "prefix": "ai_layer.epics",
-      "capability": "EpicsBoundary"
+      "capability": "Epics"
     },
     {
       "prefix": "ai_layer.verification",
@@ -236,24 +236,24 @@
       "reason": "CLI/MCP/API call application contracts, not database sessions"
     },
     {
-      "from": "EpicsBoundary",
+      "from": "Epics",
       "to": "Tasks",
-      "reason": "pre-Epics boundary contains no workflow implementation"
+      "reason": "Epic domain contracts cannot depend on Task Engine internals; application orchestration uses public Task contracts"
     },
     {
-      "from": "EpicsBoundary",
+      "from": "Epics",
       "to": "Infrastructure",
-      "reason": "pre-Epics boundary contains no persistence"
+      "reason": "Epic domain contracts remain persistence independent"
     },
     {
-      "from": "EpicsBoundary",
+      "from": "Epics",
       "to": "Workspace",
-      "reason": "Epic Layer may aggregate Tasks but cannot own per-Task repository snapshot/workspace lifecycle"
+      "reason": "Epic scheduling may detect drift through application orchestration but cannot own per-Task repository snapshot/workspace lifecycle"
     },
     {
-      "from": "EpicsBoundary",
+      "from": "Epics",
       "to": "Verification",
-      "reason": "Epic Layer cannot duplicate Task verification lifecycle"
+      "reason": "Epic closure composes reviewed Tasks and cannot duplicate Task verification lifecycle"
     }
   ]
 }

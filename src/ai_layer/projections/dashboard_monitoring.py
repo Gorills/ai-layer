@@ -32,13 +32,20 @@ def _global_provider(name: str, integrations: dict, bootstrap: dict) -> dict:
     bootstrap_state = bootstrap.get(_BOOTSTRAP_KEYS[name]) or {}
     mcp_ready = state.get("mcp_ready")
     native_ready = _native_ready(state)
+    ready = (
+        bool(state.get("ready"))
+        if name != "claude-code"
+        else bool(bootstrap_state.get("ready"))
+    )
     return {
         "name": name,
-        "ready": bool(state.get("ready")) if name != "claude-code" else bool(bootstrap_state.get("ready")),
+        "ready": ready,
         "bootstrap_ready": bool(bootstrap_state.get("ready")),
         "mcp_ready": bool(mcp_ready) if mcp_ready is not None else None,
         "native_skills_ready": native_ready,
-        "runtime_acceptance_required": bool(bootstrap_state.get("runtime_acceptance_required")),
+        "runtime_acceptance_required": bool(
+            bootstrap_state.get("runtime_acceptance_required")
+        ),
     }
 
 
@@ -51,7 +58,9 @@ def _project_provider(name: str, state: dict) -> dict:
         "bootstrap_ready": bool(state.get("bootstrap")),
         "mcp_ready": bool(mcp_ready) if mcp_ready is not None else None,
         "native_skills_ready": native_ready,
-        "runtime_acceptance_required": bool(state.get("runtime_acceptance_required")),
+        "runtime_acceptance_required": bool(
+            state.get("runtime_acceptance_required")
+        ),
     }
 
 
@@ -89,7 +98,11 @@ def monitoring_payload(project_key_value: str | None = None) -> dict | None:
 
     return {
         "global": {
-            "ready": all(item["ready"] for item in providers if item["name"] != "claude-code"),
+            "ready": all(
+                item["ready"]
+                for item in providers
+                if item["name"] != "claude-code"
+            ),
             "providers": providers,
         },
         "project": selected,

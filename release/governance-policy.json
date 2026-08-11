@@ -1,8 +1,17 @@
 {
   "schema": 1,
-  "description": "Files whose modification changes architecture, quality, release, migration, verification, privacy/security or task-state invariants.",
+  "description": "Files whose modification changes architecture, quality, release, migration, verification, privacy/security, task-state or repository-development invariants.",
   "protected_paths": [
+    ".github/workflows/quality.yml",
+    ".githooks/pre-commit",
+    ".githooks/pre-push",
+    "AGENTS.md",
+    "GEMINI.md",
+    "MAINTAINER_INSTRUCTIONS.md",
+    "Makefile",
+    "QUALITY_GATES.md",
     "install.sh",
+    "pyproject.toml",
     "release/architecture-policy.json",
     "release/governance-policy.json",
     "scripts/architecture_gate.py",
@@ -12,14 +21,17 @@
     "scripts/build_release_wheel.py",
     "scripts/governance_gate.py",
     "scripts/migration_gate.py",
+    "scripts/postgres_gate.py",
     "scripts/quality_gate.py",
     "scripts/release_gate.py",
+    "scripts/skill_gate.py",
     "scripts/verify_release_lock.py",
     "src/ai_layer/privacy/service.py",
     "src/ai_layer/tasks/constants.py",
     "src/ai_layer/tasks/stage_validation.py",
     "src/ai_layer/tasks/transitions.py",
-    "src/ai_layer/verification/runner.py"
+    "src/ai_layer/verification/runner.py",
+    "tests/test_development_governance.py"
   ],
   "change_requirements": [
     "human-visible rationale",

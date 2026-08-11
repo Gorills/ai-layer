@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "[ai-layer] pre-commit: make fast-gate"
+exec make fast-gate

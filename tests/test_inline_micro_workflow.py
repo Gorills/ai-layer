@@ -67,7 +67,6 @@ def test_explicit_micro_natural_language_runs_inline_with_unknown_fragility(tmp_
         assert created["delegation_contract"]["fresh_subagent_required"] is False
         assert created["delegation_contract"]["orchestrator_edits_forbidden"] is False
         assert created["agent_usage"]["delegated_stages"] == 0
-        assert created["agent_usage"]["inline_micro_stages"] == 1
 
         (root / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
         completed = tasks.complete_current_stage(

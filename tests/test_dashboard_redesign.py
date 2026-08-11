@@ -121,6 +121,11 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
     )
     monkeypatch.setattr(
         dashboard_api,
+        "monitoring_payload",
+        lambda project_key=None: {"kind": "monitoring", "project_key": project_key},
+    )
+    monkeypatch.setattr(
+        dashboard_api,
         "activity_payload",
         lambda **kwargs: {"kind": "activity", "kwargs": kwargs},
     )
@@ -132,6 +137,7 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
     skills = client.get("/api/v1/dashboard/skills?project_key=p1&page_size=10")
     rules = client.get("/api/v1/dashboard/rules?project_key=p1")
     knowledge = client.get("/api/v1/dashboard/knowledge/p1?status=DRAFT&page_size=10")
+    monitoring = client.get("/api/v1/dashboard/monitoring?project_key=p1")
     activity = client.get("/api/v1/dashboard/activity?project_key=p1&page=3&page_size=10")
 
     assert tasks.status_code == 200
@@ -142,6 +148,8 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
     assert rules.json() == {"kind": "rules", "project_key": "p1"}
     assert knowledge.status_code == 200
     assert knowledge.json()["kwargs"]["status"] == "DRAFT"
+    assert monitoring.status_code == 200
+    assert monitoring.json() == {"kind": "monitoring", "project_key": "p1"}
     assert activity.status_code == 200
     assert activity.json()["kwargs"]["page"] == 3
 
@@ -164,6 +172,9 @@ def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
     assert "slice(0, 10)" in overview_js
     assert "page_size: 10" in app_js
     assert "неограниченная история" not in epic_js
+    assert "IDE-интеграции" in (root / "src/ai_layer/dashboard/static/js/views/operations.js").read_text(
+        encoding="utf-8"
+    )
     for label in (
         "Задачи",
         "Скиллы",

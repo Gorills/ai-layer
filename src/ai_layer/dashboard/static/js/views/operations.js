@@ -166,14 +166,42 @@ function lastScan(projects) {
   return values.length ? age(values[values.length - 1]) : "никогда";
 }
 
-export function renderMonitoring(data) {
+function readinessLabel(value) {
+  if (value === null || value === undefined) return "—";
+  return value ? "Готов" : "Проблема";
+}
+
+function providerDiagnostics(diag) {
+  const selected = diag?.project || null;
+  const providers = selected?.providers?.length ? selected.providers : (diag?.global?.providers || []);
+  const title = selected ? selected.name : "Глобальная установка";
+  if (!providers.length) return `<div class="empty">Диагностика интеграций недоступна</div>`;
+  return `<div class="info-list">${providers.slice(0, 10).map((provider) => {
+    const details = [
+      `bootstrap ${readinessLabel(provider.bootstrap_ready)}`,
+      `MCP ${readinessLabel(provider.mcp_ready)}`,
+      `skills ${readinessLabel(provider.native_skills_ready)}`,
+    ];
+    if (provider.runtime_acceptance_required) details.push("нужен runtime acceptance");
+    return infoRow(provider.name, provider.ready ? "Готов" : "Внимание", details.join(" · "));
+  }).join("")}</div>
+  ${selected ? `<div class="panel-footer"><span class="muted">${escapeHtml(title)} · template v${escapeHtml(selected.template_version ?? "—")} · MCP executable ${selected.mcp_executable_ready ? "готов" : "не готов"}</span>${stateBadge(selected.ready ? "healthy" : "warning")}</div>` : `<div class="panel-footer"><span class="muted">${escapeHtml(title)}</span>${stateBadge(diag?.global?.ready ? "healthy" : "warning")}</div>`}`;
+}
+
+export function renderMonitoring(data, route) {
   const s = data.summary || {};
   const service = data.service || {};
   const core = data.core_runtime || {};
   const db = data.database || {};
   const projects = data.projects || [];
   const visibleProjects = projects.slice(0, 10);
+  const diag = data.integration_monitoring || {};
+  const selectedProject = route?.project || diag.project?.key || null;
   return `
+    <div class="page-toolbar">
+      <div><div class="section-eyebrow">RUNTIME & INTEGRATIONS</div><div class="section-heading">Состояние локальной системы</div></div>
+      <div class="toolbar-controls">${projectPicker(diag.projects || [], selectedProject, "monitoring")}</div>
+    </div>
     <div class="summary-grid six">
       ${metric("Core runtime", core.status === "ready" ? "Готов" : core.status || "—", core.embeddings ? `embeddings: ${core.embeddings}` : "persistent service")}
       ${metric("PostgreSQL", db.connected ? "Готов" : "Недоступен", db.pgvector ? "pgvector готов" : "pgvector —")}
@@ -190,6 +218,10 @@ export function renderMonitoring(data) {
             ${visibleProjects.map((project) => `<tr><td><a class="table-link" href="#/project/${encodeURIComponent(project.key)}"><div class="project-name">${escapeHtml(project.name)}</div><div class="project-root">${escapeHtml(project.root)}</div></a></td><td>${stateBadge(project.project_state || "healthy")}</td><td>${escapeHtml(project.mcp_latency?.p95_ms != null ? `${project.mcp_latency.p95_ms} / ${project.mcp_latency.p99_ms ?? "—"} мс` : "—")}</td><td>${escapeHtml(project.memory_refresh?.status || "idle")} · ${escapeHtml(project.last_scan ? age(project.last_scan) : "scan отсутствует")}</td><td>${project.task ? `${escapeHtml(project.task.key)} · ${escapeHtml(taskStage(project.task))}` : `<span class="muted">нет</span>`}</td></tr>`).join("") || `<tr><td colspan="5"><div class="empty">Нет проектов</div></td></tr>`}
           </tbody></table></div>
           ${projects.length > 10 ? `<div class="table-caption">Показаны 10 из ${escapeHtml(projects.length)} проектов</div>` : ""}
+        </section>
+        <section class="panel">
+          <div class="panel-header"><div><div class="panel-title">IDE-интеграции</div><div class="panel-hint">Cursor / Codex / Antigravity: bootstrap, MCP и native skills без чтения конфигов в UI</div></div></div>
+          ${providerDiagnostics(diag)}
         </section>
       </div>
       <div class="dashboard-side">

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# Keep these stdlib module objects on the facade: compatibility tests and hosts patch them here.
 import shutil as shutil
 import subprocess as subprocess
 from pathlib import Path

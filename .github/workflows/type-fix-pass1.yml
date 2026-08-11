@@ -1,0 +1,293 @@
+name: type-fix-pass1
+on:
+  push:
+    branches: [fix-ci-baseline]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - name: Apply type-contract repairs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str, expected: int = 1) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f"{path}: expected {expected} matches, found {count}: {old!r}")
+              p.write_text(text.replace(old, new), encoding="utf-8")
+
+          # get_project already fails closed by default; describe that behavior precisely to the type checker.
+          replace(
+              "src/ai_layer/core/service.py",
+              "from pathlib import Path\n",
+              "from pathlib import Path\nfrom typing import Literal, overload\n",
+          )
+          replace(
+              "src/ai_layer/core/service.py",
+              '''def get_project(\n    db: Session, root: str | Path | None = None, required: bool = True\n) -> Project | None:\n    path = normalize_root(root)\n    project = db.scalar(select(Project).where(Project.root_path == str(path)))\n    if required and project is None:\n        raise RuntimeError(f"Project is not registered: {path}. Run `ai-layer init`.")\n    return project\n''',
+              '''@overload\ndef get_project(\n    db: Session, root: str | Path | None = None, required: Literal[True] = True\n) -> Project: ...\n\n\n@overload\ndef get_project(\n    db: Session, root: str | Path | None, required: Literal[False]\n) -> Project | None: ...\n\n\ndef get_project(\n    db: Session, root: str | Path | None = None, required: bool = True\n) -> Project | None:\n    path = normalize_root(root)\n    project = db.scalar(select(Project).where(Project.root_path == str(path)))\n    if required and project is None:\n        raise RuntimeError(f"Project is not registered: {path}. Run `ai-layer init`.")\n    return project\n''',
+          )
+          replace(
+              "src/ai_layer/core/service.py",
+              "        result = db.execute(delete(Project).where(Project.id == project.id))\n        db_deleted = int(result.rowcount or 0)\n",
+              "        delete_result = db.execute(delete(Project).where(Project.id == project.id))\n        db_deleted = int(delete_result.rowcount or 0)\n",
+          )
+
+          replace(
+              "src/ai_layer/skills/profile.py",
+              '"languages": sorted(languages, key=languages.get, reverse=True),',
+              '"languages": sorted(languages, key=lambda name: languages[name], reverse=True),',
+          )
+          replace(
+              "src/ai_layer/memory/intelligence.py",
+              '"languages": sorted(languages, key=languages.get, reverse=True),',
+              '"languages": sorted(languages, key=lambda name: languages[name], reverse=True),',
+          )
+
+          replace(
+              "src/ai_layer/workspace/repository.py",
+              '''        identity = {\n            "size": int(stat.st_size),\n            "mtime_ns": int(stat.st_mtime_ns),\n            "ctime_ns": int(getattr(stat, "st_ctime_ns", 0)),\n        }\n''',
+              '''        identity: dict[str, int | str] = {\n            "size": int(stat.st_size),\n            "mtime_ns": int(stat.st_mtime_ns),\n            "ctime_ns": int(getattr(stat, "st_ctime_ns", 0)),\n        }\n''',
+          )
+          replace(
+              "src/ai_layer/workspace/repository.py",
+              '''        try:\n            identity["sha256"] = str(old["sha256"]) if can_reuse else hash_file(path)\n        except OSError:\n''',
+              '''        try:\n            if can_reuse and isinstance(old, dict):\n                identity["sha256"] = str(old["sha256"])\n            else:\n                identity["sha256"] = hash_file(path)\n        except OSError:\n''',
+          )
+
+          replace("src/ai_layer/core/filelock.py", "        value = int(pid)\n", "        value = int(str(pid))\n")
+          replace(
+              "src/ai_layer/core/filelock.py",
+              '        pid = int(owner.get("pid"))\n',
+              '        pid = int(str(owner.get("pid")))\n',
+          )
+          replace("src/ai_layer/memory/locking.py", "        value = int(pid)\n", "        value = int(str(pid))\n")
+
+          replace(
+              "src/ai_layer/cli/doctor.py",
+              '''    seen: set[str] = set()\n    return [root for root in roots if not (str(root) in seen or seen.add(str(root)))]\n''',
+              '''    seen: set[str] = set()\n    unique: list[Path] = []\n    for root in roots:\n        key = str(root)\n        if key in seen:\n            continue\n        seen.add(key)\n        unique.append(root)\n    return unique\n''',
+          )
+          replace(
+              "src/ai_layer/cli/doctor.py",
+              '''            pair = tuple(sorted((str(root), other)))\n            if other not in selected or pair in pairs:\n''',
+              '''            first_root, second_root = sorted((str(root), other))\n            pair = (first_root, second_root)\n            if other not in selected or pair in pairs:\n''',
+          )
+          replace(
+              "src/ai_layer/cli/doctor.py",
+              "    project_provenance: Callable[[Path], dict]\n",
+              "    project_provenance: Callable[[str | Path], str]\n",
+          )
+
+          replace(
+              "src/ai_layer/installation/updater.py",
+              "import subprocess\nimport tempfile\n",
+              "import subprocess\nimport sys\nimport tempfile\n",
+          )
+          replace(
+              "src/ai_layer/installation/updater.py",
+              "[os.sys.executable, str(source_root / \"scripts\" / \"release_gate.py\"), \"--json\"]",
+              "[sys.executable, str(source_root / \"scripts\" / \"release_gate.py\"), \"--json\"]",
+          )
+
+          replace(
+              "src/ai_layer/memory/intelligence_runtime.py",
+              '''        data = _safe_yaml(root, rel)\n        raw_services = data.get("services") if isinstance(data.get("services"), dict) else {}\n''',
+              '''        data = _safe_yaml(root, rel)\n        services_value = data.get("services")\n        raw_services = services_value if isinstance(services_value, dict) else {}\n''',
+          )
+          replace(
+              "src/ai_layer/memory/intelligence_runtime.py",
+              "            build = raw.get(\"build\")\n            if isinstance(build, dict):\n",
+              "            build = raw.get(\"build\")\n            build_value: dict[str, str] | str | None\n            if isinstance(build, dict):\n",
+          )
+
+          replace(
+              "src/ai_layer/privacy/service.py",
+              '''    except subprocess.TimeoutExpired as exc:\n        return subprocess.CompletedProcess(\n            command, 124, stdout=exc.stdout or "", stderr="git command timed out"\n        )\n''',
+              '''    except subprocess.TimeoutExpired as exc:\n        stdout = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")\n        return subprocess.CompletedProcess(\n            command, 124, stdout=stdout, stderr="git command timed out"\n        )\n''',
+          )
+
+          replace(
+              "src/ai_layer/skills/native_files.py",
+              '''    for child in root.iterdir():\n        target = child / "SKILL.md" if child.is_dir() and not child.is_symlink() else None\n        if target is None or child.name in desired:\n            continue\n        metadata = descriptor_metadata(target)\n''',
+              '''    for child in root.iterdir():\n        descriptor = child / "SKILL.md" if child.is_dir() and not child.is_symlink() else None\n        if descriptor is None or child.name in desired:\n            continue\n        metadata = descriptor_metadata(descriptor)\n''',
+          )
+
+          replace(
+              "src/ai_layer/observability/events.py",
+              "    event = {\n",
+              "    event: dict[str, object] = {\n",
+          )
+          replace(
+              "src/ai_layer/memory/project_state.py",
+              "    return rows, languages, dependencies, summary, intelligence, selected\n",
+              "    return list(rows), languages, dependencies, summary, intelligence, selected\n",
+          )
+          replace(
+              "src/ai_layer/memory/source.py",
+              "def _stable_stat_key(stat) -> tuple[int, int, int, int]:\n",
+              "def _stable_stat_key(stat: os.stat_result) -> tuple[int, int, int, int]:\n",
+          )
+          replace(
+              "src/ai_layer/memory/source.py",
+              "def read_stable_source(path: Path) -> tuple[bytes, str | None, object] | None:\n",
+              "def read_stable_source(path: Path) -> tuple[bytes, str | None, os.stat_result] | None:\n",
+          )
+          replace(
+              "src/ai_layer/memory/source.py",
+              "def read_stable_text(path: Path) -> tuple[str, object] | None:\n",
+              "def read_stable_text(path: Path) -> tuple[str, os.stat_result] | None:\n",
+          )
+
+          replace(
+              "src/ai_layer/tasks/delegation_contract.py",
+              "    contract = {\n",
+              "    contract: dict[str, object] = {\n",
+          )
+          replace(
+              "src/ai_layer/memory/persistence.py",
+              '''        stmt = (\n            pg_insert(ProjectFile)\n''',
+              '''        pg_stmt = (\n            pg_insert(ProjectFile)\n''',
+          )
+          replace(
+              "src/ai_layer/memory/persistence.py",
+              "        db.execute(stmt)\n        return\n    if dialect == \"sqlite\":\n        stmt = (\n",
+              "        db.execute(pg_stmt)\n        return\n    if dialect == \"sqlite\":\n        sqlite_stmt = (\n",
+          )
+          replace(
+              "src/ai_layer/memory/persistence.py",
+              "        db.execute(stmt)\n        return\n\n    existing = db.scalar(\n",
+              "        db.execute(sqlite_stmt)\n        return\n\n    existing = db.scalar(\n",
+          )
+
+          replace(
+              "src/ai_layer/observability/context_config.py",
+              "    snapshot = {\n",
+              "    snapshot: dict[str, object] = {\n",
+          )
+          replace(
+              "src/ai_layer/tasks/views.py",
+              '''def _stages(db: Session, task: Task) -> list[TaskStage]:\n    return db.scalars(\n        select(TaskStage).where(TaskStage.task_id == task.id).order_by(TaskStage.ordinal)\n    ).all()\n''',
+              '''def _stages(db: Session, task: Task) -> list[TaskStage]:\n    return list(\n        db.scalars(\n            select(TaskStage).where(TaskStage.task_id == task.id).order_by(TaskStage.ordinal)\n        ).all()\n    )\n''',
+          )
+          replace(
+              "src/ai_layer/tasks/views.py",
+              '''def _findings(db: Session, task: Task) -> list[ReviewFinding]:\n    return db.scalars(\n        select(ReviewFinding)\n        .where(ReviewFinding.task_id == task.id)\n        .order_by(ReviewFinding.created_at, ReviewFinding.id)\n    ).all()\n''',
+              '''def _findings(db: Session, task: Task) -> list[ReviewFinding]:\n    return list(\n        db.scalars(\n            select(ReviewFinding)\n            .where(ReviewFinding.task_id == task.id)\n            .order_by(ReviewFinding.created_at, ReviewFinding.id)\n        ).all()\n    )\n''',
+          )
+          replace(
+              "src/ai_layer/tasks/review_contracts.py",
+              '''def _open_findings(db: Session, task: Task) -> list[ReviewFinding]:\n    return db.scalars(\n        select(ReviewFinding)\n        .where(\n            ReviewFinding.task_id == task.id,\n            ReviewFinding.status.in_(["open", "pending_verification"]),\n        )\n        .order_by(ReviewFinding.created_at, ReviewFinding.id)\n    ).all()\n''',
+              '''def _open_findings(db: Session, task: Task) -> list[ReviewFinding]:\n    return list(\n        db.scalars(\n            select(ReviewFinding)\n            .where(\n                ReviewFinding.task_id == task.id,\n                ReviewFinding.status.in_(["open", "pending_verification"]),\n            )\n            .order_by(ReviewFinding.created_at, ReviewFinding.id)\n        ).all()\n    )\n''',
+          )
+
+          replace(
+              "src/ai_layer/core/mcp_runtime.py",
+              '''def validate_core_token(value: str | None) -> bool:\n    try:\n        expected = ensure_core_token()\n    except Exception:\n        return False\n    return bool(value) and secrets.compare_digest(value, expected)\n''',
+              '''def validate_core_token(value: str | None) -> bool:\n    try:\n        expected = ensure_core_token()\n    except Exception:\n        return False\n    if not value:\n        return False\n    return secrets.compare_digest(value, expected)\n''',
+          )
+
+          replace(
+              "src/ai_layer/memory/history.py",
+              '''    for item in snapshot_decisions(project, limit=50):\n        score = _overlap_score(query, item.get("decision"), item.get("context"))\n''',
+              '''    for snapshot_item in snapshot_decisions(project, limit=50):\n        score = _overlap_score(query, snapshot_item.get("decision"), snapshot_item.get("context"))\n''',
+          )
+          replace(
+              "src/ai_layer/memory/history.py",
+              '''                        "id": f"session:{item['session_id']}",\n                        "title": str(item.get("decision") or "")[:120],\n                        "decision": item.get("decision") or "",\n''',
+              '''                        "id": f"session:{snapshot_item['session_id']}",\n                        "title": str(snapshot_item.get("decision") or "")[:120],\n                        "decision": snapshot_item.get("decision") or "",\n''',
+          )
+          replace(
+              "src/ai_layer/memory/history.py",
+              '''    for _, item in ranked:\n        key = str(item.get("decision") or "").casefold()\n        if not key or key in seen:\n            continue\n        seen.add(key)\n        result.append(item)\n''',
+              '''    for _, brief in ranked:\n        key = str(brief.get("decision") or "").casefold()\n        if not key or key in seen:\n            continue\n        seen.add(key)\n        result.append(brief)\n''',
+          )
+          replace(
+              "src/ai_layer/memory/indexer.py",
+              '''    rows = db.scalars(\n        select(ProjectFile)\n        .where(ProjectFile.project_id == project.id)\n        .order_by(ProjectFile.path)\n        .execution_options(populate_existing=True)\n    ).all()\n''',
+              '''    rows = list(\n        db.scalars(\n            select(ProjectFile)\n            .where(ProjectFile.project_id == project.id)\n            .order_by(ProjectFile.path)\n            .execution_options(populate_existing=True)\n        ).all()\n    )\n''',
+          )
+
+          replace(
+              "src/ai_layer/tasks/completion.py",
+              "from uuid import UUID\n",
+              "from typing import Any\nfrom uuid import UUID\n",
+          )
+          replace(
+              "src/ai_layer/tasks/completion.py",
+              "        evidence = dict(\n",
+              "        evidence: dict[str, Any] = dict(\n",
+          )
+
+          replace(
+              "src/ai_layer/application/context.py",
+              "def search_memory(project_root: str | Path, query: str, limit: int = 8) -> dict:\n",
+              "def search_memory(project_root: str | Path, query: str, limit: int = 8) -> list[dict]:\n",
+          )
+          replace(
+              "src/ai_layer/application/context.py",
+              "def search_decisions(project_root: str | Path, query: str, limit: int = 8) -> dict:\n",
+              "def search_decisions(project_root: str | Path, query: str, limit: int = 8) -> list[dict]:\n",
+          )
+          replace(
+              "src/ai_layer/application/transport.py",
+              "def memory_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> dict:\n",
+              "def memory_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> list[dict]:\n",
+          )
+          replace(
+              "src/ai_layer/application/transport.py",
+              "def decision_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> dict:\n",
+              "def decision_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> list[dict]:\n",
+          )
+
+          replace(
+              "src/ai_layer/projections/dashboard.py",
+              '''        recovered = any(\n            item.get("status") == "completed"\n            and item.get("operation") == last_failure.get("operation")\n            and (parse_ts(item.get("ts")) is not None)\n            and failed_at is not None\n            and parse_ts(item.get("ts")) > failed_at\n            for item in recent\n        )\n''',
+              '''        if failed_at is not None:\n            recovered = any(\n                item.get("status") == "completed"\n                and item.get("operation") == last_failure.get("operation")\n                and (completed_at := parse_ts(item.get("ts"))) is not None\n                and completed_at > failed_at\n                for item in recent\n            )\n''',
+          )
+
+          replace(
+              "src/ai_layer/audit/service.py",
+              "    safe = {}\n",
+              "    safe: dict[str, bool | int | float | str | None] = {}\n",
+          )
+          replace(
+              "src/ai_layer/mcp/runtime.py",
+              "import os\nfrom pathlib import Path\n",
+              "import os\nfrom collections.abc import Callable\nfrom pathlib import Path\n",
+          )
+          replace(
+              "src/ai_layer/mcp/runtime.py",
+              "TOOL_HANDLERS: dict[str, object] = {}\n",
+              "TOOL_HANDLERS: dict[str, Callable[..., object]] = {}\n",
+          )
+          replace(
+              "src/ai_layer/mcp/tools/skills.py",
+              '"scope": (skill or {}).get("scope", "global") if skill else record.get("scope"),',
+              '"scope": (skill or {}).get("scope", "global") if skill else (record or {}).get("scope"),',
+          )
+          PY
+      - run: ruff format .
+      - run: ruff check .
+      - run: mypy src/ai_layer --no-error-summary --show-error-codes || true
+      - name: Commit pass
+        run: |
+          rm .github/workflows/type-fix-pass1.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git commit -m "repair first baseline type-contract batch"
+          git push origin HEAD:fix-ci-baseline

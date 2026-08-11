@@ -43,11 +43,11 @@ When the user says the solution is understood and asks to create an Epic:
 4. MVP may reduce scope only. Inside the selected scope, do not intentionally choose temporary, placeholder, partial, trial, knowingly incomplete, or later-to-be-replaced architecture merely to ship sooner.
 5. Preserve genuine unknowns explicitly. Do not invent decisions that the user never accepted.
 
-## Audit and revision before approval
-- Audit rounds are unlimited.
+## Audit and revision before execution
+- Audit rounds are unlimited before Phase 0, including after approval but before execution starts.
 - For an independent audit, first read the current exact spec with `epic_get`; inspect source when the audit claim depends on current code. Do not treat prior audit conclusions as authority when independence was requested.
 - Record the actual audit with `epic_audit_record`. Findings should state the concrete gap/risk and the required correction or decision.
-- If the audit/discussion changes the spec, call `epic_spec_revise` with the complete new spec. Never silently rewrite an older version.
+- If the audit/discussion changes the spec, call `epic_spec_revise` with the complete new spec. Never silently rewrite an older version. Revising an already-approved-but-not-started Epic returns it to DRAFT and requires explicit reapproval.
 - Do not call `epic_approve` until the user explicitly communicates approval/agreement of the current spec (for example “согласовано”, “approved”, “берём так”).
 
 ## Approval boundary
@@ -61,7 +61,7 @@ The first execution Task is always Phase 0 and is read-only analysis.
 - Source is authoritative over Project Knowledge/history.
 - Non-branching correction: apply automatically in `epic_reconcile_complete`.
 - Several options but one clearly superior durable recommendation: choose it automatically, record rationale, update the execution spec.
-- Genuine material product/architecture trade-off: put it in `human_decisions`; this intentionally blocks the Epic for the user.
+- Genuine material product/architecture trade-off: put it in `human_decisions`; this intentionally blocks the Epic for the user. After the user chooses, call `epic_reconcile_complete` again with the resolved execution spec and an empty `human_decisions` list so Phase 0/drift continues from the same durable reconciliation context.
 - Do not create implementation Tasks before Phase 0 reconciliation succeeds.
 
 ## Planning after Phase 0
@@ -81,7 +81,7 @@ For “do the whole Epic” / continuous execution:
 Never run Epic Tasks in parallel; one project still has one open Task/stage/worker at a time.
 
 ## Drift detection
-AI Layer records the accepted repository digest after Phase 0 and every completed Epic Task. If repository state changes outside that boundary before the next item, `epic_next` requires a targeted analysis-only drift reconciliation.
+AI Layer records the repository identity observed by the accepted terminal Task stage. If repository state changes outside that verified boundary before the next item, `epic_next` requires a targeted analysis-only drift reconciliation.
 - Reconcile only affected remaining assumptions/plan items.
 - Apply obvious/strong-recommendation corrections automatically.
 - Escalate only genuine material trade-offs.

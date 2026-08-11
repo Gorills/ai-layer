@@ -38,7 +38,7 @@ jobs:
           replace(
               "src/ai_layer/integrations/service.py",
               "from __future__ import annotations\n\nfrom pathlib import Path\n",
-              "from __future__ import annotations\n\nimport shutil as shutil\nfrom pathlib import Path\n",
+              "from __future__ import annotations\n\nimport shutil as shutil\nimport subprocess as subprocess\nfrom pathlib import Path\n",
           )
           replace(
               "src/ai_layer/integrations/service.py",
@@ -54,8 +54,8 @@ jobs:
 
           replace(
               "tests/test_runtime_upgrade.py",
-              '''    assert (\n        'sa.Column("delegation_required", sa.Boolean(), nullable=False, server_default=sa.false())'\n        in text\n    )\n''',
-              '''    assert '"delegation_required"' in text\n    assert "sa.Boolean()" in text\n    assert "server_default=sa.false()" in text\n''',
+              '''def test_workflow_navigation_migration_preserves_legacy_active_stage_compatibility():\n    migration = Path(__file__).parents[1] / "alembic" / "versions" / "0008_workflow_navigation.py"\n    text = migration.read_text(encoding="utf-8")\n    assert 'down_revision = "0007_task_adoption"' in text\n    assert (\n        'sa.Column("delegation_required", sa.Boolean(), nullable=False, server_default=sa.false())'\n        in text\n    )\n    assert 'sa.Column("delegated_at", sa.DateTime(timezone=True), nullable=True)' in text\n    assert 'sa.Column("external_actions", sa.JSON(), nullable=False' in text\n    assert 'op.alter_column("task_stages", "delegation_required", server_default=None)' in text\n''',
+              '''def test_workflow_navigation_migration_preserves_legacy_active_stage_compatibility():\n    migration = Path(__file__).parents[1] / "alembic" / "versions" / "0008_workflow_navigation.py"\n    text = migration.read_text(encoding="utf-8")\n    assert 'down_revision = "0007_task_adoption"' in text\n    assert '"delegation_required"' in text\n    assert "sa.Boolean()" in text\n    assert "server_default=sa.false()" in text\n    assert '"delegated_at"' in text\n    assert "sa.DateTime(timezone=True)" in text\n    assert '"external_actions"' in text\n    assert "sa.JSON()" in text\n    assert "server_default=sa.text(\"'[]'::json\")" in text\n    assert 'op.alter_column("task_stages", "delegation_required", server_default=None)' in text\n    assert 'op.alter_column("task_stages", "external_actions", server_default=None)' in text\n''',
           )
           replace(
               "tests/test_runtime_upgrade.py",

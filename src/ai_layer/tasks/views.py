@@ -230,7 +230,11 @@ def _stage_payload(stage: TaskStage) -> dict:
             else (
                 "legacy-no-explicit-delegation"
                 if not stage.delegation_required
-                else ("explicit-pre-mutation-label" if stage.delegated_at else "required-not-yet-bound")
+                else (
+                    "explicit-pre-mutation-label"
+                    if stage.delegated_at
+                    else "required-not-yet-bound"
+                )
             )
         ),
         "outcome": stage.outcome or None,

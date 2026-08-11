@@ -1,10 +1,8 @@
 # Local AI Development Layer
 
-Version 0.11.4 pre-Epics native-first/context-economy candidate.
+Version 0.12.0 Epics v1 candidate.
 
-Local AI Development Layer is a single-machine control plane for durable AI-assisted engineering. It provides project identity/context, expert skills, sequential durable Tasks, worker provenance, executable verification, observability, dashboard projections, host integrations and immutable release/update infrastructure.
-
-**Epics are intentionally not implemented in this version.** The repository contains only an empty architectural extension boundary for the next capability.
+Local AI Development Layer is a single-machine control plane for durable AI-assisted engineering. It provides project identity/context, expert skills, sequential durable Tasks, human-approved durable Epics, worker provenance, executable verification, observability, dashboard projections, host integrations and immutable release/update infrastructure.
 
 ## Runtime model
 
@@ -35,9 +33,30 @@ ai-layer init /path/to/project --external
 ai-layer init /path/to/project --private
 ```
 
+## Epics v1
+
+An Epic is a durable human-approved product/architecture contract plus a scheduler over the existing Task Engine. It is **not** a second Task Engine: Epic state decides which ordinary Task is eligible next, while Task Engine remains the sole owner of IMPLEMENT/REVIEW/FIX stages, worker leases, repository baselines, verification, findings and remediation.
+
+The intended conversational workflow is:
+
+1. Discuss the product/architecture normally until the desired solution is clear.
+2. Ask the agent to create an Epic. The agent loads the native `epics` skill and writes a complete human-readable final-product specification with `epic_create`; it does not freeze a Task list yet.
+3. Read the specification in Dashboard or through `epic_get`. Run any number of independent audits and revisions while the Epic is DRAFT.
+4. Explicitly approve the current specification. Approval freezes the historical human baseline; it does not start implementation directly.
+5. The first execution Task is always read-only **Phase 0**. It checks the approved design against current repository source, detects stale assumptions and silent incomplete/temporary selected-scope solutions, and produces a reconciled execution spec. Obvious corrections or one clearly superior durable recommendation are applied automatically; genuine material trade-offs stop for a human decision.
+6. Only after Phase 0 is the implementation plan created. Each work item is an ordinary sequential `STANDARD` Task and therefore receives the full independent review/fix cycle.
+7. `epic_next` is the authoritative Epic navigator. When it says `continue_task`, use `task_next` until that linked Task is terminal, then return immediately to `epic_next`. Do not reconstruct position from chat history.
+8. Repository drift between accepted Epic Task boundaries triggers a targeted read-only reconciliation before the next planned Task.
+9. The last successfully completed Task always updates relevant project documentation and Project Knowledge and then independently reviews the **whole implemented Epic** against the execution specification/Definition of Done. Open findings stay in the existing FIX → REVIEW loop.
+10. Archive is mechanically blocked until the final reviewed Task changed project documentation and actually published reviewed Project Knowledge.
+
+Dashboard exposes each Epic's readable current specification, approved/execution versions, audit history, Task plan and linked Task states. `memory_context` exposes only compact active-Epic state so a new or weak-model chat can recover by calling `epic_next` instead of receiving the entire specification on every prompt.
+
+See ADR `docs/DECISIONS/0016-epics-v1-lifecycle.md`.
+
 ## Verified Project Knowledge
 
-AI Layer does **not** compete with Cursor/Codex/Antigravity for current-code discovery. `ai-layer scan` now collects deterministic repository evidence and freshness data; host-native tools remain authoritative for reading/searching current source. Durable AI Layer memory stores what is expensive to reconstruct across chats/models: reviewed project overview/subsystem knowledge, invariants, source pointers, decisions and completed-work history.
+AI Layer does **not** compete with Cursor/Codex/Antigravity for current-code discovery. `ai-layer scan` collects deterministic repository evidence and freshness data; host-native tools remain authoritative for reading/searching current source. Durable AI Layer memory stores what is expensive to reconstruct across chats/models: reviewed project overview/subsystem knowledge, invariants, source pointers, decisions and completed-work history.
 
 Project Knowledge is model-authored only during an explicit review-gated managed Task. The mapper can write evidence-backed `DRAFT` cards; an independent REVIEW must retrieve and verify those drafts before the Task Engine publishes them as `VERIFIED`. Supporting source changes mark only affected cards `STALE`. `memory_context` compiles a small presentation for the request: semantic reviewed knowledge for ordinary tasks, inventory-first context for Project Knowledge audits, and session-first context for explicit continuation. Stale scanner/profile facts are withheld, and raw current-source chunks are never copied into the brief.
 
@@ -54,11 +73,13 @@ A project without a reviewed overview reports onboarding as recommended; AI Laye
 
 Cursor, Codex and Antigravity own skill relevance through their native Agent Skills mechanisms. AI Layer keeps one authoritative skill store, validates routing descriptions, synchronizes thin native descriptors and serves targeted instructions through `skill_get`. `memory_context` never preloads domain skill bodies. Global Cursor/Codex descriptors share `~/.agents/skills`; Antigravity uses `~/.gemini/config/skills`; standard project skills use `.agents/skills`. External/strict-private project skills remain repository-zero-footprint through namespaced user-level descriptors.
 
+The built-in `epics` skill provides the complete Epic operating contract to weak models; bootstrap rules only keep the small invariant that `epic_next` is authoritative and the detailed skill/tool output owns procedure.
+
 See `docs/NATIVE_SKILL_ARCHITECTURE_REPORT.md` and ADR `docs/DECISIONS/0009-native-first-skill-routing.md`.
 
 ## Context and skill economy monitoring
 
-AI Layer automatically records what **AI Layer itself** observes/configures: host rule/bootstrap files, MCP server instructions and tool-contract catalog, `memory_context` payload/components, native skill descriptor catalogs, explicit `skill_get` fetches, Task navigation results and other MCP result sizes. Host-native skill selection is marked `HOST_HIDDEN`; AI Layer does not claim to know the host's complete prompt or exact billing tokens. Diagnostic state is secret-redacted and stored outside the target repository.
+AI Layer automatically records what **AI Layer itself** observes/configures: host rule/bootstrap files, MCP server instructions and tool-contract catalog, `memory_context` payload/components, native skill descriptor catalogs, explicit `skill_get` fetches, Task/Epic navigation results and other MCP result sizes. Host-native skill selection is marked `HOST_HIDDEN`; AI Layer does not claim to know the host's complete prompt or exact billing tokens. Diagnostic state is secret-redacted and stored outside the target repository.
 
 The current portable report is generated automatically at context/skill/stage boundaries and can be refreshed/exported at any time:
 
@@ -70,7 +91,7 @@ Internal location: `~/.ai-layer/projects/<project_id>/diagnostics/context-monito
 
 ## Static policy/bootstrap ownership
 
-AI Layer static workflow/engineering guidance is installed once through each host's native global instruction surface. Standard projects do **not** receive duplicate AI Layer text in `AGENTS.md`, `CLAUDE.md`, `.cursor/rules` or `.agents/rules`; exact project identity is carried by sparse workspace MCP bindings instead. `memory_context` returns only dynamic policy that differs by user/project/privacy state. The bundled default policy remains locally managed but is not retransmitted on every context request. Runtime stage procedure is owned by `task_next`, not repeated in static rules. See ADR `docs/DECISIONS/0013-single-owner-static-bootstrap.md`.
+AI Layer static workflow/engineering guidance is installed once through each host's native global instruction surface. Standard projects do **not** receive duplicate AI Layer text in `AGENTS.md`, `CLAUDE.md`, `.cursor/rules` or `.agents/rules`; exact project identity is carried by sparse workspace MCP bindings instead. `memory_context` returns only dynamic policy that differs by user/project/privacy state plus compact active-Epic navigation state. The bundled default policy remains locally managed but is not retransmitted on every context request. Runtime Task procedure is owned by `task_next`; Epic procedure is owned by `epic_next` plus the native `epics` skill. See ADR `docs/DECISIONS/0013-single-owner-static-bootstrap.md`.
 
 ## Updates
 

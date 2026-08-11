@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 3
+CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 4
 
 
 def critical_orchestrator_contract() -> dict[str, Any]:
@@ -31,11 +31,12 @@ def critical_orchestrator_contract() -> dict[str, Any]:
             "Record only the actual delegated worker result, or the top-level actor's own result for an "
             "explicitly authorized inline MICRO stage."
         ),
+        "epic_rule": "Existing Epic: epic_next owns lifecycle; task_next owns only its linked Task.",
     }
 
 
 def critical_orchestrator_markdown() -> str:
-    """Small always-on role boundary. Detailed procedure is returned dynamically by task_next."""
+    """Small always-on role boundary. Detailed procedure is returned dynamically by task_next/epic_next."""
     return """## AI Layer orchestrator boundary
 
 For a managed task, the top-level chat coordinates only.
@@ -43,18 +44,19 @@ For a managed task, the top-level chat coordinates only.
 - Other IMPLEMENT/FIX stages require a delegated writable worker; DISCOVERY/REVIEW require delegated read-only workers.
 - Call `task_stage_delegate` before a delegated stage and record only that worker's result. Do not delegate an authorized inline MICRO stage just for ceremony.
 - If a required worker/tool fails, report the blocker; never do the stage yourself as fallback.
+- Existing Epic: follow `epic_next`; `task_next` only for its linked Task.
 """
 
 
 def native_bootstrap_markdown() -> str:
-    """Single static policy owner shared by native host rules; task_next owns runtime procedure."""
+    """Single static policy owner shared by native host rules; navigators own runtime procedure."""
     return (
         critical_orchestrator_markdown()
         + """
 For non-trivial engineering work in a registered project:
-- Call `memory_context(task=<actual task>, project_root=<workspace root>)` once, then follow `task_next`. If unregistered, continue normally without AI Layer.
+- Call `memory_context(task=<actual task>, project_root=<workspace root>)` once. Existing Epic: `epic_next`; otherwise `task_next`. Unregistered: continue normally.
 - For an obviously localized low-impact edit, the host may call `task_create(workflow="micro")`. Never choose MICRO for auth/security/permissions/payments/migrations/schema/data loss/deploy/secrets/concurrency/external mutations; use auto/standard when scope or risk is uncertain. AI Layer validates the actual diff and escalates MICRO when its envelope is exceeded.
-- Reuse the canonical `project_root`; correct context errors instead of bypassing Task Layer. One task/stage/worker is active at a time. A dirty worktree is a valid baseline; never stash/reset/restore/commit user work merely to satisfy AI Layer.
+- Reuse the canonical `project_root`; correct context errors instead of bypassing Task/Epic Layer. One task/stage/worker is active at a time. A dirty worktree is a valid baseline; never stash/reset/restore/commit user work merely to satisfy AI Layer.
 - Current repository source is authoritative. Project Knowledge/history are navigation; native Agent Skills choose domain relevance and `skill_get` supplies selected guidance.
 - Inspect evidence before editing, make the smallest coherent change, preserve established architecture, and do not add speculative dependencies or parallel abstractions.
 - Run the narrowest relevant verification and never claim a check passed unless it ran. Treat auth/security/migrations/data loss/public APIs as high-impact; irreversible external actions require explicit authorization or an established workflow.
@@ -67,11 +69,10 @@ For non-trivial engineering work in a registered project:
 def mcp_bootstrap_instructions() -> str:
     """Tiny fallback when native bootstrap delivery is unavailable or drifted."""
     return (
-        "For registered-project engineering work, call `memory_context` once and follow `task_next`; "
-        "reuse its canonical project_root. The top-level chat coordinates only except when task_next explicitly "
-        "authorizes inline_micro_implement for the current MICRO stage. Otherwise stage mutation belongs to the "
-        "delegated worker. Current source is authoritative. If AI Layer or required delegation fails, report/block "
-        "instead of bypassing it."
+        "For registered-project engineering work, call `memory_context` once. Existing Epic: `epic_next`; "
+        "otherwise `task_next` or use it for the linked Task. Reuse canonical project_root. The top-level chat "
+        "coordinates only except when task_next authorizes inline_micro_implement. Current source is authoritative. "
+        "If AI Layer or delegation fails, report/block instead of bypassing it."
     )
 
 

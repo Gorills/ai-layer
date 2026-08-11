@@ -1,5 +1,6 @@
 import { api } from "./api.js";
 import { time, escapeHtml } from "./format.js";
+import { renderEpicDetail, renderEpicList } from "./views/epic.js";
 import { renderOverview } from "./views/overview.js";
 import { renderProject } from "./views/project.js";
 
@@ -18,8 +19,18 @@ let loading = false;
 
 function route() {
   const value = location.hash.replace(/^#\/?/, "") || "overview";
-  const [kind, key] = value.split("/");
-  return kind === "project" && key ? { kind: "project", key: decodeURIComponent(key) } : { kind: "overview" };
+  const parts = value.split("/");
+  if (parts[0] === "project" && parts[1]) {
+    return { kind: "project", key: decodeURIComponent(parts[1]) };
+  }
+  if (parts[0] === "epic" && parts[1] && parts[2]) {
+    return {
+      kind: "epic",
+      projectKey: decodeURIComponent(parts[1]),
+      epicKey: decodeURIComponent(parts[2]),
+    };
+  }
+  return { kind: "overview" };
 }
 
 function setConnection(ok, label) {
@@ -33,7 +44,10 @@ function renderNav(data) {
   const current = route();
   document.querySelectorAll(".nav-item.active").forEach((el) => el.classList.remove("active"));
   if (current.kind === "overview") document.querySelector('[data-route="overview"]')?.classList.add("active");
-  else document.querySelector(`[data-project-nav="${CSS.escape(current.key)}"]`)?.classList.add("active");
+  else {
+    const key = current.kind === "epic" ? current.projectKey : current.key;
+    document.querySelector(`[data-project-nav="${CSS.escape(key)}"]`)?.classList.add("active");
+  }
 }
 
 function bindProjectRows() {
@@ -46,15 +60,21 @@ async function load() {
   if (loading) return;
   loading = true;
   try {
-    if (!overviewCache || route().kind === "overview") overviewCache = await api.overview();
-    renderNav(overviewCache);
     const current = route();
+    if (!overviewCache || current.kind === "overview") overviewCache = await api.overview();
+    renderNav(overviewCache);
     if (current.kind === "project") {
-      const data = await api.project(current.key);
+      const [data, epicData] = await Promise.all([api.project(current.key), api.projectEpics(current.key)]);
       pageTitle.textContent = data.project?.name || "Проект";
-      pageSubtitle.textContent = "Задача, стадии, ревью и состояние проекта";
-      app.innerHTML = renderProject(data);
+      pageSubtitle.textContent = "Задачи, Epics, стадии, ревью и состояние проекта";
+      app.innerHTML = `${renderProject(data)}${renderEpicList(epicData, current.key)}`;
       updatedAt.textContent = `обновлено ${time(data.generated_at)}`;
+    } else if (current.kind === "epic") {
+      const data = await api.epic(current.projectKey, current.epicKey);
+      pageTitle.textContent = `${data.epic?.key || "Epic"} · ${data.epic?.title || ""}`;
+      pageSubtitle.textContent = "Specification · audits · Phase 0 · Task plan · final review";
+      app.innerHTML = renderEpicDetail(data);
+      updatedAt.textContent = `обновлено ${time(data.epic?.updated_at)}`;
     } else {
       pageTitle.textContent = "Обзор";
       pageSubtitle.textContent = "Текущие задачи, стадии и состояние AI Layer";

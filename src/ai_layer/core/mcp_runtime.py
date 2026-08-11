@@ -37,6 +37,8 @@ FAST_TOOLS = {
     "task_cancel",
     "task_create",
     "task_adopt",
+    "epic_get",
+    "epic_list",
     "skill_list",
     "skill_search",
     "skill_get",
@@ -68,6 +70,8 @@ REPLAY_SAFE_TOOLS = {
     "project_info",
     "task_current",
     "task_next",
+    "epic_get",
+    "epic_list",
     "skill_list",
     "skill_search",
     "skill_get",
@@ -78,10 +82,23 @@ REPLAY_SAFE_TOOLS = {
     *CONTEXT_TOOLS,
 }
 
-# Fast state transitions should fail promptly. Context reads aggregate freshness, vector search,
-# history and policy, so their transport deadline must leave headroom above the 5s per-statement
-# PostgreSQL guard instead of racing it by only one second.
+# Fast Task transitions should fail promptly. Epic orchestration reads/writes may aggregate durable
+# state across specification, plan and linked Tasks, so give them enough headroom to avoid creating
+# ambiguous delivery merely because the ordinary fast-path budget is small.
 TOOL_TIMEOUTS = {"fast": 5.0, "context": 15.0, "long": 120.0}
+EPIC_TOOL_TIMEOUTS = {
+    "epic_get": 10.0,
+    "epic_list": 10.0,
+    "epic_create": 45.0,
+    "epic_spec_revise": 45.0,
+    "epic_audit_record": 45.0,
+    "epic_approve": 45.0,
+    "epic_next": 45.0,
+    "epic_start_next": 45.0,
+    "epic_reconcile_complete": 45.0,
+    "epic_plan_set": 45.0,
+    "epic_archive": 45.0,
+}
 
 _STATE_LOCK = threading.Lock()
 _RUNTIME_STATE: dict[str, Any] = {
@@ -106,6 +123,10 @@ def tool_runtime_class(tool: str) -> str:
     if tool in LONG_TOOLS:
         return "long"
     return "fast"
+
+
+def timeout_for_tool(tool: str) -> float:
+    return EPIC_TOOL_TIMEOUTS.get(tool, TOOL_TIMEOUTS[tool_runtime_class(tool)])
 
 
 def core_token_path() -> Path:
@@ -266,7 +287,8 @@ def _post_dispatch_timeout(tool: str, message: str) -> CoreRequestTimeout:
             ),
         )
     return CoreRequestTimeout(
-        message + " Do not replay a mutating tool blindly; call task_next/current state to recover."
+        message
+        + " Do not replay a mutating tool blindly; read durable Task/Epic state before recovery."
     )
 
 
@@ -300,8 +322,6 @@ def _rpc_request(tool: str, arguments: dict[str, Any], timeout: float) -> Any:
             f"`{tool}` exceeded {timeout:g}s after dispatch.",
         ) from exc
     except urllib.error.URLError as exc:
-        # Once urlopen() has been attempted, delivery is ambiguous for state-changing calls. Reads
-        # are replay-safe, so expose a retryable transport error instead of mutating recovery text.
         reason = getattr(exc, "reason", None)
         detail = f"{type(reason).__name__}: {reason}" if reason is not None else str(exc)
         if tool in REPLAY_SAFE_TOOLS:
@@ -316,7 +336,7 @@ def _rpc_request(tool: str, arguments: dict[str, Any], timeout: float) -> Any:
             ) from exc
         raise CoreRequestTimeout(
             f"`{tool}` lost its core RPC connection after dispatch ({detail}). Do not replay a mutating tool "
-            "blindly; call task_next/current state to recover.",
+            "blindly; read durable Task/Epic state before recovery.",
             code=ErrorCode.CORE_DELIVERY_AMBIGUOUS,
         ) from exc
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
@@ -327,7 +347,6 @@ def _rpc_request(tool: str, arguments: dict[str, Any], timeout: float) -> Any:
         error_payload = payload.get("error")
         if isinstance(error_payload, dict):
             raise StructuredError.from_dict(error_payload)
-        # Compatibility with pre-0.9 internal responses during an interrupted local upgrade.
         message = str(error_payload or "AI Layer core tool failed")
         raise CoreProtocolError(f"Legacy core error response for `{tool}`: {message}")
     return payload.get("result")
@@ -335,8 +354,7 @@ def _rpc_request(tool: str, arguments: dict[str, Any], timeout: float) -> Any:
 
 def call_core_tool(tool: str, arguments: dict[str, Any]) -> Any:
     global _HEALTH_OK_UNTIL
-    tool_class = tool_runtime_class(tool)
-    timeout = TOOL_TIMEOUTS[tool_class]
+    timeout = timeout_for_tool(tool)
     from ai_layer.core.background_service import probe_service, start_user_service
 
     now = time.monotonic()
@@ -356,8 +374,6 @@ def call_core_tool(tool: str, arguments: dict[str, Any]) -> Any:
     try:
         result = _rpc_request(tool, arguments, timeout)
     except (CoreServiceUnavailable, CoreRequestTimeout, CoreProtocolError):
-        # Force a fresh liveness probe on the next call. Only pre-dispatch unavailability
-        # is eligible for local fallback in the stdio bridge.
         with _HEALTH_LOCK:
             _HEALTH_OK_UNTIL = 0.0
         raise

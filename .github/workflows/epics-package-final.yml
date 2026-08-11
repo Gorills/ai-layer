@@ -1,0 +1,76 @@
+name: epics-package-final
+on:
+  push:
+    branches: [feature/epics-v1]
+permissions:
+  contents: write
+jobs:
+  package:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/epics-v1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - name: Verify final Epic source
+        run: |
+          python -m ruff format --check src/ai_layer alembic/env.py tests/test_epics.py tests/test_epic_human_gates.py tests/test_epic_mcp_runtime.py tests/test_epic_dashboard.py
+          python -m ruff check src/ai_layer alembic/env.py tests/test_epics.py tests/test_epic_human_gates.py tests/test_epic_mcp_runtime.py tests/test_epic_dashboard.py
+          python -m mypy src/ai_layer
+          python -m pytest -q tests/test_epics.py tests/test_epic_human_gates.py tests/test_epic_mcp_runtime.py tests/test_epic_dashboard.py
+          python scripts/architecture_gate.py
+      - name: Build 0.12.0 installable artifact
+        run: |
+          rm -f dist/local_ai_development_layer-*.whl
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          wheel = root / 'dist/local_ai_development_layer-0.12.0-py3-none-any.whl'
+          if not wheel.is_file():
+              raise SystemExit('expected 0.12.0 wheel was not built')
+          digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path = root / 'release/release-manifest.json'
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest['version'] = '0.12.0'
+          manifest['application_wheel'] = wheel.as_posix()
+          manifest['application_wheel_sha256'] = digest
+          manifest['migration_compatibility']['target_schema'] = '0014_epics_v1'
+          manifest['notes'] = (
+              '0.12.0 activates durable Epics v1: versioned human-approved specs, unlimited pre-execution audits, '
+              'mandatory Phase 0 source reconciliation, sequential STANDARD Task execution, verified Task-boundary '
+              'drift reconciliation, whole-Epic final review, documentation/Project Knowledge closure, native weak-model '
+              'guidance and Dashboard views. The committed wheel is rebuilt from this exact source.'
+          )
+          validation = dict(manifest.get('validation') or {})
+          validation['epic_workflow_black_box'] = 'required_before_promotion_on_supported_host'
+          manifest['validation'] = validation
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(f'{wheel} sha256={digest}')
+          PY
+      - name: Refresh reviewed governance baseline
+        run: python scripts/governance_gate.py --write-baseline
+      - name: Remove one-shot workflow from release tree
+        run: rm .github/workflows/epics-package-final.yml
+      - name: Canonical final quality
+        run: python scripts/quality_gate.py --deterministic-wheel
+      - name: Reject concurrent branch movement
+        run: |
+          git fetch origin feature/epics-v1
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/feature/epics-v1)"
+      - name: Commit final 0.12.0 release tree
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- release/release-manifest.json release/governance-baseline.json dist/local_ai_development_layer-0.12.0-py3-none-any.whl
+          git add -u -- dist .github/workflows/epics-package-final.yml
+          git commit -m 'Finalize 0.12.0 Epics v1 release artifact'
+          git push origin HEAD:feature/epics-v1

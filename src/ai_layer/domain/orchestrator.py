@@ -39,10 +39,10 @@ def critical_orchestrator_markdown() -> str:
     return """## AI Layer orchestrator boundary
 
 For a managed task, the top-level chat coordinates only.
-- Never edit repository files or mutate external systems yourself unless `task_next` explicitly returns `inline_micro_implement` for the current MICRO IMPLEMENT stage. That temporary repository-write permission ends when the stage completes, blocks, or escalates.
-- Normal IMPLEMENT/FIX run only in the explicitly delegated writable worker; DISCOVERY/REVIEW run only in delegated read-only workers.
-- Call `task_stage_delegate` before starting a delegated stage worker and record only that worker's actual result. Do not delegate an explicitly authorized inline MICRO stage just to satisfy ceremony.
-- If a required worker/tool cannot run, stop and report the blocker; never do a delegated stage yourself as fallback.
+- Do not edit repository files or external systems unless `task_next` returns `inline_micro_implement` for the current MICRO IMPLEMENT stage; that write permission ends when the stage ends or escalates.
+- Other IMPLEMENT/FIX stages require a delegated writable worker; DISCOVERY/REVIEW require delegated read-only workers.
+- Call `task_stage_delegate` before a delegated stage and record only that worker's result. Do not delegate an authorized inline MICRO stage just for ceremony.
+- If a required worker/tool fails, report the blocker; never perform a delegated stage as fallback.
 """
 
 
@@ -53,7 +53,7 @@ def native_bootstrap_markdown() -> str:
         + """
 For non-trivial engineering work in a registered project:
 - Call `memory_context(task=<actual task>, project_root=<workspace root>)` once, then follow `task_next`. If unregistered, continue normally without AI Layer.
-- When the requested change is obviously localized and low-impact (for example a small UI/text/config-free behavior correction with a focused test), the host may call `task_create(workflow="micro")`. Do not choose MICRO for auth/security/permissions/payments/migrations/schema/data loss/deploy/secrets/concurrency/external mutations, and use auto/standard when scope or risk is uncertain. AI Layer validates the actual post-change diff and escalates MICRO automatically when the proven envelope is exceeded.
+- For an obviously localized low-impact edit, the host may call `task_create(workflow="micro")`. Never choose MICRO for auth/security/permissions/payments/migrations/schema/data loss/deploy/secrets/concurrency/external mutations; use auto/standard when scope or risk is uncertain. AI Layer validates the actual diff and escalates MICRO when its envelope is exceeded.
 - Reuse the canonical `project_root`; correct context errors instead of bypassing Task Layer. One task/stage/worker is active at a time. A dirty worktree is a valid baseline; never stash/reset/restore/commit user work merely to satisfy AI Layer.
 - Current repository source is authoritative. Project Knowledge/history are navigation; native Agent Skills choose domain relevance and `skill_get` supplies selected guidance.
 - Inspect evidence before editing, make the smallest coherent change, preserve established architecture, and do not add speculative dependencies or parallel abstractions.

@@ -53,4 +53,5 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# Ruff's formatter only best-effort wraps long lines, so E501 is intentionally excluded.
 ignore = ["E501"]

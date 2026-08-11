@@ -6,7 +6,6 @@ from uuid import UUID
 from sqlalchemy import select
 
 from ai_layer.core.config import get_settings
-from ai_layer.core.paths import project_provenance, project_state_path
 from ai_layer.core.service import get_project
 from ai_layer.db.models import Knowledge
 from ai_layer.db.session import session_scope
@@ -29,6 +28,11 @@ from ai_layer.skills.registry import (
 from ai_layer.skills.service import parse_skill, skill_core_content, skill_sections
 
 _KNOWLEDGE_STATUSES = {"VERIFIED", "DRAFT", "STALE", "SUPERSEDED"}
+_PROJECT_RULES_PLACEHOLDER = (
+    "# Project-specific rules\n\n"
+    "Add only rules that are specific to this repository. "
+    "Global engineering policy is loaded separately."
+)
 
 
 def _parse_visible_skill(path: Path) -> dict | None:
@@ -133,11 +137,39 @@ def skill_detail_payload(project_key_value: str | None, slug: str) -> dict | Non
     }
 
 
-def _read_text(path: Path) -> str:
+def _read_text(path: Path | None) -> str:
+    if path is None:
+        return ""
     try:
         return path.read_text(encoding="utf-8") if path.is_file() and not path.is_symlink() else ""
     except (OSError, UnicodeDecodeError):
         return ""
+
+
+def _project_rules_path(entry: dict) -> Path | None:
+    root = Path(str(entry.get("root") or "")).expanduser().resolve()
+    mode = str(entry.get("mode") or "standard")
+    if mode not in {"external", "strict-private"}:
+        meta = root / ".ai-layer"
+        target = meta / "rules.md"
+        if meta.is_symlink() or target.is_symlink():
+            return None
+        return target
+
+    project_id = str(entry.get("project_id") or "").strip()
+    if not project_id or Path(project_id).name != project_id:
+        return None
+    base = get_settings().home / "projects"
+    project_dir = base / project_id
+    target = project_dir / "rules.md"
+    if base.is_symlink() or project_dir.is_symlink() or target.is_symlink():
+        return None
+    return target
+
+
+def _project_rules_text(entry: dict) -> str:
+    text = _read_text(_project_rules_path(entry)).strip()
+    return "" if text == _PROJECT_RULES_PLACEHOLDER else text
 
 
 def _rule_count(text: str) -> int:
@@ -163,28 +195,30 @@ def rules_payload(project_key_value: str | None = None) -> dict | None:
         if entry is None:
             return None
         root = Path(str(entry["root"])).expanduser().resolve()
-        project_text = _read_text(project_state_path(root, "rules.md"))
+        project_text = _project_rules_text(entry)
+        provenance = str(entry.get("provenance") or "allow")
         selected = {
             "key": project_key_value,
             "name": entry.get("name") or root.name,
             "root": str(root),
             "content": project_text,
             "rule_count": _rule_count(project_text),
-            "has_custom_rules": bool(project_text.strip()),
-            "privacy": project_provenance(root),
-            "strict_private": project_provenance(root) == "forbid",
+            "has_custom_rules": bool(project_text),
+            "privacy": provenance,
+            "strict_private": provenance == "forbid",
         }
     summaries = []
     for entry in entries():
         root = Path(str(entry["root"])).expanduser().resolve()
-        text = _read_text(project_state_path(root, "rules.md"))
+        text = _project_rules_text(entry)
+        provenance = str(entry.get("provenance") or "allow")
         summaries.append(
             {
                 "key": project_key(entry),
                 "name": entry.get("name") or root.name,
                 "rule_count": _rule_count(text),
-                "has_custom_rules": bool(text.strip()),
-                "strict_private": project_provenance(root) == "forbid",
+                "has_custom_rules": bool(text),
+                "strict_private": provenance == "forbid",
             }
         )
     return {

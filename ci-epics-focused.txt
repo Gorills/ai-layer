@@ -1,0 +1,186 @@
+=== ruff-check exit=1 ===
+I001 [*] Import block is un-sorted or un-formatted
+ --> tests/test_epic_mcp_runtime.py:1:1
+  |
+1 | from ai_layer.core.mcp_runtime import FAST_TOOLS, REPLAY_SAFE_TOOLS, timeout_for_tool
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: Organize imports
+  |
+2 |
+  -
+3 | EPIC_MUTATIONS = {
+  |
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+
+=== ruff-format exit=1 ===
+unformatted: File would be reformatted
+  --> src/ai_layer/application/epic_task_boundary.py:23:17
+   |
+22 |     if stage is None:
+   -         return {"digest": str(task.baseline_digest or ""), "file_count": int(task.baseline_files or 0)}
+23 +         return {
+24 +             "digest": str(task.baseline_digest or ""),
+25 +             "file_count": int(task.baseline_files or 0),
+26 +         }
+27 |
+   |
+
+unformatted: File would be reformatted
+   --> tests/test_epic_human_gates.py:146:30
+    |
+145 |             summary="A material public-contract trade-off remains.",
+    -             human_decisions=[
+    -                 {"question": "Compatibility contract?", "options": ["legacy", "new"]}
+    -             ],
+146 +             human_decisions=[{"question": "Compatibility contract?", "options": ["legacy", "new"]}],
+147 |         )
+    |
+
+2 files would be reformatted, 215 files already formatted
+
+=== mypy exit=0 ===
+src/ai_layer/db/session.py:93: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/ai_layer/cli/commands/maintenance.py:201: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+Success: no issues found in 170 source files
+
+=== epic-tests exit=2 ===
+
+==================================== ERRORS ====================================
+_______________ ERROR collecting tests/test_epic_mcp_runtime.py ________________
+ImportError while importing test module '/home/runner/work/ai-layer/ai-layer/tests/test_epic_mcp_runtime.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_epic_mcp_runtime.py:1: in <module>
+    from ai_layer.core.mcp_runtime import FAST_TOOLS, REPLAY_SAFE_TOOLS, timeout_for_tool
+E   ImportError: cannot import name 'timeout_for_tool' from 'ai_layer.core.mcp_runtime' (/home/runner/work/ai-layer/ai-layer/src/ai_layer/core/mcp_runtime.py)
+=========================== short test summary info ============================
+ERROR tests/test_epic_mcp_runtime.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+
+=== architecture exit=0 ===
+      },
+      {
+        "lines": 508,
+        "path": "src/ai_layer/memory/source.py",
+        "source_bytes": 16557
+      },
+      {
+        "lines": 500,
+        "path": "src/ai_layer/projections/dashboard.py",
+        "source_bytes": 20375
+      },
+      {
+        "lines": 494,
+        "path": "src/ai_layer/core/service.py",
+        "source_bytes": 19350
+      },
+      {
+        "lines": 471,
+        "path": "src/ai_layer/cli/commands/operations.py",
+        "source_bytes": 17897
+      },
+      {
+        "lines": 434,
+        "path": "src/ai_layer/tasks/views.py",
+        "source_bytes": 17201
+      }
+    ],
+    "max_complexity": 22,
+    "max_function_lines": 165,
+    "max_function_statements": 67,
+    "max_nesting": 5,
+    "modules": 170,
+    "soft_module_warning_lines": 300,
+    "soft_warnings": [
+      "src/ai_layer/agents/policy.py: 332 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/application/epic_planning.py: 304 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/audit/service.py: 301 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/cli/commands/operations.py: 471 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/cli/commands/skills_commands.py: 310 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/cli/doctor.py: 377 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/core/background_service.py: 392 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/core/mcp_runtime.py: 366 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/core/repair.py: 336 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/core/runtime.py: 353 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/core/service.py: 494 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/db/models.py: 390 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/installation/updater.py: 322 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/integrations/global_install.py: 350 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/mcp/tools/skills.py: 357 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/mcp/tools/tasks.py: 575 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/memory/freshness.py: 399 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/memory/identity.py: 354 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/memory/indexer.py: 309 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/memory/intelligence.py: 344 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/memory/intelligence_runtime.py: 402 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/memory/knowledge_store.py: 311 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/memory/service.py: 363 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/memory/source.py: 508 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/observability/context_report.py: 333 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/privacy/service.py: 528 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/projections/dashboard.py: 500 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/sessions/service.py: 408 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/skills/manager.py: 569 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/skills/packages.py: 322 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/completion.py: 518 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/contracts.py: 334 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/lifecycle.py: 564 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/navigation.py: 374 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/review_checks.py: 376 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/review_contracts.py: 414 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/review_workspace.py: 308 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/transitions.py: 353 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/views.py: 434 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+      "src/ai_layer/tasks/worker_leases.py: 324 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam"
+    ]
+  },
+  "ok": true,
+  "warnings": [
+    "src/ai_layer/agents/policy.py: 332 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/application/epic_planning.py: 304 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/audit/service.py: 301 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/cli/commands/operations.py: 471 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/cli/commands/skills_commands.py: 310 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/cli/doctor.py: 377 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/core/background_service.py: 392 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/core/mcp_runtime.py: 366 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/core/repair.py: 336 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/core/runtime.py: 353 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/core/service.py: 494 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/db/models.py: 390 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/installation/updater.py: 322 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/integrations/global_install.py: 350 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/mcp/tools/skills.py: 357 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/mcp/tools/tasks.py: 575 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/memory/freshness.py: 399 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/memory/identity.py: 354 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/memory/indexer.py: 309 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/memory/intelligence.py: 344 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/memory/intelligence_runtime.py: 402 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/memory/knowledge_store.py: 311 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/memory/service.py: 363 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/memory/source.py: 508 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/observability/context_report.py: 333 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/privacy/service.py: 528 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/projections/dashboard.py: 500 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/sessions/service.py: 408 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/skills/manager.py: 569 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/skills/packages.py: 322 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/completion.py: 518 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/contracts.py: 334 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/lifecycle.py: 564 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/navigation.py: 374 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/review_checks.py: 376 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/review_contracts.py: 414 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/review_workspace.py: 308 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/transitions.py: 353 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/views.py: 434 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",
+    "src/ai_layer/tasks/worker_leases.py: 324 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam"
+  ]
+}
+

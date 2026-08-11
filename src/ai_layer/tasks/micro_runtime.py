@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from ai_layer.db.models import Task, TaskStage
 from ai_layer.domain.orchestrator import inline_micro_stage_instruction
-from ai_layer.tasks.constants import INLINE_MICRO_WORKER_ID
 from ai_layer.tasks.contracts import _stage_agent_policy
+
+INLINE_MICRO_WORKER_ID = "inline:orchestrator"
 
 
 def should_inline_micro_implementation(task: Task, kind: str) -> bool:

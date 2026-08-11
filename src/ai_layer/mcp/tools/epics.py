@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from ai_layer.application import epics as app_epics
-from ai_layer.application import tasks as app_tasks
 from ai_layer.audit.service import mcp_audit
-from ai_layer.mcp.runtime import _list, _scoped, _text, core_tool, project_root_for_tool
+from ai_layer.mcp.runtime import _scoped, _text, core_tool, project_root_for_tool
 
 
 def _with_root(payload: dict, root: str) -> dict:
@@ -16,9 +15,16 @@ def epic_create(title: str, spec_markdown: str, project_root: str | None = None)
     root = project_root_for_tool(project_root, tool="epic_create")
     title = _text(title, tool="epic_create", field="title")
     spec_markdown = _text(spec_markdown, tool="epic_create", field="spec_markdown")
-    with mcp_audit(root, "epic_create", arg_keys=["title", "spec_markdown", "project_root"]) as audit:
+    with mcp_audit(
+        root,
+        "epic_create",
+        arg_keys=["title", "spec_markdown", "project_root"],
+    ) as audit:
         result = app_epics.create(root, title=title, spec_markdown=spec_markdown)
-        audit["metrics"] = {"epic": result.get("key"), "spec_version": result.get("current_spec_version")}
+        audit["metrics"] = {
+            "epic": result.get("key"),
+            "spec_version": result.get("current_spec_version"),
+        }
         return _with_root(result, root)
 
 
@@ -26,18 +32,30 @@ def epic_create(title: str, spec_markdown: str, project_root: str | None = None)
 def epic_list(project_root: str | None = None, include_archived: bool = True) -> dict:
     """List durable Epics for the registered project. Use epic_get for the full specification/history."""
     root = project_root_for_tool(project_root, tool="epic_list")
-    with mcp_audit(root, "epic_list", arg_keys=["project_root", "include_archived"]) as audit:
+    with mcp_audit(
+        root,
+        "epic_list",
+        arg_keys=["project_root", "include_archived"],
+    ) as audit:
         items = app_epics.list_for_project(root, include_archived=include_archived)
         audit["metrics"] = {"epics": len(items)}
         return _with_root({"epics": items}, root)
 
 
 @core_tool()
-def epic_get(epic_key: str, project_root: str | None = None, include_history: bool = True) -> dict:
+def epic_get(
+    epic_key: str,
+    project_root: str | None = None,
+    include_history: bool = True,
+) -> dict:
     """AUTHORITATIVE EPIC READ. Returns current full spec, spec versions, unlimited audit history, plan and linked Task states. Use this instead of chat memory for Phase 0, execution and final review."""
     root = project_root_for_tool(project_root, tool="epic_get")
     key = _text(epic_key, tool="epic_get", field="epic_key")
-    with mcp_audit(root, "epic_get", arg_keys=["epic_key", "project_root", "include_history"]) as audit:
+    with mcp_audit(
+        root,
+        "epic_get",
+        arg_keys=["epic_key", "project_root", "include_history"],
+    ) as audit:
         result = app_epics.get(root, key=key, include_history=include_history)
         audit["metrics"] = {"epic": result.get("key"), "status": result.get("status")}
         return _with_root(result, root)
@@ -89,33 +107,11 @@ def epic_audit_record(
 def epic_approve(epic_key: str, project_root: str | None = None) -> dict:
     """HUMAN GATE. Call only after the user explicitly says the current Epic specification is approved/agreed. Freezes approved_spec_version; Phase 0 still may create a newer execution spec for obvious reality corrections without rewriting the approved baseline."""
     root = project_root_for_tool(project_root, tool="epic_approve")
-    result = app_epics.approve(root, key=_text(epic_key, tool="epic_approve", field="epic_key"))
+    result = app_epics.approve(
+        root,
+        key=_text(epic_key, tool="epic_approve", field="epic_key"),
+    )
     return _with_root(result, root)
-
-
-def _drift_navigation(root: str, key: str) -> dict | None:
-    epic = app_epics.get(root, key=key, include_history=False)
-    drift_task_id = str(epic.get("drift_task_id") or "")
-    if not drift_task_id:
-        return None
-    task_state = app_tasks.current(root, include_history=False)
-    current = task_state.get("task") if task_state.get("active") else None
-    if current and str(current.get("id")) == drift_task_id:
-        return {
-            "epic": epic,
-            "next_action": {"action": "continue_drift_task", "tool": "task_next", "task": current},
-        }
-    latest = task_state.get("latest") or {}
-    if str(latest.get("id") or "") == drift_task_id and latest.get("status") == "completed":
-        return {
-            "epic": epic,
-            "next_action": {
-                "action": "record_drift_reconciliation",
-                "tool": "epic_reconcile_complete",
-                "message": "Update only affected execution-spec/remaining-plan assumptions. Obvious/strong-recommendation corrections are automatic; human_decisions is only for genuine material trade-offs.",
-            },
-        }
-    return None
 
 
 @core_tool()
@@ -124,9 +120,13 @@ def epic_next(epic_key: str, project_root: str | None = None) -> dict:
     root = project_root_for_tool(project_root, tool="epic_next")
     key = _text(epic_key, tool="epic_next", field="epic_key")
     with mcp_audit(root, "epic_next", arg_keys=["epic_key", "project_root"]) as audit:
-        result = _drift_navigation(root, key) or app_epics.next_action(root, key=key)
+        result = app_epics.next_action(root, key=key)
         action = result.get("next_action") or {}
-        audit["metrics"] = {"epic": key, "action": action.get("action"), "tool": action.get("tool")}
+        audit["metrics"] = {
+            "epic": key,
+            "action": action.get("action"),
+            "tool": action.get("tool"),
+        }
         return _with_root(result, root)
 
 
@@ -191,7 +191,10 @@ def epic_plan_set(
 def epic_archive(epic_key: str, project_root: str | None = None) -> dict:
     """WHEN: epic_next says archive. Allowed only after the final STANDARD Task passed and mechanical closure gates prove documentation changed and reviewed Project Knowledge was published. Preserves all spec versions, audits, plan/Task links and evidence."""
     root = project_root_for_tool(project_root, tool="epic_archive")
-    result = app_epics.archive(root, key=_text(epic_key, tool="epic_archive", field="epic_key"))
+    result = app_epics.archive(
+        root,
+        key=_text(epic_key, tool="epic_archive", field="epic_key"),
+    )
     return _with_root(result, root)
 
 

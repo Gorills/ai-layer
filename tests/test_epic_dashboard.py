@@ -14,9 +14,7 @@ def test_project_epics_projection_is_read_only_and_uses_registered_project(
     monkeypatch.setattr(
         epic_projection,
         "list_registered_projects",
-        lambda existing_only=True: [
-            {"project_id": "project-1", "name": "demo", "root": str(root)}
-        ],
+        lambda existing_only=True: [{"project_id": "project-1", "name": "demo", "root": str(root)}],
     )
     monkeypatch.setattr(
         epic_projection.epic_uc,

@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
 from ai_layer.projections.dashboard import overview_payload, project_payload
 from ai_layer.projections.dashboard_activity import activity_payload
+from ai_layer.projections.dashboard_monitoring import monitoring_payload
 from ai_layer.projections.dashboard_reference import (
     knowledge_detail_payload,
     knowledge_payload,
@@ -127,6 +128,14 @@ def dashboard_knowledge_detail(project_key: str, knowledge_id: str):
             {"project_key": project_key, "knowledge_id": knowledge_id},
             "Knowledge card not found for this project.",
         )
+    return payload
+
+
+@router.get("/monitoring")
+def dashboard_monitoring(project_key: str | None = None):
+    payload = monitoring_payload(project_key)
+    if payload is None:
+        raise _not_found({"project_key": str(project_key)}, "Registered project not found.")
     return payload
 
 

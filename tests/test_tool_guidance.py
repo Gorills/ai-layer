@@ -1,26 +1,15 @@
 from ai_layer.memory.service import _compact_context_hits, build_tool_guidance
 
 
-def test_continuation_of_existing_plan_restores_session_without_speculative_decision_search():
-    guidance = build_tool_guidance(
-        "Продолжи вчерашний план интеграции payment provider",
-        "/repo",
-        [{"score": 0.8}],
-    )
-    calls = guidance["recommended_calls"]
-    assert [item["tool"] for item in calls] == ["session_restore"]
-    assert calls[0]["args"] == {"session_id": "latest", "project_root": "/repo"}
+def test_generic_prompt_does_not_trigger_hidden_session_or_memory_routing():
+    guidance = build_tool_guidance("продолжай", "/repo", [])
+    assert guidance["recommended_calls"] == []
     assert guidance["project_context"] == {"canonical_root": "/repo"}
     assert "task_execution" not in guidance
     assert "avoid" not in guidance
 
 
-def test_generic_continuation_never_recommends_memory_search_when_knowledge_is_empty():
-    guidance = build_tool_guidance("продолжай", "/repo", [])
-    assert [item["tool"] for item in guidance["recommended_calls"]] == ["session_restore"]
-
-
-def test_continuation_context_is_session_first_compact_and_withholds_stale_scanner(monkeypatch):
+def test_memory_context_does_not_special_case_continuation_word(monkeypatch):
     from types import SimpleNamespace
 
     from ai_layer.memory import service
@@ -69,28 +58,8 @@ def test_continuation_context_is_session_first_compact_and_withholds_stale_scann
             "onboarding_recommended": True,
         },
     )
-    monkeypatch.setattr(
-        service,
-        "latest_task_summary",
-        lambda *a, **k: {
-            "key": "T-0001",
-            "goal": "Create scaffold",
-            "status": "completed",
-            "outcome": "Scaffold complete",
-            "changed_path_count": 18,
-            "changed_paths": ["pyproject.toml", "src/linux_tools/daemon.py"],
-            "completed_at": "2026-08-11T03:53:19+00:00",
-            "handoff_available": True,
-            "provenance": "ai_layer_task_history_compact",
-        },
-    )
-    monkeypatch.setattr(
-        service,
-        "_search_memory",
-        lambda *a, **k: (_ for _ in ()).throw(
-            AssertionError("continuation must not semantic-search knowledge")
-        ),
-    )
+    monkeypatch.setattr(service, "relevant_task_history", lambda *a, **k: [])
+    monkeypatch.setattr(service, "relevant_decision_brief", lambda *a, **k: [])
     monkeypatch.setattr(service, "dynamic_policy", lambda root, read_only=False: "policy")
 
     runtime = {
@@ -109,32 +78,27 @@ def test_continuation_context_is_session_first_compact_and_withholds_stale_scann
     }
     payload = service.memory_context(SimpleNamespace(), project, "продолжай", task_runtime=runtime)
 
-    assert context_mode("продолжай") == "continuation"
-    assert context_mode("Продолжай!") == "continuation"
-    assert payload["task_brief"]["presentation_mode"] == "continuation"
-    assert payload["task_brief"]["recent_work"]["key"] == "T-0001"
+    assert context_mode("продолжай") == "task"
+    assert context_mode("Продолжай!") == "task"
+    assert context_mode("Continue previous task") == "task"
+    assert "presentation_mode" not in payload["task_brief"]
     assert "latest" not in payload["task_runtime"]
     assert "DO NOT LEAK" not in repr(payload)
-    assert [item["tool"] for item in payload["tool_guidance"]["recommended_calls"]] == [
-        "session_restore"
-    ]
-    assert payload["scanner_evidence"]["available"] is False
-    assert (
-        payload["scanner_evidence"]["reason"]
-        == "continuation_mode_uses_session_history_and_current_source"
-    )
+    assert payload["tool_guidance"]["recommended_calls"] == []
+    assert payload["scanner_evidence"] == {
+        "available": False,
+        "reason": "scanner_snapshot_not_current",
+        "freshness_status": "refreshing",
+        "snapshot_available": True,
+    }
     assert "wrong-old-entrypoint.md" not in repr(payload)
     assert payload["project"]["profile"] == {
         "available": False,
-        "reason": "continuation_mode_uses_session_history_and_current_source",
+        "reason": "scanner_snapshot_not_current",
     }
     assert payload["freshness"]["scanner_evidence_withheld"] is True
-    assert (
-        payload["context_budget"]["mode"]
-        == "continuation_session_first+dynamic_policy+compact_runtime"
-    )
-    assert payload["context_budget"]["knowledge_chars"] == 2
-    assert payload["context_budget"]["decision_brief_chars"] == 2
+    assert payload["freshness"]["changed_path_count"] is None
+    assert payload["context_budget"]["mode"] == "task_project_brief+dynamic_policy+compact_runtime"
 
 
 def test_ordinary_task_withholds_stale_scanner_evidence_and_profile(monkeypatch):
@@ -201,6 +165,7 @@ def test_ordinary_task_withholds_stale_scanner_evidence_and_profile(monkeypatch)
     }
     assert "obsolete.md" not in repr(payload)
     assert payload["freshness"]["scanner_evidence_withheld"] is True
+    assert payload["freshness"]["changed_path_count"] is None
 
 
 def test_low_confidence_context_recommends_targeted_search():
@@ -571,8 +536,8 @@ def test_russian_knowledge_coverage_audit_selects_inventory_mode():
     from ai_layer.memory.presentation import context_mode
 
     assert context_mode("Проведи аудит покрытия базы знаний проекта") == "knowledge_coverage_audit"
-    assert context_mode("продолжай") == "continuation"
-    assert context_mode("Continue previous task") == "continuation"
+    assert context_mode("продолжай") == "task"
+    assert context_mode("Continue previous task") == "task"
     assert context_mode("Continue using the existing API and add a health endpoint") == "task"
     assert context_mode("Исправь поиск еды") == "task"
 

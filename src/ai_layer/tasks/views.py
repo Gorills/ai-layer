@@ -12,10 +12,7 @@ from ai_layer.db.models import (
     TaskStage,
     VerificationRun,
 )
-from ai_layer.domain.orchestrator import (
-    inline_micro_stage_instruction,
-    orchestrator_stage_instruction,
-)
+from ai_layer.domain.orchestrator import orchestrator_stage_instruction
 from ai_layer.domain.workflow import stage_definition
 from ai_layer.memory.knowledge_store import has_task_drafts
 from ai_layer.tasks.constants import (
@@ -31,6 +28,11 @@ from ai_layer.tasks.constants import (
 )
 from ai_layer.tasks.contracts import _configure_stage_agent, _stage_agent_policy
 from ai_layer.tasks.delegation_contract import build_delegation_contract
+from ai_layer.tasks.micro_runtime import (
+    inline_micro_next_action,
+    is_inline_micro_stage,
+    should_inline_micro_implementation,
+)
 from ai_layer.tasks.review_workspace import cleanup_review_sandbox
 from ai_layer.tasks.state_store import (
     atomic_write_json as _atomic_write_json,
@@ -115,14 +117,6 @@ def _next_ordinal(db: Session, task: Task) -> int:
     return int(value or 0) + 1
 
 
-def _is_inline_micro_stage(stage: TaskStage) -> bool:
-    return (
-        stage.kind == "implement"
-        and not bool(stage.delegation_required)
-        and stage.worker_id == INLINE_MICRO_WORKER_ID
-    )
-
-
 def _create_stage(
     db: Session,
     task: Task,
@@ -148,11 +142,7 @@ def _create_stage(
             state=state,
             snapshot_kind="stage_start",
         )
-    inline_micro = (
-        kind == "implement"
-        and int(task.workflow_version or 1) >= 3
-        and (task.workflow_profile or "standard") == "micro"
-    )
+    inline_micro = should_inline_micro_implementation(task, kind)
     stage = TaskStage(
         task_id=task.id,
         ordinal=_next_ordinal(db, task),
@@ -197,7 +187,7 @@ def _stage_payload(stage: TaskStage) -> dict:
     sandbox_checks = [
         item for item in list(stage.checks or []) if str(item).startswith("[ai-layer-sandbox]")
     ]
-    inline_micro = _is_inline_micro_stage(stage)
+    inline_micro = is_inline_micro_stage(stage)
     return {
         "id": str(stage.id),
         "ordinal": stage.ordinal,
@@ -296,12 +286,11 @@ def _stage_payload_with_verification(db: Session, stage: TaskStage) -> dict:
 
 def _completion_contract(stage: TaskStage, findings: list[dict]) -> dict:
     pending = [item for item in findings if item.get("status") == "pending_verification"]
-    inline_micro = _is_inline_micro_stage(stage)
+    inline_micro = is_inline_micro_stage(stage)
     common = {
         "stage": stage.kind,
         "stage_id": str(stage.id),
         "worker_id": None if inline_micro else (stage.worker_id or None),
-        "execution_mode": "inline_micro" if inline_micro else "delegated",
         "agent_policy": _stage_agent_policy(stage),
         "orchestrator_records_result": not inline_micro,
     }
@@ -384,30 +373,8 @@ def _next_action(task: Task, stage: TaskStage | None) -> dict:
             "message": "No active stage was found for an active task.",
         }
     role = stage_definition(stage.kind).role
-    if _is_inline_micro_stage(stage):
-        return {
-            "action": "inline_micro_implement",
-            "role": "inline_micro_implementer",
-            "stage_id": str(stage.id),
-            "tool": "task_implementation_complete",
-            "required_after_implementation": ["summary", "checks"],
-            "agent_policy": _stage_agent_policy(stage),
-            "orchestrator_contract": inline_micro_stage_instruction(),
-            "completion_precondition": (
-                "Perform the localized change and real focused verification before recording completion."
-            ),
-            "message": (
-                "This MICRO IMPLEMENT stage is explicitly authorized inline: make only the localized repository "
-                "change, run the narrowest relevant check, then call task_implementation_complete. No separate "
-                "implementer subagent is required. AI Layer will inspect the real diff and escalate to STANDARD "
-                "review if the micro envelope is exceeded."
-            ),
-            "forbidden": [
-                "external mutations",
-                "broadening the requested scope",
-                "treating inline authority as permission for later REVIEW/FIX stages",
-            ],
-        }
+    if is_inline_micro_stage(stage):
+        return inline_micro_next_action(stage)
     if stage.worker_id:
         return {
             "action": "record_stage_result",
@@ -484,18 +451,14 @@ def task_to_dict(db: Session, task: Task, *, include_history: bool = True) -> di
     active_finding_payloads = [_finding_payload(item) for item in active_findings[-MAX_FINDINGS:]]
     tier_counts = {"economy": 0, "balanced": 0, "strong": 0}
     delegated_stage_calls = 0
-    inline_stage_calls = 0
     for item in stages:
         tier = str(item.agent_tier or "")
         if tier in tier_counts:
             tier_counts[tier] += 1
-        if _is_inline_micro_stage(item):
-            inline_stage_calls += 1
-        elif item.delegated_at:
+        if item.delegated_at:
             delegated_stage_calls += 1
     agent_usage = {
         "delegated_stages": delegated_stage_calls,
-        "inline_micro_stages": inline_stage_calls,
         "requested_tiers": tier_counts,
         "strong_stages": tier_counts["strong"],
         "assurance": "per-stage model_identity distinguishes requested_unverified, host_reported, and trusted verified sources",
@@ -571,8 +534,6 @@ def _persist_task_view(db: Session, project: Project, task: Task) -> dict:
             (root / "current.json").unlink(missing_ok=True)
             _atomic_write_json(root / "latest.json", payload)
     except (OSError, RuntimeError, TypeError, ValueError) as exc:
-        # PostgreSQL is canonical. Projection/serialization failure must not turn a committed
-        # transition into an apparent state-machine failure that an orchestrator could retry.
         payload = dict(payload)
         payload["projection_warning"] = (
             f"task dashboard projection not updated: {type(exc).__name__}"

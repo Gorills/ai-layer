@@ -70,7 +70,7 @@ def mcp_bootstrap_instructions() -> str:
     """Tiny fallback when native bootstrap delivery is unavailable or drifted."""
     return (
         "For registered-project engineering work, call `memory_context` once. Existing Epic: `epic_next`; "
-        "otherwise `task_next` or use it for the linked Task. Reuse canonical project_root. Top-level chat "
+        "otherwise `task_next` or use it for the linked Task. Reuse canonical project_root. The top-level chat "
         "coordinates only except when task_next authorizes inline_micro_implement. Current source is authoritative. "
         "If AI Layer or delegation fails, report/block instead of bypassing it."
     )

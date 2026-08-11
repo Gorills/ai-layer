@@ -198,7 +198,7 @@
     "max_function_lines": 165,
     "max_function_statements": 67,
     "max_nesting": 5,
-    "modules": 169,
+    "modules": 170,
     "soft_module_warning_lines": 300,
     "soft_warnings": [
       "src/ai_layer/agents/policy.py: 332 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",

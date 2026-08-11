@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 2
+CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 3
 
 
 def critical_orchestrator_contract() -> dict[str, Any]:
@@ -11,13 +11,22 @@ def critical_orchestrator_contract() -> dict[str, Any]:
         "version": CRITICAL_ORCHESTRATOR_CONTRACT_VERSION,
         "role": "orchestrator",
         "authority": "coordinate_only",
-        "repository_mutation": "forbidden",
+        "repository_mutation": "forbidden_unless_task_next_authorizes_inline_micro",
         "external_mutation": "forbidden",
-        "worker_rule": "IMPLEMENT/FIX mutations belong only to the explicitly delegated writable worker.",
+        "worker_rule": (
+            "IMPLEMENT/FIX mutations belong only to the explicitly delegated writable worker, except "
+            "a MICRO IMPLEMENT stage explicitly returned by task_next as inline_micro_implement."
+        ),
         "readonly_rule": "DISCOVERY/REVIEW belong only to explicitly delegated read-only workers.",
-        "delegation_rule": "Bind a worker with task_stage_delegate before that worker performs the stage.",
-        "fallback_rule": "If the required worker cannot run, stop/report; never perform its stage as fallback.",
-        "completion_rule": "Record only the actual delegated worker result.",
+        "delegation_rule": (
+            "Bind a worker with task_stage_delegate before delegated stages; never delegate an inline MICRO "
+            "stage solely to satisfy ceremony."
+        ),
+        "fallback_rule": "If a required worker cannot run, stop/report; never perform its stage as fallback.",
+        "completion_rule": (
+            "Record only the actual delegated worker result, or the top-level actor's own result for an "
+            "explicitly authorized inline MICRO stage."
+        ),
     }
 
 
@@ -26,10 +35,10 @@ def critical_orchestrator_markdown() -> str:
     return """## AI Layer orchestrator boundary
 
 For a managed task, the top-level chat coordinates only.
-- Never edit repository files or mutate external systems yourself.
-- IMPLEMENT/FIX run only in the explicitly delegated writable worker; DISCOVERY/REVIEW run only in delegated read-only workers.
-- Call `task_stage_delegate` before starting a stage worker and record only that worker's actual result.
-- If the required worker/tool cannot run, stop and report the blocker; never do the stage yourself as fallback.
+- Never edit repository files or mutate external systems yourself unless `task_next` explicitly returns `inline_micro_implement` for the current MICRO IMPLEMENT stage. That temporary repository-write permission ends when the stage completes, blocks, or escalates.
+- Normal IMPLEMENT/FIX run only in the explicitly delegated writable worker; DISCOVERY/REVIEW run only in delegated read-only workers.
+- Call `task_stage_delegate` before starting a delegated stage worker and record only that worker's actual result. Do not delegate an explicitly authorized inline MICRO stage just to satisfy ceremony.
+- If a required worker/tool cannot run, stop and report the blocker; never do a delegated stage yourself as fallback.
 """
 
 
@@ -40,6 +49,7 @@ def native_bootstrap_markdown() -> str:
         + """
 For non-trivial engineering work in a registered project:
 - Call `memory_context(task=<actual task>, project_root=<workspace root>)` once, then follow `task_next`. If unregistered, continue normally without AI Layer.
+- When the requested change is obviously localized and low-impact (for example a small UI/text/config-free behavior correction with a focused test), the host may call `task_create(workflow="micro")`. Do not choose MICRO for auth/security/permissions/payments/migrations/schema/data loss/deploy/secrets/concurrency/external mutations, and use auto/standard when scope or risk is uncertain. AI Layer validates the actual post-change diff and escalates MICRO automatically when the proven envelope is exceeded.
 - Reuse the canonical `project_root`; correct context errors instead of bypassing Task Layer. One task/stage/worker is active at a time. A dirty worktree is a valid baseline; never stash/reset/restore/commit user work merely to satisfy AI Layer.
 - Current repository source is authoritative. Project Knowledge/history are navigation; native Agent Skills choose domain relevance and `skill_get` supplies selected guidance.
 - Inspect evidence before editing, make the smallest coherent change, preserve established architecture, and do not add speculative dependencies or parallel abstractions.
@@ -54,10 +64,39 @@ def mcp_bootstrap_instructions() -> str:
     """Tiny fallback when native bootstrap delivery is unavailable or drifted."""
     return (
         "For registered-project engineering work, call `memory_context` once and follow `task_next`; "
-        "reuse its canonical project_root. The top-level chat coordinates only; stage mutation belongs to "
-        "the delegated worker. Current source is authoritative. If AI Layer or required delegation fails, "
-        "report/block instead of bypassing it."
+        "reuse its canonical project_root. The top-level chat coordinates only except when task_next explicitly "
+        "authorizes inline_micro_implement for the current MICRO stage. Otherwise stage mutation belongs to the "
+        "delegated worker. Current source is authoritative. If AI Layer or required delegation fails, report/block "
+        "instead of bypassing it."
     )
+
+
+def inline_micro_stage_instruction() -> dict[str, Any]:
+    """Temporary top-level mutation authority for a machine-bounded MICRO implementation."""
+    return {
+        "role": "inline_micro_implementer",
+        "authority": "temporary_current_stage_only",
+        "repository_mutation": "allowed_current_micro_stage_only",
+        "external_mutation": "forbidden",
+        "stage": "implement",
+        "mandatory": (
+            "Implement only the localized task, run the narrowest relevant check, then call "
+            "task_implementation_complete. AI Layer will inspect the actual repository delta before accepting "
+            "MICRO completion."
+        ),
+        "completion_precondition": (
+            "The top-level actor actually performed the current inline MICRO change and has real verification "
+            "evidence to report."
+        ),
+        "escalation": (
+            "If the actual diff exceeds the MICRO envelope or hits a protected condition, AI Layer converts the "
+            "task to STANDARD and requires an independent delegated review."
+        ),
+        "failure": (
+            "If the task is no longer obviously localized or low-impact, stop broadening the edit; complete only "
+            "the coherent current change so AI Layer can evaluate/escalate the real diff, or report the blocker."
+        ),
+    }
 
 
 def orchestrator_stage_instruction(
@@ -67,7 +106,7 @@ def orchestrator_stage_instruction(
     if delegated:
         return {
             "role": contract["role"],
-            "repository_mutation": contract["repository_mutation"],
+            "repository_mutation": "forbidden",
             "external_mutation": contract["external_mutation"],
             "stage": stage_kind,
             "worker_id": worker_id,
@@ -80,7 +119,7 @@ def orchestrator_stage_instruction(
         }
     return {
         "role": contract["role"],
-        "repository_mutation": contract["repository_mutation"],
+        "repository_mutation": "forbidden",
         "external_mutation": contract["external_mutation"],
         "stage": stage_kind,
         "mandatory": "Bind a fresh worker, then start that worker. Do not perform the stage yourself.",

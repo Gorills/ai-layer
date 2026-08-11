@@ -82,6 +82,18 @@ def test_release_manifest_hashes_match_artifacts():
     }
 
 
+def test_committed_application_wheel_matches_current_source(tmp_path: Path):
+    """Fail closed if runtime source changed without refreshing the installable wheel."""
+    builder = _load_script("build_release_wheel.py")
+    rebuilt = builder.build(tmp_path)
+    manifest = json.loads((ROOT / "release" / "release-manifest.json").read_text(encoding="utf-8"))
+    committed = ROOT / manifest["application_wheel"]
+    assert committed.is_file()
+    assert hashlib.sha256(rebuilt.read_bytes()).digest() == hashlib.sha256(
+        committed.read_bytes()
+    ).digest()
+
+
 def test_application_wheel_console_scripts_match_pyproject(tmp_path: Path):
     builder = _load_script("build_release_wheel.py")
     wheel = builder.build(tmp_path)

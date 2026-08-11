@@ -21,7 +21,6 @@ from ai_layer.tasks.lifecycle import (
     cancel_task,
     create_task,
     delegate_current_stage,
-    recover_disconnected_worker,
     resume_task,
 )
 from ai_layer.tasks.micro_policy import micro_envelope as _micro_envelope
@@ -105,6 +104,7 @@ from ai_layer.tasks.views import (
     current_task,
     task_to_dict,
 )
+from ai_layer.tasks.worker_leases import recover_disconnected_worker
 from ai_layer.workspace.repository import (
     capture_repository_state,
     repository_changes,

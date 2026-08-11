@@ -1,0 +1,29 @@
+name: epics-quality-debug
+on:
+  push:
+    branches: [feature/epics-v1]
+permissions:
+  contents: write
+jobs:
+  debug:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/epics-v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Capture canonical quality diagnostics
+        run: |
+          python scripts/quality_gate.py --deterministic-wheel --continue-on-failure --json > ci-quality-debug.json || true
+      - name: Commit diagnostic output
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- ci-quality-debug.json
+          git commit -m 'Capture Epics quality diagnostics'
+          git push origin HEAD:feature/epics-v1

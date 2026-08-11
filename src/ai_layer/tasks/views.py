@@ -12,10 +12,15 @@ from ai_layer.db.models import (
     TaskStage,
     VerificationRun,
 )
-from ai_layer.domain.orchestrator import orchestrator_stage_instruction
+from ai_layer.domain.orchestrator import (
+    inline_micro_stage_instruction,
+    orchestrator_stage_instruction,
+)
 from ai_layer.domain.workflow import stage_definition
+from ai_layer.memory.knowledge_store import has_task_drafts
 from ai_layer.tasks.constants import (
     HUMAN_ATTENTION_PREFIX,
+    INLINE_MICRO_WORKER_ID,
     MAX_AUTOMATIC_FIX_ROUNDS,
     MAX_FINDINGS,
     MAX_STAGE_HISTORY,
@@ -110,6 +115,14 @@ def _next_ordinal(db: Session, task: Task) -> int:
     return int(value or 0) + 1
 
 
+def _is_inline_micro_stage(stage: TaskStage) -> bool:
+    return (
+        stage.kind == "implement"
+        and not bool(stage.delegation_required)
+        and stage.worker_id == INLINE_MICRO_WORKER_ID
+    )
+
+
 def _create_stage(
     db: Session,
     task: Task,
@@ -135,6 +148,11 @@ def _create_stage(
             state=state,
             snapshot_kind="stage_start",
         )
+    inline_micro = (
+        kind == "implement"
+        and int(task.workflow_version or 1) >= 3
+        and (task.workflow_profile or "standard") == "micro"
+    )
     stage = TaskStage(
         task_id=task.id,
         ordinal=_next_ordinal(db, task),
@@ -142,7 +160,8 @@ def _create_stage(
         status="active",
         review_round=review_round,
         fix_round=fix_round,
-        delegation_required=True,
+        delegation_required=not inline_micro,
+        worker_id=INLINE_MICRO_WORKER_ID if inline_micro else "",
         repository_digest_before=str(state.get("digest") or ""),
         start_snapshot_id=snapshot.id,
     )
@@ -178,6 +197,7 @@ def _stage_payload(stage: TaskStage) -> dict:
     sandbox_checks = [
         item for item in list(stage.checks or []) if str(item).startswith("[ai-layer-sandbox]")
     ]
+    inline_micro = _is_inline_micro_stage(stage)
     return {
         "id": str(stage.id),
         "ordinal": stage.ordinal,
@@ -186,6 +206,7 @@ def _stage_payload(stage: TaskStage) -> dict:
         "status": stage.status,
         "review_round": stage.review_round,
         "fix_round": stage.fix_round,
+        "execution_mode": "inline_micro" if inline_micro else "delegated",
         "delegation_required": bool(stage.delegation_required),
         "delegated": bool(stage.delegated_at),
         "explicitly_delegated": bool(stage.delegated_at),
@@ -196,7 +217,7 @@ def _stage_payload(stage: TaskStage) -> dict:
         "worker_lease_expires_at": (
             stage.worker_lease_expires_at.isoformat() if stage.worker_lease_expires_at else None
         ),
-        "worker_id": stage.worker_id or None,
+        "worker_id": None if inline_micro else (stage.worker_id or None),
         "agent_policy": _stage_agent_policy(stage),
         "model_identity": {
             "requested": stage.agent_model or None,
@@ -205,14 +226,22 @@ def _stage_payload(stage: TaskStage) -> dict:
         },
         "telemetry": dict(stage.telemetry or {}),
         "worker_identity_assurance": (
-            "legacy-unverified-worker-label"
-            if stage.worker_id and not stage.delegation_required
-            else ("label-only" if stage.worker_id else None)
+            "inline-top-level-actor"
+            if inline_micro
+            else (
+                "legacy-unverified-worker-label"
+                if stage.worker_id and not stage.delegation_required
+                else ("label-only" if stage.worker_id else None)
+            )
         ),
         "delegation_assurance": (
-            "legacy-no-explicit-delegation"
-            if not stage.delegation_required
-            else ("explicit-pre-mutation-label" if stage.delegated_at else "required-not-yet-bound")
+            "inline-micro-machine-authorized"
+            if inline_micro
+            else (
+                "legacy-no-explicit-delegation"
+                if not stage.delegation_required
+                else ("explicit-pre-mutation-label" if stage.delegated_at else "required-not-yet-bound")
+            )
         ),
         "outcome": stage.outcome or None,
         "summary": stage.summary,
@@ -221,7 +250,11 @@ def _stage_payload(stage: TaskStage) -> dict:
         "check_evidence_assurance": (
             "ai-layer-executed-sandbox+reported-by-worker"
             if sandbox_checks
-            else ("reported-by-worker" if stage.checks else None)
+            else (
+                "reported-by-inline-actor"
+                if inline_micro and stage.checks
+                else ("reported-by-worker" if stage.checks else None)
+            )
         ),
         "changes": dict(stage.changes or {}),
         "result_data": dict(stage.result_data or {}),
@@ -263,12 +296,14 @@ def _stage_payload_with_verification(db: Session, stage: TaskStage) -> dict:
 
 def _completion_contract(stage: TaskStage, findings: list[dict]) -> dict:
     pending = [item for item in findings if item.get("status") == "pending_verification"]
+    inline_micro = _is_inline_micro_stage(stage)
     common = {
         "stage": stage.kind,
         "stage_id": str(stage.id),
-        "worker_id": stage.worker_id or None,
+        "worker_id": None if inline_micro else (stage.worker_id or None),
+        "execution_mode": "inline_micro" if inline_micro else "delegated",
         "agent_policy": _stage_agent_policy(stage),
-        "orchestrator_records_result": True,
+        "orchestrator_records_result": not inline_micro,
     }
     if stage.kind == "discovery":
         return {
@@ -349,6 +384,30 @@ def _next_action(task: Task, stage: TaskStage | None) -> dict:
             "message": "No active stage was found for an active task.",
         }
     role = stage_definition(stage.kind).role
+    if _is_inline_micro_stage(stage):
+        return {
+            "action": "inline_micro_implement",
+            "role": "inline_micro_implementer",
+            "stage_id": str(stage.id),
+            "tool": "task_implementation_complete",
+            "required_after_implementation": ["summary", "checks"],
+            "agent_policy": _stage_agent_policy(stage),
+            "orchestrator_contract": inline_micro_stage_instruction(),
+            "completion_precondition": (
+                "Perform the localized change and real focused verification before recording completion."
+            ),
+            "message": (
+                "This MICRO IMPLEMENT stage is explicitly authorized inline: make only the localized repository "
+                "change, run the narrowest relevant check, then call task_implementation_complete. No separate "
+                "implementer subagent is required. AI Layer will inspect the real diff and escalate to STANDARD "
+                "review if the micro envelope is exceeded."
+            ),
+            "forbidden": [
+                "external mutations",
+                "broadening the requested scope",
+                "treating inline authority as permission for later REVIEW/FIX stages",
+            ],
+        }
     if stage.worker_id:
         return {
             "action": "record_stage_result",
@@ -396,8 +455,18 @@ def _delegation_contract(db: Session, task: Task, stage: TaskStage | None) -> di
         for item in _findings(db, task)
         if item.status in {"open", "pending_verification"}
     ]
+    knowledge_review_required = False
+    if stage.kind == "review":
+        project = db.get(Project, task.project_id)
+        knowledge_review_required = bool(
+            project is not None and has_task_drafts(db, project, str(task.id))
+        )
     return build_delegation_contract(
-        task, stage, open_findings, _completion_contract(stage, open_findings)
+        task,
+        stage,
+        open_findings,
+        _completion_contract(stage, open_findings),
+        knowledge_review_required=knowledge_review_required,
     )
 
 
@@ -415,14 +484,18 @@ def task_to_dict(db: Session, task: Task, *, include_history: bool = True) -> di
     active_finding_payloads = [_finding_payload(item) for item in active_findings[-MAX_FINDINGS:]]
     tier_counts = {"economy": 0, "balanced": 0, "strong": 0}
     delegated_stage_calls = 0
+    inline_stage_calls = 0
     for item in stages:
         tier = str(item.agent_tier or "")
         if tier in tier_counts:
             tier_counts[tier] += 1
-        if item.worker_id:
+        if _is_inline_micro_stage(item):
+            inline_stage_calls += 1
+        elif item.delegated_at:
             delegated_stage_calls += 1
     agent_usage = {
         "delegated_stages": delegated_stage_calls,
+        "inline_micro_stages": inline_stage_calls,
         "requested_tiers": tier_counts,
         "strong_stages": tier_counts["strong"],
         "assurance": "per-stage model_identity distinguishes requested_unverified, host_reported, and trusted verified sources",

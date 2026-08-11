@@ -189,8 +189,7 @@ def test_review_contract_mentions_project_knowledge_only_when_drafts_exist(
             "knowledge_list"
         )
         assert any(
-            "knowledge_list" in item
-            for item in with_drafts["delegation_contract"]["requirements"]
+            "knowledge_list" in item for item in with_drafts["delegation_contract"]["requirements"]
         )
     finally:
         db.close()

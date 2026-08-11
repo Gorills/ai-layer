@@ -12,4 +12,6 @@ async function request(path) {
 export const api = {
   overview: () => request("/overview"),
   project: (key) => request(`/projects/${encodeURIComponent(key)}`),
+  projectEpics: (key) => request(`/projects/${encodeURIComponent(key)}/epics`),
+  epic: (projectKey, epicKey) => request(`/projects/${encodeURIComponent(projectKey)}/epics/${encodeURIComponent(epicKey)}`),
 };

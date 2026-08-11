@@ -57,3 +57,25 @@
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.035);
 }
+
+.project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -3px 0 16px;
+}
+
+.project-actions a {
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted, #8b9bab);
+  font-size: 9px;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.project-actions a:hover {
+  border-color: var(--border, #203142);
+  background: var(--panel-raised, #142231);
+  color: var(--text, #edf3f8);
+}

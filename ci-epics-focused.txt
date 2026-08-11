@@ -16,6 +16,18 @@ Found 1 error.
 
 === ruff-format exit=1 ===
 unformatted: File would be reformatted
+  --> src/ai_layer/application/epic_task_boundary.py:23:17
+   |
+22 |     if stage is None:
+   -         return {"digest": str(task.baseline_digest or ""), "file_count": int(task.baseline_files or 0)}
+23 +         return {
+24 +             "digest": str(task.baseline_digest or ""),
+25 +             "file_count": int(task.baseline_files or 0),
+26 +         }
+27 |
+   |
+
+unformatted: File would be reformatted
    --> tests/test_epic_human_gates.py:146:30
     |
 145 |             summary="A material public-contract trade-off remains.",
@@ -26,12 +38,12 @@ unformatted: File would be reformatted
 147 |         )
     |
 
-1 file would be reformatted, 215 files already formatted
+2 files would be reformatted, 215 files already formatted
 
 === mypy exit=0 ===
 src/ai_layer/db/session.py:93: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
 src/ai_layer/cli/commands/maintenance.py:201: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
-Success: no issues found in 169 source files
+Success: no issues found in 170 source files
 
 === epic-tests exit=2 ===
 
@@ -82,7 +94,7 @@ ERROR tests/test_epic_mcp_runtime.py
     "max_function_lines": 165,
     "max_function_statements": 67,
     "max_nesting": 5,
-    "modules": 169,
+    "modules": 170,
     "soft_module_warning_lines": 300,
     "soft_warnings": [
       "src/ai_layer/agents/policy.py: 332 lines exceeds soft maintainability warning 300; new growth should justify ownership or extract a cohesive seam",

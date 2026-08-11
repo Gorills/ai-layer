@@ -5,6 +5,7 @@ This checklist is the promotion/field-validation contract for `0.12.0`. It does 
 ## Install and runtime
 
 - Clean-install or update the committed `0.12.0` release artifact.
+- Confirm the installed wheel SHA-256 matches `release/release-manifest.json` before running black-box acceptance.
 - Confirm `ai-layer` reports `0.12.0` and Alembic reaches `0014_epics_v1` without resetting existing Project/Task/Knowledge state.
 - Confirm the user service, persistent core, MCP bridge and Dashboard recover after a real `systemd --user` restart.
 

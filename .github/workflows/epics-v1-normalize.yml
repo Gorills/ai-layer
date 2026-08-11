@@ -1,0 +1,79 @@
+name: epics-v1-normalize
+on:
+  push:
+    branches: [feature/epics-v1]
+permissions:
+  contents: write
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/epics-v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Normalize new Epic sources and catalog assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/test_skills.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('assert len(skills) == 42', 'assert len(skills) == 43')
+          text = text.replace('assert len(results[0]) == 42', 'assert len(results[0]) == 43')
+          path.write_text(text, encoding='utf-8')
+
+          path = Path('tests/test_epics.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('from pathlib import Path\n', 'from pathlib import Path\nfrom uuid import UUID\n')
+          text = text.replace('db.get(Task, retry["task"]["id"])', 'db.get(Task, UUID(retry["task"]["id"]))')
+          text = text.replace('EpicPlanItem.epic_id == archived["id"]', 'EpicPlanItem.epic_id == UUID(archived["id"])')
+          path.write_text(text, encoding='utf-8')
+          PY
+          python -m ruff check --fix \
+            src/ai_layer/epics \
+            src/ai_layer/db/epic_models.py \
+            src/ai_layer/application/epic_common.py \
+            src/ai_layer/application/epic_lifecycle.py \
+            src/ai_layer/application/epic_execution.py \
+            src/ai_layer/application/epics.py \
+            src/ai_layer/mcp/tools/epics.py \
+            src/ai_layer/projections/epics.py \
+            tests/test_epics.py \
+            alembic/versions/0014_epics_v1.py
+          python -m ruff format \
+            src/ai_layer/epics \
+            src/ai_layer/db/epic_models.py \
+            src/ai_layer/application/epic_common.py \
+            src/ai_layer/application/epic_lifecycle.py \
+            src/ai_layer/application/epic_execution.py \
+            src/ai_layer/application/epics.py \
+            src/ai_layer/mcp/tools/epics.py \
+            src/ai_layer/projections/epics.py \
+            tests/test_epics.py \
+            alembic/versions/0014_epics_v1.py
+      - name: Commit normalization
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- \
+            tests/test_skills.py \
+            tests/test_epics.py \
+            src/ai_layer/epics/__init__.py \
+            src/ai_layer/epics/contracts.py \
+            src/ai_layer/db/epic_models.py \
+            src/ai_layer/application/epic_common.py \
+            src/ai_layer/application/epic_lifecycle.py \
+            src/ai_layer/application/epic_execution.py \
+            src/ai_layer/application/epics.py \
+            src/ai_layer/mcp/tools/epics.py \
+            src/ai_layer/projections/epics.py \
+            alembic/versions/0014_epics_v1.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'Normalize Epics v1 sources'
+            git push origin HEAD:feature/epics-v1
+          fi

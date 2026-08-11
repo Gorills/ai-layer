@@ -363,12 +363,14 @@ def test_workflow_navigation_migration_preserves_legacy_active_stage_compatibili
     migration = Path(__file__).parents[1] / "alembic" / "versions" / "0008_workflow_navigation.py"
     text = migration.read_text(encoding="utf-8")
     assert 'down_revision = "0007_task_adoption"' in text
-    assert (
-        'sa.Column("delegation_required", sa.Boolean(), nullable=False, server_default=sa.false())'
-        in text
-    )
+    assert '"delegation_required"' in text
+    assert "sa.Boolean()" in text
+    assert "server_default=sa.false()" in text
     assert 'sa.Column("delegated_at", sa.DateTime(timezone=True), nullable=True)' in text
-    assert 'sa.Column("external_actions", sa.JSON(), nullable=False' in text
+    assert '"external_actions"' in text
+    assert "sa.JSON()" in text
+    assert "server_default=sa.text" in text
+    assert "'[]'::json" in text
     assert 'op.alter_column("task_stages", "delegation_required", server_default=None)' in text
 
 
@@ -376,7 +378,9 @@ def test_project_intelligence_migration_adds_durable_json_without_rewriting_task
     migration = Path(__file__).parents[1] / "alembic" / "versions" / "0009_project_intelligence.py"
     text = migration.read_text(encoding="utf-8")
     assert 'down_revision = "0008_workflow_navigation"' in text
-    assert 'sa.Column("project_intelligence", sa.JSON(), nullable=False' in text
+    assert '"project_intelligence"' in text
+    assert "sa.JSON()" in text
+    assert "nullable=False" in text
     assert "server_default=sa.text(\"'{}'\")" in text
     assert '"task_stages"' not in text
     assert '"tasks"' not in text

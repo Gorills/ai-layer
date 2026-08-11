@@ -30,6 +30,7 @@ def test_mcp_project_skill_create_uses_explicit_registered_identity_not_cwd(tmp_
         result = server.skill_project_create(
             slug="ide-project-skill",
             content="# IDE Project Skill\n\n## Core contract\n\nUse the established adapter seam.\n",
+            description="Apply when modifying project adapter seams, integration boundaries, or adapter contracts.",
             task_terms=["adapter-seam"],
             project_root=str(project),
         )

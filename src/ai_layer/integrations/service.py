@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil as shutil
+import subprocess as subprocess
 from pathlib import Path
 
 from ai_layer import __version__
@@ -29,6 +31,7 @@ from ai_layer.integrations.global_install import (
     remove_global_integrations as remove_global_integrations,
 )
 from ai_layer.integrations.runtime_config import _mcp_command, _server
+from ai_layer.integrations.runtime_config import _workflow as _workflow
 from ai_layer.integrations.status import (
     IntegrationStatusDependencies,
 )

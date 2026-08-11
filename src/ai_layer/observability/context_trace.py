@@ -10,6 +10,9 @@ from ai_layer import __version__
 from ai_layer.core.filelock import directory_lock
 from ai_layer.core.mcp_process import current_mcp_session_id
 from ai_layer.observability.context_common import (
+    estimate_tokens as estimate_tokens,
+)
+from ai_layer.observability.context_common import (
     profile_value as _profile,
 )
 from ai_layer.observability.context_common import (

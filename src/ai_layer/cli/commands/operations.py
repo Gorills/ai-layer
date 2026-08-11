@@ -409,9 +409,11 @@ def projects_remove(
 ):
     """Remove an accidental project registration, its AI-owned bridges/state, and its DB project row."""
     if not yes:
-        raise typer.BadParameter(
-            "--yes is required because this deletes AI Layer memory/session/decision state for the selected root"
+        typer.echo(
+            "--yes is required because this deletes AI Layer memory/session/decision state for the selected root",
+            err=True,
         )
+        raise typer.Exit(2)
     echo({"ok": True, **app_remove_project(path)})
 
 

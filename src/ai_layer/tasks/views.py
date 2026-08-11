@@ -5,15 +5,10 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ai_layer.db.models import (
-    Project,
-    ReviewFinding,
-    Task,
-    TaskStage,
-    VerificationRun,
-)
+from ai_layer.db.models import Project, ReviewFinding, Task, TaskStage
 from ai_layer.domain.orchestrator import orchestrator_stage_instruction
 from ai_layer.domain.workflow import stage_definition
+from ai_layer.memory.knowledge_store import has_task_drafts
 from ai_layer.tasks.constants import (
     HUMAN_ATTENTION_PREFIX,
     MAX_AUTOMATIC_FIX_ROUNDS,
@@ -26,7 +21,23 @@ from ai_layer.tasks.constants import (
 )
 from ai_layer.tasks.contracts import _configure_stage_agent, _stage_agent_policy
 from ai_layer.tasks.delegation_contract import build_delegation_contract
+from ai_layer.tasks.micro_runtime import (
+    INLINE_MICRO_WORKER_ID,
+    inline_micro_next_action,
+    is_inline_micro_stage,
+    should_inline_micro_implementation,
+)
 from ai_layer.tasks.review_workspace import cleanup_review_sandbox
+from ai_layer.tasks.stage_views import (
+    _completion_contract,
+    _stage_payload_with_verification,
+)
+from ai_layer.tasks.stage_views import (
+    _stage_label as _stage_label,
+)
+from ai_layer.tasks.stage_views import (
+    _stage_payload as _stage_payload,
+)
 from ai_layer.tasks.state_store import (
     atomic_write_json as _atomic_write_json,
 )
@@ -38,16 +49,6 @@ from ai_layer.tasks.state_store import (
 from ai_layer.tasks.state_store import (
     task_root as _task_root,
 )
-
-
-def _stage_label(stage: TaskStage) -> str:
-    if stage.kind == "review":
-        return f"review #{stage.review_round}"
-    if stage.kind == "fix":
-        return f"fix #{stage.fix_round}"
-    if stage.kind == "discovery":
-        return "discovery"
-    return "implementation"
 
 
 def _human_attention_reason(task: Task) -> str | None:
@@ -135,6 +136,7 @@ def _create_stage(
             state=state,
             snapshot_kind="stage_start",
         )
+    inline_micro = should_inline_micro_implementation(task, kind)
     stage = TaskStage(
         task_id=task.id,
         ordinal=_next_ordinal(db, task),
@@ -142,7 +144,8 @@ def _create_stage(
         status="active",
         review_round=review_round,
         fix_round=fix_round,
-        delegation_required=True,
+        delegation_required=not inline_micro,
+        worker_id=INLINE_MICRO_WORKER_ID if inline_micro else "",
         repository_digest_before=str(state.get("digest") or ""),
         start_snapshot_id=snapshot.id,
     )
@@ -171,150 +174,6 @@ def _finding_payload(item: ReviewFinding) -> dict:
         "verified_by_stage_id": str(item.verified_by_stage_id)
         if item.verified_by_stage_id
         else None,
-    }
-
-
-def _stage_payload(stage: TaskStage) -> dict:
-    sandbox_checks = [
-        item for item in list(stage.checks or []) if str(item).startswith("[ai-layer-sandbox]")
-    ]
-    return {
-        "id": str(stage.id),
-        "ordinal": stage.ordinal,
-        "kind": stage.kind,
-        "label": _stage_label(stage),
-        "status": stage.status,
-        "review_round": stage.review_round,
-        "fix_round": stage.fix_round,
-        "delegation_required": bool(stage.delegation_required),
-        "delegated": bool(stage.delegated_at),
-        "explicitly_delegated": bool(stage.delegated_at),
-        "delegated_at": stage.delegated_at.isoformat() if stage.delegated_at else None,
-        "worker_heartbeat_at": stage.worker_heartbeat_at.isoformat()
-        if stage.worker_heartbeat_at
-        else None,
-        "worker_lease_expires_at": (
-            stage.worker_lease_expires_at.isoformat() if stage.worker_lease_expires_at else None
-        ),
-        "worker_id": stage.worker_id or None,
-        "agent_policy": _stage_agent_policy(stage),
-        "model_identity": {
-            "requested": stage.agent_model or None,
-            "actual": stage.actual_model or None,
-            "assurance": stage.model_assurance or "requested_unverified",
-        },
-        "telemetry": dict(stage.telemetry or {}),
-        "worker_identity_assurance": (
-            "legacy-unverified-worker-label"
-            if stage.worker_id and not stage.delegation_required
-            else ("label-only" if stage.worker_id else None)
-        ),
-        "delegation_assurance": (
-            "legacy-no-explicit-delegation"
-            if not stage.delegation_required
-            else ("explicit-pre-mutation-label" if stage.delegated_at else "required-not-yet-bound")
-        ),
-        "outcome": stage.outcome or None,
-        "summary": stage.summary,
-        "checks": list(stage.checks or []),
-        "external_actions": list(stage.external_actions or []),
-        "check_evidence_assurance": (
-            "ai-layer-executed-sandbox+reported-by-worker"
-            if sandbox_checks
-            else ("reported-by-worker" if stage.checks else None)
-        ),
-        "changes": dict(stage.changes or {}),
-        "result_data": dict(stage.result_data or {}),
-        "start_snapshot_id": str(stage.start_snapshot_id) if stage.start_snapshot_id else None,
-        "created_at": stage.created_at.isoformat() if stage.created_at else None,
-        "completed_at": stage.completed_at.isoformat() if stage.completed_at else None,
-    }
-
-
-def _verification_payloads(db: Session, stage: TaskStage) -> list[dict]:
-    rows = db.scalars(
-        select(VerificationRun)
-        .where(VerificationRun.stage_id == stage.id)
-        .order_by(VerificationRun.created_at)
-    ).all()
-    return [
-        {
-            "id": str(row.id),
-            "assurance": row.assurance,
-            "command": list(row.command or []),
-            "cwd": row.cwd,
-            "started_at": row.started_at.isoformat(),
-            "completed_at": row.completed_at.isoformat(),
-            "exit_code": row.exit_code,
-            "timed_out": bool(row.timed_out),
-            "passed": (not row.timed_out and row.exit_code == 0),
-            "output_summary": row.output_summary,
-            "evidence_ref": row.evidence_ref,
-        }
-        for row in rows
-    ]
-
-
-def _stage_payload_with_verification(db: Session, stage: TaskStage) -> dict:
-    payload = _stage_payload(stage)
-    payload["verification"] = _verification_payloads(db, stage)
-    return payload
-
-
-def _completion_contract(stage: TaskStage, findings: list[dict]) -> dict:
-    pending = [item for item in findings if item.get("status") == "pending_verification"]
-    common = {
-        "stage": stage.kind,
-        "stage_id": str(stage.id),
-        "worker_id": stage.worker_id or None,
-        "agent_policy": _stage_agent_policy(stage),
-        "orchestrator_records_result": True,
-    }
-    if stage.kind == "discovery":
-        return {
-            **common,
-            "tool": "task_discovery_complete",
-            "required": ["summary", "checks", "outcome"],
-            "optional": [
-                "verified_facts",
-                "risks",
-                "proposed_plan",
-                "proposed_acceptance_criteria",
-                "external_actions",
-            ],
-            "outcomes": [
-                "ready_for_implementation",
-                "analysis_complete",
-                "no_change_needed",
-                "blocked",
-            ],
-        }
-    if stage.kind == "review":
-        return {
-            **common,
-            "tool": "task_review_complete",
-            "required": ["summary", "checks", "verdict"]
-            + (["verification_results"] if pending else []),
-            "optional": ["findings", "external_actions"],
-            "verdicts": ["pass", "changes_required"],
-            "finding_required_fields": ["severity", "problem"],
-            "verification_required_fields": ["finding_id", "status", "evidence"],
-            "findings_to_verify": [item.get("id") for item in pending],
-        }
-    if stage.kind == "fix":
-        return {
-            **common,
-            "tool": "task_fix_complete",
-            "required": ["summary", "checks"],
-            "optional": ["outcome", "external_actions"],
-            "outcomes": ["done", "no_changes_needed", "blocked"],
-        }
-    return {
-        **common,
-        "tool": "task_implementation_complete",
-        "required": ["summary", "checks"],
-        "optional": ["outcome", "external_actions"],
-        "outcomes": ["done", "blocked"],
     }
 
 
@@ -349,6 +208,8 @@ def _next_action(task: Task, stage: TaskStage | None) -> dict:
             "message": "No active stage was found for an active task.",
         }
     role = stage_definition(stage.kind).role
+    if is_inline_micro_stage(stage):
+        return inline_micro_next_action(stage)
     if stage.worker_id:
         return {
             "action": "record_stage_result",
@@ -396,8 +257,18 @@ def _delegation_contract(db: Session, task: Task, stage: TaskStage | None) -> di
         for item in _findings(db, task)
         if item.status in {"open", "pending_verification"}
     ]
+    knowledge_review_required = False
+    if stage.kind == "review":
+        project = db.get(Project, task.project_id)
+        knowledge_review_required = bool(
+            project is not None and has_task_drafts(db, project, str(task.id))
+        )
     return build_delegation_contract(
-        task, stage, open_findings, _completion_contract(stage, open_findings)
+        task,
+        stage,
+        open_findings,
+        _completion_contract(stage, open_findings),
+        knowledge_review_required=knowledge_review_required,
     )
 
 
@@ -419,7 +290,7 @@ def task_to_dict(db: Session, task: Task, *, include_history: bool = True) -> di
         tier = str(item.agent_tier or "")
         if tier in tier_counts:
             tier_counts[tier] += 1
-        if item.worker_id:
+        if item.delegated_at:
             delegated_stage_calls += 1
     agent_usage = {
         "delegated_stages": delegated_stage_calls,
@@ -498,8 +369,6 @@ def _persist_task_view(db: Session, project: Project, task: Task) -> dict:
             (root / "current.json").unlink(missing_ok=True)
             _atomic_write_json(root / "latest.json", payload)
     except (OSError, RuntimeError, TypeError, ValueError) as exc:
-        # PostgreSQL is canonical. Projection/serialization failure must not turn a committed
-        # transition into an apparent state-machine failure that an orchestrator could retry.
         payload = dict(payload)
         payload["projection_warning"] = (
             f"task dashboard projection not updated: {type(exc).__name__}"
@@ -547,6 +416,10 @@ def _validate_worker_id(
     worker = worker_id.strip()
     if not worker:
         raise ValueError("`worker_id` is required for every delegated subagent stage.")
+    if current_stage_id is not None:
+        current_stage = db.get(TaskStage, current_stage_id)
+        if current_stage is not None and is_inline_micro_stage(current_stage):
+            return INLINE_MICRO_WORKER_ID
     if len(worker) > MAX_WORKER_ID_CHARS:
         raise ValueError(f"`worker_id` exceeds the {MAX_WORKER_ID_CHARS}-character limit.")
     stmt = select(TaskStage.id).where(TaskStage.task_id == task.id, TaskStage.worker_id == worker)

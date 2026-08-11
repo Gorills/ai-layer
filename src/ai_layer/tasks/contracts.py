@@ -112,6 +112,111 @@ def _bounded_result_data(value: dict | None) -> dict:
     return redacted
 
 
+def _classify_risk(
+    *,
+    text: str,
+    fragility: str,
+    explicit_micro: bool,
+    requested: str,
+    reasons: list[str],
+) -> tuple[str, bool]:
+    high_risk_domain = _contains_any(text, HIGH_RISK_TERMS)
+    if requested != "auto":
+        reasons.append(f"risk explicitly requested as {requested}")
+        return requested, high_risk_domain
+    if high_risk_domain:
+        reasons.append("task touches a high-risk domain")
+        return "high", True
+    if fragility in {"medium", "high"}:
+        reasons.append(f"project scanner reports {fragility} change fragility")
+        return "normal", False
+    if explicit_micro:
+        reasons.append(
+            "host selected micro; final repository delta must prove the low-risk micro envelope"
+        )
+        return "low", False
+    if _contains_any(text, MICRO_TERMS) and fragility == "low":
+        reasons.append("task wording identifies a localized low-risk micro correction")
+        return "low", False
+    return "normal", False
+
+
+def _classify_complexity(
+    *, text: str, acceptance_criteria: list[str], explicit_micro: bool, requested: str
+) -> str:
+    if requested != "auto":
+        return requested
+    if _contains_any(text, COMPLEXITY_TERMS) or len(acceptance_criteria) >= 6:
+        return "high"
+    if (explicit_micro or _contains_any(text, MICRO_TERMS)) and len(acceptance_criteria) <= 2:
+        return "low"
+    return "normal"
+
+
+def _classify_uncertainty(
+    *, text: str, fragility: str, explicit_micro: bool, has_discovery: bool, requested: str
+) -> str:
+    if requested != "auto":
+        return requested
+    if has_discovery or _contains_any(text, UNCERTAINTY_TERMS):
+        return "high"
+    if explicit_micro or (_contains_any(text, MICRO_TERMS) and fragility == "low"):
+        return "low"
+    return "normal"
+
+
+def _select_workflow_profile(
+    *,
+    requested: str,
+    text: str,
+    has_discovery: bool,
+    has_mutation: bool,
+    risk_level: str,
+    fragility: str,
+) -> str:
+    if requested != "auto":
+        return requested
+    if has_discovery and has_mutation:
+        return "discovery_first"
+    if has_discovery:
+        return "analysis_only"
+    if risk_level == "low" and fragility == "low" and _contains_any(text, MICRO_TERMS):
+        return "micro"
+    return "standard"
+
+
+def _enforce_micro_eligibility(
+    *,
+    profile: str,
+    risk_level: str,
+    fragility: str,
+    complexity_level: str,
+    uncertainty_level: str,
+    high_risk_domain: bool,
+    reasons: list[str],
+) -> tuple[str, str]:
+    if profile != "micro":
+        return profile, risk_level
+    if high_risk_domain:
+        reasons.append(
+            "micro request escalated because high-risk domains require independent review"
+        )
+        return "standard", "high"
+    if risk_level != "low":
+        reasons.append("micro request escalated because risk is not low")
+        return "standard", risk_level
+    if fragility in {"medium", "high"}:
+        reasons.append(f"micro request escalated because project fragility is {fragility}")
+        return "standard", risk_level
+    if complexity_level != "low":
+        reasons.append("micro request escalated because complexity is not low")
+        return "standard", risk_level
+    if uncertainty_level != "low":
+        reasons.append("micro request escalated because uncertainty is not low")
+        return "standard", risk_level
+    return profile, risk_level
+
+
 def _classify_task(
     project: Project,
     *,
@@ -149,63 +254,49 @@ def _classify_task(
     text = _task_text(goal, acceptance_criteria, constraints)
     legacy = dict((project.project_intelligence or {}).get("legacy") or {})
     fragility = str(legacy.get("level") or "unknown").lower()
+    explicit_micro = workflow == "micro"
     reasons: list[str] = []
-    if risk == "auto":
-        if _contains_any(text, HIGH_RISK_TERMS):
-            risk_level = "high"
-            reasons.append("task touches a high-risk domain")
-        elif fragility == "high":
-            risk_level = "normal"
-            reasons.append("project scanner reports high change fragility")
-        elif (workflow == "micro" or _contains_any(text, MICRO_TERMS)) and fragility == "low":
-            risk_level = "low"
-            reasons.append("task is explicitly/localized as a low-risk micro correction")
-        else:
-            risk_level = "normal"
-    else:
-        risk_level = risk
-        reasons.append(f"risk explicitly requested as {risk}")
-
+    risk_level, high_risk_domain = _classify_risk(
+        text=text,
+        fragility=fragility,
+        explicit_micro=explicit_micro,
+        requested=risk,
+        reasons=reasons,
+    )
     has_discovery = _contains_any(text, DISCOVERY_TERMS)
     has_mutation = _contains_any(text, MUTATION_INTENT_TERMS)
-    if complexity == "auto":
-        if _contains_any(text, COMPLEXITY_TERMS) or len(acceptance_criteria) >= 6:
-            complexity_level = "high"
-        elif _contains_any(text, MICRO_TERMS) and len(acceptance_criteria) <= 2:
-            complexity_level = "low"
-        else:
-            complexity_level = "normal"
-    else:
-        complexity_level = complexity
-    if uncertainty == "auto":
-        if has_discovery or _contains_any(text, UNCERTAINTY_TERMS):
-            uncertainty_level = "high"
-        elif _contains_any(text, MICRO_TERMS) and fragility == "low":
-            uncertainty_level = "low"
-        else:
-            uncertainty_level = "normal"
-    else:
-        uncertainty_level = uncertainty
-    if workflow == "auto":
-        if has_discovery and has_mutation:
-            profile = "discovery_first"
-        elif has_discovery and not has_mutation:
-            profile = "analysis_only"
-        elif risk_level == "low" and fragility == "low" and _contains_any(text, MICRO_TERMS):
-            profile = "micro"
-        else:
-            profile = "standard"
-    else:
-        profile = workflow
-
-    if profile == "micro" and risk_level != "low":
-        profile = "standard"
-        reasons.append("micro request escalated because risk is not low")
-    if profile == "micro" and fragility in {"medium", "high"}:
-        profile = "standard"
-        reasons.append(f"micro request escalated because project fragility is {fragility}")
+    complexity_level = _classify_complexity(
+        text=text,
+        acceptance_criteria=acceptance_criteria,
+        explicit_micro=explicit_micro,
+        requested=complexity,
+    )
+    uncertainty_level = _classify_uncertainty(
+        text=text,
+        fragility=fragility,
+        explicit_micro=explicit_micro,
+        has_discovery=has_discovery,
+        requested=uncertainty,
+    )
+    profile = _select_workflow_profile(
+        requested=workflow,
+        text=text,
+        has_discovery=has_discovery,
+        has_mutation=has_mutation,
+        risk_level=risk_level,
+        fragility=fragility,
+    )
+    profile, risk_level = _enforce_micro_eligibility(
+        profile=profile,
+        risk_level=risk_level,
+        fragility=fragility,
+        complexity_level=complexity_level,
+        uncertainty_level=uncertainty_level,
+        high_risk_domain=high_risk_domain,
+        reasons=reasons,
+    )
     return {
-        "workflow_version": 2,
+        "workflow_version": 3,
         "workflow_profile": profile,
         "risk_level": risk_level,
         "risk_reasons": reasons,

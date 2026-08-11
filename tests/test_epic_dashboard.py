@@ -17,9 +17,9 @@ def test_project_epics_projection_is_read_only_and_uses_registered_project(
         lambda existing_only=True: [{"project_id": "project-1", "name": "demo", "root": str(root)}],
     )
     monkeypatch.setattr(
-        epic_projection.epic_uc,
-        "list_for_project",
-        lambda resolved, include_archived=True: [
+        epic_projection,
+        "_list_epic_summaries",
+        lambda resolved: [
             {
                 "key": "E-0001",
                 "title": "Durable Epic",
@@ -27,7 +27,7 @@ def test_project_epics_projection_is_read_only_and_uses_registered_project(
                 "current_spec_version": 2,
                 "approved_spec_version": 1,
                 "execution_spec_version": 2,
-                "plan": [],
+                "plan_version": 1,
             }
         ],
     )

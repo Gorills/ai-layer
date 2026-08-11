@@ -1753,7 +1753,9 @@ def test_legacy_active_stage_has_one_time_completion_route_without_retroactive_d
         db.close()
 
 
-def test_dashboard_state_uses_authoritative_task_next_navigation(tmp_path: Path, monkeypatch):
+def test_dashboard_state_is_projection_only_and_task_next_owns_repository_guards(
+    tmp_path: Path, monkeypatch
+):
     from contextlib import contextmanager
 
     from ai_layer.application import tasks as application_tasks
@@ -1761,7 +1763,7 @@ def test_dashboard_state_uses_authoritative_task_next_navigation(tmp_path: Path,
     db, project, root = _db_project(tmp_path)
     try:
         tasks.create_task(
-            db, project, goal="Dashboard authoritative nav", acceptance_criteria=[], constraints=[]
+            db, project, goal="Dashboard projection nav", acceptance_criteria=[], constraints=[]
         )
         (root / "app.py").write_text("VALUE = 99\n", encoding="utf-8")
 
@@ -1772,9 +1774,12 @@ def test_dashboard_state_uses_authoritative_task_next_navigation(tmp_path: Path,
         monkeypatch.setattr(application_tasks, "session_scope", fake_scope)
         dashboard = read_task_state(root)
         assert dashboard["source"] == "database"
-        assert dashboard["next_action"]["action"] == "unmanaged_stage_mutation"
-        assert dashboard["next_action"]["code"] == "UNMANAGED_STAGE_MUTATION"
+        assert dashboard["next_action"]["action"] == "delegate_stage"
         assert dashboard["current"]["next_action"] == dashboard["next_action"]
+
+        authoritative = tasks.next_task_action(db, project)
+        assert authoritative["next_action"]["action"] == "unmanaged_stage_mutation"
+        assert authoritative["next_action"]["code"] == "UNMANAGED_STAGE_MUTATION"
     finally:
         db.close()
 

@@ -152,6 +152,7 @@ def _project_snapshot(
     root: Path,
     *,
     include_handoff_text: bool = False,
+    include_task_history: bool = True,
     registered: dict | None = None,
 ) -> dict:
     registered = (
@@ -170,7 +171,7 @@ def _project_snapshot(
     from ai_layer.application.tasks import read_state as read_task_state
     from ai_layer.memory.refresh_runtime import refresh_status
 
-    task_state = read_task_state(root)
+    task_state = read_task_state(root, include_history=include_task_history)
     memory_refresh = refresh_status(root)
     return {
         "root": str(root),
@@ -184,6 +185,7 @@ def _project_snapshot(
         "active_operations": _active_operations(events),
         "task": task_state.get("current") or task_state.get("latest"),
         "task_active": bool(task_state.get("current")),
+        "task_state": task_state,
         # Kept as low-level compatibility telemetry only; real Task state lives above.
         "open_task_flows": _open_task_flows(events),
         "last_handoff": _latest_session_snapshot(root) if include_handoff_text else None,
@@ -215,6 +217,7 @@ def observability_snapshot(
     *,
     all_projects: bool = False,
     include_handoff_text: bool = False,
+    include_task_history: bool = True,
 ) -> dict:
     """Build a cheap live snapshot without rescanning repositories or querying embeddings."""
     from ai_layer import __version__
@@ -245,6 +248,7 @@ def observability_snapshot(
         _project_snapshot(
             root,
             include_handoff_text=include_handoff_text,
+            include_task_history=include_task_history,
             registered=registered_for_root.get(str(root.resolve())),
         )
         for root in roots

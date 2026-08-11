@@ -1,6 +1,6 @@
 {
-  "application_wheel": "dist/local_ai_development_layer-0.12.1-py3-none-any.whl",
-  "application_wheel_sha256": "d9923d27e1cc427dbf326e845032a16962f7dfe13af2c2100953820be6356681",
+  "application_wheel": "dist/local_ai_development_layer-0.12.2-py3-none-any.whl",
+  "application_wheel_sha256": "a7cf45eb52041468f0f9ce486295ea861a4d24ca37ebae949ca1186bf7ad8903",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -14,7 +14,7 @@
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
     "target_schema": "0014_epics_v1"
   },
-  "notes": "0.12.1 hardens the existing global registered-project bootstrap: memory_context is the mandatory first project-related tool call for read-only and write work alike; project reads/search/shell/SSH/edits/subagents must not precede it; epic_next or task_next then owns navigation, including after every workflow transition or worker return. No hooks, new workflow state machine, or schema change.",
+  "notes": "0.12.2 fixes Dashboard background load: passive read-side refreshes no longer invoke authoritative task_next repository guards, duplicate Task reads are removed, the Epic list uses a lightweight summary query, native catalog counts are cached, and browser polling is adaptive and paused for hidden tabs. No schema or Task/Epic transition semantics changed.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",
@@ -41,5 +41,5 @@
     "task_workflow_black_box": "required_before_promotion_on_supported_host",
     "update_black_box": "required_before_promotion_on_supported_host"
   },
-  "version": "0.12.1"
+  "version": "0.12.2"
 }

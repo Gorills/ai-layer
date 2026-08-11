@@ -398,3 +398,78 @@ def test_dashboard_project_payload_exposes_native_catalog_and_observed_fetch(
     assert state["observed_fetches"][0]["slug"] == "design"
     assert state["observed_fetches"][0]["section"] == "Core contract"
     assert state["source"] == "native-catalog-plus-observed-skill-get"
+
+
+def test_dashboard_task_projection_never_calls_authoritative_navigator(monkeypatch, tmp_path: Path):
+    from contextlib import contextmanager
+
+    import ai_layer.application.tasks as task_app
+
+    @contextmanager
+    def fake_scope():
+        yield object()
+
+    monkeypatch.setattr(task_app, "session_scope", fake_scope)
+    monkeypatch.setattr(task_app, "_project", lambda db, root: object())
+    monkeypatch.setattr(
+        task_app,
+        "current_task",
+        lambda db, project, include_history=True: {
+            "active": True,
+            "state": "active",
+            "task": {
+                "key": "T-0001",
+                "status": "active",
+                "next_action": {"action": "delegate_stage"},
+            },
+        },
+    )
+    monkeypatch.setattr(
+        task_app,
+        "next_task_action",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("Dashboard projection must not enter task_next repository guards")
+        ),
+    )
+
+    state = task_app.read_state(tmp_path, include_history=False)
+
+    assert state["source"] == "database"
+    assert state["current"]["key"] == "T-0001"
+    assert state["next_action"]["action"] == "delegate_stage"
+
+
+def test_dashboard_native_catalog_counts_are_cached_between_polls(monkeypatch, tmp_path: Path):
+    import ai_layer.projections.dashboard as dashboard_service
+
+    root = tmp_path / "project"
+    root.mkdir()
+    calls = 0
+
+    def catalog(project_root):
+        nonlocal calls
+        calls += 1
+        return {"cursor": [Path("a")], "codex": [Path("a")], "antigravity": [Path("b")]}
+
+    dashboard_service._NATIVE_CATALOG_COUNT_CACHE.clear()
+    monkeypatch.setattr(dashboard_service, "native_catalog_files", catalog)
+    first = dashboard_service._task_skill_state(root, None, [])
+    second = dashboard_service._task_skill_state(root, None, [])
+    dashboard_service._NATIVE_CATALOG_COUNT_CACHE.clear()
+
+    assert calls == 1
+    assert first["configured_catalog"] == second["configured_catalog"]
+    assert first["configured_catalog"]["cursor"] == 1
+
+
+def test_dashboard_frontend_uses_adaptive_visibility_aware_polling():
+    root = Path(__file__).resolve().parents[1]
+    app_js = (root / "src/ai_layer/dashboard/static/js/app.js").read_text(encoding="utf-8")
+
+    assert "setInterval(load, 2000)" not in app_js
+    assert "ACTIVE_POLL_MS = 3000" in app_js
+    assert "IDLE_POLL_MS = 12000" in app_js
+    assert "document.hidden" in app_js
+    assert "visibilitychange" in app_js
+    assert "setTimeout" in app_js
+    assert "semanticFingerprint" in app_js

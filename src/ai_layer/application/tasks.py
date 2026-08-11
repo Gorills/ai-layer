@@ -29,7 +29,7 @@ def _project(db, project_root: str | Path):
     return get_project(db, project_root)
 
 
-def read_state(project_root: str | Path) -> dict:
+def read_state(project_root: str | Path, *, include_history: bool = True) -> dict:
     """Read cheap durable Task state for projections.
 
     This query boundary intentionally does not call the authoritative Task navigator. `task_next`
@@ -42,17 +42,33 @@ def read_state(project_root: str | Path) -> dict:
     try:
         with session_scope() as db:
             project = _project(db, resolved)
-            state = current_task(db, project, include_history=True)
+            state = current_task(db, project, include_history=include_history)
             current_payload = dict(state.get("task") or {}) if state.get("active") else None
             latest_payload = current_payload or state.get("latest")
             projected_next_action = state.get("next_action") or (
                 (current_payload or latest_payload or {}).get("next_action")
             )
+            if (
+                current_payload is None
+                and (projected_next_action or {}).get("action") == "create_task"
+            ):
+                projected_next_action = {
+                    **dict(projected_next_action or {}),
+                    "tool": "task_create",
+                    "required": ["goal"],
+                    "optional": [
+                        "acceptance_criteria",
+                        "constraints",
+                        "workflow",
+                        "risk",
+                        "cost_policy",
+                    ],
+                }
             return {
                 "current": current_payload,
                 "latest": latest_payload,
                 "next_action": projected_next_action,
-                "source": "database-projection",
+                "source": "database",
             }
     except Exception as exc:
         database_error = f"{type(exc).__name__}: {exc}"

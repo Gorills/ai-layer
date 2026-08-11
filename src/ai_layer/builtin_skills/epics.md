@@ -1,6 +1,6 @@
 ---
 slug: epics
-description: "Durable Epic lifecycle: human-approved specification, independent audits, Phase 0 reality reconciliation, sequential reviewed Tasks, final whole-Epic review, documentation and Project Knowledge closure."
+description: "Durable Epic specs, audits, Phase 0 reconciliation, sequential reviewed Tasks, drift recovery, final review and knowledge closure."
 kind: core
 keywords:
 - epic

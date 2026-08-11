@@ -18,6 +18,12 @@ Development governance belongs only to this repository. Runtime skills are engin
 
 Tasks are the atomic durable execution unit. A future Epic capability may schedule Tasks, but Task Engine must not own an Epic DAG, Epic planner or Epic scheduler.
 
+## Simplicity invariant
+
+AI Layer must remain the smallest system that reliably enforces the current product contract. The host/model interprets natural-language user intent; AI Layer supplies durable facts, tools and hard invariants.
+
+Prefer deletion, reuse, native host capabilities and direct composition over new layers. Do not add phrase/intent classifiers, speculative routers, parallel mechanisms, generic workflow frameworks, state machines, persistence or compatibility abstractions for hypothetical future needs. A new abstraction is justified only by a concrete current problem and should reduce the net conceptual surface of the system.
+
 ## Non-goals of the pre-Epics foundation
 
 This version intentionally does not implement Epic persistence, planning, scheduling, orchestration, Epic dashboard behavior, concurrent repository writers, distributed queues, microservices or a generic workflow language.

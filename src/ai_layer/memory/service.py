@@ -11,7 +11,6 @@ from ai_layer.memory.freshness import ensure_memory_fresh
 from ai_layer.memory.guidance import build_tool_guidance
 from ai_layer.memory.history import (
     knowledge_audit_history,
-    latest_task_summary,
     relevant_decision_brief,
     relevant_task_history,
 )
@@ -26,8 +25,6 @@ from ai_layer.memory.presentation import (
     compact_audit_guidance,
     compact_audit_runtime,
     compact_audit_scanner_evidence,
-    compact_continuation_guidance,
-    compact_continuation_runtime,
     compact_inventory,
     compact_task_runtime,
     context_budget,
@@ -203,11 +200,12 @@ def _freshness_paths(freshness: dict) -> list[str]:
 def _compact_freshness(freshness: dict, source_pointers: list[str]) -> dict:
     changed = _freshness_paths(freshness)
     relevant = [path for path in changed if path in set(source_pointers)]
+    count = len(changed) if scanner_snapshot_current(freshness) else None
     return {
         "status": freshness.get("status"),
         "refreshed": bool(freshness.get("refreshed")),
         "snapshot_available": freshness.get("snapshot_available"),
-        "changed_path_count": len(changed),
+        "changed_path_count": count,
         "relevant_changed_paths": relevant[:12],
         "background_refresh": freshness.get("background_refresh"),
         "refresh_job": freshness.get("refresh_job"),
@@ -242,21 +240,6 @@ def _audit_materials(
     }
 
 
-def _continuation_materials(db: Session, project: Project, intelligence: dict) -> dict:
-    recent = latest_task_summary(db, project)
-    return {
-        "knowledge": [],
-        "stale": [],
-        "inventory": [],
-        "stale_inventory": [],
-        "history": [recent] if recent else [],
-        "decisions": [],
-        "source_pointers": [],
-        "scanner_evidence": _compact_scanner_evidence(intelligence),
-        "inventory_complete": False,
-    }
-
-
 def _task_materials(
     db: Session, project: Project, task: str, limit: int, knowledge_state: dict, intelligence: dict
 ) -> dict:
@@ -287,7 +270,7 @@ def _task_materials(
 
 def _runtime_for_context(
     db: Session, project: Project, provided: dict | None, *, mode: str
-) -> tuple[dict, dict]:
+) -> dict:
     full = (
         provided
         if provided is not None
@@ -298,34 +281,21 @@ def _runtime_for_context(
         )
     )
     if mode.startswith("knowledge_"):
-        return full, compact_audit_runtime(full)
-    if mode == "continuation":
-        return full, compact_continuation_runtime(full)
-    return full, compact_task_runtime(full)
+        return compact_audit_runtime(full)
+    return compact_task_runtime(full)
 
 
 def _guidance_for_context(
     task: str,
     project: Project,
     mode: str,
-    runtime_full: dict,
     runtime: dict,
     knowledge_state: dict,
     materials: dict,
 ) -> dict:
     if mode.startswith("knowledge_"):
-        return compact_audit_guidance(
-            project.root_path, mode, runtime, inventory_complete=materials["inventory_complete"]
-        )
-    if mode == "continuation":
-        return compact_continuation_guidance(project.root_path, runtime)
+        return compact_audit_guidance(project.root_path, runtime)
     guidance = build_tool_guidance(task, project.root_path, materials["knowledge"])
-    if runtime.get("active"):
-        guidance["recommended_calls"] = [
-            call
-            for call in guidance.get("recommended_calls", [])
-            if call.get("tool") != "session_restore"
-        ]
     guidance["next_task_action"] = (runtime.get("task") or runtime).get("next_action")
     if knowledge_state["onboarding_recommended"]:
         guidance["knowledge_onboarding"] = {
@@ -346,27 +316,18 @@ def memory_context(
     intelligence = getattr(project, "project_intelligence", None) or {}
     if knowledge_audit:
         materials = _audit_materials(db, project, state, intelligence)
-    elif mode == "continuation":
-        materials = _continuation_materials(db, project, intelligence)
     else:
         materials = _task_materials(db, project, task, limit, state, intelligence)
     materials["scanner_evidence"] = present_scanner_evidence(
-        materials["scanner_evidence"], raw_freshness, mode=mode
+        materials["scanner_evidence"], raw_freshness
     )
-    runtime_full, runtime = _runtime_for_context(db, project, task_runtime, mode=mode)
-    guidance = _guidance_for_context(task, project, mode, runtime_full, runtime, state, materials)
+    runtime = _runtime_for_context(db, project, task_runtime, mode=mode)
+    guidance = _guidance_for_context(task, project, mode, runtime, state, materials)
     policy_text = dynamic_policy(project.root_path, read_only=knowledge_audit)
     profile = (
         detect_project_profile(project.languages or {}, project.dependencies or {})
-        if scanner_snapshot_current(raw_freshness) and mode != "continuation"
-        else {
-            "available": False,
-            "reason": (
-                "continuation_mode_uses_session_history_and_current_source"
-                if mode == "continuation"
-                else "scanner_snapshot_not_current"
-            ),
-        }
+        if scanner_snapshot_current(raw_freshness)
+        else {"available": False, "reason": "scanner_snapshot_not_current"}
     )
     payload = {
         "project": {

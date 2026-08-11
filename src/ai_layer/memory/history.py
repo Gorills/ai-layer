@@ -75,35 +75,6 @@ def relevant_task_history(
     return result
 
 
-def latest_task_summary(db: Session, project: Project) -> dict | None:
-    """Compact latest completed task for continuation; never expose internal workflow/reviewer reasoning."""
-    task = db.scalar(
-        select(Task)
-        .where(Task.project_id == project.id, Task.status == "completed")
-        .order_by(Task.completed_at.desc(), Task.sequence.desc())
-        .limit(1)
-    )
-    if task is None:
-        return None
-    changes = dict(task.final_changes or {})
-    paths = [
-        *list(changes.get("added") or []),
-        *list(changes.get("modified") or []),
-        *list(changes.get("deleted") or []),
-    ]
-    return {
-        "key": f"T-{int(task.sequence):04d}",
-        "goal": task.goal,
-        "status": task.status,
-        "outcome": task.completion_summary,
-        "changed_path_count": int(changes.get("total") or len(paths)),
-        "changed_paths": paths[:8],
-        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-        "handoff_available": bool(task.handoff_session_id),
-        "provenance": "ai_layer_task_history_compact",
-    }
-
-
 def relevant_decision_brief(
     db: Session, project: Project, query: str, *, limit: int = 2
 ) -> list[dict]:

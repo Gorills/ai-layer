@@ -21,14 +21,38 @@ MAX_EPIC_TITLE_CHARS = 240
 MAX_EPIC_PLAN_ITEMS = 60
 MAX_EPIC_AUDIT_FINDINGS = 100
 
-_REQUIRED_SPEC_HEADINGS = (
-    "goal",
-    "product outcome",
-    "accepted decisions",
-    "functional requirements",
-    "acceptance criteria",
-    "definition of done",
-)
+_REQUIRED_SPEC_SECTIONS: dict[str, tuple[str, ...]] = {
+    "goal / цель": ("goal", "цель"),
+    "product outcome / конечный результат": (
+        "product outcome",
+        "final product",
+        "конечный результат",
+        "результат продукта",
+        "итоговый результат",
+    ),
+    "accepted decisions / принятые решения": (
+        "accepted decisions",
+        "approved decisions",
+        "принятые решения",
+        "согласованные решения",
+    ),
+    "functional requirements / функциональные требования": (
+        "functional requirements",
+        "функциональные требования",
+        "требования к функционалу",
+    ),
+    "acceptance criteria / критерии приёмки": (
+        "acceptance criteria",
+        "критерии приемки",
+        "критерии приёмки",
+    ),
+    "definition of done / критерии готовности": (
+        "definition of done",
+        "критерии готовности",
+        "условия готовности",
+        "готовность эпика",
+    ),
+}
 
 _INCOMPLETE_PATTERNS = (
     re.compile(r"\btemporary\b", re.IGNORECASE),
@@ -46,7 +70,13 @@ _INCOMPLETE_PATTERNS = (
 )
 
 
-def bounded_text(value: str | None, *, field: str, max_chars: int, required: bool = True) -> str:
+def bounded_text(
+    value: str | None,
+    *,
+    field: str,
+    max_chars: int,
+    required: bool = True,
+) -> str:
     text = str(value or "").strip()
     if required and not text:
         raise ValueError(f"{field} is required")
@@ -66,7 +96,11 @@ def plan_item_key(ordinal: int) -> str:
 def spec_quality(markdown: str) -> dict[str, Any]:
     text = bounded_text(markdown, field="epic spec", max_chars=MAX_EPIC_SPEC_CHARS)
     lowered = text.casefold()
-    missing = [heading for heading in _REQUIRED_SPEC_HEADINGS if heading not in lowered]
+    missing = [
+        label
+        for label, aliases in _REQUIRED_SPEC_SECTIONS.items()
+        if not any(alias.casefold() in lowered for alias in aliases)
+    ]
     warnings: list[str] = []
     for pattern in _INCOMPLETE_PATTERNS:
         if pattern.search(text):
@@ -103,7 +137,10 @@ def phase0_contract(epic: dict) -> dict[str, Any]:
     }
 
 
-def final_task_contract(epic_key_value: str, spec_version: int) -> tuple[str, list[str], list[str]]:
+def final_task_contract(
+    epic_key_value: str,
+    spec_version: int,
+) -> tuple[str, list[str], list[str]]:
     goal = (
         f"Finalize Epic {epic_key_value}: first reconcile project documentation and Project Knowledge with "
         f"the actually implemented product, then perform an independent full-Epic review against execution "

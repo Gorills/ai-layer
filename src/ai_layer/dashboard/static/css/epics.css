@@ -1,0 +1,59 @@
+.epic-spec {
+  max-width: 980px;
+  font-size: 15px;
+  line-height: 1.72;
+  color: var(--text, #e7e9ee);
+}
+
+.epic-spec h2,
+.epic-spec h3,
+.epic-spec h4,
+.epic-spec h5 {
+  margin: 26px 0 10px;
+  line-height: 1.25;
+}
+
+.epic-spec h2:first-child,
+.epic-spec h3:first-child {
+  margin-top: 0;
+}
+
+.epic-spec p {
+  margin: 8px 0 12px;
+}
+
+.epic-spec ul,
+.epic-spec ol {
+  margin: 8px 0 14px 22px;
+  padding: 0;
+}
+
+.epic-spec li {
+  margin: 5px 0;
+}
+
+.epic-spec code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.92em;
+}
+
+.epic-code {
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  white-space: pre-wrap;
+}
+
+.stage-row[href] {
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.stage-row[href]:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.035);
+}

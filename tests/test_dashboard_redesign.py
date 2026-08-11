@@ -28,7 +28,9 @@ def test_dashboard_pagination_is_bounded():
     assert capped["page"] == capped["pages"]
 
 
-def test_dashboard_skills_read_bundled_catalog_without_materializing_home(monkeypatch, tmp_path: Path):
+def test_dashboard_skills_read_bundled_catalog_without_materializing_home(
+    monkeypatch, tmp_path: Path
+):
     home = _home(monkeypatch, tmp_path)
     settings = get_settings()
     assert not home.exists()
@@ -39,14 +41,15 @@ def test_dashboard_skills_read_bundled_catalog_without_materializing_home(monkey
     assert payload is not None
     assert payload["pagination"]["total"] > 0
     assert len(payload["items"]) <= 10
-    assert any(item["slug"] == "architecture" for item in payload["items"] + []) or payload[
-        "pagination"
-    ]["pages"] > 1
+    assert "architecture" in {item["slug"] for item in payload["items"]}
     assert not settings.skills_dir.exists()
     assert not home.exists()
+    get_settings.cache_clear()
 
 
-def test_dashboard_rules_fall_back_to_bundled_policy_without_writing(monkeypatch, tmp_path: Path):
+def test_dashboard_rules_fall_back_to_bundled_policy_without_writing(
+    monkeypatch, tmp_path: Path
+):
     home = _home(monkeypatch, tmp_path)
     settings = get_settings()
     global_path = settings.policies_dir / "global.md"
@@ -59,6 +62,7 @@ def test_dashboard_rules_fall_back_to_bundled_policy_without_writing(monkeypatch
     assert "Token economy is mandatory" in payload["global"]["content"]
     assert not global_path.exists()
     assert not home.exists()
+    get_settings.cache_clear()
 
 
 def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
@@ -69,15 +73,20 @@ def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
     overview_js = (root / "src/ai_layer/dashboard/static/js/views/overview.js").read_text(
         encoding="utf-8"
     )
-    operations_js = (root / "src/ai_layer/dashboard/static/js/views/operations.js").read_text(
-        encoding="utf-8"
-    )
+    app_js = (root / "src/ai_layer/dashboard/static/js/app.js").read_text(encoding="utf-8")
     index_html = (root / "src/ai_layer/dashboard/static/index.html").read_text(encoding="utf-8")
 
     assert "slice(0, 10)" in project_js
     assert "slice(0, 10)" in overview_js
-    assert "page_size: 10" in operations_js
-    for label in ("Задачи", "Скиллы", "Правила", "База знаний", "Мониторинг", "Активность"):
+    assert "page_size: 10" in app_js
+    for label in (
+        "Задачи",
+        "Скиллы",
+        "Правила",
+        "База знаний",
+        "Мониторинг",
+        "Активность",
+    ):
         assert label in index_html
     assert "профиль пользователя" not in index_html.casefold()
     assert "личный кабинет" not in index_html.casefold()

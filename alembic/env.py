@@ -3,6 +3,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
+from ai_layer.db import epic_models as _epic_models  # noqa: F401
 from ai_layer.db import models  # noqa: F401
 from ai_layer.db.base import Base
 from alembic import context

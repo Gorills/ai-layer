@@ -219,3 +219,30 @@ def test_drift_human_decision_preserves_reconciliation_task_until_resolved(
     finally:
         db.close()
         get_settings.cache_clear()
+
+
+def test_phase0_post_completion_change_is_not_silently_accepted(tmp_path: Path, monkeypatch) -> None:
+    db, project, root = _environment(tmp_path, monkeypatch)
+    try:
+        key = _phase0_ready(db, project, root)
+        (root / "after-phase0.py").write_text("CHANGED_AFTER_REVIEW = True\n", encoding="utf-8")
+        reconciled = epics.reconcile_complete(root, key=key, summary="Phase 0 findings recorded.")
+        assert reconciled["status"] == "planning"
+        epics.set_plan(
+            root,
+            key=key,
+            work_items=[
+                {
+                    "title": "Implement scope",
+                    "goal": "Implement scope.",
+                    "acceptance_criteria": ["Scope complete"],
+                    "constraints": [],
+                }
+            ],
+        )
+        navigation = epics.next_action(root, key=key)
+        assert navigation["epic"]["status"] == "blocked"
+        assert navigation["next_action"]["action"] == "start_drift_reconciliation"
+    finally:
+        db.close()
+        get_settings.cache_clear()

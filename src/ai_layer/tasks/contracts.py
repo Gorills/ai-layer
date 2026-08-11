@@ -150,9 +150,10 @@ def _classify_task(
     legacy = dict((project.project_intelligence or {}).get("legacy") or {})
     fragility = str(legacy.get("level") or "unknown").lower()
     explicit_micro = workflow == "micro"
+    high_risk_domain = _contains_any(text, HIGH_RISK_TERMS)
     reasons: list[str] = []
     if risk == "auto":
-        if _contains_any(text, HIGH_RISK_TERMS):
+        if high_risk_domain:
             risk_level = "high"
             reasons.append("task touches a high-risk domain")
         elif fragility in {"medium", "high"}:
@@ -204,12 +205,22 @@ def _classify_task(
     else:
         profile = workflow
 
+    if profile == "micro" and high_risk_domain:
+        profile = "standard"
+        risk_level = "high"
+        reasons.append("micro request escalated because high-risk domains require independent review")
     if profile == "micro" and risk_level != "low":
         profile = "standard"
         reasons.append("micro request escalated because risk is not low")
     if profile == "micro" and fragility in {"medium", "high"}:
         profile = "standard"
         reasons.append(f"micro request escalated because project fragility is {fragility}")
+    if profile == "micro" and complexity_level != "low":
+        profile = "standard"
+        reasons.append("micro request escalated because complexity is not low")
+    if profile == "micro" and uncertainty_level != "low":
+        profile = "standard"
+        reasons.append("micro request escalated because uncertainty is not low")
     return {
         "workflow_version": 3,
         "workflow_profile": profile,

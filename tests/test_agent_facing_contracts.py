@@ -66,7 +66,9 @@ def test_epic_application_navigation_always_attaches_current_runtime_contract(mo
 
 
 def test_product_skills_match_live_task_and_epic_state_machines() -> None:
-    workflow = (ROOT / "src/ai_layer/builtin_skills/ai-layer-workflow.md").read_text(encoding="utf-8")
+    workflow = (ROOT / "src/ai_layer/builtin_skills/ai-layer-workflow.md").read_text(
+        encoding="utf-8"
+    )
     epics = (ROOT / "src/ai_layer/builtin_skills/epics.md").read_text(encoding="utf-8")
     assert "`project_status`" in workflow
     assert "`knowledge_search`" in workflow

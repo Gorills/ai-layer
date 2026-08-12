@@ -150,7 +150,13 @@ def _inactive_navigation(db: Session, project: Project, runtime: dict, root: Pat
             "managed_option": {
                 "tool": "task_create",
                 "required": ["goal"],
-                "optional": ["acceptance_criteria", "constraints", "workflow", "risk", "cost_policy"],
+                "optional": [
+                    "acceptance_criteria",
+                    "constraints",
+                    "workflow",
+                    "risk",
+                    "cost_policy",
+                ],
             },
             "alternative": (
                 "Use task_adopt only if the pre-existing dirty changes are themselves the work to review/manage."

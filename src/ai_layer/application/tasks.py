@@ -127,9 +127,9 @@ def read_state(project_root: str | Path, *, include_history: bool = True) -> dic
     fallback = current_payload or latest_payload or {}
     next_action = fallback.get("next_action")
     if current_payload is None:
-        next_action = _idle_managed_task_payload(
-            {"active": False, "next_action": next_action}
-        )["next_action"]
+        next_action = _idle_managed_task_payload({"active": False, "next_action": next_action})[
+            "next_action"
+        ]
     payload = {
         "current": current_payload,
         "latest": latest_payload,

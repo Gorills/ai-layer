@@ -1,0 +1,91 @@
+name: Control Plane Release 0.13.0
+
+on:
+  push:
+    branches:
+      - refactor/project-intelligence-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/project-intelligence-control-plane
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare 0.13.0 source metadata
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          version = '0.13.0'
+          pyproject = Path('pyproject.toml')
+          text = pyproject.read_text(encoding='utf-8')
+          text = text.replace('version = "0.12.2"', f'version = "{version}"', 1)
+          pyproject.write_text(text, encoding='utf-8')
+
+          init = Path('src/ai_layer/__init__.py')
+          init.write_text(f'__version__ = "{version}"\n', encoding='utf-8')
+
+          changelog = Path('CHANGELOG.md')
+          current = changelog.read_text(encoding='utf-8')
+          heading = '## 0.13.0 — Project Intelligence control plane\n'
+          if heading not in current:
+              entry = '''## 0.13.0 — Project Intelligence control plane
+
+- Replaced the mandatory agent-runtime harness with a Project Intelligence control plane: the host owns ordinary reads, edits, search, shell, tests and native subagents.
+- Added cheap `project_status` continuation state plus metadata-only `project_search` breadcrumbs for paths, symbols, imports, purposes, risk flags and related tests; current source remains authoritative.
+- Separated Project Map navigation from reviewed Project Knowledge and Decisions; legacy `memory_context` is compatibility-only and no longer drives Task/Epic navigation.
+- Preserved Tasks, Epics, findings, verification, review sandboxes, worker provenance/recovery and strict IMPLEMENT → REVIEW → FIX → REVIEW as explicit managed/high-assurance workflows instead of a universal permission layer.
+- Published host-native skills to Claude Code as well as Cursor/Codex/Antigravity and retained host-owned progressive skill relevance selection.
+- Added migration `0015_project_navigation`, scanner schema v5, incremental Project Map refresh, lexical search fallback when embeddings are unavailable, and safe symbol metadata that never persists Python default expressions.
+- Extended Dashboard Project Intelligence projections and made read-side degradation tolerant of temporary durable-database unavailability.
+- Model/cost telemetry now distinguishes requested/unverified routing from measured economics instead of implying unobserved token or billing truth.
+
+'''
+              changelog.write_text(current.replace('# Changelog\n\n', '# Changelog\n\n' + entry, 1), encoding='utf-8')
+          PY
+      - name: Build deterministic application wheel
+        run: |
+          rm -f dist/local_ai_development_layer-0.12.2-py3-none-any.whl
+          python scripts/build_release_wheel.py
+      - name: Refresh release manifest
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          version = '0.13.0'
+          wheel = Path(f'dist/local_ai_development_layer-{version}-py3-none-any.whl')
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest['version'] = version
+          manifest['application_wheel'] = wheel.as_posix()
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest['migration_compatibility']['target_schema'] = '0015_project_navigation'
+          manifest['notes'] = (
+              '0.13.0 makes AI Layer a Project Intelligence control plane: host-native execution is the default, '
+              'Project Map/Knowledge/Decisions remain separate durable context surfaces, and strict Task/Epic '
+              'orchestration is scoped to explicitly managed high-assurance work.'
+          )
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+      - name: Remove release helper before validation
+        run: rm -f .github/workflows/control-plane-release.yml
+      - name: Install dev dependencies
+        run: python -m pip install -e '.[dev]' >/dev/null 2>&1
+      - name: Canonical quality gate
+        run: python scripts/quality_gate.py --deterministic-wheel
+      - name: Commit promoted release
+        run: |
+          git config user.name Gorills
+          git config user.email 57192423+Gorills@users.noreply.github.com
+          git add pyproject.toml src/ai_layer/__init__.py CHANGELOG.md release/release-manifest.json dist .github/workflows
+          git commit -m 'release: promote project intelligence control plane 0.13.0'
+          git push origin HEAD:refactor/project-intelligence-control-plane

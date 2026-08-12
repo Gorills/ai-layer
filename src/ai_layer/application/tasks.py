@@ -6,6 +6,7 @@ from typing import Any
 from ai_layer.core.paths import project_state_path
 from ai_layer.core.service import get_project
 from ai_layer.db.session import session_scope
+from ai_layer.domain.agent_contract import agent_runtime_contract
 from ai_layer.tasks.service import (
     adopt_task,
     cancel_task,
@@ -27,6 +28,44 @@ from ai_layer.tasks.worker_leases import heartbeat_worker, reap_stale_worker_lea
 
 def _project(db, project_root: str | Path):
     return get_project(db, project_root)
+
+
+def _idle_managed_task_payload(result: dict) -> dict:
+    """Translate legacy idle Task state into the current optional-managed-work contract."""
+    if result.get("active"):
+        return result
+    payload = dict(result)
+    payload["next_action"] = {
+        "action": "host_native",
+        "tool": None,
+        "message": (
+            "No managed Task is active. Continue ordinary work through the host-native agent runtime; "
+            "a managed Task is not required. Create one only when the user or task needs durable/strict "
+            "managed execution."
+        ),
+        "managed_option": {
+            "tool": "task_create",
+            "required": ["goal"],
+            "optional": [
+                "acceptance_criteria",
+                "constraints",
+                "workflow",
+                "risk",
+                "cost_policy",
+            ],
+        },
+        "worktree_rule": (
+            "Pre-existing user changes are valid. Do not stash/reset/restore/commit merely to create or avoid a Task."
+        ),
+    }
+    payload["agent_contract"] = agent_runtime_contract()
+    return payload
+
+
+def _with_agent_contract(result: dict) -> dict:
+    payload = dict(result)
+    payload["agent_contract"] = agent_runtime_contract()
+    return payload
 
 
 def _with_project_map_hint(result: dict) -> dict:
@@ -69,22 +108,10 @@ def read_state(project_root: str | Path, *, include_history: bool = True) -> dic
             projected_next_action = state.get("next_action") or (
                 (current_payload or latest_payload or {}).get("next_action")
             )
-            if (
-                current_payload is None
-                and (projected_next_action or {}).get("action") == "create_task"
-            ):
-                projected_next_action = {
-                    **dict(projected_next_action or {}),
-                    "tool": "task_create",
-                    "required": ["goal"],
-                    "optional": [
-                        "acceptance_criteria",
-                        "constraints",
-                        "workflow",
-                        "risk",
-                        "cost_policy",
-                    ],
-                }
+            if current_payload is None:
+                projected_next_action = _idle_managed_task_payload(
+                    {"active": False, "next_action": projected_next_action}
+                )["next_action"]
             return {
                 "current": current_payload,
                 "latest": latest_payload,
@@ -98,10 +125,15 @@ def read_state(project_root: str | Path, *, include_history: bool = True) -> dic
     current_payload = read_json(root / "current.json")
     latest_payload = read_json(root / "latest.json")
     fallback = current_payload or latest_payload or {}
+    next_action = fallback.get("next_action")
+    if current_payload is None:
+        next_action = _idle_managed_task_payload(
+            {"active": False, "next_action": next_action}
+        )["next_action"]
     payload = {
         "current": current_payload,
         "latest": latest_payload,
-        "next_action": fallback.get("next_action"),
+        "next_action": next_action,
         "source": "disk-fallback",
     }
     if database_error:
@@ -111,12 +143,18 @@ def read_state(project_root: str | Path, *, include_history: bool = True) -> dic
 
 def current(project_root: str | Path, *, include_history: bool = True) -> dict:
     with session_scope() as db:
-        return current_task(db, _project(db, project_root), include_history=include_history)
+        result = current_task(db, _project(db, project_root), include_history=include_history)
+        if not result.get("active"):
+            return _idle_managed_task_payload(result)
+        return _with_agent_contract(result)
 
 
 def next_action(project_root: str | Path) -> dict:
     with session_scope() as db:
-        return next_task_action(db, _project(db, project_root))
+        result = next_task_action(db, _project(db, project_root))
+        if not result.get("active"):
+            return _idle_managed_task_payload(result)
+        return _with_agent_contract(result)
 
 
 def cancel(project_root: str | Path, *, reason: str) -> dict:

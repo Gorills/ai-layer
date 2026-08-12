@@ -39,9 +39,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["source_task_id"], ["tasks.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "project_id", "path", name="uq_project_navigation_semantic_path"
-        ),
+        sa.UniqueConstraint("project_id", "path", name="uq_project_navigation_semantic_path"),
     )
     op.create_index(
         "ix_project_navigation_semantic_project",

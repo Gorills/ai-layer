@@ -60,9 +60,7 @@ def tasks_payload(
         conditions = [Task.project_id.in_(project_ids)]
         if wanted_status:
             conditions.append(Task.status == wanted_status)
-        total = int(
-            db.scalar(select(func.count()).select_from(Task).where(*conditions)) or 0
-        )
+        total = int(db.scalar(select(func.count()).select_from(Task).where(*conditions)) or 0)
         pagination = page_info(total, page, page_size)
         rows = list(
             db.scalars(
@@ -107,9 +105,7 @@ def task_detail_payload(project_key_value: str, task_key: str) -> dict | None:
         if project is None:
             return None
         task = db.scalar(
-            select(Task)
-            .where(Task.project_id == project.id, Task.sequence == sequence)
-            .limit(1)
+            select(Task).where(Task.project_id == project.id, Task.sequence == sequence).limit(1)
         )
         if task is None:
             return None

@@ -14,7 +14,9 @@ from ai_layer.mcp.runtime import _project, _scoped, _text, core_tool, project_ro
 def project_status(project_root: str | None = None) -> dict:
     """WHEN: first state call for registered-project work. Restores cheap Task/Epic/Git/index state without running workflow navigators or scanning source. INPUT: optional project_root."""
     root = project_root_for_tool(project_root, tool="project_status")
-    with mcp_audit(root, "project_status", arg_keys=["project_root"] if project_root else []) as audit:
+    with mcp_audit(
+        root, "project_status", arg_keys=["project_root"] if project_root else []
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = get_project_status(db, project)
@@ -36,7 +38,9 @@ def project_search(query: str, project_root: str | None = None, limit: int = 8) 
     root = project_root_for_tool(project_root, tool="project_search")
     query = _text(query, tool="project_search", field="query")
     bounded_limit = max(1, min(limit, 20))
-    with mcp_audit(root, "project_search", arg_keys=["query", "project_root", "limit"]) as audit:
+    with mcp_audit(
+        root, "project_search", arg_keys=["query", "project_root", "limit"]
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = search_project(db, project, query, bounded_limit)
@@ -65,7 +69,9 @@ def knowledge_search(query: str, project_root: str | None = None, limit: int = 8
     root = project_root_for_tool(project_root, tool="knowledge_search")
     query = _text(query, tool="knowledge_search", field="query")
     bounded_limit = max(1, min(limit, 20))
-    with mcp_audit(root, "knowledge_search", arg_keys=["query", "project_root", "limit"]) as audit:
+    with mcp_audit(
+        root, "knowledge_search", arg_keys=["query", "project_root", "limit"]
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = search_memory(db, project, query, bounded_limit)
@@ -78,11 +84,17 @@ def memory_search(query: str, project_root: str | None = None, limit: int = 8) -
     root = project_root_for_tool(project_root, tool="memory_search")
     query = _text(query, tool="memory_search", field="query")
     bounded_limit = max(1, min(limit, 20))
-    with mcp_audit(root, "memory_search", arg_keys=["query", "project_root", "limit"]) as audit:
+    with mcp_audit(
+        root, "memory_search", arg_keys=["query", "project_root", "limit"]
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = search_memory(db, project, query, bounded_limit)
-            audit["metrics"] = {"hits": len(result), "limit": bounded_limit, "alias": "knowledge_search"}
+            audit["metrics"] = {
+                "hits": len(result),
+                "limit": bounded_limit,
+                "alias": "knowledge_search",
+            }
             return result
 
 

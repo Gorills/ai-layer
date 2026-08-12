@@ -117,6 +117,13 @@ def test_application_memory_context_compacts_legacy_composite_payload():
     compact = _compact_legacy_context(legacy)
     assert compact["compatibility"]["preferred_startup"] == "project_status"
     assert compact["project_map"]["update"]["tool"] == "project_map_reconcile"
+    assert compact["preferred_calls"] == {
+        "state": "project_status",
+        "navigation": "project_search",
+        "map_update": "project_map_reconcile",
+        "knowledge": "knowledge_search",
+        "decisions": "decision_search",
+    }
     assert len(compact["knowledge_hints"][0]["summary"]) == 700
     assert len(compact["knowledge_hints"][0]["source_pointers"]) == 6
     for removed in (

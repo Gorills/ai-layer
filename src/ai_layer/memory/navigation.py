@@ -330,6 +330,40 @@ def _related_tests(rows: list[ProjectNavigation], hits: list[dict], *, limit: in
     return [path for _, path in scored[:limit]]
 
 
+def _semantic_scores(
+    db: Session,
+    project: Project,
+    rows: list[ProjectNavigation],
+    query: str,
+    *,
+    limit: int,
+) -> tuple[dict[str, float], bool]:
+    if not rows:
+        return {}, True
+    try:
+        vectors = get_embedder().embed([query])
+        if len(vectors) != 1:
+            return {}, False
+        candidates = db.execute(
+            select(
+                ProjectNavigation,
+                ProjectNavigation.embedding.cosine_distance(vectors[0]).label("distance"),
+            )
+            .where(
+                ProjectNavigation.project_id == project.id,
+                ProjectNavigation.embedding.is_not(None),
+            )
+            .order_by("distance")
+            .limit(max(40, limit * 8))
+        ).all()
+    except Exception:
+        return {}, False
+    return (
+        {row.path: semantic_score_from_distance(distance) for row, distance in candidates},
+        True,
+    )
+
+
 def search_project_map(db: Session, project: Project, query: str, *, limit: int = 8) -> dict:
     query = str(query or "").strip()
     if not query:
@@ -343,24 +377,9 @@ def search_project_map(db: Session, project: Project, query: str, *, limit: int 
             .order_by(ProjectNavigation.path)
         ).all()
     )
-    semantic_scores: dict[str, float] = {}
-    if rows:
-        vectors = get_embedder().embed([query])
-        if len(vectors) != 1:
-            raise RuntimeError(
-                "Embedding provider returned an incomplete Project Map query vector."
-            )
-        candidates = db.execute(
-            select(
-                ProjectNavigation,
-                ProjectNavigation.embedding.cosine_distance(vectors[0]).label("distance"),
-            )
-            .where(ProjectNavigation.project_id == project.id)
-            .order_by("distance")
-            .limit(max(40, limit * 8))
-        ).all()
-        for row, distance in candidates:
-            semantic_scores[row.path] = semantic_score_from_distance(distance)
+    semantic_scores, semantic_available = _semantic_scores(
+        db, project, rows, query, limit=limit
+    )
 
     ranked: list[dict] = []
     for row in rows:
@@ -398,7 +417,12 @@ def search_project_map(db: Session, project: Project, query: str, *, limit: int 
         "matches": hits,
         "related_tests": _related_tests(rows, hits),
         "map": project_map_status(db, project),
-        "search_mode": "hybrid_metadata" if rows else "empty",
+        "search_mode": (
+            "hybrid_metadata"
+            if rows and semantic_available
+            else ("lexical_metadata" if rows else "empty")
+        ),
+        "semantic_embedding_available": semantic_available,
         "source_contract": (
             "Use these results as breadcrumbs. Open only relevant current source with host-native tools "
             "before making code-truth claims or edits."

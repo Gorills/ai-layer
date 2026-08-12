@@ -1,4 +1,4 @@
-# Current State — v0.13.0 Project Intelligence control plane
+# Current State — v0.13.1 semantic Project Map enrichment
 
 ## Implemented source state
 
@@ -7,6 +7,8 @@ AI Layer now uses **Project Intelligence + Durable Work State + Observability** 
 - **Project status:** `project_status` is the cheap first state call for registered-project work. It restores Git/worktree state, current managed Task, executing/open Epic state, continuation focus and Project Map freshness without running Task/Epic navigators or scanning source.
 - **Continuation:** requests such as “continue” use durable `current_focus`. Active managed Task wins; otherwise an executing Epic is resumed; with neither, the request is treated as new native work.
 - **Project Map:** scanner schema v5 builds a dedicated metadata-only `project_navigation` index containing paths, language, compact purposes, imports, risk flags and bounded symbols/routes plus vector embeddings. Raw source bodies are not persisted.
+- **Semantic Project Map:** `project_navigation_semantics` stores bounded agent-authored navigation learned from real source work: concise responsibilities/purpose, multilingual domain aliases, current important symbols and related files/tests. Scanner-owned structural facts remain immutable to agents.
+- **Project Map reconciliation:** `project_map_reconcile` validates current paths/symbols, records Task provenance and checked scope, permits an explicit factual no-change result, and binds semantic freshness to the source content hash. Completed meaningful Tasks are prompted to reconcile only what they learned; the final Epic Task must emit scoped reconciliation evidence before closure.
 - **Project search:** `project_search` combines semantic Project Map similarity with lexical path/symbol/purpose/import matches and returns a small ranked set of breadcrumbs and related tests. Current repository source must be opened before code-truth claims or edits.
 - **Project Knowledge:** reviewed semantic facts/invariants remain separate from Project Map. `knowledge_search` is the explicit API; `memory_search` remains a compatibility alias. Evidence changes still make affected VERIFIED cards stale.
 - **Decisions:** `decision_search` remains the durable architectural-history channel.
@@ -24,7 +26,7 @@ AI Layer now uses **Project Intelligence + Durable Work State + Observability** 
 
 ## Database and migration state
 
-Alembic migration `0015_project_navigation` adds the dedicated `project_navigation` table and HNSW cosine index. It is additive and does not reset Project/Task/Epic/Knowledge/Decision state.
+Alembic migration `0016_project_map_semantics` adds the separate semantic navigation table and HNSW cosine index on top of `0015_project_navigation`. It is additive and does not reset Project/Task/Epic/Knowledge/Decision state.
 
 The incremental scanner deletes/rebuilds Project Map rows only for changed/reparsed source paths and reuses unchanged navigation embeddings. Scanner schema v5 triggers construction of the new map from older scanner state.
 
@@ -42,12 +44,12 @@ AI Layer must not rebuild a second generic agent runtime around native hosts. A 
 
 ## Release validation status
 
-Release **0.13.0** is promoted in the source branch with an aligned deterministic application wheel, release manifest and governance baseline. ADR 0017 records the execution-model change.
+Release **0.13.1** is promoted in the source branch with an aligned deterministic application wheel, release manifest and governance baseline. ADR 0017 records the execution-model change.
 
 Merge/release readiness still requires the committed clean head to pass:
 
 - canonical formatting/lint/type/architecture/migration/skill/governance/test/release gate;
 - real PostgreSQL/pgvector hardening;
-- deterministic packaging checks against the declared 0.13.0 release artifacts.
+- deterministic packaging checks against the declared 0.13.1 release artifacts.
 
 After merge, supported-host field acceptance should exercise `project_status`, Project Map search, continuation, native execution, optional managed Task/Epic flows, dashboard visibility and native skills on real projects.

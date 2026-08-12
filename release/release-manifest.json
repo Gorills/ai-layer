@@ -1,6 +1,6 @@
 {
-  "application_wheel": "dist/local_ai_development_layer-0.13.0-py3-none-any.whl",
-  "application_wheel_sha256": "c9c39597f5995f7ac8d2b857f2d0cd97a9c676866ffda43585322c8bfb85edc1",
+  "application_wheel": "dist/local_ai_development_layer-0.13.1-py3-none-any.whl",
+  "application_wheel_sha256": "e06b0cec9573879600dacaad79bebb4c56b546eec5e4fea426e43e93c1b0ea02",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -14,7 +14,7 @@
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
     "target_schema": "0016_project_map_semantics"
   },
-  "notes": "0.13.0 source tree includes agent-maintained semantic Project Map enrichment layered over scanner-owned structural navigation; release promotion must rebuild the application wheel before final merge.",
+  "notes": "0.13.1 adds agent-maintained semantic Project Map enrichment over scanner-owned structural navigation, Task/Epic reconciliation evidence, multilingual domain aliases, hash-based staleness and fail-soft hybrid search.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",
@@ -41,5 +41,5 @@
     "task_workflow_black_box": "required_before_promotion_on_supported_host",
     "update_black_box": "required_before_promotion_on_supported_host"
   },
-  "version": "0.13.0"
+  "version": "0.13.1"
 }

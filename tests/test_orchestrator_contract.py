@@ -36,34 +36,34 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
     project_text = workflow(tmp_path)
     global_text = global_bootstrap_workflow()
 
-    assert "AI Layer orchestrator boundary" in global_text
-    assert "Top-level chat coordinates only" in global_text
-    assert "Repository/external mutation is forbidden" in global_text
-    assert "task_stage_delegate" in global_text
-    assert "never perform its stage as fallback" in global_text
+    assert "AI Layer orchestrator" in global_text
+    assert "Top-level coordinates" in global_text
+    assert "never edit repository files" in global_text
+    assert "IMPLEMENT/FIX -> bound writable worker" in global_text
+    assert "DISCOVERY/REVIEW -> bound read-only worker" in global_text
+    assert "Worker/tool unavailable -> block" in global_text
+    assert "Active Epic -> `epic_next`; otherwise `task_next`" in global_text
     assert "AI Layer control plane" in global_text
-    assert "FIRST project-related tool call: `memory_context" in global_text
-    assert "Do not pair with `task_current`" in global_text
-    assert "no project read/search/grep, shell/SSH, edits, or subagents" in global_text
-    assert "bypass for simple/read-only work" in global_text
-    assert "After each Task/Epic transition or worker return" in global_text
-    assert "before more project work" in global_text
-    assert "Token economy: final <= 100 words" in global_text
+    assert "memory_context(task=<actual task>" in global_text
+    assert "No `task_current` or simple/read-only bypass" in global_text
+    assert "navigate again after transitions/worker returns" in global_text
+    assert "dirty worktree is a valid baseline" in global_text
+    assert "Token economy is mandatory: final <= 100 words" in global_text
     assert "simple status/completion <= 60" in global_text
     assert global_text.count("AI Layer engineering floor") == 1
     for rule in STATIC_POLICY_RULES:
         assert f"- {rule}" in global_text
 
-    # The complete first-call kernel remains intentionally small. Detailed stage procedure and
-    # domain expertise belong to navigators/skills, not always-on context.
-    assert len(global_text.encode("utf-8")) < 3800
+    # Preserve the original first-call token budget. Detailed stage procedure and domain expertise
+    # belong to navigators/skills, never the always-on bootstrap.
+    assert len(global_text.encode("utf-8")) < 2600
 
     # Standard projects no longer materialize a text workflow bridge. This renderer survives only
     # as a tiny compatibility helper for legacy callers; sparse project MCP config owns identity.
     assert "project binding (legacy compatibility)" in project_text
     assert "Canonical project root" in project_text
     assert "global native bootstrap and MCP Task Layer" in project_text
-    assert "orchestrator boundary" not in project_text
+    assert "orchestrator" not in project_text
     assert len(project_text.encode("utf-8")) < 500
 
 

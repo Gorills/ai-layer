@@ -1,0 +1,70 @@
+name: agent-facing-string-scan
+
+on:
+  push:
+    branches:
+      - audit/agent-facing-contracts
+    paths:
+      - .github/workflows/agent-facing-string-scan.yml
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/agent-facing-contracts
+      - name: Scan Python runtime strings and product skills
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          patterns = (
+              "after memory_context",
+              "reuse the initial `memory_context`",
+              "create a task before implementation",
+              "forbidden_until_task_create",
+              "mcp task layer",
+              "curated project facts belong to memory_search",
+              "load only the relevant skill section",
+              "primary workflow navigator",
+              "task layer",
+          )
+          print("=== PYTHON STRING CANDIDATES ===")
+          for path in sorted(Path("src/ai_layer").rglob("*.py")):
+              try:
+                  tree = ast.parse(path.read_text(encoding="utf-8"))
+              except SyntaxError as exc:
+                  print("SYNTAX", path, exc)
+                  continue
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                      low = node.value.casefold()
+                      hits = [p for p in patterns if p in low]
+                      if hits:
+                          line = " ".join(node.value.split())[:300]
+                          print(f"{path}:{getattr(node, 'lineno', '?')}: {hits} :: {line}")
+          print("=== PRODUCT SKILL CANDIDATES ===")
+          for name in ("ai-layer-workflow.md", "epics.md"):
+              path = Path("src/ai_layer/builtin_skills") / name
+              text = path.read_text(encoding="utf-8")
+              for lineno, line in enumerate(text.splitlines(), 1):
+                  low = line.casefold()
+                  hits = [p for p in patterns if p in low]
+                  if hits:
+                      print(f"{path}:{lineno}: {hits} :: {line[:300]}")
+          PY
+      - name: Remove scan workflow
+        if: always()
+        run: |
+          rm -f .github/workflows/agent-facing-string-scan.yml
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: remove one-shot runtime string scan"
+          git push origin HEAD:audit/agent-facing-contracts

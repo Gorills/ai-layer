@@ -4,6 +4,7 @@ from ai_layer.application.transport import application_scope as session_scope
 from ai_layer.application.transport import memory_context as build_memory_context
 from ai_layer.application.transport import memory_search as search_memory
 from ai_layer.application.transport import project_info as get_project_info
+from ai_layer.application.transport import project_map_reconcile as reconcile_project_map
 from ai_layer.application.transport import project_search as search_project
 from ai_layer.application.transport import project_status as get_project_status
 from ai_layer.audit.service import mcp_audit
@@ -29,12 +30,14 @@ def project_status(project_root: str | None = None) -> dict:
                 "dirty": (result.get("repository") or {}).get("dirty"),
                 "navigation_files": int(map_state.get("navigation_files") or 0),
                 "symbols": int(map_state.get("symbol_count") or 0),
+                "semantic_current": int(map_state.get("semantic_current") or 0),
+                "semantic_stale": int(map_state.get("semantic_stale") or 0),
             }
             return _scoped(result, root)
 
 
 def project_search(query: str, project_root: str | None = None, limit: int = 8) -> dict:
-    """WHEN: the relevant code location is unknown. Use before broad repository grep/search. Returns metadata-only breadcrumbs (paths/symbols/tests), never source bodies. INPUT: query, optional project_root, limit."""
+    """WHEN: the relevant code location is unknown. Use before broad repository grep/search. Accepts Russian, English or mixed queries and returns structural + semantic breadcrumbs, never source bodies."""
     root = project_root_for_tool(project_root, tool="project_search")
     query = _text(query, tool="project_search", field="query")
     bounded_limit = max(1, min(limit, 20))
@@ -48,6 +51,49 @@ def project_search(query: str, project_root: str | None = None, limit: int = 8) 
                 "limit": bounded_limit,
                 "top_score": matches[0].get("score") if matches else None,
                 "search_mode": result.get("search_mode"),
+                "semantic_hits": sum(1 for item in matches if item.get("semantic")),
+            }
+            return _scoped(result, root)
+
+
+def project_map_reconcile(
+    entries: list[dict] | None = None,
+    remove_paths: list[str] | None = None,
+    scope_paths: list[str] | None = None,
+    source_task_key: str | None = None,
+    no_changes_reason: str | None = None,
+    project_root: str | None = None,
+) -> dict:
+    """WHEN: after meaningful real work established better navigation facts. Reconcile only inspected/affected paths. Canonical purpose/responsibilities/hints must be concise English; keep code identifiers exact and put useful Russian/other aliases in domain_terms. For Epic finalization pass source_task_key so closure has durable ProjectMapReconciled evidence."""
+    root = project_root_for_tool(project_root, tool="project_map_reconcile")
+    with mcp_audit(
+        root,
+        "project_map_reconcile",
+        arg_keys=[
+            "entries",
+            "remove_paths",
+            "scope_paths",
+            "source_task_key",
+            "no_changes_reason",
+            "project_root",
+        ],
+    ) as audit:
+        with session_scope() as db:
+            project = _project(db, root)
+            result = reconcile_project_map(
+                db,
+                project,
+                entries=entries,
+                remove_paths=remove_paths,
+                scope_paths=scope_paths,
+                source_task_key=(source_task_key or "").strip() or None,
+                no_changes_reason=(no_changes_reason or "").strip() or None,
+            )
+            audit["metrics"] = {
+                "updated": len(result.get("updated") or []),
+                "removed": len(result.get("removed") or []),
+                "scope_paths": len(result.get("scope_paths") or []),
+                "source_ref": result.get("source_ref"),
             }
             return _scoped(result, root)
 
@@ -121,6 +167,7 @@ def memory_context(
 
 project_status = core_tool()(project_status)
 project_search = core_tool()(project_search)
+project_map_reconcile = core_tool()(project_map_reconcile)
 project_info = core_tool()(project_info)
 knowledge_search = core_tool()(knowledge_search)
 memory_search = core_tool()(memory_search)

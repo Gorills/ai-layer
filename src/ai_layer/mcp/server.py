@@ -30,6 +30,7 @@ from ai_layer.mcp.tools.project_context import (
     memory_context,
     memory_search,
     project_info,
+    project_map_reconcile,
     project_search,
     project_status,
 )
@@ -87,6 +88,7 @@ __all__ = [
     "execute_core_tool",
     "project_status",
     "project_search",
+    "project_map_reconcile",
     "project_info",
     "knowledge_search",
     "memory_search",

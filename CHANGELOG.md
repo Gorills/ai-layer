@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.1 — Agent-maintained semantic Project Map
+
+- Added a separate agent-authored semantic Project Map layer over scanner-owned structural navigation; agents cannot overwrite deterministic paths/symbols/imports/hashes or persist source bodies.
+- Added `project_map_reconcile` with bounded validation, exact current-symbol/path checks, Task provenance, explicit checked scope and honest no-change reconciliation.
+- Semantic navigation is source-hash bound: changed source makes enrichment stale and search down-ranks it until later real work reconciles that area.
+- Added concise English canonical purposes/responsibilities/hints plus materially useful multilingual `domain_terms`; `project_search` accepts Russian, English or mixed queries without a forced translation step.
+- Integrated bounded Project Map reconciliation guidance into completed Tasks while allowing MICRO/cosmetic work with no reusable navigation knowledge to skip it.
+- Made scoped `ProjectMapReconciled` evidence mandatory for the final Epic Task alongside existing documentation and reviewed Project Knowledge closure evidence.
+- Split semantic write/reconciliation and search/ranking paths to stay within production module complexity limits, and made structural/semantic retrieval fail soft when embeddings/vector search are unavailable.
+- Added semantic current/stale/missing coverage to Project Intelligence/Dashboard projections and migration `0016_project_map_semantics`.
+
 ## 0.13.0 — Project Intelligence control plane
 
 - Replaced the mandatory agent-runtime harness with a Project Intelligence control plane; the host owns ordinary reads, edits, search, shell, tests and native subagents.

@@ -29,33 +29,50 @@ from ai_layer.tasks.constants import OPEN_TASK_STATUSES
 from ai_layer.tasks.views import task_to_dict
 
 
-def _final_closure_evidence(db: Session, task: Task) -> dict:
-    changes = dict(task.final_changes or {})
-    paths = {
-        str(path) for group in ("added", "modified", "deleted") for path in changes.get(group) or []
-    }
-    docs_updated = any(path in DOC_PATH_NAMES or path.startswith("docs/") for path in paths)
-    event = db.scalar(
+def _latest_task_event(db: Session, task: Task, event_type: str) -> RuntimeEvent | None:
+    return db.scalar(
         select(RuntimeEvent)
         .where(
-            RuntimeEvent.event_type == "KnowledgePublished",
+            RuntimeEvent.event_type == event_type,
             RuntimeEvent.aggregate_type == "task",
             RuntimeEvent.aggregate_id == str(task.id),
         )
         .order_by(RuntimeEvent.created_at.desc())
         .limit(1)
     )
-    published = int((event.payload or {}).get("published") or 0) if event else 0
+
+
+def _final_closure_evidence(db: Session, task: Task) -> dict:
+    changes = dict(task.final_changes or {})
+    paths = {
+        str(path) for group in ("added", "modified", "deleted") for path in changes.get(group) or []
+    }
+    docs_updated = any(path in DOC_PATH_NAMES or path.startswith("docs/") for path in paths)
+    knowledge_event = _latest_task_event(db, task, "KnowledgePublished")
+    published = int((knowledge_event.payload or {}).get("published") or 0) if knowledge_event else 0
+    map_event = _latest_task_event(db, task, "ProjectMapReconciled")
+    map_payload = dict(map_event.payload or {}) if map_event else {}
+    map_scope_paths = list(map_payload.get("scope_paths") or [])[:120]
     return {
         "docs_updated": docs_updated,
         "knowledge_published": published,
+        "project_map_reconciled": map_event is not None and bool(map_scope_paths),
+        "project_map_updated": int(map_payload.get("updated") or 0),
+        "project_map_removed": int(map_payload.get("removed") or 0),
+        "project_map_scope_paths": map_scope_paths,
+        "project_map_no_changes_reason": str(map_payload.get("no_changes_reason") or "")[:500],
         "changed_paths": sorted(paths),
     }
 
 
 def _complete_final_item(db: Session, project: Project, epic: Epic, task: Task) -> dict:
     evidence = _final_closure_evidence(db, task)
-    if evidence["docs_updated"] and evidence["knowledge_published"] > 0:
+    complete = (
+        evidence["docs_updated"]
+        and evidence["knowledge_published"] > 0
+        and evidence["project_map_reconciled"]
+    )
+    if complete:
         epic.status = "completed"
         epic.completed_at = utcnow()
         epic.blocked_reason = ""

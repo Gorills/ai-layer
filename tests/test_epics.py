@@ -387,6 +387,30 @@ def test_final_epic_gate_requires_docs_and_reviewed_project_knowledge(
                 payload={"published": 1, "superseded": 0},
             )
         )
+        db.add(
+            RuntimeEvent(
+                project_id=project.id,
+                event_type="ProjectMapReconciled",
+                aggregate_type="task",
+                aggregate_id=str(retry_task.id),
+                correlation_id="epic-test",
+                actor_id="test",
+                actor_kind="system",
+                interface="test",
+                schema_version=1,
+                payload={
+                    "source_ref": f"T-{int(retry_task.sequence):04d}",
+                    "updated": 0,
+                    "removed": 0,
+                    "updated_paths": [],
+                    "removed_paths": [],
+                    "scope_paths": ["CURRENT_STATE.md"],
+                    "no_changes_reason": (
+                        "Affected navigation was checked against current source and remains accurate."
+                    ),
+                },
+            )
+        )
         db.commit()
         closed = epics.next_action(root, key=key)
         assert closed["epic"]["status"] == "completed"

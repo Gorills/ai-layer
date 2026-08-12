@@ -13,7 +13,7 @@ AI Layer adds what should survive individual chats and model contexts:
 - **verification and review evidence** — optional strict workflows where extra guarantees are worth the cost;
 - **observability and dashboard projections** — a human-readable view of project/workflow/runtime state.
 
-Current package version: **0.12.2**. The source architecture described here reflects the current control-plane implementation; release promotion remains governed by the repository release gate and committed wheel/manifest.
+Current package version: **0.13.1**. The source architecture described here reflects the current control-plane implementation; release promotion remains governed by the repository release gate and committed wheel/manifest.
 
 ## Core operating model
 
@@ -26,6 +26,7 @@ For registered-project work, the small always-on bootstrap follows this shape:
 5. use `knowledge_search` and `decision_search` only when durable facts or prior decisions materially help the task;
 6. execute normally through the host runtime;
 7. use `task_next` / `epic_next` when resuming or explicitly choosing a managed workflow.
+8. after meaningful work, call `project_map_reconcile` only for navigation facts actually established from the inspected/affected scope; trivial work may skip it.
 
 The goal is to make already-known project structure cheaper to reuse than to rediscover.
 
@@ -59,6 +60,10 @@ Project Map is a metadata-only code navigation index. The scanner keeps compact 
 - a semantic embedding of that compact navigation document.
 
 Project Map never persists source bodies. Search combines semantic metadata similarity with lexical path/symbol/purpose/import matches and returns a small ranked set of places to inspect.
+
+Since 0.13.1 the map has two ownership layers. The scanner owns deterministic structural facts. Working agents may add bounded semantic breadcrumbs—concise purpose/responsibilities, useful domain terms, current important symbols and related files/tests—through `project_map_reconcile` after real source work. Canonical semantic prose is concise English, source identifiers remain exact, and `domain_terms` may preserve materially useful Russian or other user/project vocabulary.
+
+Semantic enrichment is tied to the source hash it was learned from. When source changes, the old semantic row becomes stale and is down-ranked until real work reconciles it; AI Layer does not launch a duplicate background LLM mapper.
 
 The returned locations are hints. The host must open current repository source before making code-truth claims or edits.
 

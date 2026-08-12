@@ -4,6 +4,7 @@ from ai_layer.agents.policy import DEFAULT_CURSOR_MODELS
 from ai_layer.core.mcp_runtime import (
     CONTEXT_TOOLS,
     FAST_TOOLS,
+    LONG_TOOLS,
     REPLAY_SAFE_TOOLS,
     tool_runtime_class,
 )
@@ -70,6 +71,9 @@ def test_project_intelligence_runtime_classes_are_explicit_and_replay_safe():
     assert tool_runtime_class("project_search") == "context"
     assert tool_runtime_class("knowledge_search") == "context"
     assert {"project_status", "project_search", "knowledge_search"} <= REPLAY_SAFE_TOOLS
+    assert "project_map_reconcile" in LONG_TOOLS
+    assert tool_runtime_class("project_map_reconcile") == "long"
+    assert "project_map_reconcile" not in REPLAY_SAFE_TOOLS
 
 
 def test_default_managed_model_tiers_do_not_claim_two_identical_cost_levels():

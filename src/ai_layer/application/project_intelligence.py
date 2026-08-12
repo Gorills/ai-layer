@@ -8,6 +8,8 @@ from ai_layer.core.service import get_project
 from ai_layer.db.session import session_scope
 from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES, EPIC_OPEN_STATUSES
 from ai_layer.memory.navigation import project_map_status, search_project_map
+from ai_layer.memory.project_map_search import merge_project_search, search_semantic_map
+from ai_layer.memory.project_map_semantics import reconcile_project_map, semantic_map_status
 from ai_layer.memory.refresh_runtime import interactive_freshness
 from ai_layer.workspace.status import repository_runtime_status
 
@@ -115,6 +117,7 @@ def project_status(project_root: str | Path) -> dict:
         project = get_project(db, root)
         freshness = interactive_freshness(project)
         map_state = project_map_status(db, project)
+        map_state.update(semantic_map_status(db, project))
         project_payload = {
             "id": str(project.id),
             "name": project.name,
@@ -171,18 +174,36 @@ def project_status(project_root: str | Path) -> dict:
             "managed_workflow": (
                 "Use task_next/epic_next only when resuming or explicitly choosing a managed Task/Epic flow."
             ),
+            "project_map_enrichment": (
+                "After meaningful work, reconcile only navigation facts actually established from current source; "
+                "do not rescan unrelated areas or invent semantic descriptions."
+            ),
         },
         "active": bool(focus),
     }
 
 
 def project_search(project_root: str | Path, query: str, limit: int = 8) -> dict:
-    """Search metadata-only Project Map breadcrumbs; never return repository source bodies."""
+    """Search structural plus agent-enriched Project Map breadcrumbs; never return source bodies."""
     root = Path(project_root).expanduser().resolve()
+    bounded_limit = max(1, min(int(limit), 20))
     with session_scope() as db:
         project = get_project(db, root)
         freshness = interactive_freshness(project)
-        result = search_project_map(db, project, query, limit=limit)
+        structural = search_project_map(db, project, query, limit=20)
+        semantic_error = None
+        try:
+            semantic = search_semantic_map(db, project, query, limit=40)
+        except Exception as exc:
+            semantic = []
+            semantic_error = f"{type(exc).__name__}: {exc}"[:300]
+        result = merge_project_search(structural, semantic, limit=bounded_limit)
+        if semantic_error:
+            result["semantic_search_degraded"] = semantic_error
+            result["search_mode"] = structural.get("search_mode", "lexical_metadata")
+        map_state = dict(result.get("map") or {})
+        map_state.update(semantic_map_status(db, project))
+        result["map"] = map_state
     result = dict(result)
     result["freshness"] = {
         "status": freshness.get("status"),
@@ -195,3 +216,31 @@ def project_search(project_root: str | Path, query: str, limit: int = 8) -> dict
     if freshness.get("status") not in {"fresh", "refreshed"}:
         result["source_verification_required"] = True
     return result
+
+
+def project_map_reconcile(
+    project_root: str | Path,
+    *,
+    entries: list[dict] | None = None,
+    remove_paths: list[str] | None = None,
+    scope_paths: list[str] | None = None,
+    source_task_key: str | None = None,
+    no_changes_reason: str | None = None,
+) -> dict:
+    """Persist bounded semantic Project Map knowledge learned from real source work."""
+    root = Path(project_root).expanduser().resolve()
+    with session_scope() as db:
+        project = get_project(db, root)
+        result = reconcile_project_map(
+            db,
+            project,
+            entries=entries,
+            remove_paths=remove_paths,
+            scope_paths=scope_paths,
+            source_task_key=source_task_key,
+            no_changes_reason=no_changes_reason,
+        )
+        map_state = project_map_status(db, project)
+        map_state.update(semantic_map_status(db, project))
+        result["map"] = map_state
+        return result

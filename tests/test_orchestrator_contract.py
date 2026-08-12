@@ -35,6 +35,7 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
 ):
     project_text = workflow(tmp_path)
     global_text = global_bootstrap_workflow()
+    global_low = global_text.lower()
 
     assert "AI Layer orchestrator" in global_text
     assert "Top-level coordinates" in global_text
@@ -46,7 +47,7 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
     assert "Active Epic -> `epic_next`; otherwise `task_next`" in global_text
     assert "AI Layer control plane" in global_text
     assert "memory_context(task=<actual task>" in global_text
-    assert "No `task_current` or simple/read-only bypass" in global_text
+    assert "no `task_current` or simple/read-only bypass" in global_low
     assert "navigate again after transitions/worker returns" in global_text
     assert "dirty worktree is a valid baseline" in global_text
     assert "Token economy is mandatory: final <= 100 words" in global_text

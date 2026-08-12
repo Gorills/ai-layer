@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Executable native-first contract and depth gate for every bundled production skill."""
+"""Executable native-first activation and depth gate for every bundled production skill."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ai_layer.skills.native import render_native_descriptor, validate_native_catalog  # noqa: E402
+from ai_layer.skills.native import render_native_skill, validate_native_catalog  # noqa: E402
 from ai_layer.skills.service import (  # noqa: E402
     _parse_skill_text,
     skill_section_content,
@@ -32,8 +32,9 @@ OBSOLETE_ROUTING_KEYS = {
 }
 
 # Bundled skills are production instructions for coding agents, not routing stubs.
-# The floor intentionally protects both depth and retrievability. Long skills remain
-# context-efficient because AI Layer exposes them section-by-section via skill_get.
+# The floor intentionally protects depth, semantic entry sections and native activation.
+# Context economy comes from host relevance selection and exact-section rereads, not from
+# replacing an already-selected professional skill with a pointer or clipped fragment.
 MIN_CONTENT_CHARS = 7000
 MIN_CONTENT_WORDS = 850
 MIN_SECTIONS = 10
@@ -138,6 +139,14 @@ def _check_depth(skill: dict, errors: list[str]) -> None:
         if entry not in section_names:
             errors.append(f"{slug}: entry section {entry!r} is not a real level-2 section")
 
+    core, _ = skill_section_content(skill, section="core")
+    for entry in entry_sections:
+        section_body = str(sections.get(entry) or "")
+        if section_body and section_body not in core:
+            errors.append(f"{slug}: core retrieval does not preserve complete entry section {entry!r}")
+    if "skill core clipped" in core:
+        errors.append(f"{slug}: core retrieval contains destructive clipping marker")
+
     for required in REQUIRED_SECTIONS:
         body = str(sections.get(required) or "").strip()
         if body and len(body) < 180:
@@ -204,16 +213,17 @@ def run_gate(root: Path = ROOT) -> dict:
         _check_depth(skill, errors)
 
         try:
-            descriptor = render_native_descriptor(skill)
+            native = render_native_skill(skill)
         except Exception as exc:  # gate should report every invalid skill in one pass
-            errors.append(f"{slug}: native descriptor render failed: {exc}")
+            errors.append(f"{slug}: native skill render failed: {exc}")
         else:
-            if "skill_get(" not in descriptor:
-                errors.append(
-                    f"{slug}: native descriptor does not direct targeted authoritative retrieval"
-                )
-            if 'section="full"` only' not in descriptor:
-                errors.append(f"{slug}: native descriptor does not make full retrieval exceptional")
+            canonical = str(skill.get("content") or "").strip()
+            if canonical not in native:
+                errors.append(f"{slug}: native activation does not contain the complete canonical body")
+            if not native.startswith("---\nname: "):
+                errors.append(f"{slug}: native activation lacks host-compatible routing frontmatter")
+            if "description:" not in native.split("---\n", 2)[1]:
+                errors.append(f"{slug}: native activation frontmatter lacks routing description")
 
     _check_distinctiveness(parsed, errors)
 
@@ -230,6 +240,7 @@ def run_gate(root: Path = ROOT) -> dict:
         },
         "native_catalog": validation,
         "routing_owner": "host-native",
+        "activation_payload": "full-authoritative-skill",
         "automatic_domain_skill_injection": False,
     }
 

@@ -7,6 +7,7 @@ from ai_layer.db.session import session_scope
 from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES
 from ai_layer.memory.freshness import probe_memory_freshness
 from ai_layer.memory.navigation import project_map_status
+from ai_layer.memory.project_map_semantics import semantic_map_status
 
 
 def project_intelligence_summary(
@@ -31,6 +32,7 @@ def project_intelligence_summary(
         with session_scope() as db:
             project = get_project(db, project_root)
             map_state = project_map_status(db, project)
+            map_state.update(semantic_map_status(db, project))
             freshness = probe_memory_freshness(project)
     except Exception as exc:
         return {

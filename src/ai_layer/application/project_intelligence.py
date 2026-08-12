@@ -135,7 +135,11 @@ def project_status(project_root: str | Path) -> dict:
                 {"kind": "task", "key": active_task.get("key"), "goal": active_task.get("goal")}
                 if active_task
                 else (
-                    {"kind": "epic", "key": active_epic.get("key"), "title": active_epic.get("title")}
+                    {
+                        "kind": "epic",
+                        "key": active_epic.get("key"),
+                        "title": active_epic.get("title"),
+                    }
                     if active_epic
                     else None
                 )

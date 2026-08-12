@@ -32,7 +32,7 @@ from ai_layer.integrations.status import _json_ai_layer_server
 from ai_layer.skills.native import remove_global_native_skills, sync_global_native_skills
 
 INTEGRATION_TEMPLATE_VERSION = 22
-GLOBAL_BOOTSTRAP_VERSION = 9
+GLOBAL_BOOTSTRAP_VERSION = 10
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 

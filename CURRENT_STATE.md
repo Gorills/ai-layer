@@ -1,4 +1,4 @@
-# Current State — v0.12.2 Project Intelligence control-plane source
+# Current State — v0.13.0 Project Intelligence control plane
 
 ## Implemented source state
 
@@ -42,10 +42,12 @@ AI Layer must not rebuild a second generic agent runtime around native hosts. A 
 
 ## Release validation status
 
-Canonical CI is the source of truth for merge/release readiness. The source branch must pass:
+Release **0.13.0** is promoted in the source branch with an aligned deterministic application wheel, release manifest and governance baseline. ADR 0017 records the execution-model change.
+
+Merge/release readiness still requires the committed clean head to pass:
 
 - canonical formatting/lint/type/architecture/migration/skill/governance/test/release gate;
 - real PostgreSQL/pgvector hardening;
-- deterministic packaging checks against the currently declared 0.12.2 release artifacts.
+- deterministic packaging checks against the declared 0.13.0 release artifacts.
 
-This refactor intentionally does not claim a new binary version until the repository's fail-closed promotion path can publish an aligned wheel and release manifest. After merge, supported-host field acceptance should exercise `project_status`, Project Map search, continuation, native execution, optional managed Task/Epic flows, dashboard visibility and native skills on real projects.
+After merge, supported-host field acceptance should exercise `project_status`, Project Map search, continuation, native execution, optional managed Task/Epic flows, dashboard visibility and native skills on real projects.

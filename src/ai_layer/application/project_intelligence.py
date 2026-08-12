@@ -195,8 +195,16 @@ def project_search(project_root: str | Path, query: str, limit: int = 8) -> dict
         project = get_project(db, root)
         freshness = interactive_freshness(project)
         structural = search_project_map(db, project, query, limit=20)
-        semantic = search_semantic_map(db, project, query, limit=40)
+        semantic_error = None
+        try:
+            semantic = search_semantic_map(db, project, query, limit=40)
+        except Exception as exc:
+            semantic = []
+            semantic_error = f"{type(exc).__name__}: {exc}"[:300]
         result = merge_project_search(structural, semantic, limit=bounded_limit)
+        if semantic_error:
+            result["semantic_search_degraded"] = semantic_error
+            result["search_mode"] = structural.get("search_mode", "lexical_metadata")
         map_state = dict(result.get("map") or {})
         map_state.update(semantic_map_status(db, project))
         result["map"] = map_state

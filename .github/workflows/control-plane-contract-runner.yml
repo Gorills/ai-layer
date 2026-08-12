@@ -1,0 +1,56 @@
+name: Run Control Plane Contract Migration
+
+on:
+  push:
+    branches:
+      - refactor/project-intelligence-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/project-intelligence-control-plane
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Execute stored migration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/control-plane-contract-migration.yml').read_text(encoding='utf-8')
+          marker = "          python - <<'PY'\n"
+          block = source.split(marker, 1)[1].split("\n          PY\n", 1)[0]
+          block = '\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())
+          exec(compile(block, 'control-plane-contract-migration', 'exec'))
+          PY
+      - name: Install dev dependencies
+        run: python -m pip install -e '.[dev]' >/dev/null 2>&1
+      - name: Format migrated contracts
+        run: |
+          ruff check --fix tests/test_context_trace.py tests/test_epic_workflow_friction.py tests/test_incremental_memory.py tests/test_integrations.py tests/test_native_skills.py tests/test_orchestrator_contract.py
+          ruff format tests/test_context_trace.py tests/test_epic_workflow_friction.py tests/test_incremental_memory.py tests/test_integrations.py tests/test_native_skills.py tests/test_orchestrator_contract.py
+      - name: Verify migrated contract tests
+        run: |
+          PYTHONPATH=. pytest -q \
+            tests/test_context_trace.py \
+            tests/test_epic_workflow_friction.py \
+            tests/test_incremental_memory.py \
+            tests/test_integrations.py \
+            tests/test_native_skills.py \
+            tests/test_orchestrator_contract.py
+      - name: Commit successful migration
+        run: |
+          rm -f .github/workflows/control-plane-diagnostic.yml
+          rm -f .github/workflows/control-plane-contract-migration.yml
+          rm -f .github/workflows/control-plane-contract-runner.yml
+          git config user.name Gorills
+          git config user.email 57192423+Gorills@users.noreply.github.com
+          git add tests .github/workflows
+          git commit -m 'test: align contracts with host-native control plane'
+          git push origin HEAD:refactor/project-intelligence-control-plane

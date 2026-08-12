@@ -1,4 +1,4 @@
-# Current State — v0.13.1 semantic Project Map enrichment
+# Current State — v0.13.2 Project Map runtime contract hardening
 
 ## Implemented source state
 
@@ -8,11 +8,11 @@ AI Layer now uses **Project Intelligence + Durable Work State + Observability** 
 - **Continuation:** requests such as “continue” use durable `current_focus`. Active managed Task wins; otherwise an executing Epic is resumed; with neither, the request is treated as new native work.
 - **Project Map:** scanner schema v5 builds a dedicated metadata-only `project_navigation` index containing paths, language, compact purposes, imports, risk flags and bounded symbols/routes plus vector embeddings. Raw source bodies are not persisted.
 - **Semantic Project Map:** `project_navigation_semantics` stores bounded agent-authored navigation learned from real source work: concise responsibilities/purpose, multilingual domain aliases, current important symbols and related files/tests. Scanner-owned structural facts remain immutable to agents.
-- **Project Map reconciliation:** `project_map_reconcile` validates current paths/symbols, records Task provenance and checked scope, permits an explicit factual no-change result, and binds semantic freshness to the source content hash. Completed meaningful Tasks are prompted to reconcile only what they learned; the final Epic Task must emit scoped reconciliation evidence before closure.
+- **Project Map reconciliation:** `project_map_reconcile` validates current paths/symbols, records Task provenance and checked scope, permits an explicit factual no-change result, and binds semantic freshness to the source content hash. A versioned capability contract is emitted by `project_status` and `epic_next`, so old Epics learn the current tool semantics dynamically; map-only final closure waits on reconciliation against the completed Task instead of spawning another final Task.
 - **Project search:** `project_search` combines semantic Project Map similarity with lexical path/symbol/purpose/import matches and returns a small ranked set of breadcrumbs and related tests. Current repository source must be opened before code-truth claims or edits.
 - **Project Knowledge:** reviewed semantic facts/invariants remain separate from Project Map. `knowledge_search` is the explicit API; `memory_search` remains a compatibility alias. Evidence changes still make affected VERIFIED cards stale.
 - **Decisions:** `decision_search` remains the durable architectural-history channel.
-- **Legacy context:** `memory_context` remains for compatibility but is informational only. It no longer invokes `task_next`, selects workflow authority or acts as the mandatory project bootstrap.
+- **Legacy context:** `memory_context` remains only as a compact compatibility helper. With no task/query it serves `project_status`; with a task it returns bounded knowledge hints instead of the old multi-surface payload. It never selects or advances Task/Epic workflow.
 - **Native execution:** global bootstrap no longer disables source reads, edits, shell, tests, code search or native subagents. If a precise location is known, the host inspects it directly after status; if location is unknown, Project Map is consulted before broad repository discovery.
 - **Tasks:** durable Task records, stages, findings, worker leases, provenance/adoption, review sandboxes, verification evidence, remediation caps and MICRO/STANDARD/DISCOVERY_FIRST/ANALYSIS_ONLY profiles remain implemented. `task_next` is authoritative inside an active/selected managed Task, not for every repository action.
 - **Epics:** immutable specs, audits, approval, planning, linked Tasks, drift/reconciliation, intervening review, completion/archive and Dashboard views remain implemented. `epic_next` is authoritative inside an active/selected managed Epic.

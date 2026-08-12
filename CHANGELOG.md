@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.2 — Project Map runtime contract hardening
+
+- Compacted MCP-facing `memory_context` into a compatibility brief instead of returning the legacy multi-surface context payload; focused Project Intelligence APIs remain the preferred path.
+- `memory_context` without `task`/`query` now fails soft to `project_status` instead of producing a validation error during legacy/weak-agent startup.
+- Added a versioned runtime Project Map capability contract that explicitly names `project_search` for reads and `project_map_reconcile` for updates, including scope, provenance, multilingual aliases and honest no-change semantics.
+- Published the current Project Map contract through `project_status`, native/MCP bootstrap and every `epic_next`, so Epics created before Project Map existed learn current behavior dynamically.
+- Epic finalization no longer creates another final Task when documentation and Project Knowledge are complete but only `ProjectMapReconciled` evidence is missing; it waits on reconciliation against the already-completed Task.
+- Added regression tests for compact legacy context, no-task fallback, old-Epic Project Map guidance and map-only Epic closure behavior. No database migration.
+
 ## 0.13.1 — Agent-maintained semantic Project Map
 
 - Added a separate agent-authored semantic Project Map layer over scanner-owned structural navigation; agents cannot overwrite deterministic paths/symbols/imports/hashes or persist source bodies.

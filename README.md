@@ -13,7 +13,7 @@ AI Layer adds what should survive individual chats and model contexts:
 - **verification and review evidence** — optional strict workflows where extra guarantees are worth the cost;
 - **observability and dashboard projections** — a human-readable view of project/workflow/runtime state.
 
-Current package version: **0.13.1**. The source architecture described here reflects the current control-plane implementation; release promotion remains governed by the repository release gate and committed wheel/manifest.
+Current package version: **0.13.2**. The source architecture described here reflects the current control-plane implementation; release promotion remains governed by the repository release gate and committed wheel/manifest.
 
 ## Core operating model
 

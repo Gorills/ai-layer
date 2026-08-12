@@ -54,6 +54,26 @@ def project_search(_scope: ApplicationScope, project: ProjectRef, query: str, li
     return intelligence_uc.project_search(project.root_path, query, limit)
 
 
+def project_map_reconcile(
+    _scope: ApplicationScope,
+    project: ProjectRef,
+    *,
+    entries: list[dict] | None = None,
+    remove_paths: list[str] | None = None,
+    scope_paths: list[str] | None = None,
+    source_task_key: str | None = None,
+    no_changes_reason: str | None = None,
+) -> dict:
+    return intelligence_uc.project_map_reconcile(
+        project.root_path,
+        entries=entries,
+        remove_paths=remove_paths,
+        scope_paths=scope_paths,
+        source_task_key=source_task_key,
+        no_changes_reason=no_changes_reason,
+    )
+
+
 def memory_search(
     _scope: ApplicationScope, project: ProjectRef, query: str, limit: int
 ) -> list[dict]:

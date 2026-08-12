@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from ai_layer.agents.policy import DEFAULT_CURSOR_MODELS
-from ai_layer.core.mcp_runtime import CONTEXT_TOOLS, FAST_TOOLS, REPLAY_SAFE_TOOLS, tool_runtime_class
+from ai_layer.core.mcp_runtime import (
+    CONTEXT_TOOLS,
+    FAST_TOOLS,
+    REPLAY_SAFE_TOOLS,
+    tool_runtime_class,
+)
 from ai_layer.domain.orchestrator import native_bootstrap_markdown
 from ai_layer.memory.navigation import build_navigation_document, extract_symbols
 

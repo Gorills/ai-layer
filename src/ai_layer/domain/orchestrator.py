@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ai_layer.core.static_policy import static_policy_markdown
+from ai_layer.domain.static_policy import static_policy_markdown
 
 CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 4
 

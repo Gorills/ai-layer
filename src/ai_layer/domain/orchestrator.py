@@ -50,11 +50,11 @@ def native_bootstrap_markdown() -> str:
     """Single compact static kernel; runtime navigators own detailed procedure."""
     control_plane = """## AI Layer control plane
 For registered projects:
-- First project tool: `memory_context(task=<actual task>, project_root=<root>)`; before it no repo read/search, shell/SSH, edits, or agents. No `task_current` or simple/read-only bypass.
-- Follow owning navigator action; navigate again after transitions/worker returns.
-- MICRO only obvious local low-risk; never high-impact categories below or external mutation; uncertain -> STANDARD.
-- Keep canonical root; one task/stage/worker. dirty worktree is a valid baseline; never stash/reset/restore/commit user work for AI Layer.
-- Native skills choose relevance; `skill_get` gives detail. AI Layer/delegation failure -> block, never bypass.
+- First project tool: `memory_context(task=<actual task>, project_root=<root>)`. Before it: no repo read/search, shell/SSH, edits, agents; no `task_current` or simple/read-only bypass.
+- Follow navigator action; navigate again after transitions/worker returns.
+- MICRO: obvious local low-risk only; never high-impact below/external mutation; uncertain -> STANDARD.
+- Keep canonical root; one task/stage/worker. dirty worktree is a valid baseline; never stash/reset/restore/commit user work.
+- Native skills choose relevance; `skill_get` on demand. AI Layer/delegation failure -> block; never bypass.
 """
     return critical_orchestrator_markdown() + "\n" + control_plane + "\n" + static_policy_markdown()
 

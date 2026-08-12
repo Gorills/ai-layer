@@ -9,6 +9,7 @@ from ai_layer.application.epic_common import (
     DOC_PATH_NAMES,
     append_epic_event,
     capture_identity,
+    epic_audit_state,
     epic_for_update,
     epic_payload,
     plan_payload,
@@ -16,10 +17,15 @@ from ai_layer.application.epic_common import (
     task_row,
 )
 from ai_layer.application.epic_planning import retry_final_item
+from ai_layer.application.epic_review import (
+    INTERVENING_REVIEW_BLOCK_PREFIX,
+    detect_intervening_tasks,
+)
 from ai_layer.application.epic_task_boundary import accepted_task_identity
 from ai_layer.db.epic_models import Epic, EpicPlanItem
 from ai_layer.db.models import Project, RuntimeEvent, Task, utcnow
 from ai_layer.db.session import session_scope
+from ai_layer.tasks.constants import OPEN_TASK_STATUSES
 from ai_layer.tasks.views import task_to_dict
 
 
@@ -108,18 +114,79 @@ def _sync_active_item(db: Session, project: Project, epic: Epic) -> dict | None:
     return {"state": "task_completed"}
 
 
-def _drift_action(project: Project, epic: Epic) -> dict | None:
+def _linked_task_ids(db: Session, epic: Epic) -> set:
+    ids = {task_id for task_id in (epic.phase0_task_id, epic.drift_task_id) if task_id}
+    ids.update(
+        task_id
+        for task_id in db.scalars(
+            select(EpicPlanItem.task_id).where(
+                EpicPlanItem.epic_id == epic.id,
+                EpicPlanItem.task_id.is_not(None),
+            )
+        ).all()
+        if task_id
+    )
+    return ids
+
+
+def _standalone_open_task(db: Session, project: Project, epic: Epic) -> Task | None:
+    linked = _linked_task_ids(db, epic)
+    task = db.scalar(
+        select(Task)
+        .where(
+            Task.project_id == project.id,
+            Task.status.in_(sorted(OPEN_TASK_STATUSES)),
+        )
+        .order_by(Task.sequence.asc())
+        .limit(1)
+    )
+    if task is None or task.id in linked:
+        return None
+    return task
+
+
+def _continue_standalone_task(db: Session, task: Task) -> dict:
+    return {
+        "action": "continue_standalone_task",
+        "tool": "task_next",
+        "task": task_to_dict(db, task, include_history=False),
+        "message": (
+            "This Task is intentionally outside the Epic. The Epic remains paused; finish or cancel "
+            "the standalone Task, then call epic_next to resume the Epic."
+        ),
+    }
+
+
+def _drift_action(db: Session, project: Project, epic: Epic) -> dict | None:
     if not epic.execution_digest:
         return None
     identity = capture_identity(project.root_path)
     if identity["digest"] == epic.execution_digest:
         return None
+    intervening = detect_intervening_tasks(
+        db,
+        project,
+        epic,
+        current_identity=identity,
+    )
+    if intervening is not None:
+        return {
+            "action": "review_intervening_tasks",
+            "tool": "epic_intervening_review_prepare",
+            "message": (
+                "Repository changes are fully attributable to accepted standalone Tasks executed between "
+                "Epic Tasks. Run a read-only impact review instead of treating them as unknown drift."
+            ),
+            "intervening_tasks": intervening["task_keys"],
+            "expected_digest": intervening["expected_digest"],
+            "current_digest": intervening["current_digest"],
+        }
     return {
         "action": "start_drift_reconciliation",
         "tool": "epic_start_next",
         "message": (
-            "Repository changed outside the last accepted Epic Task boundary. Run targeted read-only "
-            "reconciliation before starting the next planned Task."
+            "Repository changed outside a safely attributable accepted Task boundary. Run targeted "
+            "read-only reconciliation before starting the next planned Epic Task."
         ),
         "expected_digest": epic.execution_digest,
         "current_digest": identity["digest"],
@@ -200,9 +267,33 @@ def _running_navigation(db: Session, project: Project, epic: Epic) -> dict:
         return {"action": "archive", "tool": "epic_archive"}
     if epic.status == "blocked":
         return {"action": "human_attention_required", "message": epic.blocked_reason}
-    drift = _drift_action(project, epic)
+
+    standalone = _standalone_open_task(db, project, epic)
+    if standalone is not None:
+        return _continue_standalone_task(db, standalone)
+
+    drift = _drift_action(db, project, epic)
     if drift is None:
         return _pending_navigation(db, epic)
+    if drift["action"] == "review_intervening_tasks":
+        epic.status = "blocked"
+        epic.blocked_reason = (
+            f"{INTERVENING_REVIEW_BLOCK_PREFIX}: accepted standalone Tasks must be checked against "
+            "remaining Epic assumptions"
+        )
+        append_epic_event(
+            db,
+            project,
+            epic,
+            "EpicInterveningTasksDetected",
+            {
+                "tasks": drift["intervening_tasks"],
+                "expected": drift["expected_digest"],
+                "current": drift["current_digest"],
+            },
+        )
+        return drift
+
     epic.status = "blocked"
     epic.blocked_reason = (
         "repository_drift_detected: targeted reconciliation required before the next Epic Task"
@@ -226,17 +317,60 @@ def _human_decision_navigation(epic: Epic) -> dict:
     }
 
 
+def _draft_navigation(db: Session, epic: Epic) -> dict:
+    audit_state = epic_audit_state(db, epic)
+    if audit_state["status"] == "stale_after_revision":
+        message = (
+            f"Spec v{epic.current_spec_version} is mutable. Audits of older versions remain historical; "
+            "a fresh independent audit of the current spec is recommended before relying on them."
+        )
+    else:
+        message = (
+            "Spec is mutable and passive: ordinary project Tasks may continue independently. "
+            "Run unlimited independent audit/edit rounds; approval freezes only the human baseline."
+        )
+    return {
+        "action": "audit_revise_or_approve",
+        "allowed_tools": [
+            "epic_audit_prepare",
+            "epic_audit_record",
+            "epic_spec_edit",
+            "epic_spec_revise",
+            "epic_spec_get",
+            "epic_approve",
+        ],
+        "audit_state": audit_state,
+        "message": message,
+    }
+
+
+def _approved_navigation(db: Session, project: Project, epic: Epic) -> dict:
+    standalone = _standalone_open_task(db, project, epic)
+    if standalone is not None:
+        return _continue_standalone_task(db, standalone)
+    return {
+        "action": "start_phase0_when_ready",
+        "tool": "epic_start_next",
+        "optional_tools": [
+            "epic_audit_prepare",
+            "epic_audit_record",
+            "epic_spec_edit",
+            "epic_spec_revise",
+            "epic_spec_get",
+        ],
+        "audit_state": epic_audit_state(db, epic),
+        "message": (
+            "The approved Epic is still passive until Phase 0 starts. Ordinary Tasks may run first; "
+            "call epic_start_next only when you intentionally begin Epic execution."
+        ),
+    }
+
+
 def _navigation_action(db: Session, project: Project, epic: Epic) -> dict:
     if epic.status == "draft":
-        return {
-            "action": "audit_revise_or_approve",
-            "allowed_tools": ["epic_audit_record", "epic_spec_revise", "epic_approve"],
-            "message": (
-                "Spec is mutable. Run unlimited independent audit/revision rounds; approval freezes the human baseline."
-            ),
-        }
+        return _draft_navigation(db, epic)
     if epic.status == "approved":
-        return {"action": "start_phase0", "tool": "epic_start_next"}
+        return _approved_navigation(db, project, epic)
     if epic.status == "phase0":
         return _phase0_navigation(db, epic)
     if epic.status == "planning":
@@ -244,11 +378,21 @@ def _navigation_action(db: Session, project: Project, epic: Epic) -> dict:
             "action": "create_task_plan",
             "tool": "epic_plan_set",
             "message": (
-                "Create implementation Tasks from the reconciled execution spec. Phase 0 and final closure/review are automatic."
+                "Create implementation Tasks from the reconciled execution spec. Phase 0 and final "
+                "closure/review are automatic."
             ),
         }
     if epic.status == "blocked" and epic.blocked_reason.startswith("human_decision_required"):
         return _human_decision_navigation(epic)
+    if epic.status == "blocked" and epic.blocked_reason.startswith(INTERVENING_REVIEW_BLOCK_PREFIX):
+        return {
+            "action": "review_intervening_tasks",
+            "tool": "epic_intervening_review_prepare",
+            "message": (
+                "Accepted standalone Tasks occurred since the last Epic boundary. Review only their impact "
+                "on remaining Epic assumptions; do not start a full drift reconciliation unless required."
+            ),
+        }
     if epic.drift_task_id:
         return _drift_task_navigation(db, epic)
     if epic.status in {"running", "final_review"}:
@@ -258,7 +402,8 @@ def _navigation_action(db: Session, project: Project, epic: Epic) -> dict:
             "action": "start_drift_reconciliation",
             "tool": "epic_start_next",
             "message": (
-                "Run targeted analysis-only reconciliation. Resolve obvious drift automatically; ask the human only for material trade-offs."
+                "Run targeted analysis-only reconciliation. Resolve obvious drift automatically; "
+                "ask the human only for material trade-offs."
             ),
         }
     if epic.status == "blocked":

@@ -1,6 +1,6 @@
 {
-  "application_wheel": "dist/local_ai_development_layer-0.12.2-py3-none-any.whl",
-  "application_wheel_sha256": "26007fddcea825840f5d4e8503da320aacd3ec1e98c8bc7adcbfc758f5bddd87",
+  "application_wheel": "dist/local_ai_development_layer-0.13.0-py3-none-any.whl",
+  "application_wheel_sha256": "c9c39597f5995f7ac8d2b857f2d0cd97a9c676866ffda43585322c8bfb85edc1",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -12,9 +12,9 @@
     "minimum_source_schema": "0010_adaptive_task_workflow",
     "rollback": "forward_only_after_migration",
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
-    "target_schema": "0014_epics_v1"
+    "target_schema": "0015_project_navigation"
   },
-  "notes": "0.12.2 keeps native skill discovery metadata-first, but publishes the complete authoritative professional skill after host relevance selection. Explicit core retrieval preserves whole entry sections without character clipping; unrelated skills remain unloaded.",
+  "notes": "0.13.0 makes AI Layer a Project Intelligence control plane with host-native execution by default and strict Task/Epic orchestration scoped to explicitly managed high-assurance work.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",
@@ -41,5 +41,5 @@
     "task_workflow_black_box": "required_before_promotion_on_supported_host",
     "update_black_box": "required_before_promotion_on_supported_host"
   },
-  "version": "0.12.2"
+  "version": "0.13.0"
 }

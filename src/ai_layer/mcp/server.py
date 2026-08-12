@@ -26,9 +26,12 @@ from ai_layer.mcp.tools.epics import (
 )
 from ai_layer.mcp.tools.knowledge import knowledge_draft_upsert, knowledge_list
 from ai_layer.mcp.tools.project_context import (
+    knowledge_search,
     memory_context,
     memory_search,
     project_info,
+    project_search,
+    project_status,
 )
 from ai_layer.mcp.tools.sessions import (
     decision_search,
@@ -82,7 +85,10 @@ __all__ = [
     "TOOL_HANDLERS",
     "core_tool",
     "execute_core_tool",
+    "project_status",
+    "project_search",
     "project_info",
+    "knowledge_search",
     "memory_search",
     "memory_context",
     "epic_create",

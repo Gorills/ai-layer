@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.0 — Project Intelligence control plane
+
+- Replaced the mandatory agent-runtime harness with a Project Intelligence control plane; the host owns ordinary reads, edits, search, shell, tests and native subagents.
+- Added cheap `project_status` continuation state plus metadata-only `project_search` breadcrumbs for paths, symbols, imports, purposes, risk flags and related tests; current source remains authoritative.
+- Separated Project Map navigation from reviewed Project Knowledge and Decisions; legacy `memory_context` is compatibility-only and no longer drives Task/Epic navigation.
+- Preserved Tasks, Epics, findings, verification, review sandboxes, worker provenance/recovery and strict IMPLEMENT → REVIEW → FIX → REVIEW as explicit managed/high-assurance workflows instead of a universal permission layer.
+- Published host-native skills to Claude Code as well as Cursor/Codex/Antigravity and retained host-owned progressive skill relevance selection.
+- Added migration `0015_project_navigation`, scanner schema v5, incremental Project Map refresh, lexical fallback when embeddings are unavailable, and safe symbol metadata that never persists Python default expressions.
+- Extended Dashboard Project Intelligence projections and made read-side degradation tolerant of temporary durable-database unavailability.
+- Model/cost telemetry now distinguishes requested/unverified routing from measured economics instead of implying unobserved token or billing truth.
+
 ## 0.12.2 — Dashboard background-load fix
 
 - Removed the Dashboard projection dependency on authoritative `task_next` navigation, so passive refreshes no longer trigger repository drift/provenance scans or repository hashing.

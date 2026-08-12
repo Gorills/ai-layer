@@ -67,6 +67,7 @@ function skillsPanel(skillState, projectKey) {
 function projectLinks(projectKey) {
   return `<div class="project-actions">
     <a href="${hashUrl("tasks", { project: projectKey })}">Задачи</a>
+    <a href="${hashUrl("epics", { project: projectKey })}">Эпики</a>
     <a href="${hashUrl("skills", { project: projectKey })}">Скиллы</a>
     <a href="${hashUrl("rules", { project: projectKey })}">Правила</a>
     <a href="${hashUrl("knowledge", { project: projectKey })}">База знаний</a>
@@ -81,6 +82,11 @@ export function renderProject(data) {
   const next = nextAction(task, project.next_action);
   const protocol = project.protocol_state || {};
   const activeStage = task?.active_stage;
+  const intelligence = project.intelligence || {};
+  const projectMap = intelligence.project_map || {};
+  const freshness = intelligence.freshness || {};
+  const focus = intelligence.current_focus || null;
+  const focusLabel = focus ? `${focus.kind === "epic" ? "Epic" : "Task"} ${focus.key || ""}`.trim() : "Native / новая работа";
   return `
     <div class="project-head">
       <div><h2>${escapeHtml(project.name || "Проект")}</h2><div class="path">${escapeHtml(project.root || "")}</div></div>
@@ -92,7 +98,7 @@ export function renderProject(data) {
       ${metric("Текущая стадия", activeStage ? stageName(activeStage.kind) : "—", activeStage?.worker_id || "нет active worker")}
       ${metric("Следующее действие", next.label, next.tool !== "—" ? next.tool : (next.code || "navigator"))}
       ${metric("MCP p95", project.mcp_latency?.p95_ms != null ? `${project.mcp_latency.p95_ms} мс` : "—", project.mcp_latency?.p99_ms != null ? `p99 ${project.mcp_latency.p99_ms} мс` : "")}
-      ${metric("Memory", project.last_scan ? age(project.last_scan) : "никогда", `${escapeHtml(project.scan_files ?? "—")} файлов`)}
+      ${metric("Project Map", projectMap.navigation_files != null ? `${projectMap.navigation_files} файлов` : "—", `${escapeHtml(projectMap.symbol_count ?? "—")} symbols · ${escapeHtml(freshness.status || "unknown")}`)}
     </div>
     <div class="dashboard-grid">
       <div class="dashboard-main">
@@ -111,12 +117,14 @@ export function renderProject(data) {
       </div>
       <div class="dashboard-side">
         <section class="panel">
-          <div class="panel-header"><div><div class="panel-title">Runtime & memory</div><div class="panel-hint">Состояние проекта без terminal dump</div></div></div>
+          <div class="panel-header"><div><div class="panel-title">Project Intelligence</div><div class="panel-hint">Рабочий контекст и карта проекта без terminal dump</div></div></div>
           <div class="info-list">
+            ${infoRow("Current focus", focusLabel, focus?.title || "нет managed focus")}
+            ${infoRow("Project Map", projectMap.navigation_files != null ? `${projectMap.navigation_files} файлов · ${projectMap.symbol_count ?? 0} symbols` : "недоступна", freshness.status || "unknown")}
             ${infoRow("Memory refresh", project.memory_refresh?.status || "idle")}
+            ${infoRow("Execution owner", intelligence.execution_owner || "host-native")}
             ${infoRow("Protocol", protocol.status || "healthy", protocol.failures_5m ? `${protocol.failures_5m} failures / 5m${protocol.recovered ? " · recovered" : ""}` : "без recent failures")}
             ${infoRow("Privacy mode", project.mode || "standard")}
-            ${infoRow("Provenance", project.provenance || "allow")}
             ${infoRow("Events / 24h", metrics.events_24h ?? 0)}
             ${infoRow("Failures / 24h", metrics.failures_24h ?? 0)}
           </div>
@@ -124,6 +132,7 @@ export function renderProject(data) {
             <div class="kv-row"><span class="kv-key">Workflow profile</span><span>${escapeHtml(task?.workflow_profile || "—")}</span></div>
             <div class="kv-row"><span class="kv-key">Risk / cost</span><span>${escapeHtml(task?.risk_level || "—")} · ${escapeHtml(task?.cost_policy || "—")}</span></div>
             <div class="kv-row"><span class="kv-key">Execution origin</span><span>${escapeHtml(task?.execution_origin || "—")}</span></div>
+            <div class="kv-row"><span class="kv-key">Map freshness</span><span>${escapeHtml(freshness.status || "—")}</span></div>
             <div class="kv-row"><span class="kv-key">Scan reason</span><span>${escapeHtml(project.scan_reason || "—")}</span></div>
             <div class="kv-row"><span class="kv-key">Last event</span><span>${escapeHtml(metrics.last_event_at ? age(metrics.last_event_at) : "никогда")}</span></div>
           </div></details>

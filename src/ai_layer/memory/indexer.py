@@ -8,10 +8,12 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ai_layer.db.models import Decision, Knowledge, Project, ProjectFile
+from ai_layer.db.navigation_models import ProjectNavigation
 from ai_layer.memory.embeddings import get_embedder
 from ai_layer.memory.identity import ChangeSet, SourceSnapshot, classify_changes
 from ai_layer.memory.knowledge_contract import KNOWLEDGE_KIND
 from ai_layer.memory.knowledge_store import invalidate_stale_knowledge
+from ai_layer.memory.navigation import build_navigation_document
 from ai_layer.memory.persistence import file_state, update_source_identity, upsert_project_file
 from ai_layer.memory.project_state import refresh_project_snapshot, sync_project_metadata
 from ai_layer.memory.source import (
@@ -79,6 +81,12 @@ def _delete_source_rows(db: Session, project: Project, paths: list[str]) -> None
         )
     )
     db.execute(
+        delete(ProjectNavigation).where(
+            ProjectNavigation.project_id == project.id,
+            ProjectNavigation.path.in_(paths),
+        )
+    )
+    db.execute(
         delete(ProjectFile).where(
             ProjectFile.project_id == project.id,
             ProjectFile.path.in_(paths),
@@ -93,8 +101,8 @@ def _replace_changed_source(
     existing: ProjectFile | None,
     *,
     force_reparse: bool = False,
-) -> None:
-    """Refresh deterministic evidence for one source without storing source text in Knowledge."""
+) -> dict | None:
+    """Refresh deterministic evidence and return metadata-only Project Map input when needed."""
     rel = snapshot.path
     prepared = prepare_index_text(rel, snapshot.text) if snapshot.text is not None else None
     if prepared is None:
@@ -113,18 +121,33 @@ def _replace_changed_source(
                 Knowledge.source_path == rel,
             )
         )
-        return
+        db.execute(
+            delete(ProjectNavigation).where(
+                ProjectNavigation.project_id == project.id,
+                ProjectNavigation.path == rel,
+            )
+        )
+        return None
 
     semantic_sha256 = hashlib.sha256(prepared.encode("utf-8", errors="replace")).hexdigest()
+    current_navigation = db.scalar(
+        select(ProjectNavigation).where(
+            ProjectNavigation.project_id == project.id,
+            ProjectNavigation.path == rel,
+        )
+    )
     if (
         existing is not None
         and bool(getattr(existing, "indexed", True))
         and existing.sha256 == semantic_sha256
         and int(getattr(existing, "scanner_schema", 0) or 0) == SCANNER_SCHEMA_VERSION
         and not force_reparse
+        and current_navigation is not None
     ):
         update_source_identity(existing, snapshot)
-        return
+        current_navigation.content_sha256 = snapshot.content_sha256
+        current_navigation.scanner_schema = SCANNER_SCHEMA_VERSION
+        return None
 
     language = language_for(Path(rel))
     imports = [redact_secrets(str(value)) for value in extract_imports(prepared)]
@@ -143,12 +166,28 @@ def _replace_changed_source(
             sha256=semantic_sha256,
         ),
     )
-    # A scan after upgrading must remove any old raw-source chunk for this path.
+    # A changed source version invalidates legacy source chunks and its old navigation row.
     db.execute(
         delete(Knowledge).where(
             Knowledge.project_id == project.id,
             Knowledge.source_path == rel,
         )
+    )
+    db.execute(
+        delete(ProjectNavigation).where(
+            ProjectNavigation.project_id == project.id,
+            ProjectNavigation.path == rel,
+        )
+    )
+    return build_navigation_document(
+        path=rel,
+        text=prepared,
+        language=language,
+        purpose=purpose,
+        imports=imports,
+        risk_flags=risks,
+        content_sha256=snapshot.content_sha256,
+        scanner_schema=SCANNER_SCHEMA_VERSION,
     )
 
 
@@ -159,30 +198,104 @@ def _apply_source_changes(
     changes: ChangeSet,
     *,
     force_reparse: bool = False,
-) -> None:
+) -> list[dict]:
     _delete_source_rows(db, project, changes.deleted)
+    documents: list[dict] = []
+    navigation_paths = set(
+        db.scalars(
+            select(ProjectNavigation.path).where(ProjectNavigation.project_id == project.id)
+        ).all()
+    )
     if force_reparse:
         for rel in changes.metadata_only:
-            _replace_changed_source(
+            document = _replace_changed_source(
                 db,
                 project,
                 changes.snapshots[rel],
                 previous.get(rel),
                 force_reparse=True,
             )
+            if document is not None:
+                documents.append(document)
     else:
         for rel in changes.metadata_only:
             row = previous.get(rel)
-            if row is not None:
+            if row is None:
+                continue
+            if bool(row.indexed) and rel not in navigation_paths:
+                document = _replace_changed_source(
+                    db,
+                    project,
+                    changes.snapshots[rel],
+                    row,
+                    force_reparse=True,
+                )
+                if document is not None:
+                    documents.append(document)
+            else:
                 update_source_identity(row, changes.snapshots[rel])
+                if rel in navigation_paths:
+                    navigation = db.scalar(
+                        select(ProjectNavigation).where(
+                            ProjectNavigation.project_id == project.id,
+                            ProjectNavigation.path == rel,
+                        )
+                    )
+                    if navigation is not None:
+                        navigation.content_sha256 = changes.snapshots[rel].content_sha256
     for rel in changes.content_changed:
-        _replace_changed_source(
+        document = _replace_changed_source(
             db,
             project,
             changes.snapshots[rel],
             previous.get(rel),
             force_reparse=force_reparse,
         )
+        if document is not None:
+            documents.append(document)
+    return documents
+
+
+def _navigation_vectors(documents: list[dict]) -> list[list[float] | None]:
+    """Semantic search is an enhancement: metadata-only lexical Project Map must survive embedder failure."""
+    if not documents:
+        return []
+    try:
+        vectors = get_embedder().embed([str(item["navigation_text"]) for item in documents])
+    except Exception:
+        return [None] * len(documents)
+    if len(vectors) != len(documents):
+        return [None] * len(documents)
+    return list(vectors)
+
+
+def _store_navigation_documents(db: Session, project: Project, documents: list[dict]) -> int:
+    if not documents:
+        return 0
+    regenerated = 0
+    for offset in range(0, len(documents), SEMANTIC_REEMBED_BATCH_SIZE):
+        batch = documents[offset : offset + SEMANTIC_REEMBED_BATCH_SIZE]
+        vectors = _navigation_vectors(batch)
+        for item, vector in zip(batch, vectors, strict=True):
+            db.add(
+                ProjectNavigation(
+                    project_id=project.id,
+                    path=item["path"],
+                    language=item["language"],
+                    purpose=item["purpose"],
+                    imports=item["imports"],
+                    risk_flags=item["risk_flags"],
+                    symbols=item["symbols"],
+                    navigation_text=item["navigation_text"],
+                    content_sha256=item["content_sha256"],
+                    scanner_schema=item["scanner_schema"],
+                    embedding=vector,
+                )
+            )
+            if vector is not None:
+                regenerated += 1
+        db.flush()
+    return regenerated
 
 
 def _purge_legacy_scanner_knowledge(db: Session, project: Project) -> int:
@@ -241,7 +354,7 @@ def scan_project(
     reembed_decisions: bool = False,
     force_reparse: bool = False,
 ) -> ScanStats:
-    """Refresh deterministic repository evidence; never build a parallel current-source index."""
+    """Refresh repository evidence plus a metadata-only Project Map; never persist source bodies."""
     legacy_before = int(
         db.scalar(
             select(func.count(Knowledge.id)).where(
@@ -256,7 +369,10 @@ def scan_project(
     ).all()
     previous = {row.path: row for row in previous_rows}
     changes = classify_changes(root, previous_rows, force_verify_all=force_reparse)
-    _apply_source_changes(db, project, previous, changes, force_reparse=force_reparse)
+    navigation_documents = _apply_source_changes(
+        db, project, previous, changes, force_reparse=force_reparse
+    )
+    navigation_regenerated = _store_navigation_documents(db, project, navigation_documents)
     db.flush()
 
     rows, languages, dependencies, summary, intelligence, selected = refresh_project_snapshot(
@@ -272,7 +388,6 @@ def scan_project(
         selected=selected,
     )
     _purge_legacy_scanner_knowledge(db, project)
-    legacy_removed = legacy_before
     staled = invalidate_stale_knowledge(db, project)
     decisions_reembedded, knowledge_reembedded = (
         _reembed_semantic_memory(db, project) if reembed_decisions else (0, 0)
@@ -287,6 +402,15 @@ def scan_project(
             .execution_options(populate_existing=True)
         ).all()
     )
+    semantic_navigation_items = int(
+        db.scalar(
+            select(func.count(ProjectNavigation.id)).where(
+                ProjectNavigation.project_id == project.id,
+                ProjectNavigation.embedding.is_not(None),
+            )
+        )
+        or 0
+    )
     knowledge_items = int(
         db.scalar(select(func.count(Knowledge.id)).where(Knowledge.project_id == project.id)) or 0
     )
@@ -300,10 +424,10 @@ def scan_project(
         file_state=file_state(rows),
         changes=changes.summary(),
         hashes_calculated=changes.hashes_calculated,
-        embeddings_reused=0,
-        embeddings_regenerated=0,
+        embeddings_reused=max(0, semantic_navigation_items - navigation_regenerated),
+        embeddings_regenerated=navigation_regenerated,
         decisions_reembedded=decisions_reembedded,
         knowledge_reembedded=knowledge_reembedded,
-        legacy_source_knowledge_removed=legacy_removed,
+        legacy_source_knowledge_removed=legacy_before,
         knowledge_cards_staled=staled,
     )

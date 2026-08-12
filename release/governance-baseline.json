@@ -11,7 +11,7 @@
     "Makefile": "bc80fa573b4913ff003e4a21efa9299690064882ddb54a8f66a4ed2478073835",
     "QUALITY_GATES.md": "09975da67bd5868c0d34121fdc7af8f911da44d1332acd41811c247863e85159",
     "install.sh": "473ed893fcfdc0eda68476d02b7389be1527230936d5a1eee008df5ebe1a4fa0",
-    "pyproject.toml": "9fa4556f2c08ff07d0c397dac001ed8271013be27f0da85dfdfbd0d0f2d54091",
+    "pyproject.toml": "c79534882c25a9c260a4e4967a1cca4c50399513aec48c15e6f36239e654ef5e",
     "release/architecture-policy.json": "f986c5cf0f925e4b09d9ad98858db166ad6f1a00579b32bf1780cc77da0d69e8",
     "release/governance-policy.json": "3a3052f3429af6949cba5544ee8ca313e0bfada22aefed661333f8c824f8720d",
     "scripts/architecture_gate.py": "aff5fc735be9107b4dfd0cbe8f53fe17658231d58a49674bc7b86802e4048f6e",

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ai_layer.db.models import Project, Task, TaskStage
 from ai_layer.domain.orchestrator import (
-    critical_orchestrator_contract,
+    managed_orchestrator_contract,
     orchestrator_stage_instruction,
 )
 from ai_layer.tasks.constants import OPEN_TASK_STATUSES, READ_ONLY_STAGES
@@ -290,7 +290,7 @@ def next_task_action(db: Session, project: Project) -> dict:
         "active": True,
         "state": runtime.get("state"),
         "project_root": str(root),
-        "orchestrator_contract": critical_orchestrator_contract(),
+        "orchestrator_contract": managed_orchestrator_contract(),
         "task": task_payload,
         "next_action": task_payload.get("next_action"),
     }

@@ -4,91 +4,101 @@ from typing import Any
 
 from ai_layer.domain.static_policy import static_policy_markdown
 
-CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 5
+CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 6
 
 
 def critical_orchestrator_contract() -> dict[str, Any]:
-    """Host-neutral invariants that must remain salient before Task Layer navigation begins."""
+    """Host-neutral always-on contract for the Project Intelligence control plane."""
+    return {
+        "version": CRITICAL_ORCHESTRATOR_CONTRACT_VERSION,
+        "role": "host_native_engineer",
+        "authority": "host_native_execution",
+        "repository_mutation": "host_native",
+        "external_mutation": "host_native_subject_to_user_permissions",
+        "startup_rule": "Call project_status before beginning registered-project work.",
+        "discovery_rule": (
+            "When the relevant code location is unknown, call project_search before broad repository discovery."
+        ),
+        "source_truth": "Current repository source is authoritative; Project Map and Knowledge are shortcuts.",
+        "skills_rule": "Use host-native Agent Skills by relevance; do not preload unrelated skills.",
+        "managed_workflow_rule": (
+            "Task/Epic navigators are authoritative only after a managed Task/Epic is explicitly active or selected."
+        ),
+        "failure_rule": (
+            "If Project Intelligence is temporarily unavailable, report that loss of context and continue with "
+            "host-native source inspection rather than inventing state or becoming blocked by the control plane."
+        ),
+    }
+
+
+def managed_orchestrator_contract() -> dict[str, Any]:
+    """Coordinator boundary that applies only while an explicit managed Task is active."""
     return {
         "version": CRITICAL_ORCHESTRATOR_CONTRACT_VERSION,
         "role": "orchestrator",
-        "authority": "coordinate_only",
+        "authority": "managed_task_coordination",
         "repository_mutation": "forbidden",
         "external_mutation": "forbidden",
-        "inline_micro_exception": (
-            "Only task_next action inline_micro_implement grants temporary repository-write authority for "
-            "that current MICRO IMPLEMENT stage; the permission ends on completion/block/escalation."
-        ),
+        "scope": "active_managed_task_only",
         "worker_rule": (
-            "IMPLEMENT/FIX mutations belong only to the explicitly delegated writable worker, except "
-            "a MICRO IMPLEMENT stage explicitly returned by task_next as inline_micro_implement."
+            "Delegated IMPLEMENT/FIX belongs to the bound writable worker; delegated DISCOVERY/REVIEW "
+            "belongs to the bound read-only worker."
         ),
-        "readonly_rule": "DISCOVERY/REVIEW belong only to explicitly delegated read-only workers.",
-        "delegation_rule": (
-            "Bind a worker with task_stage_delegate before delegated stages; never delegate an inline MICRO "
-            "stage solely to satisfy ceremony."
-        ),
-        "fallback_rule": "If a required worker cannot run, stop/report; never perform its stage as fallback.",
-        "completion_rule": (
-            "Record only the actual delegated worker result, or the top-level actor's own result for an "
-            "explicitly authorized inline MICRO stage."
-        ),
-        "epic_rule": "Existing active Epic: epic_next owns lifecycle; task_next owns only its linked Task.",
+        "evidence_rule": "Record actual worker/check evidence only; never fabricate stage execution.",
+        "exit_rule": "The global host-native execution contract resumes outside this managed Task.",
     }
 
 
 def critical_orchestrator_markdown() -> str:
-    """Readable always-on role boundary. Navigators still own current stage procedure."""
-    return """## Mandatory AI Layer role boundary
+    return """## AI Layer control-plane boundary
 
-These rules are mandatory for every registered project. They are not suggestions and must not be bypassed because a task looks simple.
+AI Layer provides Project Intelligence, durable work state, professional skills, verification evidence and observability. The host agent runtime remains the execution engine.
 
-- The top-level chat is the ORCHESTRATOR. It coordinates AI Layer state and workers. It MUST NOT edit repository files or mutate external systems itself.
-- The only direct-write exception is a current MICRO IMPLEMENT stage when `task_next` explicitly returns `inline_micro_implement`. That permission ends as soon as that stage completes, blocks or escalates.
-- IMPLEMENT and FIX stages belong to one explicitly bound writable worker. DISCOVERY and REVIEW stages belong to one explicitly bound read-only worker. The orchestrator must never perform a delegated stage as fallback.
-- Bind and start the worker exactly when the navigator requires delegation. Record only the result produced by the worker that actually ran the stage; never fabricate or substitute a parent result.
-- If a required AI Layer tool, worker or delegation cannot run, STOP and report the blocker. Do not continue through native tools as an unmanaged workaround.
+- Start registered-project work with `project_status(project_root=<workspace root>)`. Use the returned `current_focus` to interpret requests such as "continue" without rediscovering prior work.
+- If the user already names a precise file or symbol, open that current source directly after status. Do not add a search ceremony that cannot improve the answer.
+- If the relevant code location is unknown, call `project_search(query=<actual goal>)` before broad repository grep/search. Treat its paths and symbols as breadcrumbs, then inspect current source with native tools.
+- Use `knowledge_search` for reviewed project facts/invariants and `decision_search` for architectural history only when they are relevant. They are not substitutes for current source.
+- Native read/edit/search/shell/test/subagent capabilities remain available. AI Layer does not grant per-edit permission and must not replace the host's own agent loop.
+- Existing managed Tasks and Epics remain durable workflows. When `project_status` reports one as the current focus, or when the user explicitly chooses managed execution, use `task_next` / `epic_next` and follow that workflow's strict contracts.
+- Never stash, reset, restore, discard or commit user changes merely to satisfy AI Layer; a dirty worktree is valid project state.
+- If AI Layer state/index retrieval fails, disclose the missing context and continue with native source inspection when safe. Never fabricate Task/Epic/Knowledge state.
 """
 
 
 def native_bootstrap_markdown() -> str:
-    """Single readable first-call discipline kernel; dynamic systems own detailed procedure/state."""
-    control_plane = """## Mandatory startup and navigation
+    """Small always-on bootstrap: retrieve useful state, then let the host work natively."""
+    startup = """## Mandatory project-intelligence startup
 
-For work involving a registered project, follow this order exactly:
+For work involving a registered project:
 
-1. The FIRST project-related tool call MUST be `memory_context(task=<actual user task>, project_root=<workspace root>)`.
-2. Until `memory_context` succeeds, you MUST NOT read/search/grep project files, run shell or SSH commands, edit files, call project workflow tools such as `task_current`, or start a subagent. Do not bypass this rule for a small, obvious, read-only or diagnostic request.
-3. Use the canonical project root returned by AI Layer for all later calls. Do not silently switch to a parent, child or guessed working directory.
-4. After `memory_context`, load the authoritative operating procedure once per chat with `skill_get(slug="ai-layer-workflow", project_root=<canonical root>, section="core")`, unless that core has already been loaded in this chat. The static rules remain higher-priority discipline; the skill explains the managed procedure.
-5. Then use the owning navigator. If the current work belongs to an active/intentionally selected Epic, call `epic_next`; otherwise call `task_next`. Follow the exact `next_action`, forbidden actions, role contract and completion contract it returns. NEVER infer the next stage from chat history or memory.
-6. After every Task/Epic transition, delegated worker return, remediation result or linked Task completion, call the owning navigator again before doing more project work.
+1. The first AI Layer project-state call MUST be `project_status(project_root=<workspace root>)` before implementation or broad repository discovery.
+2. Read its `work.current_focus` and `work.continuation`. If the user says "continue" (or equivalent) and a managed Task/Epic is active, resume that exact work instead of reconstructing state from chat or rescanning the repository.
+3. If the relevant file/symbol is already known from the user or status, inspect it directly with host-native tools.
+4. If the code location is unknown, call `project_search(query=<actual user goal>, project_root=<canonical root>)` before broad grep/find/repository exploration. Open only the strongest current-source candidates first and widen only when evidence requires it.
+5. Use `knowledge_search` for durable reviewed facts/invariants and `decision_search` for prior architectural decisions when those facts can materially affect the task. Do not call them mechanically.
+6. Execute normally through the host: native reads, edits, shell, tests, code search and subagents are allowed. Prefer the smallest sufficient exploration and the cheapest adequate execution path.
+7. Managed Tasks/Epics are durable work records plus optional strict workflows, not a universal permission layer. Call `task_next` / `epic_next` when resuming an already-managed focus or when managed/strict execution is explicitly chosen.
+8. Current repository source is final code truth. Project Map is a navigation index; Project Knowledge is reviewed semantic memory; Decisions explain prior choices. Verify relevant current source before edits or code-truth claims.
+9. Agent Skills are selected by the host natively. Do not manually preload unrelated skills. Use `skill_get` only for explicit retrieval/package details when host-native skill activation is insufficient.
 
-Additional mandatory boundaries:
-
-- Keep one canonical project, one active Task/stage and one worker at a time unless AI Layer explicitly says otherwise.
-- A dirty worktree is a valid baseline. Never stash, reset, restore, discard or commit user changes merely to satisfy AI Layer. Use the managed baseline/adoption path AI Layer provides.
-- MICRO means genuinely localized and low-risk. Authentication, authorization, security, payments, migrations/schema, data-loss risk, concurrency, public APIs, deploy/secrets and external mutations are not informal direct-edit work; let AI Layer classify/escalate them.
-- Native Agent Skills provide domain expertise through host-native relevance selection. When the host activates an AI Layer skill, its native `SKILL.md` contains the complete authoritative professional guidance. Do not manually preload unrelated skills. Use `skill_get` only when you need an exact section again, package metadata/assets, or explicit manual retrieval.
-- `memory_context` is startup/current project context, not a tool to call after every edit. Reuse it unless external/concurrent changes, a material goal change or genuine recovery require refresh.
+Token-economy objective: use AI Layer to avoid rediscovering known project structure and state, not to add ceremony. A control-plane call is justified only when it reduces uncertainty, preserves durable state, or supplies evidence the host would otherwise have to reconstruct.
 """
-    return critical_orchestrator_markdown() + "\n" + control_plane + "\n" + static_policy_markdown()
+    return critical_orchestrator_markdown() + "\n" + startup + "\n" + static_policy_markdown()
 
 
 def mcp_bootstrap_instructions() -> str:
     """Compact fallback when native bootstrap delivery is unavailable or drifted."""
     return (
-        "For registered-project work, `memory_context` MUST be the first project-related tool call; before it, "
-        "do not read/search project files, run shell/SSH, edit, call project workflow tools, or start a subagent. "
-        "After it, load `ai-layer-workflow` section `core` once, then use `epic_next` for active/intentionally "
-        "selected Epic work, otherwise `task_next`, and follow only its exact action. The top-level chat is an "
-        "orchestrator and may write only when task_next explicitly grants inline_micro_implement. If AI Layer or "
-        "delegation fails, stop/report instead of bypassing it."
+        "For registered-project work call project_status first. Use its current_focus to resume existing "
+        "Task/Epic work. If code location is unknown, call project_search before broad repository discovery; "
+        "if a precise file/symbol is already known, inspect it directly. Use knowledge_search/decision_search "
+        "only when relevant. Current source is authoritative and native host reads/edits/tests/subagents remain "
+        "the execution engine. task_next/epic_next govern only explicitly managed active workflows."
     )
 
 
 def inline_micro_stage_instruction() -> dict[str, Any]:
-    """Temporary top-level mutation authority for a machine-bounded MICRO implementation."""
+    """Temporary top-level mutation authority retained for legacy/strict MICRO Task execution."""
     return {
         "role": "inline_micro_implementer",
         "authority": "temporary_current_stage_only",
@@ -96,7 +106,7 @@ def inline_micro_stage_instruction() -> dict[str, Any]:
         "external_mutation": "forbidden",
         "stage": "implement",
         "mandatory": (
-            "Implement only the localized task, run the narrowest relevant check, then call "
+            "Implement only the localized managed Task, run the narrowest relevant check, then call "
             "task_implementation_complete. AI Layer will inspect the actual repository delta before accepting "
             "MICRO completion."
         ),
@@ -106,11 +116,11 @@ def inline_micro_stage_instruction() -> dict[str, Any]:
         ),
         "escalation": (
             "If the actual diff exceeds the MICRO envelope or hits a protected condition, AI Layer converts the "
-            "task to STANDARD and requires an independent delegated review."
+            "managed task to STANDARD and requires an independent delegated review."
         ),
         "failure": (
-            "If the task is no longer obviously localized or low-impact, stop broadening the edit; complete only "
-            "the coherent current change so AI Layer can evaluate/escalate the real diff, or report the blocker."
+            "If the managed task is no longer localized or low-impact, stop broadening the edit and let the "
+            "strict workflow escalate it."
         ),
     }
 
@@ -118,26 +128,37 @@ def inline_micro_stage_instruction() -> dict[str, Any]:
 def orchestrator_stage_instruction(
     *, stage_kind: str, delegated: bool, worker_id: str | None = None
 ) -> dict[str, Any]:
-    contract = critical_orchestrator_contract()
+    """Strict managed-Task stage contract, intentionally separate from the global host-native contract."""
     if delegated:
         return {
-            "role": contract["role"],
-            "repository_mutation": contract["repository_mutation"],
-            "external_mutation": contract["external_mutation"],
+            "role": "managed_task_orchestrator",
+            "repository_mutation": "forbidden_during_delegated_stage",
+            "external_mutation": "forbidden_during_delegated_stage",
             "stage": stage_kind,
             "worker_id": worker_id,
             "mandatory": (
-                "Use the actual result of the already-bound worker. If that worker has not actually been started yet, "
-                "start it now. Do not perform the stage yourself."
+                "Use the actual result of the already-bound worker. If that worker has not actually been started "
+                "yet, start it now. Do not perform this strict managed stage yourself."
             ),
-            "completion_precondition": "The bound worker actually ran this stage and returned the evidence being recorded.",
-            "failure": "If the worker cannot run or fails, report/block; never substitute orchestrator work.",
+            "completion_precondition": (
+                "The bound worker actually ran this stage and returned the evidence being recorded."
+            ),
+            "failure": (
+                "If the bound strict-stage worker cannot run or fails, report/block that managed stage; do not "
+                "fabricate a worker result."
+            ),
         }
     return {
-        "role": contract["role"],
-        "repository_mutation": contract["repository_mutation"],
-        "external_mutation": contract["external_mutation"],
+        "role": "managed_task_orchestrator",
+        "repository_mutation": "forbidden_during_delegated_stage",
+        "external_mutation": "forbidden_during_delegated_stage",
         "stage": stage_kind,
-        "mandatory": "Bind a fresh worker, then start that worker. Do not perform the stage yourself.",
-        "failure": "If delegation/worker launch cannot proceed, report/block; never substitute orchestrator work.",
+        "mandatory": (
+            "Bind a fresh worker for this strict managed stage, then start that worker. The global host-native "
+            "execution contract resumes outside this explicit managed stage."
+        ),
+        "failure": (
+            "If strict-stage delegation cannot proceed, report/block the managed stage rather than inventing "
+            "delegation history."
+        ),
     }

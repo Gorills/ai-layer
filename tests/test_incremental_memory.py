@@ -55,8 +55,8 @@ def test_incremental_scan_hashes_and_refreshes_only_affected_source_evidence(
         first = scanner.scan_project(db, project, tmp_path)
         db.commit()
         assert first.hashes_calculated == 50
-        assert first.embeddings_regenerated == 0
-        assert embedder.calls == []
+        assert first.embeddings_regenerated == 50
+        assert sum(len(batch) for batch in embedder.calls) == 50
 
         (tmp_path / "file_03.py").write_text("VALUE = 300\n", encoding="utf-8")
         (tmp_path / "file_17.py").write_text("VALUE = 1700\n", encoding="utf-8")
@@ -71,8 +71,9 @@ def test_incremental_scan_hashes_and_refreshes_only_affected_source_evidence(
         assert second.changes["modified"] == ["file_03.py", "file_17.py"]
         assert second.changes["deleted"] == ["file_40.py"]
         assert second.changes["unchanged"] == 47
-        assert second.embeddings_regenerated == 0
-        assert embedder.calls == []
+        assert second.embeddings_regenerated == 3
+        assert second.embeddings_reused == 47
+        assert sum(len(batch) for batch in embedder.calls) == 53
 
         sources = set(
             db.scalars(select(ProjectFile.path).where(ProjectFile.project_id == project.id)).all()
@@ -91,9 +92,11 @@ def test_unchanged_scan_reuses_deterministic_file_identity_without_embeddings(
     embedder = _configure(monkeypatch)
     db, project = _project_db(tmp_path)
     try:
-        scanner.scan_project(db, project, tmp_path)
+        first = scanner.scan_project(db, project, tmp_path)
         db.commit()
+        assert first.embeddings_regenerated == 1
         calls_after_first = len(embedder.calls)
+        assert calls_after_first == 1
 
         second = scanner.scan_project(db, project, tmp_path)
         db.commit()
@@ -101,8 +104,8 @@ def test_unchanged_scan_reuses_deterministic_file_identity_without_embeddings(
         assert second.hashes_calculated == 0
         assert second.changes["total"] == 0
         assert second.embeddings_regenerated == 0
-        assert second.embeddings_reused == 0
-        assert len(embedder.calls) == calls_after_first == 0
+        assert second.embeddings_reused == 1
+        assert len(embedder.calls) == calls_after_first
     finally:
         db.close()
 
@@ -390,10 +393,10 @@ def test_scanner_schema_drift_forces_reparse_of_unchanged_source(tmp_path: Path,
 
         assert result["reason"] == "scanner_schema_changed"
         assert result["hashes_calculated"] == 1
-        assert result["embeddings_regenerated"] == 0
+        assert result["embeddings_regenerated"] == 1
         assert result["raw_source_embeddings_regenerated"] == 0
         assert result["legacy_source_knowledge_removed"] == 2
-        assert len(embedder.calls) == calls_after_first
+        assert len(embedder.calls) == calls_after_first + 1
         evidence = db.scalar(
             select(ProjectFile).where(
                 ProjectFile.project_id == project.id,
@@ -401,7 +404,7 @@ def test_scanner_schema_drift_forces_reparse_of_unchanged_source(tmp_path: Path,
             )
         )
         assert evidence is not None
-        assert evidence.scanner_schema == 4
+        assert evidence.scanner_schema == 5
         assert evidence.content_sha256
         assert db.scalar(select(Knowledge).where(Knowledge.project_id == project.id)) is None
     finally:

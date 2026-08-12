@@ -22,7 +22,7 @@ def _frontmatter(text: str) -> dict:
     return yaml.safe_load(text.split("---\n", 2)[1]) or {}
 
 
-def test_global_native_skills_share_agents_root_for_cursor_and_codex(tmp_path, monkeypatch):
+def test_global_native_skills_publish_to_supported_host_roots(tmp_path, monkeypatch):
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("HOME", str(tmp_path / "user"))
     get_settings.cache_clear()
@@ -34,8 +34,10 @@ def test_global_native_skills_share_agents_root_for_cursor_and_codex(tmp_path, m
         assert result["validation"]["ok"] is True
         shared = tmp_path / "user" / ".agents" / "skills" / "django" / "SKILL.md"
         antigravity = tmp_path / "user" / ".gemini" / "config" / "skills" / "django" / "SKILL.md"
-        assert shared.is_file() and antigravity.is_file()
+        claude = tmp_path / "user" / ".claude" / "skills" / "django" / "SKILL.md"
+        assert shared.is_file() and antigravity.is_file() and claude.is_file()
         assert shared.read_text(encoding="utf-8") == antigravity.read_text(encoding="utf-8")
+        assert shared.read_text(encoding="utf-8") == claude.read_text(encoding="utf-8")
         text = shared.read_text(encoding="utf-8")
         meta = _frontmatter(text)
         assert meta["name"] == "django"
@@ -54,9 +56,9 @@ def test_global_native_skills_share_agents_root_for_cursor_and_codex(tmp_path, m
         workflow_text = workflow_native.read_text(encoding="utf-8")
         workflow_meta = _frontmatter(workflow_text)
         assert workflow_meta["name"] == "ai-layer-workflow"
-        assert "Task/Epic" in workflow_meta["description"]
+        assert "managed Tasks/Epics" in workflow_meta["description"]
         assert "## Workflow" in workflow_text
-        assert "## Delegation and roles" in workflow_text
+        assert "## Project intelligence and durable memory" in workflow_text
     finally:
         get_settings.cache_clear()
 
@@ -72,15 +74,16 @@ def test_ai_layer_workflow_core_keeps_complete_entry_sections(tmp_path, monkeypa
         assert "## Core contract" in core
         assert "## Decision rules" in core
         assert "skill core clipped" not in core
-        assert "`memory_context` establishes the canonical project context" in core
-        assert "`task_next` and `epic_next` are the authoritative navigators" in core
-        assert "Never reconstruct a stage from chat history" in core
-        assert "`inline_micro_implement`" in core
-        assert "`task_adopt` only when substantive repository edits already happened" in core
-        assert "A failed worker, tool or AI Layer transition is a blocker" in core
+        assert "`project_status` is the first AI Layer state call" in core
+        assert "AI Layer is an engineering control plane" in core
+        assert "default is host-native execution" in core
+        assert "do not create a Task merely to authorize editing" in core
+        assert "`project_search" in core
         assert "Workflow" in sections
-        assert "Delegation and roles" in sections
-        assert "Dirty worktrees and adoption" in sections
+        assert "Evidence to inspect" in sections
+        assert "Verification" in sections
+        assert "Failure modes" in sections
+        assert "Completion criteria" in sections
         assert len(core) < len(skill["content"])
     finally:
         get_settings.cache_clear()

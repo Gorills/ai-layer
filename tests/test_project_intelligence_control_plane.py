@@ -8,7 +8,11 @@ from ai_layer.core.mcp_runtime import (
     tool_runtime_class,
 )
 from ai_layer.domain.orchestrator import native_bootstrap_markdown
-from ai_layer.memory.navigation import build_navigation_document, extract_symbols
+from ai_layer.memory.navigation import (
+    build_navigation_document,
+    extract_symbols,
+    semantic_score_from_distance,
+)
 
 
 def test_python_navigation_keeps_symbols_but_not_default_values_or_body():
@@ -40,6 +44,12 @@ def test_javascript_navigation_extracts_names_without_source_bodies():
     names = {item["name"] for item in symbols}
     assert {"syncOrder", "retryOrder", "OrderClient"} <= names
     assert all("secret" not in str(item) for item in symbols)
+
+
+def test_semantic_distance_zero_is_a_perfect_match_not_a_missing_value():
+    assert semantic_score_from_distance(0.0) == 1.0
+    assert semantic_score_from_distance(1.0) == 0.0
+    assert semantic_score_from_distance(None) == 0.0
 
 
 def test_bootstrap_uses_status_and_project_map_without_disabling_native_execution():

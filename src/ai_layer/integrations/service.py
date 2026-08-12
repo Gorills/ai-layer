@@ -51,8 +51,8 @@ from ai_layer.skills.native import (
     sync_project_native_skills,
 )
 
-INTEGRATION_TEMPLATE_VERSION = 22
-GLOBAL_BOOTSTRAP_VERSION = 9
+INTEGRATION_TEMPLATE_VERSION = 23
+GLOBAL_BOOTSTRAP_VERSION = 13
 
 LEGACY_PROJECT_RULE_PATHS = (
     "AGENTS.md",

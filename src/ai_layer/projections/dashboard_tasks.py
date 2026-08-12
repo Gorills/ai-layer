@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from sqlalchemy import func, select
+from sqlalchemy.sql.elements import ColumnElement
 
 from ai_layer.core.service import get_project
 from ai_layer.db.models import Task, VerificationRun
@@ -57,7 +58,7 @@ def tasks_payload(
                 },
             }
 
-        conditions = [Task.project_id.in_(project_ids)]
+        conditions: list[ColumnElement[bool]] = [Task.project_id.in_(project_ids)]
         if wanted_status:
             conditions.append(Task.status == wanted_status)
         total = int(db.scalar(select(func.count()).select_from(Task).where(*conditions)) or 0)

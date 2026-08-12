@@ -11,8 +11,16 @@ const STATE_LABELS = {
   blocked: "ЗАБЛОКИРОВАНО",
   attention: "НУЖНО РЕШЕНИЕ",
   none: "НЕТ",
+  pending: "В ОЧЕРЕДИ",
   completed: "ГОТОВО",
   cancelled: "ОТМЕНЕНО",
+  draft: "ЧЕРНОВИК",
+  approved: "СОГЛАСОВАНО",
+  phase0: "PHASE 0",
+  planning: "ПЛАНИРОВАНИЕ",
+  running: "ВЫПОЛНЯЕТСЯ",
+  final_review: "ФИНАЛЬНОЕ РЕВЬЮ",
+  archived: "АРХИВ",
 };
 
 const STAGE_LABELS = {

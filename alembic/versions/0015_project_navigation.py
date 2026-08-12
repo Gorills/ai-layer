@@ -29,7 +29,7 @@ def upgrade() -> None:
         sa.Column("navigation_text", sa.Text(), nullable=False),
         sa.Column("content_sha256", sa.String(length=64), nullable=False),
         sa.Column("scanner_schema", sa.Integer(), nullable=False),
-        sa.Column("embedding", VECTOR(384), nullable=False),
+        sa.Column("embedding", VECTOR(384), nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),

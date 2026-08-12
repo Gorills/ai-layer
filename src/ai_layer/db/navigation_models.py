@@ -47,9 +47,7 @@ class ProjectNavigationSemantic(Base):
 
     __tablename__ = "project_navigation_semantics"
     __table_args__ = (
-        UniqueConstraint(
-            "project_id", "path", name="uq_project_navigation_semantic_path"
-        ),
+        UniqueConstraint("project_id", "path", name="uq_project_navigation_semantic_path"),
         Index("ix_project_navigation_semantic_project", "project_id"),
     )
 

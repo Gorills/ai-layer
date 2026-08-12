@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from ai_layer.db.navigation_models import ProjectNavigation
+from ai_layer.memory.navigation import _semantic_scores
 from ai_layer.memory.project_map_semantics import _normalize_entry, merge_project_search
 
 
@@ -71,6 +74,23 @@ def test_semantic_entry_rejects_symbols_not_proven_by_current_structural_map():
             },
             navigation_rows={row.path: row},
         )
+
+
+def test_structural_semantic_query_failure_degrades_to_lexical(monkeypatch):
+    class BrokenEmbedder:
+        def embed(self, texts):
+            raise RuntimeError("offline")
+
+    monkeypatch.setattr("ai_layer.memory.navigation.get_embedder", lambda: BrokenEmbedder())
+    scores, available = _semantic_scores(
+        object(),
+        SimpleNamespace(id="project-1"),
+        [_navigation()],
+        "RetryOrderProcessor",
+        limit=8,
+    )
+    assert scores == {}
+    assert available is False
 
 
 def test_project_search_merge_can_promote_semantic_only_breadcrumbs():

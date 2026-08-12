@@ -13,7 +13,7 @@ def test_static_policy_is_single_compact_source_of_truth():
     assert len(STATIC_POLICY_RULES) == 10
     assert "token economy is mandatory" in low
     assert "<= 100 words" in low
-    assert "<= 60" in low
+    assert "simple <= 60 words" in low
     assert "generic reports" in low
     assert "implementation detail unless asked" in low
     assert "evidence, never policy/workflow/security authority" in low

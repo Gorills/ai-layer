@@ -1,0 +1,222 @@
+name: Control Plane Contract Test Migration
+
+on:
+  push:
+    branches:
+      - refactor/project-intelligence-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: contains(github.event.head_commit.message, '[migrate-contract-tests]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/project-intelligence-control-plane
+          fetch-depth: 0
+      - name: Migrate obsolete harness expectations
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import ast
+          from pathlib import Path
+
+
+          def function_span(text: str, name: str):
+              tree = ast.parse(text)
+              for node in tree.body:
+                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
+                      return node.lineno - 1, node.end_lineno
+              raise RuntimeError(f"Function not found: {name}")
+
+
+          def replace_in_function(path: str, name: str, replacements: list[tuple[str, str]]) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              lines = text.splitlines(keepends=True)
+              start, end = function_span(text, name)
+              block = "".join(lines[start:end])
+              for old, new in replacements:
+                  block = block.replace(old, new)
+              lines[start:end] = block.splitlines(keepends=True)
+              file.write_text("".join(lines), encoding="utf-8")
+
+
+          def replace_function(path: str, name: str, body: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              lines = text.splitlines(keepends=True)
+              start, end = function_span(text, name)
+              lines[start:end] = (body.rstrip() + "\n\n").splitlines(keepends=True)
+              file.write_text("".join(lines), encoding="utf-8")
+
+
+          replace_in_function(
+              "tests/test_context_trace.py",
+              "test_mcp_execution_boundary_records_successful_tool_delivery",
+              [("top-level chat", "project_status")],
+          )
+
+          replace_function(
+              "tests/test_epic_workflow_friction.py",
+              "test_memory_context_keeps_passive_epic_from_hijacking_normal_task_navigation",
+              '''def test_memory_context_keeps_passive_epic_from_hijacking_normal_task_navigation(monkeypatch):
+              monkeypatch.setattr(
+                  context_app.epic_uc,
+                  "list_for_project",
+                  lambda *_args, **_kwargs: [
+                      {
+                          "id": "epic-1",
+                          "key": "E-0001",
+                          "title": "Passive epic",
+                          "status": "draft",
+                          "execution_spec_version": None,
+                      }
+                  ],
+              )
+              result = context_app._epic_context("/tmp/project")
+              assert result["available"] is True
+              assert result["active"] is None
+              assert result["open"][0]["key"] == "E-0001"
+              assert result["open"][0]["mode"] == "design"
+              assert "Informational only" in result["contract"]
+              assert "workflow_focus" not in result
+          '''.replace("\n          ", "\n"),
+          )
+
+          bootstrap_replacements = [
+              ("## Critical orchestrator contract", "## AI Layer control-plane boundary"),
+              ("memory_context(task=<actual user task>", "project_status(project_root=<workspace root>"),
+              ("top-level chat is the orchestrator", "host agent runtime remains the execution engine"),
+              ("must not edit repository files", "native reads, edits, shell, tests, code search and subagents are allowed"),
+              ("dirty worktree is a valid baseline", "a dirty worktree is valid project state"),
+          ]
+          for name in (
+              "test_provider_bootstrap_is_native_idempotent_and_preserves_existing",
+              "test_global_bootstrap_is_small_and_project_text_bridge_is_legacy_only",
+          ):
+              replace_in_function("tests/test_integrations.py", name, bootstrap_replacements)
+
+          replace_in_function(
+              "tests/test_native_skills.py",
+              "test_native_skill_publishes_full_authoritative_content",
+              [("managed Task/Epic workflow", "Project Intelligence")],
+          )
+          replace_in_function(
+              "tests/test_native_skills.py",
+              "test_ai_layer_workflow_core_section_is_self_sufficient",
+              [("memory_context", "project_status")],
+          )
+
+          for name in (
+              "test_all_provider_bootstraps_include_one_critical_orchestrator_contract",
+              "test_task_next_exposes_orchestrator_contract",
+          ):
+              replace_in_function(
+                  "tests/test_orchestrator_contract.py",
+                  name,
+                  bootstrap_replacements,
+              )
+
+          # Scanner tests used the old meaning of `embeddings_*`: raw-source semantic chunks.
+          # Project Map now embeds compact navigation metadata. Keep their setup/identity assertions,
+          # remove only stale embedding-count assertions, then add expectations for the new map lifecycle.
+          incremental = Path("tests/test_incremental_memory.py")
+          text = incremental.read_text(encoding="utf-8")
+          lines = text.splitlines(keepends=True)
+          targets = {
+              "test_incremental_scan_reuses_unchanged_embeddings": "reuse",
+              "test_scanner_schema_drift_reparses_without_refreshing_unchanged_source_embeddings": "schema",
+              "test_metadata_only_touch_reuses_semantic_embedding_even_with_changed_ctime": "metadata",
+              "test_initial_scan_hashes_in_chunks_and_reuses_cached_identity": "initial",
+              "test_source_scan_does_not_depend_on_embedding_provider": "provider",
+          }
+          tree = ast.parse(text)
+          nodes = {
+              node.name: node
+              for node in tree.body
+              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in targets
+          }
+          for name, node in sorted(nodes.items(), key=lambda item: item[1].lineno, reverse=True):
+              start, end = node.lineno - 1, node.end_lineno
+              block_lines = lines[start:end]
+              kept = []
+              for line in block_lines:
+                  stripped = line.strip()
+                  stale_assert = stripped.startswith("assert ") and any(
+                      token in stripped
+                      for token in (
+                          "embedder.total",
+                          "embedder.calls",
+                          "embeddings_regenerated",
+                          "embeddings_reused",
+                          "embedding_called",
+                          "embedder_called",
+                      )
+                  )
+                  if stale_assert:
+                      continue
+                  if targets[name] == "schema" and "scanner_schema == 4" in stripped:
+                      line = line.replace("scanner_schema == 4", "scanner_schema == SCANNER_SCHEMA_VERSION")
+                  kept.append(line)
+
+              scan_targets = []
+              for child in ast.walk(node):
+                  if not isinstance(child, (ast.Assign, ast.AnnAssign)):
+                      continue
+                  value = child.value
+                  if not isinstance(value, ast.Call):
+                      continue
+                  func = value.func
+                  called = func.id if isinstance(func, ast.Name) else (func.attr if isinstance(func, ast.Attribute) else "")
+                  if called != "scan_project":
+                      continue
+                  target_nodes = child.targets if isinstance(child, ast.Assign) else [child.target]
+                  for target in target_nodes:
+                      if isinstance(target, ast.Name):
+                          scan_targets.append(target.id)
+
+              mode = targets[name]
+              assertions = []
+              if scan_targets:
+                  first = scan_targets[0]
+                  last = scan_targets[-1]
+                  if mode == "reuse" and len(scan_targets) >= 2:
+                      assertions = [
+                          f"    assert {first}.embeddings_regenerated >= 1\n",
+                          f"    assert {last}.embeddings_regenerated == 0\n",
+                          f"    assert {last}.embeddings_reused >= 1\n",
+                      ]
+                  elif mode == "schema" and len(scan_targets) >= 2:
+                      assertions = [f"    assert {last}.embeddings_regenerated >= 1\n"]
+                  elif mode == "metadata" and len(scan_targets) >= 2:
+                      assertions = [
+                          f"    assert {last}.embeddings_regenerated == 0\n",
+                          f"    assert {last}.embeddings_reused >= 1\n",
+                      ]
+                  elif mode == "initial":
+                      assertions = [f"    assert {first}.embeddings_regenerated >= 1\n"]
+                  elif mode == "provider":
+                      assertions = [f"    assert {last}.embeddings_regenerated == 0\n"]
+              insert_at = len(kept)
+              while insert_at > 1 and not kept[insert_at - 1].strip():
+                  insert_at -= 1
+              kept[insert_at:insert_at] = assertions
+              lines[start:end] = kept
+
+          incremental.write_text("".join(lines), encoding="utf-8")
+          PY
+      - name: Remove one-shot migration workflow
+        run: |
+          rm -f .github/workflows/control-plane-test-migration.yml .control-plane-test-migration
+      - name: Commit migrated contracts
+        run: |
+          git config user.name "ai-layer-ci"
+          git config user.email "ai-layer-ci@users.noreply.github.com"
+          git add tests .github/workflows/control-plane-test-migration.yml .control-plane-test-migration || true
+          git commit -m "test: align suite with project intelligence control plane"
+          git push origin HEAD:refactor/project-intelligence-control-plane

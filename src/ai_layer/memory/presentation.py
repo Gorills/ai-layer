@@ -65,7 +65,7 @@ def _compact_next_action(runtime: dict) -> dict:
 
 
 def compact_task_runtime(runtime: dict) -> dict:
-    """Minimal Task Layer state for ordinary memory_context calls. Full history belongs to task_current."""
+    """Minimal managed Task state for legacy memory_context calls. Full state belongs to task_current."""
     task = runtime.get("task") or {}
     result = {
         "active": bool(runtime.get("active")),
@@ -146,7 +146,10 @@ def present_scanner_evidence(evidence: dict, freshness: dict) -> dict:
 def build_task_brief(mode: str, materials: dict) -> dict:
     brief = {
         "relevant_history": materials["history"],
-        "source_contract": "Project Knowledge is reviewed navigation/history; current repository files remain authoritative.",
+        "source_contract": (
+            "Project Knowledge contains reviewed facts/invariants; Project Map owns navigation; current repository "
+            "files remain authoritative."
+        ),
     }
     if mode.startswith("knowledge_"):
         brief.update(
@@ -190,7 +193,10 @@ def context_budget(
     budget_mode = "task_project_brief+dynamic_policy+compact_runtime"
     if knowledge_audit:
         budget_mode = "knowledge_audit_inventory+compact_read_only_control_plane"
-    expansion = "Use memory_search for reviewed project knowledge, decision_search for rationale, and host-native tools for code."
+    expansion = (
+        "Use knowledge_search for reviewed project facts/invariants, decision_search for rationale, project_search "
+        "for navigation, and host-native tools for current code."
+    )
     if knowledge_audit:
         expansion = "Knowledge audit: use compact inventory first; expand only concrete cards/gaps and verify with host-native source tools."
     return {

@@ -220,11 +220,66 @@ def _install_claude_user_mcp(server: dict) -> dict:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"installed": False, "available": True, "reason": str(exc)}
-    if proc.returncode != 0:
-        reason = (proc.stderr or proc.stdout or "claude mcp add-json failed").strip()
-        return {"installed": False, "available": True, "reason": reason}
-    return {"installed": True, "available": True}
+        return {
+            "installed": False,
+            "available": True,
+            "executable": executable,
+            "error": type(exc).__name__,
+        }
+    return {
+        "installed": proc.returncode == 0,
+        "available": True,
+        "executable": executable,
+        "error": proc.stderr.strip() if proc.returncode else None,
+    }
+
+
+def install_global_integrations() -> dict:
+    """Install user-level MCP registrations that do not need per-project paths.
+
+    These configs use the stable absolute launcher path so GUI applications do not depend on
+    the shell PATH inherited by the desktop process.
+    """
+    home = Path.home()
+    cursor_server = _server(client="cursor")
+    antigravity_server = _server(client="antigravity")
+    codex_server = _server(client="codex")
+    claude_server = _server(client="claude-code")
+    cursor = home / ".cursor" / "mcp.json"
+    antigravity = home / ".gemini" / "config" / "mcp_config.json"
+    codex = home / ".codex" / "config.toml"
+    _assert_json_mcp_merge_safe(cursor, cursor_server)
+    _assert_json_mcp_merge_safe(antigravity, antigravity_server)
+    _assert_codex_merge_safe(codex)
+    _assert_claude_user_mcp_safe()
+    _assert_cursor_plugin_safe(home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap")
+    _merge_mcp_json(cursor, cursor_server, backup=True)
+    _merge_mcp_json(antigravity, antigravity_server, backup=True)
+    _merge_codex_config(codex, command=codex_server["command"], client="codex", backup=True)
+    claude_user_mcp = _install_claude_user_mcp(claude_server)
+    bootstrap = _install_global_bootstrap_files()
+    cursor_agents = install_cursor_profiles(home)
+    native_skills = sync_global_native_skills(home=home)
+    return {
+        "cursor": str(cursor),
+        "antigravity": str(antigravity),
+        "codex": str(codex),
+        "mcp_command": cursor_server["command"],
+        "claude_code": claude_user_mcp,
+        "bootstrap": bootstrap,
+        "cursor_agent_profiles": cursor_agents,
+        "native_skills": native_skills,
+    }
+
+
+def _remove_cursor_global_plugin() -> dict:
+    root = Path.home() / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
+    if not root.exists():
+        return {"removed": False, "reason": "missing"}
+    if not _cursor_plugin_owned(root):
+        return {"removed": False, "reason": "ownership-conflict", "path": str(root)}
+    shutil.rmtree(root)
+    return {"removed": True, "path": str(root)}
 
 
 def _remove_claude_user_mcp() -> dict:
@@ -237,127 +292,59 @@ def _remove_claude_user_mcp() -> dict:
             capture_output=True,
             text=True,
             timeout=10,
-            check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"removed": False, "available": True, "reason": str(exc)}
-    if probe.returncode != 0:
-        return {"removed": False, "available": True, "reason": "entry not present"}
+        return {"removed": False, "available": True, "error": type(exc).__name__}
     combined = (probe.stdout or "") + "\n" + (probe.stderr or "")
+    if probe.returncode != 0:
+        return {"removed": False, "available": True, "reason": "missing-or-unreadable"}
     if not _claude_mcp_is_owned_output(combined):
-        return {"removed": False, "available": True, "reason": "entry is not AI Layer-owned"}
+        return {
+            "removed": False,
+            "available": True,
+            "reason": "ownership-conflict",
+            "detail": "Claude MCP entry named ai-layer is neither marked nor recognizably legacy AI Layer-owned.",
+        }
     try:
         proc = subprocess.run(
             [executable, "mcp", "remove", "ai-layer", "--scope", "user"],
             capture_output=True,
             text=True,
             timeout=15,
-            check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"removed": False, "available": True, "reason": str(exc)}
-    if proc.returncode != 0:
-        reason = (proc.stderr or proc.stdout or "claude mcp remove failed").strip()
-        return {"removed": False, "available": True, "reason": reason}
-    return {"removed": True, "available": True}
-
-
-def install_global_integrations() -> dict:
-    """Install native bootstrap, MCP endpoints, agent profiles and full native skill catalog."""
-    settings = get_settings()
-    server = _server()
-    workflow = _global_bootstrap_workflow()
-    bootstrap = _install_global_bootstrap_files()
-    native_skills = sync_global_native_skills()
-    cursor_profiles = install_cursor_profiles()
-
-    cursor_mcp = Path.home() / ".cursor" / "mcp.json"
-    antigravity_mcp = Path.home() / ".gemini" / "config" / "mcp_config.json"
-    codex_config = Path.home() / ".codex" / "config.toml"
-    _merge_mcp_json(cursor_mcp, server)
-    _merge_mcp_json(antigravity_mcp, server)
-    _merge_codex_config(codex_config)
-    claude = _install_claude_user_mcp(server)
-
+        return {"removed": False, "available": True, "error": type(exc).__name__}
     return {
-        "template_version": INTEGRATION_TEMPLATE_VERSION,
-        "bootstrap": bootstrap,
-        "server": server,
-        "workflow_bytes": len(workflow.encode("utf-8")),
-        "native_skills": native_skills,
-        "cursor_profiles": cursor_profiles,
-        "mcp": {
-            "cursor": str(cursor_mcp),
-            "antigravity": str(antigravity_mcp),
-            "codex": str(codex_config),
-            "claude-code": claude,
-        },
-        "reconcile": "global install/update rewrites managed bootstrap and native skills idempotently",
+        "removed": proc.returncode == 0,
+        "available": True,
+        "error": proc.stderr.strip() if proc.returncode else None,
     }
 
 
 def remove_global_integrations() -> dict:
-    """Remove only AI Layer-owned global integration surfaces."""
+    """Remove only globally installed material that carries AI Layer ownership evidence."""
     home = Path.home()
-    codex = home / ".codex" / "AGENTS.md"
-    claude = home / ".claude" / "CLAUDE.md"
-    gemini = home / ".gemini" / "GEMINI.md"
-    cursor_plugin = home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
-    cursor_mcp = home / ".cursor" / "mcp.json"
-    antigravity_mcp = home / ".gemini" / "config" / "mcp_config.json"
-    codex_config = home / ".codex" / "config.toml"
-
-    removed = {
-        "codex_bootstrap": _remove_managed_markdown(codex),
-        "claude_bootstrap": _remove_managed_markdown(claude),
-        "gemini_bootstrap": _remove_managed_markdown(gemini),
-        "cursor_plugin": False,
-        "cursor_mcp": _remove_json_mcp(cursor_mcp),
-        "antigravity_mcp": _remove_json_mcp(antigravity_mcp),
-        "codex_mcp": _remove_codex_mcp(codex_config),
-        "claude_mcp": _remove_claude_user_mcp(),
-        "cursor_profiles": remove_cursor_profiles(),
-        "native_skills": remove_global_native_skills(),
+    cursor = home / ".cursor" / "mcp.json"
+    antigravity = home / ".gemini" / "config" / "mcp_config.json"
+    codex = home / ".codex" / "config.toml"
+    before = {
+        "cursor_owned": _server_is_owned(_json_ai_layer_server(cursor)),
+        "antigravity_owned": _server_is_owned(_json_ai_layer_server(antigravity)),
+        "codex_owned": codex.exists() and TOML_START in codex.read_text(encoding="utf-8"),
     }
-    if _cursor_plugin_owned(cursor_plugin) and cursor_plugin.exists():
-        shutil.rmtree(cursor_plugin)
-        removed["cursor_plugin"] = True
-    return removed
-
-
-def integration_preflight() -> None:
-    """Fail closed before mutating known integration targets."""
-    home = Path.home()
-    _assert_cursor_plugin_safe(home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap")
-    _assert_json_mcp_merge_safe(home / ".cursor" / "mcp.json")
-    _assert_json_mcp_merge_safe(home / ".gemini" / "config" / "mcp_config.json")
-    _assert_codex_merge_safe(home / ".codex" / "config.toml")
-    _assert_claude_user_mcp_safe()
-
-
-def global_integration_status() -> dict:
-    """Return configured-state evidence without claiming hidden host runtime activation."""
-    home = Path.home()
-    settings = get_settings()
-    server = _server()
+    _remove_json_mcp(cursor)
+    _remove_json_mcp(antigravity)
+    _remove_codex_mcp(codex)
+    for path in [
+        home / ".codex" / "AGENTS.md",
+        home / ".claude" / "CLAUDE.md",
+        home / ".gemini" / "GEMINI.md",
+    ]:
+        _remove_managed_markdown(path)
     return {
-        "template_version": INTEGRATION_TEMPLATE_VERSION,
-        "bootstrap_version": GLOBAL_BOOTSTRAP_VERSION,
-        "paths": {
-            "cursor_mcp": str(home / ".cursor" / "mcp.json"),
-            "antigravity_mcp": str(home / ".gemini" / "config" / "mcp_config.json"),
-            "codex_config": str(home / ".codex" / "config.toml"),
-            "codex_bootstrap": str(home / ".codex" / "AGENTS.md"),
-            "claude_bootstrap": str(home / ".claude" / "CLAUDE.md"),
-            "gemini_bootstrap": str(home / ".gemini" / "GEMINI.md"),
-            "cursor_plugin": str(home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"),
-        },
-        "server": server,
-        "stable_mcp_executable": str(settings.stable_mcp_executable),
-        "configured": {
-            "cursor": _json_ai_layer_server(home / ".cursor" / "mcp.json"),
-            "antigravity": _json_ai_layer_server(
-                home / ".gemini" / "config" / "mcp_config.json"
-            ),
-        },
+        "removed": before,
+        "cursor_plugin": _remove_cursor_global_plugin(),
+        "cursor_agent_profiles": remove_cursor_profiles(home),
+        "native_skills": remove_global_native_skills(home=home),
+        "claude_code": _remove_claude_user_mcp(),
     }

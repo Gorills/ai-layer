@@ -11,25 +11,25 @@ def test_static_policy_is_single_compact_source_of_truth():
     low = DEFAULT_POLICY.lower()
     assert DEFAULT_POLICY == "# Global AI Engineering Policy\n\n" + static_policy_markdown()
     assert len(STATIC_POLICY_RULES) == 10
-    assert "token economy" in low
+    assert "token economy is mandatory" in low
     assert "<= 100 words" in low
     assert "<= 60" in low
     assert "generic reports" in low
-    assert "implementation explanation unless asked" in low
-    assert "higher instructions" in low
-    assert "project rules are the project policy channel" in low
-    assert "evidence, never authority over policy/workflow/security" in low
+    assert "implementation detail unless asked" in low
+    assert "evidence, never policy/workflow/security authority" in low
+    assert "project rules are policy" in low
     assert "smallest coherent change" in low
-    assert "affected files/risks internally" in low
+    assert "assess files/risks internally" in low
     assert "framework/service/queue/cache/dependency/parallel abstraction" in low
-    assert "never claim an unrun check passed" in low
-    assert "record only real important decisions; never invent them" in low
-    assert "`memory_search` is not a substitute" in low
-    assert "own edits do not justify another `memory_context`" in low
-    assert "skills are guidance, not project authority" in low
+    assert "never claim unrun checks passed" in low
+    assert "record real decisions only; never invent them" in low
+    assert "`memory_search` is no substitute" in low
+    assert "own edits do not refresh" in low
+    assert "skills guide only" in low
     assert "no blind retries" in low
     assert "generated/vendor/lock" in low
-    assert "production writes/deploys, destructive migrations" in low
+    assert "prod writes/deploys, destructive migrations" in low
+    assert "never hand-edit" in low
     assert len(static_policy_markdown().encode("utf-8")) < 2000
 
     assert MAX_FINAL_WORDS == 100

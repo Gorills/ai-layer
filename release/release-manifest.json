@@ -12,7 +12,7 @@
     "minimum_source_schema": "0010_adaptive_task_workflow",
     "rollback": "forward_only_after_migration",
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
-    "target_schema": "0014_epics_v1"
+    "target_schema": "0015_project_navigation"
   },
   "notes": "0.12.2 keeps native skill discovery metadata-first, but publishes the complete authoritative professional skill after host relevance selection. Explicit core retrieval preserves whole entry sections without character clipping; unrelated skills remain unloaded.",
   "official_runtime": {

@@ -34,21 +34,23 @@ jobs:
 
           path = Path("src/ai_layer/skills/service.py")
           text = path.read_text(encoding="utf-8")
-          old = '''    content = "\\n\\n".join(chunks).strip() or str(skill.get("content") or "").strip()
-    if len(content) <= max_chars:
-        return content
-    return content[: max_chars - 45].rstrip() + "\\n...[skill core clipped; use skill_get section]"
-'''
-          new = '''    content = "\\n\\n".join(chunks).strip() or str(skill.get("content") or "").strip()
-    if max_chars <= 0:
-        return ""
-    if len(content) <= max_chars:
-        return content
-    suffix = "\\n...[skill core clipped; use skill_get section]"
-    if len(suffix) >= max_chars:
-        return content[:max_chars]
-    return content[: max_chars - len(suffix)].rstrip() + suffix
-'''
+          old = (
+              '    content = "\\n\\n".join(chunks).strip() or str(skill.get("content") or "").strip()\n'
+              '    if len(content) <= max_chars:\n'
+              '        return content\n'
+              '    return content[: max_chars - 45].rstrip() + "\\n...[skill core clipped; use skill_get section]"\n'
+          )
+          new = (
+              '    content = "\\n\\n".join(chunks).strip() or str(skill.get("content") or "").strip()\n'
+              '    if max_chars <= 0:\n'
+              '        return ""\n'
+              '    if len(content) <= max_chars:\n'
+              '        return content\n'
+              '    suffix = "\\n...[skill core clipped; use skill_get section]"\n'
+              '    if len(suffix) >= max_chars:\n'
+              '        return content[:max_chars]\n'
+              '    return content[: max_chars - len(suffix)].rstrip() + suffix\n'
+          )
           if old not in text:
               raise SystemExit("skill_core_content clipping block no longer matches expected baseline")
           path.write_text(text.replace(old, new, 1), encoding="utf-8")

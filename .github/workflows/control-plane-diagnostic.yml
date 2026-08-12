@@ -1,0 +1,27 @@
+name: Control Plane Diagnostic
+
+on:
+  push:
+    branches:
+      - refactor/project-intelligence-control-plane
+
+permissions:
+  contents: read
+
+jobs:
+  pytest-summary:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install quietly
+        run: python -m pip install -e '.[dev]' >/dev/null 2>&1
+      - name: Failed test summary
+        run: |
+          set +e
+          pytest -q --tb=no
+          code=$?
+          echo "PYTEST_EXIT=$code"
+          exit 0

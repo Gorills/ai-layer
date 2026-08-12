@@ -59,7 +59,9 @@ _STOP_WORDS = {
 def _tokens(value: object) -> set[str]:
     text = _CAMEL_RE.sub(" ", str(value or ""))
     text = text.replace("_", " ").replace("-", " ").casefold()
-    return {token for token in _TOKEN_RE.findall(text) if len(token) >= 2 and token not in _STOP_WORDS}
+    return {
+        token for token in _TOKEN_RE.findall(text) if len(token) >= 2 and token not in _STOP_WORDS
+    }
 
 
 def _symbol(

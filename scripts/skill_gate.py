@@ -143,7 +143,9 @@ def _check_depth(skill: dict, errors: list[str]) -> None:
     for entry in entry_sections:
         section_body = str(sections.get(entry) or "")
         if section_body and section_body not in core:
-            errors.append(f"{slug}: core retrieval does not preserve complete entry section {entry!r}")
+            errors.append(
+                f"{slug}: core retrieval does not preserve complete entry section {entry!r}"
+            )
     if "skill core clipped" in core:
         errors.append(f"{slug}: core retrieval contains destructive clipping marker")
 
@@ -219,9 +221,13 @@ def run_gate(root: Path = ROOT) -> dict:
         else:
             canonical = str(skill.get("content") or "").strip()
             if canonical not in native:
-                errors.append(f"{slug}: native activation does not contain the complete canonical body")
+                errors.append(
+                    f"{slug}: native activation does not contain the complete canonical body"
+                )
             if not native.startswith("---\nname: "):
-                errors.append(f"{slug}: native activation lacks host-compatible routing frontmatter")
+                errors.append(
+                    f"{slug}: native activation lacks host-compatible routing frontmatter"
+                )
             if "description:" not in native.split("---\n", 2)[1]:
                 errors.append(f"{slug}: native activation frontmatter lacks routing description")
 

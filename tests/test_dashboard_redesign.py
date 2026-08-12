@@ -51,9 +51,7 @@ def test_dashboard_skills_read_bundled_catalog_without_materializing_home(
     get_settings.cache_clear()
 
 
-def test_dashboard_rules_fall_back_to_bundled_policy_without_writing(
-    monkeypatch, tmp_path: Path
-):
+def test_dashboard_rules_fall_back_to_bundled_policy_without_writing(monkeypatch, tmp_path: Path):
     home = _home(monkeypatch, tmp_path)
     settings = get_settings()
     global_path = settings.policies_dir / "global.md"
@@ -138,9 +136,7 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
     rules = client.get("/api/v1/dashboard/rules?project_key=p1")
     knowledge = client.get("/api/v1/dashboard/knowledge/p1?status=DRAFT&page_size=10")
     monitoring = client.get("/api/v1/dashboard/monitoring?project_key=p1")
-    activity = client.get(
-        "/api/v1/dashboard/activity?project_key=p1&page=3&page_size=10"
-    )
+    activity = client.get("/api/v1/dashboard/activity?project_key=p1&page=3&page_size=10")
 
     assert tasks.status_code == 200
     assert tasks.json()["kwargs"]["project_key_value"] == "p1"
@@ -158,24 +154,18 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
 
 def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
     root = Path(__file__).resolve().parents[1]
-    project_js = (
-        root / "src/ai_layer/dashboard/static/js/views/project.js"
-    ).read_text(encoding="utf-8")
-    overview_js = (
-        root / "src/ai_layer/dashboard/static/js/views/overview.js"
-    ).read_text(encoding="utf-8")
-    app_js = (root / "src/ai_layer/dashboard/static/js/app.js").read_text(
+    project_js = (root / "src/ai_layer/dashboard/static/js/views/project.js").read_text(
         encoding="utf-8"
     )
-    epic_js = (root / "src/ai_layer/dashboard/static/js/views/epic.js").read_text(
+    overview_js = (root / "src/ai_layer/dashboard/static/js/views/overview.js").read_text(
         encoding="utf-8"
     )
-    operations_js = (
-        root / "src/ai_layer/dashboard/static/js/views/operations.js"
-    ).read_text(encoding="utf-8")
-    index_html = (root / "src/ai_layer/dashboard/static/index.html").read_text(
+    app_js = (root / "src/ai_layer/dashboard/static/js/app.js").read_text(encoding="utf-8")
+    epic_js = (root / "src/ai_layer/dashboard/static/js/views/epic.js").read_text(encoding="utf-8")
+    operations_js = (root / "src/ai_layer/dashboard/static/js/views/operations.js").read_text(
         encoding="utf-8"
     )
+    index_html = (root / "src/ai_layer/dashboard/static/index.html").read_text(encoding="utf-8")
 
     assert "slice(0, 10)" in project_js
     assert "slice(0, 10)" in overview_js

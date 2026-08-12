@@ -224,7 +224,7 @@ def task_adopt(
     constraints: list[str] | str | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: substantive repository edits already happened outside Task Layer and must now be reviewed honestly. INPUT: goal required; compact acceptance_criteria/constraints; project_root explicit or safely bound. Requires a dirty Git worktree, records those paths as unmanaged pre-task provenance, SKIPS IMPLEMENT, and starts at read-only REVIEW. Never use this to pretend prior edits were managed implementation."""
+    """WHEN: substantive repository edits already happened outside a managed Task and the user/agent now explicitly wants AI Layer managed review/remediation. INPUT: goal required; compact acceptance_criteria/constraints; project_root explicit or safely bound. Requires a dirty Git worktree, records those paths as unmanaged pre-task provenance, SKIPS IMPLEMENT, and starts at read-only REVIEW. Never use this to pretend prior edits were managed implementation."""
     root = project_root_for_tool(project_root, tool="task_adopt")
     goal = _text(goal, tool="task_adopt", field="goal")
     criteria = _list(acceptance_criteria)

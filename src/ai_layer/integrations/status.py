@@ -21,6 +21,7 @@ class IntegrationStatusDependencies:
     toml_end: str
     owned_file_marker: str
     integration_template_version: int
+    global_bootstrap_marker: str
     project_integration_paths: tuple[str, ...]
 
 
@@ -28,7 +29,17 @@ def _bootstrap_file_status(path: Path, deps: IntegrationStatusDependencies) -> b
     if not path.exists():
         return False
     try:
-        return deps.managed_start in path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8")
+        return deps.managed_start in text and deps.global_bootstrap_marker in text
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
+def _bootstrap_version_current(path: Path, deps: IntegrationStatusDependencies) -> bool:
+    if not path.exists():
+        return False
+    try:
+        return deps.global_bootstrap_marker in path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return False
 
@@ -58,7 +69,7 @@ def global_bootstrap_status(deps: IntegrationStatusDependencies) -> dict:
             "path": str(plugin),
             "ready": deps.cursor_plugin_owned(plugin)
             and cursor_manifest.exists()
-            and cursor_rule.exists(),
+            and _bootstrap_version_current(cursor_rule, deps),
             "verified_by": "owned local plugin files present; runtime black-box acceptance required",
             "runtime_acceptance_required": True,
         },

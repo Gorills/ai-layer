@@ -182,7 +182,7 @@ def _next_action(task: Task, stage: TaskStage | None) -> dict:
         if (task.execution_origin or "managed") == "adopted_unmanaged_changes":
             return {
                 "action": "done",
-                "message": "Adopted unmanaged changes passed the managed review/remediation gates; original implementation was not claimed as Task Layer work.",
+                "message": "Adopted unmanaged changes passed the managed review/remediation gates; original implementation was not claimed as managed Task implementation.",
             }
         return {
             "action": "done",
@@ -394,8 +394,13 @@ def current_task(db: Session, project: Project, *, include_history: bool = True)
             "active": False,
             "state": "no_active_task",
             "next_action": {
-                "action": "create_task",
-                "message": "Create a task before implementation, review, debugging, or other substantive repository work.",
+                "action": "host_native",
+                "tool": None,
+                "message": (
+                    "No managed Task is active. Ordinary repository work may continue through the host-native "
+                    "agent runtime; create a Task only when durable or strict managed execution is useful."
+                ),
+                "managed_option": {"tool": "task_create", "required": ["goal"]},
             },
             "latest": task_to_dict(db, latest, include_history=include_history) if latest else None,
         }

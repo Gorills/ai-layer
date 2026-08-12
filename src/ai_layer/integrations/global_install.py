@@ -33,6 +33,7 @@ from ai_layer.skills.native import remove_global_native_skills, sync_global_nati
 
 INTEGRATION_TEMPLATE_VERSION = 23
 GLOBAL_BOOTSTRAP_VERSION = 13
+GLOBAL_BOOTSTRAP_MARKER = f"<!-- AI-LAYER GLOBAL BOOTSTRAP v{GLOBAL_BOOTSTRAP_VERSION} -->"
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
@@ -85,7 +86,7 @@ def _write_cursor_global_plugin(workflow: str) -> Path:
 
 
 def _install_global_bootstrap_files() -> dict:
-    workflow = _global_bootstrap_workflow()
+    workflow = GLOBAL_BOOTSTRAP_MARKER + "\n" + _global_bootstrap_workflow()
     home = Path.home()
     codex = home / ".codex" / "AGENTS.md"
     claude = home / ".claude" / "CLAUDE.md"

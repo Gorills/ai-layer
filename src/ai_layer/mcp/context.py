@@ -47,8 +47,8 @@ def resolve_project_root(project_root: str | None, *, tool: str) -> str:
             category=ErrorCategory.VALIDATION,
             message=(
                 f"{tool} is project-scoped and this MCP process has seen multiple projects: {known}. "
-                "Pass the exact canonical `project_root` returned by the relevant memory_context/task response. "
-                "Do not use shell cwd or bypass Task Layer."
+                "Pass the exact canonical `project_root` returned by project_status or another successful "
+                "project-scoped AI Layer response. Do not use shell cwd or guess between projects."
             ),
             retryable=True,
             required_action="Pass the exact canonical project_root for the intended registered project.",
@@ -59,7 +59,7 @@ def resolve_project_root(project_root: str | None, *, tool: str) -> str:
         message=(
             f"{tool} is project-scoped but no explicit, environment, or previously bound project exists. "
             "Pass `project_root` explicitly using the exact canonical root returned by a successful "
-            "project_info/memory_context/task response. Do not derive it from MCP cwd and do not bypass Task Layer."
+            "project_status/project_info or another successful project-scoped response. Do not derive it from MCP cwd."
         ),
         retryable=True,
         required_action="Pass the exact canonical project_root for the intended registered project.",

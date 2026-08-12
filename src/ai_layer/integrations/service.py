@@ -22,6 +22,7 @@ from ai_layer.integrations.config_files import (
     _server_is_owned,
 )
 from ai_layer.integrations.global_install import (
+    GLOBAL_BOOTSTRAP_MARKER,
     _cursor_plugin_owned,
     _merge_codex_config,
 )
@@ -195,6 +196,7 @@ def _status_dependencies() -> IntegrationStatusDependencies:
         toml_end=TOML_END,
         owned_file_marker=OWNED_FILE_MARKER,
         integration_template_version=INTEGRATION_TEMPLATE_VERSION,
+        global_bootstrap_marker=GLOBAL_BOOTSTRAP_MARKER,
         project_integration_paths=PROJECT_INTEGRATION_PATHS,
     )
 

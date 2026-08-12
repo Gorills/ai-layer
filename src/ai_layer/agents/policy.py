@@ -291,7 +291,7 @@ def _profile_text(*, tier: str, readonly: bool, model: str) -> str:
         f"{OWNED_MARKER}\n"
         "CRITICAL ROLE CONTRACT: You are a delegated AI Layer stage worker, never the top-level orchestrator. "
         + mutation_contract
-        + "Follow the supplied delegation contract exactly. Do not mutate Task Layer state, do not broaden scope, "
+        + "Follow the supplied delegation contract exactly. Do not mutate managed Task state, do not broaden scope, "
         "and return actual stage evidence/results to the orchestrator. If blocked, return the blocker; never ask or rely on the parent orchestrator to perform your stage work.\n"
     )
 

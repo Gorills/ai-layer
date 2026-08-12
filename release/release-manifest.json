@@ -12,7 +12,7 @@
     "minimum_source_schema": "0010_adaptive_task_workflow",
     "rollback": "forward_only_after_migration",
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
-    "target_schema": "0016_project_navigation_semantics"
+    "target_schema": "0016_project_map_semantics"
   },
   "notes": "0.13.0 source tree includes agent-maintained semantic Project Map enrichment layered over scanner-owned structural navigation; release promotion must rebuild the application wheel before final merge.",
   "official_runtime": {

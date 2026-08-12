@@ -1,11 +1,10 @@
-from ai_layer.policy.service import (
-    DEFAULT_POLICY,
+from ai_layer.core.static_policy import (
     MAX_FINAL_WORDS,
-    RESPONSE_CONTRACT,
     SIMPLE_FINAL_WORDS,
     STATIC_POLICY_RULES,
     static_policy_markdown,
 )
+from ai_layer.policy.service import DEFAULT_POLICY, RESPONSE_CONTRACT
 
 
 def test_static_policy_is_single_compact_source_of_truth():

@@ -1,0 +1,59 @@
+name: temporary-static-bootstrap-wheel-refresh
+
+on:
+  push:
+    branches:
+      - fix/canonical-static-bootstrap-policy
+    paths:
+      - .github/workflows/refresh-static-bootstrap-wheel.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/canonical-static-bootstrap-policy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Bump bootstrap contract and rebuild deterministic wheel
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/ai_layer/integrations/global_install.py")
+          text = path.read_text(encoding="utf-8")
+          if "GLOBAL_BOOTSTRAP_VERSION = 9" in text:
+              text = text.replace("GLOBAL_BOOTSTRAP_VERSION = 9", "GLOBAL_BOOTSTRAP_VERSION = 10", 1)
+              path.write_text(text, encoding="utf-8")
+          elif "GLOBAL_BOOTSTRAP_VERSION = 10" not in text:
+              raise SystemExit("unexpected GLOBAL_BOOTSTRAP_VERSION")
+          PY
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          path = Path("release/release-manifest.json")
+          manifest = json.loads(path.read_text(encoding="utf-8"))
+          wheel = Path(manifest["application_wheel"])
+          manifest["application_wheel_sha256"] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Commit deterministic release artifacts
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/ai_layer/integrations/global_install.py dist/local_ai_development_layer-0.12.2-py3-none-any.whl release/release-manifest.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore(release): refresh canonical bootstrap wheel"
+          git push origin HEAD:fix/canonical-static-bootstrap-policy

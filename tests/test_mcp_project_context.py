@@ -95,9 +95,8 @@ def test_memory_context_binds_exact_root_for_following_task_create(monkeypatch, 
         project_tools,
         "build_memory_context",
         lambda db, project, task, limit: {
-            "task_runtime": {"active": False},
-            "memory": [],
-            "skills": [],
+            "knowledge_hints": [],
+            "compatibility": {"legacy": True},
         },
     )
     monkeypatch.setattr(
@@ -116,6 +115,48 @@ def test_memory_context_binds_exact_root_for_following_task_create(monkeypatch, 
     created = server.task_create(goal="Fix food project")
     assert created["project_root"] == str(project_root.resolve())
     assert seen["roots"] == [str(project_root.resolve()), str(project_root.resolve())]
+
+
+def test_memory_context_without_task_serves_project_status(monkeypatch, tmp_path: Path):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    from ai_layer.mcp import server
+    from ai_layer.mcp.tools import project_context as project_tools
+
+    project_root = tmp_path / "alia"
+    project_root.mkdir()
+
+    @contextmanager
+    def fake_session_scope():
+        yield object()
+
+    @contextmanager
+    def fake_audit(*args, **kwargs):
+        yield {}
+
+    def fake_project(db, root, required=True):
+        context.bind_project_root(root)
+        return SimpleNamespace(root_path=root, id="project-1")
+
+    monkeypatch.delenv("AI_LAYER_PROJECT_ROOT", raising=False)
+    context.reset_project_bindings_for_tests()
+    monkeypatch.setattr(project_tools, "session_scope", fake_session_scope)
+    monkeypatch.setattr(project_tools, "mcp_audit", fake_audit)
+    monkeypatch.setattr(project_tools, "_project", fake_project)
+    monkeypatch.setattr(
+        project_tools,
+        "get_project_status",
+        lambda db, project: {
+            "work": {"current_focus": {"kind": "epic", "key": "E-0001"}},
+            "index": {"project_map": {"semantic_current": 4}},
+        },
+    )
+
+    result = server.memory_context(project_root=str(project_root))
+    assert result["compatibility"]["served_as"] == "project_status"
+    assert result["work"]["current_focus"]["key"] == "E-0001"
+    assert result["project_root"] == str(project_root.resolve())
 
 
 def test_task_create_without_explicit_env_or_bound_project_fails_before_cwd(

@@ -118,6 +118,7 @@ def test_known_agent_facing_files_do_not_contain_removed_workflow_phrases() -> N
         "mcp task layer",
         "curated project facts belong to memory_search",
         "do not bypass task layer",
+        "task layer",
     ]
     for relative in paths:
         text = (ROOT / relative).read_text(encoding="utf-8").casefold()

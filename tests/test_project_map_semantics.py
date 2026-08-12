@@ -126,3 +126,4 @@ def test_project_search_merge_can_promote_semantic_only_breadcrumbs():
     assert result["matches"][0]["semantic"]["freshness"] == "current"
     assert result["related_tests"] == ["tests/orders/test_retry.py"]
     assert result["search_mode"] == "hybrid_structural_semantic"
+    assert "Russian, English or mixed" in result["language_contract"]

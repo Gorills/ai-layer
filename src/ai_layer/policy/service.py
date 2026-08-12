@@ -54,9 +54,11 @@ STATIC_POLICY_RULES = (
 def static_policy_markdown() -> str:
     """Compact always-on engineering floor rendered into every supported native host."""
 
-    return "## AI Layer engineering floor\n\n" + "\n".join(
-        f"- {rule}" for rule in STATIC_POLICY_RULES
-    ) + "\n"
+    return (
+        "## AI Layer engineering floor\n\n"
+        + "\n".join(f"- {rule}" for rule in STATIC_POLICY_RULES)
+        + "\n"
+    )
 
 
 DEFAULT_POLICY = "# Global AI Engineering Policy\n\n" + static_policy_markdown()

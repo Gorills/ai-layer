@@ -1,7 +1,7 @@
 """Compatibility application facade for transport adapters.
 
-The pre-foundation transports historically opened ORM sessions themselves.  This module preserves
-those call shapes while moving transaction ownership behind the application boundary.  New transport
+The pre-foundation transports historically opened ORM sessions themselves. This module preserves
+those call shapes while moving transaction ownership behind the application boundary. New transport
 code should prefer the focused use-case modules directly.
 """
 
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from ai_layer.application import context as context_uc
+from ai_layer.application import project_intelligence as intelligence_uc
 from ai_layer.application import sessions as sessions_uc
 from ai_layer.application import tasks as tasks_uc
 from ai_layer.application import verification as verification_uc
@@ -43,6 +44,16 @@ def get_project(_scope: ApplicationScope, root: str | Path) -> ProjectRef:
 
 def project_info(_scope: ApplicationScope, root: str | Path) -> dict:
     return context_uc.project_details(root)
+
+
+def project_status(_scope: ApplicationScope, project: ProjectRef) -> dict:
+    return intelligence_uc.project_status(project.root_path)
+
+
+def project_search(
+    _scope: ApplicationScope, project: ProjectRef, query: str, limit: int
+) -> dict:
+    return intelligence_uc.project_search(project.root_path, query, limit)
 
 
 def memory_search(

@@ -29,7 +29,7 @@ def test_global_native_descriptors_share_agents_root_for_cursor_and_codex(tmp_pa
     try:
         result = sync_global_native_skills(home=tmp_path / "user")
         assert result["routing_owner"] == "host-native"
-        assert result["canonical_skills"] == 43
+        assert result["canonical_skills"] == 44
         assert result["validation"]["ok"] is True
         shared = tmp_path / "user" / ".agents" / "skills" / "django" / "SKILL.md"
         antigravity = tmp_path / "user" / ".gemini" / "config" / "skills" / "django" / "SKILL.md"
@@ -41,6 +41,37 @@ def test_global_native_descriptors_share_agents_root_for_cursor_and_codex(tmp_pa
         assert set(meta) == {"name", "description"}
         assert "skill_get" in shared.read_text(encoding="utf-8")
         assert "required" not in meta and "recommended" not in meta
+
+        workflow_descriptor = (
+            tmp_path / "user" / ".agents" / "skills" / "ai-layer-workflow" / "SKILL.md"
+        )
+        assert workflow_descriptor.is_file()
+        workflow_meta = _frontmatter(workflow_descriptor.read_text(encoding="utf-8"))
+        assert workflow_meta["name"] == "ai-layer-workflow"
+        assert "Task/Epic" in workflow_meta["description"]
+        assert "skill_get" in workflow_descriptor.read_text(encoding="utf-8")
+    finally:
+        get_settings.cache_clear()
+
+
+def test_ai_layer_workflow_core_is_small_authoritative_startup_manual(tmp_path, monkeypatch):
+    monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "state"))
+    get_settings.cache_clear()
+    try:
+        skill = load_skill("ai-layer-workflow")
+        assert skill is not None
+        core, sections = skill_section_content(skill, "core")
+        assert len(core) <= 2400
+        assert "`memory_context` establishes the canonical project context" in core
+        assert "`task_next` and `epic_next` are the authoritative navigators" in core
+        assert "Never reconstruct a stage from chat history" in core
+        assert "`inline_micro_implement`" in core
+        assert "`task_adopt` only when substantive repository edits already happened" in core
+        assert "A failed worker, tool or AI Layer transition is a blocker" in core
+        assert "Workflow" in sections
+        assert "Delegation and roles" in sections
+        assert "Dirty worktrees and adoption" in sections
+        assert "Recovery and context loss" not in sections or isinstance(sections, list)
     finally:
         get_settings.cache_clear()
 
@@ -166,13 +197,14 @@ def test_upgrade_skips_legacy_invalid_custom_skill_without_blocking_native_catal
 
         result = sync_global_native_skills(home=home)
 
-        assert result["canonical_skills"] == 44
-        assert result["published_skills"] == 43
+        assert result["canonical_skills"] == 45
+        assert result["published_skills"] == 44
         assert result["blocked_skills"] == 1
         assert result["validation"]["ok"] is False
         assert result["validation"]["publication"]["blocked"][0]["slug"] == "legacy-custom"
         assert legacy.is_file()
         assert not (home / ".agents" / "skills" / "legacy-custom" / "SKILL.md").exists()
         assert (home / ".agents" / "skills" / "django" / "SKILL.md").is_file()
+        assert (home / ".agents" / "skills" / "ai-layer-workflow" / "SKILL.md").is_file()
     finally:
         get_settings.cache_clear()

@@ -4,7 +4,7 @@ from typing import Any
 
 from ai_layer.domain.static_policy import static_policy_markdown
 
-CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 4
+CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 5
 
 
 def critical_orchestrator_contract() -> dict[str, Any]:
@@ -33,40 +33,57 @@ def critical_orchestrator_contract() -> dict[str, Any]:
             "Record only the actual delegated worker result, or the top-level actor's own result for an "
             "explicitly authorized inline MICRO stage."
         ),
-        "epic_rule": "Existing Epic: epic_next owns lifecycle; task_next owns only its linked Task.",
+        "epic_rule": "Existing active Epic: epic_next owns lifecycle; task_next owns only its linked Task.",
     }
 
 
 def critical_orchestrator_markdown() -> str:
-    """Small always-on role boundary. Detailed procedure is returned dynamically by task_next/epic_next."""
-    return """## AI Layer orchestrator
-- Top-level coordinates; no external mutation; never edit repository files unless `task_next` grants `inline_micro_implement`.
-- IMPLEMENT/FIX -> bound writable worker; DISCOVERY/REVIEW -> bound read-only worker. Record its result.
-- Worker/tool unavailable -> block; no fallback. Active Epic -> `epic_next`; otherwise `task_next`.
+    """Readable always-on role boundary. Navigators still own current stage procedure."""
+    return """## Mandatory AI Layer role boundary
+
+These rules are mandatory for every registered project. They are not suggestions and must not be bypassed because a task looks simple.
+
+- The top-level chat is the ORCHESTRATOR. It coordinates AI Layer state and workers. It MUST NOT edit repository files or mutate external systems itself.
+- The only direct-write exception is a current MICRO IMPLEMENT stage when `task_next` explicitly returns `inline_micro_implement`. That permission ends as soon as that stage completes, blocks or escalates.
+- IMPLEMENT and FIX stages belong to one explicitly bound writable worker. DISCOVERY and REVIEW stages belong to one explicitly bound read-only worker. The orchestrator must never perform a delegated stage as fallback.
+- Bind and start the worker exactly when the navigator requires delegation. Record only the result produced by the worker that actually ran the stage; never fabricate or substitute a parent result.
+- If a required AI Layer tool, worker or delegation cannot run, STOP and report the blocker. Do not continue through native tools as an unmanaged workaround.
 """
 
 
 def native_bootstrap_markdown() -> str:
-    """Single compact static kernel; runtime navigators own detailed procedure."""
-    control_plane = """## AI Layer control plane
-For registered projects:
-- First project tool: `memory_context(task=<actual task>, project_root=<root>)`. Before it: no repo read/search, shell/SSH, edits, agents; no `task_current` or simple/read-only bypass.
-- Follow navigator action; navigate again after transitions/worker returns.
-- MICRO: obvious local low-risk only; never high-impact below/external mutation; uncertain -> STANDARD.
-- Keep canonical root; one task/stage/worker. dirty worktree is a valid baseline; never stash/reset/restore/commit user work.
-- Native skills choose relevance; `skill_get` on demand. AI Layer/delegation failure -> block; never bypass.
+    """Single readable first-call discipline kernel; dynamic systems own detailed procedure/state."""
+    control_plane = """## Mandatory startup and navigation
+
+For work involving a registered project, follow this order exactly:
+
+1. The FIRST project-related tool call MUST be `memory_context(task=<actual user task>, project_root=<workspace root>)`.
+2. Until `memory_context` succeeds, you MUST NOT read/search/grep project files, run shell or SSH commands, edit files, call project workflow tools such as `task_current`, or start a subagent. Do not bypass this rule for a small, obvious, read-only or diagnostic request.
+3. Use the canonical project root returned by AI Layer for all later calls. Do not silently switch to a parent, child or guessed working directory.
+4. After `memory_context`, load the authoritative operating procedure once per chat with `skill_get(slug="ai-layer-workflow", project_root=<canonical root>, section="core")`, unless that core has already been loaded in this chat. The static rules remain higher-priority discipline; the skill explains the managed procedure.
+5. Then use the owning navigator. If the current work belongs to an active/intentionally selected Epic, call `epic_next`; otherwise call `task_next`. Follow the exact `next_action`, forbidden actions, role contract and completion contract it returns. NEVER infer the next stage from chat history or memory.
+6. After every Task/Epic transition, delegated worker return, remediation result or linked Task completion, call the owning navigator again before doing more project work.
+
+Additional mandatory boundaries:
+
+- Keep one canonical project, one active Task/stage and one worker at a time unless AI Layer explicitly says otherwise.
+- A dirty worktree is a valid baseline. Never stash, reset, restore, discard or commit user changes merely to satisfy AI Layer. Use the managed baseline/adoption path AI Layer provides.
+- MICRO means genuinely localized and low-risk. Authentication, authorization, security, payments, migrations/schema, data-loss risk, concurrency, public APIs, deploy/secrets and external mutations are not informal direct-edit work; let AI Layer classify/escalate them.
+- Native Agent Skills provide domain expertise through host-native relevance selection. Retrieve only the needed authoritative section with `skill_get`; do not preload full skill bodies without need.
+- `memory_context` is startup/current project context, not a tool to call after every edit. Reuse it unless external/concurrent changes, a material goal change or genuine recovery require refresh.
 """
     return critical_orchestrator_markdown() + "\n" + control_plane + "\n" + static_policy_markdown()
 
 
 def mcp_bootstrap_instructions() -> str:
-    """Tiny fallback when native bootstrap delivery is unavailable or drifted."""
+    """Compact fallback when native bootstrap delivery is unavailable or drifted."""
     return (
         "For registered-project work, `memory_context` MUST be the first project-related tool call; before it, "
-        "do not read/search/grep, run shell/SSH, edit, or start a subagent. Then use `epic_next` for an active "
-        "Epic, otherwise `task_next`, and follow only its action. After every Task/Epic transition or worker "
-        "return, navigate again before more project work. The top-level chat coordinates only except when "
-        "task_next authorizes inline_micro_implement. If AI Layer/delegation fails, report/block instead of bypassing it."
+        "do not read/search project files, run shell/SSH, edit, call project workflow tools, or start a subagent. "
+        "After it, load `ai-layer-workflow` section `core` once, then use `epic_next` for active/intentionally "
+        "selected Epic work, otherwise `task_next`, and follow only its exact action. The top-level chat is an "
+        "orchestrator and may write only when task_next explicitly grants inline_micro_implement. If AI Layer or "
+        "delegation fails, stop/report instead of bypassing it."
     )
 
 

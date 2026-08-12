@@ -17,7 +17,7 @@ def test_bundled_skill_quality_floor_accepts_shipped_catalog() -> None:
     result = skill_gate.run_gate(ROOT)
 
     assert result["ok"] is True, result["errors"]
-    assert result["skills"] == 43
+    assert result["skills"] == 44
     assert result["quality_floor"]["min_content_chars"] == 7000
     assert result["quality_floor"]["min_content_words"] == 850
     assert result["quality_floor"]["min_sections"] == 10

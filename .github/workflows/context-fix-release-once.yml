@@ -44,16 +44,15 @@ jobs:
           changelog = Path("CHANGELOG.md")
           text = changelog.read_text(encoding="utf-8")
           marker = "# Changelog\n\n"
-          entry = """## 0.13.2 — Project Map runtime contract hardening
-
-- Compacted MCP-facing `memory_context` into a compatibility brief instead of returning the legacy multi-surface context payload; focused Project Intelligence APIs remain the preferred path.
-- `memory_context` without `task`/`query` now fails soft to `project_status` instead of producing a validation error during legacy/weak-agent startup.
-- Added a versioned runtime Project Map capability contract that explicitly names `project_search` for reads and `project_map_reconcile` for updates, including scope, provenance, multilingual aliases and honest no-change semantics.
-- Published the current Project Map contract through `project_status`, native/MCP bootstrap and every `epic_next`, so Epics created before Project Map existed learn current behavior dynamically.
-- Epic finalization no longer creates another final Task when documentation and Project Knowledge are complete but only `ProjectMapReconciled` evidence is missing; it waits on reconciliation against the already-completed Task.
-- Added regression tests for compact legacy context, no-task fallback, old-Epic Project Map guidance and map-only Epic closure behavior. No database migration.
-
-"""
+          entry = (
+              "## 0.13.2 — Project Map runtime contract hardening\n\n"
+              "- Compacted MCP-facing `memory_context` into a compatibility brief instead of returning the legacy multi-surface context payload; focused Project Intelligence APIs remain the preferred path.\n"
+              "- `memory_context` without `task`/`query` now fails soft to `project_status` instead of producing a validation error during legacy/weak-agent startup.\n"
+              "- Added a versioned runtime Project Map capability contract that explicitly names `project_search` for reads and `project_map_reconcile` for updates, including scope, provenance, multilingual aliases and honest no-change semantics.\n"
+              "- Published the current Project Map contract through `project_status`, native/MCP bootstrap and every `epic_next`, so Epics created before Project Map existed learn current behavior dynamically.\n"
+              "- Epic finalization no longer creates another final Task when documentation and Project Knowledge are complete but only `ProjectMapReconciled` evidence is missing; it waits on reconciliation against the already-completed Task.\n"
+              "- Added regression tests for compact legacy context, no-task fallback, old-Epic Project Map guidance and map-only Epic closure behavior. No database migration.\n\n"
+          )
           if entry.strip() not in text:
               if marker not in text:
                   raise SystemExit("CHANGELOG marker missing")

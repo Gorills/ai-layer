@@ -22,6 +22,7 @@ CORE_MCP_HTTP_URL = f"{CORE_BASE_URL}/mcp/"
 CORE_TOKEN_HEADER = "X-AI-Layer-Core-Token"
 
 FAST_TOOLS = {
+    "project_status",
     "project_info",
     "task_current",
     "task_next",
@@ -55,7 +56,13 @@ FAST_TOOLS = {
     "review_sandbox_prepare",
     "review_sandbox_cleanup",
 }
-CONTEXT_TOOLS = {"memory_context", "memory_search", "decision_search"}
+CONTEXT_TOOLS = {
+    "project_search",
+    "knowledge_search",
+    "memory_context",
+    "memory_search",
+    "decision_search",
+}
 LONG_TOOLS = {
     "review_check_run",
     "verification_run",
@@ -70,6 +77,7 @@ LONG_TOOLS = {
 # perform incidental observability/freshness bookkeeping, but they do not advance task/workflow
 # state or apply user-visible mutations. Keep mutating workflow/skill/session operations out.
 REPLAY_SAFE_TOOLS = {
+    "project_status",
     "project_info",
     "task_current",
     "task_next",

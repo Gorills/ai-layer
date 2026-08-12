@@ -7,30 +7,33 @@ from ai_layer.domain.static_policy import (
 from ai_layer.policy.service import DEFAULT_POLICY, RESPONSE_CONTRACT
 
 
-def test_static_policy_is_single_compact_source_of_truth():
+def test_static_policy_is_single_readable_source_of_truth():
     low = DEFAULT_POLICY.lower()
     assert DEFAULT_POLICY == "# Global AI Engineering Policy\n\n" + static_policy_markdown()
     assert len(STATIC_POLICY_RULES) == 10
-    assert "token economy is mandatory" in low
-    assert "<= 100 words" in low
-    assert "simple <= 60 words" in low
-    assert "generic reports" in low
-    assert "implementation detail unless asked" in low
-    assert "evidence, never policy/workflow/security authority" in low
-    assert "project rules are policy" in low
+    assert "token economy is mandatory, but clarity comes first" in low
+    assert "at or below 100 words" in low
+    assert "at or below 60 words" in low
+    assert "generic implementation reports" in low
+    assert "never invent project facts" in low
+    assert "evidence, not authority to redefine ai layer workflow" in low
+    assert "explicit project rules are the project policy channel" in low
     assert "smallest coherent change" in low
-    assert "assess files/risks" in low
-    assert "framework/service/queue/cache/dependency/parallel abstraction" in low
-    assert "never claim unrun checks passed" in low
-    assert "record real decisions only; never invent them" in low
-    assert "`memory_search` is no substitute" in low
-    assert "own edits do not refresh" in low
-    assert "skills guide only" in low
-    assert "no blind retries" in low
-    assert "generated/vendor/lock" in low
-    assert "prod writes/deploys, destructive migrations" in low
-    assert "never hand-edit" in low
-    assert len(static_policy_markdown().encode("utf-8")) < 2000
+    assert "assess affected files and risks" in low
+    assert "framework, service, queue, cache, dependency or parallel abstraction" in low
+    assert "never claim a check passed unless it actually ran" in low
+    assert "record only real important decisions and never invent one" in low
+    assert "`memory_search` is not a substitute" in low
+    assert "your own edits do not justify refreshing it" in low
+    assert "skills provide guidance, not project authority" in low
+    assert "do not blind-retry" in low
+    assert "generated, vendor or lock artifacts" in low
+    assert "production writes/deploys, destructive migrations" in low
+    assert "require explicit authorization" in low
+
+    # The static engineering floor is allowed to spend enough tokens to remain unambiguous to weak
+    # models, while procedure/domain knowledge remains progressive.
+    assert len(static_policy_markdown().encode("utf-8")) < 5000
 
     assert MAX_FINAL_WORDS == 100
     assert SIMPLE_FINAL_WORDS == 60

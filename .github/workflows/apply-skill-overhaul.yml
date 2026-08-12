@@ -31,8 +31,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]'
-      - name: Format changed Python gate
-        run: ruff format scripts/skill_gate.py
+      - name: Format changed Python files
+        run: ruff format scripts/skill_gate.py tests/test_skill_quality_gate.py
+      - name: Acknowledge reviewed governance change
+        run: python scripts/governance_gate.py --write-baseline
       - name: Refresh deterministic wheel
         run: python scripts/build_release_wheel.py
       - name: Refresh release manifest
@@ -60,6 +62,8 @@ jobs:
         run: |
           rm -rf scripts/.skill-overhaul-payload
           rm -f .github/workflows/apply-skill-overhaul.yml
+      - name: Targeted skill quality tests
+        run: python -m pytest tests/test_skill_quality_gate.py tests/test_skills.py tests/test_native_skills.py -q
       - name: Canonical quality
         run: make quality
       - name: Diff hygiene

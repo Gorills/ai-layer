@@ -82,6 +82,28 @@ def _phase0_goal(epic: Epic) -> tuple[str, list[str], list[str]]:
     return goal, criteria, constraints
 
 
+def _plan_item_task_contract(pending: EpicPlanItem) -> tuple[list[str], list[str]]:
+    criteria = list(pending.acceptance_criteria or [])
+    constraints = list(pending.constraints or [])
+    if pending.kind != "final":
+        return criteria, constraints
+    criteria.extend(
+        [
+            "Reconcile Project Map semantic breadcrumbs for the materially affected Epic scope using current source evidence.",
+            "Correct or remove stale navigation assumptions discovered during the Epic; do not rescan unrelated project areas.",
+            "Preserve exact source identifiers, write canonical semantic descriptions in concise English, and keep materially useful Russian/other user-domain aliases in domain_terms.",
+        ]
+    )
+    constraints.extend(
+        [
+            "Project Map is navigation, not code truth: inspect current source before recording semantic breadcrumbs.",
+            "After this final Task completes and before returning to epic_next, call project_map_reconcile with source_task_key set to this Task key so the Epic has durable ProjectMapReconciled evidence.",
+            "If the affected map is already accurate, reconcile the checked scope with a factual no_changes_reason instead of inventing descriptions.",
+        ]
+    )
+    return criteria, constraints
+
+
 def start_next(project_root: str | Path, *, key: str) -> dict:
     with session_scope() as db:
         project = project_for_root(db, project_root)
@@ -128,12 +150,13 @@ def start_next(project_root: str | Path, *, key: str) -> dict:
         )
         if pending is None:
             raise RuntimeError("Epic has no pending plan item to start")
+        criteria, constraints = _plan_item_task_contract(pending)
         result = create_task(
             db,
             project,
             goal=pending.goal,
-            acceptance_criteria=list(pending.acceptance_criteria or []),
-            constraints=list(pending.constraints or []),
+            acceptance_criteria=criteria,
+            constraints=constraints,
             workflow="standard",
         )
         pending.task_id = task_uuid(result["id"])

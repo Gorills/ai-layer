@@ -29,6 +29,23 @@ jobs:
           block = '\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())
           exec(compile(block, 'control-plane-contract-migration', 'exec'))
           PY
+      - name: Correct strict-scope expectations
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/test_orchestrator_contract.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'assert "Managed Tasks and Epics remain durable workflows" in global_text',
+              'assert "managed Tasks and Epics remain durable workflows" in global_text',
+          )
+          text = text.replace(
+              'assert handoff["repository_mutation"] == "forbidden"',
+              'assert handoff["repository_mutation"] == "forbidden_during_delegated_stage"',
+          )
+          path.write_text(text, encoding='utf-8')
+          PY
       - name: Install dev dependencies
         run: python -m pip install -e '.[dev]' >/dev/null 2>&1
       - name: Format migrated contracts

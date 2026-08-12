@@ -5,7 +5,7 @@ from ai_layer.memory.navigation import build_navigation_document, extract_symbol
 
 
 def test_python_navigation_keeps_symbols_but_not_default_values_or_body():
-    source = '''\nfrom fastapi import FastAPI\napp = FastAPI()\nSECRET = "do-not-store"\n\nclass PaymentService:\n    def create_payment(self, token="secret-default", amount: int = 10):\n        marker = "body-secret"\n        return marker\n\n@app.post("/payments")\ndef create_payment(payload, api_key="private-key"):\n    return PaymentService().create_payment(api_key)\n'''
+    source = """\nfrom fastapi import FastAPI\napp = FastAPI()\nSECRET = "do-not-store"\n\nclass PaymentService:\n    def create_payment(self, token="secret-default", amount: int = 10):\n        marker = "body-secret"\n        return marker\n\n@app.post("/payments")\ndef create_payment(payload, api_key="private-key"):\n    return PaymentService().create_payment(api_key)\n"""
     document = build_navigation_document(
         path="src/payments.py",
         text=source,
@@ -28,7 +28,7 @@ def test_python_navigation_keeps_symbols_but_not_default_values_or_body():
 
 
 def test_javascript_navigation_extracts_names_without_source_bodies():
-    source = '''\nexport async function syncOrder(order, token = "secret") {\n  const internal = "body-secret";\n  return internal;\n}\nconst retryOrder = async (order) => order;\nclass OrderClient {}\n'''
+    source = """\nexport async function syncOrder(order, token = "secret") {\n  const internal = "body-secret";\n  return internal;\n}\nconst retryOrder = async (order) => order;\nclass OrderClient {}\n"""
     symbols = extract_symbols(source, "javascript")
     names = {item["name"] for item in symbols}
     assert {"syncOrder", "retryOrder", "OrderClient"} <= names

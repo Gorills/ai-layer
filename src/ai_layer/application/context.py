@@ -6,6 +6,7 @@ from ai_layer.application import epics as epic_uc
 from ai_layer.context.service import memory_context as build_memory_context
 from ai_layer.core.service import get_project, project_info
 from ai_layer.db.session import session_scope
+from ai_layer.domain.project_map import project_map_capability_contract
 from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES, EPIC_OPEN_STATUSES
 from ai_layer.memory.service import decision_search, memory_search
 
@@ -44,18 +45,64 @@ def _epic_context(project_root: str | Path) -> dict:
             if execution
             else None
         ),
-        "open": [
-            {
-                "key": item.get("key"),
-                "title": item.get("title"),
-                "status": item.get("status"),
-                "mode": (
-                    "execution" if item.get("status") in EPIC_EXECUTION_STATUSES else "design"
-                ),
-            }
-            for item in open_rows[:8]
-        ],
         "contract": "Informational only. Call epic_next explicitly when resuming a managed Epic.",
+    }
+
+
+def _knowledge_hint(item: dict) -> dict:
+    return {
+        "key": item.get("key"),
+        "title": item.get("title"),
+        "summary": str(item.get("summary") or "")[:700],
+        "source_pointers": list(item.get("source_pointers") or [])[:6],
+        "score": item.get("score"),
+    }
+
+
+def _compact_legacy_context(payload: dict) -> dict:
+    project = dict(payload.get("project") or {})
+    state = dict(payload.get("knowledge_state") or {})
+    brief = dict(payload.get("task_brief") or {})
+    freshness = dict(payload.get("freshness") or {})
+    return {
+        "compatibility": {
+            "legacy": True,
+            "preferred_startup": "project_status",
+            "contract": (
+                "memory_context is a compact compatibility helper, not the project bootstrap. Use project_status "
+                "for continuation/current work, project_search for Project Map navigation, knowledge_search for "
+                "reviewed facts, and decision_search for rationale."
+            ),
+        },
+        "project": {
+            "name": project.get("name"),
+            "root_path": project.get("root_path"),
+        },
+        "knowledge_state": {
+            "verified": int(state.get("verified") or 0),
+            "stale": int(state.get("stale") or 0),
+            "draft": int(state.get("draft") or 0),
+            "baseline_ready": bool(state.get("baseline_ready")),
+        },
+        "knowledge_hints": [
+            _knowledge_hint(item) for item in list(brief.get("verified_knowledge") or [])[:2]
+        ],
+        "freshness": {
+            "status": freshness.get("status"),
+            "snapshot_available": freshness.get("snapshot_available"),
+            "background_refresh": freshness.get("background_refresh"),
+            "refresh_job": freshness.get("refresh_job"),
+            "scanner_evidence_withheld": bool(freshness.get("scanner_evidence_withheld")),
+        },
+        "policy": payload.get("policy") or "",
+        "project_map": project_map_capability_contract(),
+        "preferred_calls": {
+            "state": "project_status",
+            "navigation": "project_search",
+            "map_update": "project_map_reconcile",
+            "knowledge": "knowledge_search",
+            "decisions": "decision_search",
+        },
     }
 
 
@@ -78,11 +125,11 @@ def _add_source_verification_guidance(result: dict) -> None:
 
 
 def get_memory_context(project_root: str | Path, task: str, limit: int = 4) -> dict:
-    """Compatibility composite context; never chooses or advances Task/Epic workflow."""
+    """Return a compact compatibility context; workflow/navigation live in focused APIs."""
     with session_scope() as db:
         project = get_project(db, project_root)
-        result = build_memory_context(db, project, task, limit)
-    result = dict(result)
+        legacy = build_memory_context(db, project, task, limit)
+    result = _compact_legacy_context(legacy)
     result["epic_state"] = _epic_context(project_root)
     result["execution_owner"] = "host-native agent runtime"
     result["workflow_contract"] = (

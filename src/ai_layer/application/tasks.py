@@ -29,6 +29,27 @@ def _project(db, project_root: str | Path):
     return get_project(db, project_root)
 
 
+def _with_project_map_hint(result: dict) -> dict:
+    payload = dict(result)
+    task = payload.get("task") if isinstance(payload.get("task"), dict) else payload
+    if str((task or {}).get("status") or "") != "completed":
+        return payload
+    payload["project_map_reconciliation"] = {
+        "tool": "project_map_reconcile",
+        "source_task_key": (task or {}).get("key"),
+        "required_when": (
+            "This Task materially established, changed, corrected or invalidated navigation knowledge."
+        ),
+        "skip_when": (
+            "MICRO/cosmetic/local work produced no useful new navigation facts. Do not manufacture map text."
+        ),
+        "scope": (
+            "Only paths actually inspected, understood or materially affected by this Task; never rescan unrelated areas."
+        ),
+    }
+    return payload
+
+
 def read_state(project_root: str | Path, *, include_history: bool = True) -> dict:
     """Read cheap durable Task state for projections.
 
@@ -164,12 +185,14 @@ def delegate(
 
 def complete_current(project_root: str | Path, **kwargs: Any) -> dict:
     with session_scope() as db:
-        return complete_current_stage(db, _project(db, project_root), **kwargs)
+        result = complete_current_stage(db, _project(db, project_root), **kwargs)
+        return _with_project_map_hint(result)
 
 
 def complete_legacy(project_root: str | Path, **kwargs: Any) -> dict:
     with session_scope() as db:
-        return complete_stage(db, _project(db, project_root), **kwargs)
+        result = complete_stage(db, _project(db, project_root), **kwargs)
+        return _with_project_map_hint(result)
 
 
 def prepare_review_sandbox(project_root: str | Path) -> dict:

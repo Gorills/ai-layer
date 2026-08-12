@@ -86,7 +86,10 @@ def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(
     assert shared_skill.is_file()
     assert antigravity_skill.is_file()
     assert "name: django" in shared_skill.read_text(encoding="utf-8")
-    assert "skill_get" in shared_skill.read_text(encoding="utf-8")
+    shared_skill_text = shared_skill.read_text(encoding="utf-8")
+    assert "## Core contract" in shared_skill_text
+    assert "## Decision rules" in shared_skill_text
+    assert "## Migrations" in shared_skill_text
 
     antigravity = json.loads(
         (home / ".gemini" / "config" / "mcp_config.json").read_text(encoding="utf-8")

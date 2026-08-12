@@ -24,7 +24,7 @@
     "scripts/postgres_gate.py": "dbe97763988bd46cef70bfc04206e4ea99709a19a7acc544829b089b95015851",
     "scripts/quality_gate.py": "aea1241d3269bf23fb6a6f1f19d14e56f1f6dace1aa6c4de9384f4a776fc24aa",
     "scripts/release_gate.py": "401806b5cb3080b8bbba4babb737117c578b4b1d3540dcdd72f5dfbb2149fcb6",
-    "scripts/skill_gate.py": "d0b20146ea27be57e85ee7a2d9f0c9dc9dfe3332136755b99cedbe73edfec147",
+    "scripts/skill_gate.py": "841af8bb67103d5c630fd995bd4195dd60ffe464977997de2f6d9691412e77f3",
     "scripts/verify_release_lock.py": "9c544e3dc6a3f57e9ae7cf5137f3efe96dcc97372bc3ee8c119dffd1ff1e6dcb",
     "src/ai_layer/privacy/service.py": "f1b5e9d8aa0f9a97261aa4d33f3581a775b68b97a346674eff89e36dd399a94c",
     "src/ai_layer/tasks/constants.py": "e0f19c86e3983f183c970753b1a53d362276d25b14acfdb4f1209c98e063c345",

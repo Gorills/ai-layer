@@ -6,8 +6,8 @@ from pathlib import Path
 
 from ai_layer.skills.service import skill_sections
 
-NATIVE_DESCRIPTOR_VERSION = 1
-NATIVE_MARKER = "<!-- AI-LAYER NATIVE SKILL v1"
+NATIVE_DESCRIPTOR_VERSION = 2
+NATIVE_MARKER = "<!-- AI-LAYER NATIVE SKILL v2"
 GENERIC_DESCRIPTION_RE = re.compile(
     r"^(useful|helpful|general|generic|software development|coding|development)(\b|[ .:-])",
     re.IGNORECASE,
@@ -97,31 +97,30 @@ def validate_native_catalog(skills: list[dict]) -> dict:
     }
 
 
-def render_native_descriptor(
+def render_native_skill(
     skill: dict,
     *,
     project_root: str | Path | None = None,
     external_scope: bool = False,
 ) -> str:
+    """Render one host-native activation document with the complete authoritative skill body.
+
+    The host still owns relevance selection from name/description metadata. Once selected,
+    however, the model receives the actual professional guidance instead of a pointer that
+    requires a second routing decision through ``skill_get``.
+    """
     slug = str(skill["slug"])
     meta = skill.get("meta") or {}
     description = " ".join(str(meta.get("description") or "").split())
     problems = validate_routing_description(slug, description)
     if problems:
         raise ValueError(f"Skill `{slug}` is not safe to publish to native hosts: {problems}")
+
+    content = str(skill.get("content") or "").strip()
+    if not content:
+        raise ValueError(f"Skill `{slug}` has no authoritative content to publish")
+
     name = native_descriptor_name(slug, project_root=project_root, external_scope=external_scope)
-    sections = list(skill_sections(skill))
-    section_text = ", ".join(f"`{item}`" for item in sections) if sections else "`full`"
-    root_hint = "the canonical project root returned by `memory_context`/`task_next`"
-    scope_note = "This is a global AI Layer skill."
-    if project_root is not None:
-        canonical_root = str(Path(project_root).expanduser().resolve())
-        root_hint = f"`{canonical_root}`"
-        scope_note = (
-            f"This descriptor is project-scoped to `{canonical_root}`. "
-            if not external_scope
-            else f"This zero-footprint descriptor is for the exact registered project `{canonical_root}` only. "
-        )
     root_key = (
         hashlib.sha256(str(Path(project_root).expanduser().resolve()).encode("utf-8")).hexdigest()[
             :10
@@ -131,23 +130,33 @@ def render_native_descriptor(
     )
     scope = "project" if project_root is not None else "global"
     marker = f"{NATIVE_MARKER} scope={scope} project={root_key} canonical={slug} -->"
+
     host_description = description
     if project_root is not None and external_scope:
         canonical_root = str(Path(project_root).expanduser().resolve())
         host_description = (
             f"{description} Activate only for the registered project at {canonical_root}."
         )
+
     return f"""---
 name: {name}
 description: {_yaml_scalar(host_description)}
 ---
 
 {marker}
-# {slug}
-
-{scope_note} AI Layer owns the authoritative instructions; this thin native descriptor exists only for host-side skill discovery and activation.
-
-When this skill is relevant, retrieve the smallest useful authoritative section with the `ai-layer` MCP tool `skill_get(slug=\"{slug}\", project_root={root_hint}, section=\"<exact section>\")` before relying on AI Layer domain guidance. Available section names: {section_text}.
-
-Prefer one targeted section. Request `section=\"full\"` only when the task genuinely spans multiple sections or targeted retrieval is insufficient. Do not treat this descriptor as domain guidance, and do not infer that AI Layer can observe whether the host activated this skill automatically or manually.
+{content}
 """
+
+
+def render_native_descriptor(
+    skill: dict,
+    *,
+    project_root: str | Path | None = None,
+    external_scope: bool = False,
+) -> str:
+    """Backward-compatible alias for callers using the pre-v2 renderer name."""
+    return render_native_skill(
+        skill,
+        project_root=project_root,
+        external_scope=external_scope,
+    )

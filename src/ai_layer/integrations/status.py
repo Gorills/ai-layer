@@ -108,7 +108,10 @@ def _native_skill_catalog_status(root: Path) -> dict:
             content = target.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        if "<!-- AI-LAYER NATIVE SKILL v1 scope=global " in content:
+        if (
+            "<!-- AI-LAYER NATIVE SKILL v1 scope=global " in content
+            or "<!-- AI-LAYER NATIVE SKILL v2 scope=global " in content
+        ):
             count += 1
     return {"path": str(root), "ready": count > 0, "owned_descriptors": count}
 

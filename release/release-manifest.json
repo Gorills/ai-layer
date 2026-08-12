@@ -1,6 +1,6 @@
 {
   "application_wheel": "dist/local_ai_development_layer-0.12.2-py3-none-any.whl",
-  "application_wheel_sha256": "ce5ead80cd9c2578775c78402441b574dfc8db5a7b0158fcb78b3dccf7f88b77",
+  "application_wheel_sha256": "26007fddcea825840f5d4e8503da320aacd3ec1e98c8bc7adcbfc758f5bddd87",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -14,7 +14,7 @@
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
     "target_schema": "0014_epics_v1"
   },
-  "notes": "0.12.2 refreshes the local Dashboard with Design System v2: calmer graphite surfaces, readable typography, scoped project context, a dedicated cross-project Epics workspace with progress/filtering, and a tabbed Epic detail view. Dashboard remains read-only and Task/Epic workflow authority is unchanged.",
+  "notes": "0.12.2 keeps native skill discovery metadata-first, but publishes the complete authoritative professional skill after host relevance selection. Explicit core retrieval preserves whole entry sections without character clipping; unrelated skills remain unloaded.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",

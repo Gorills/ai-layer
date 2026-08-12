@@ -69,7 +69,7 @@ Additional mandatory boundaries:
 - Keep one canonical project, one active Task/stage and one worker at a time unless AI Layer explicitly says otherwise.
 - A dirty worktree is a valid baseline. Never stash, reset, restore, discard or commit user changes merely to satisfy AI Layer. Use the managed baseline/adoption path AI Layer provides.
 - MICRO means genuinely localized and low-risk. Authentication, authorization, security, payments, migrations/schema, data-loss risk, concurrency, public APIs, deploy/secrets and external mutations are not informal direct-edit work; let AI Layer classify/escalate them.
-- Native Agent Skills provide domain expertise through host-native relevance selection. Retrieve only the needed authoritative section with `skill_get`; do not preload full skill bodies without need.
+- Native Agent Skills provide domain expertise through host-native relevance selection. When the host activates an AI Layer skill, its native `SKILL.md` contains the complete authoritative professional guidance. Do not manually preload unrelated skills. Use `skill_get` only when you need an exact section again, package metadata/assets, or explicit manual retrieval.
 - `memory_context` is startup/current project context, not a tool to call after every edit. Reuse it unless external/concurrent changes, a material goal change or genuine recovery require refresh.
 """
     return critical_orchestrator_markdown() + "\n" + control_plane + "\n" + static_policy_markdown()

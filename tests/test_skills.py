@@ -25,8 +25,12 @@ def test_builtin_skill_catalog_is_native_first_and_compact(tmp_path, monkeypatch
             assert "activation" not in meta
             assert "routing" not in meta
             assert "autoload_sections" not in meta
-            assert skill_section_content(skill, "core")[0]
-            assert len(skill_core_content(skill)) <= 2400
+            core = skill_core_content(skill)
+            assert core
+            assert "skill core clipped" not in core
+            for entry in meta.get("entry_sections", []):
+                section, _ = skill_section_content(skill, entry)
+                assert section in core
     finally:
         get_settings.cache_clear()
 

@@ -15,7 +15,7 @@ def test_skill_core_content_never_clips_semantic_sections() -> None:
 
     assert len(content) > 2400
     assert apply_when in content
-    assert core_contract in content
+    assert core_contract.strip() in content
     assert decision_rules in content
     assert "skill core clipped" not in content
 

@@ -4,10 +4,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from ai_layer.agents.policy import install_cursor_profiles
+from ai_layer.core.static_policy import STATIC_POLICY_RULES
 from ai_layer.db.base import Base
 from ai_layer.db.models import Project
 from ai_layer.integrations.templates import global_bootstrap_workflow, workflow
-from ai_layer.policy.service import STATIC_POLICY_RULES
 from ai_layer.tasks import service as tasks
 
 

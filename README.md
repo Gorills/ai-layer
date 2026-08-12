@@ -1,127 +1,222 @@
 # Local AI Development Layer
 
-Version 0.12.0 Epics v1 candidate.
+Local AI Development Layer is a local control plane for AI-assisted software engineering.
 
-Local AI Development Layer is a single-machine control plane for durable AI-assisted engineering. It provides project identity/context, expert skills, sequential durable Tasks, human-approved durable Epics, worker provenance, executable verification, observability, dashboard projections, host integrations and immutable release/update infrastructure.
+Its job is not to replace Cursor, Codex, Claude Code, Antigravity or another coding-agent runtime. The host remains responsible for normal source inspection, edits, shell commands, tests, code search, model choice and native subagents.
 
-## Runtime model
+AI Layer adds what should survive individual chats and model contexts:
 
-- Development source lives only in this repository.
-- Installed runtime/state lives at machine scope.
-- Target repositories never receive AI Layer source code. Standard mode may receive sparse generated/reversible workspace MCP bindings; `external` keeps AI Layer state entirely machine-side; `strict-private` adds provenance/privacy enforcement to external attachment.
+- **Project Intelligence** — a lightweight, reusable map of where relevant code lives;
+- **durable work state** — Tasks, stages, findings and Epics that can be resumed later;
+- **Project Knowledge and Decisions** — reviewed facts, invariants and architectural history;
+- **native Agent Skills** — authoritative engineering skills published into host-native skill systems;
+- **verification and review evidence** — optional strict workflows where extra guarantees are worth the cost;
+- **observability and dashboard projections** — a human-readable view of project/workflow/runtime state.
 
-## Supported release runtime
+Current package version: **0.12.2**. The source architecture described here reflects the current control-plane implementation; release promotion remains governed by the repository release gate and committed wheel/manifest.
 
-The release manifest targets Linux x86_64 with CPython 3.12.x and pinned release dependencies. Development may happen elsewhere, but promotion evidence must come from the supported runtime.
+## Core operating model
 
-## Basic lifecycle
+For registered-project work, the small always-on bootstrap follows this shape:
+
+1. call `project_status(project_root=<workspace root>)`;
+2. if the project already has managed work in progress, use its `current_focus` to interpret requests such as **“continue”**;
+3. if a precise file or symbol is already known, inspect current source directly with host-native tools;
+4. if the relevant code location is unknown, call `project_search(query=<actual user goal>)` before broad repository discovery;
+5. use `knowledge_search` and `decision_search` only when durable facts or prior decisions materially help the task;
+6. execute normally through the host runtime;
+7. use `task_next` / `epic_next` when resuming or explicitly choosing a managed workflow.
+
+The goal is to make already-known project structure cheaper to reuse than to rediscover.
+
+## Project Intelligence
+
+AI Layer deliberately separates four kinds of context.
+
+### `project_status` — what is happening now?
+
+This is the cheap continuation read. It restores:
+
+- registered project identity;
+- Git branch/HEAD and dirty-worktree summary;
+- active managed Task, if any;
+- executing/open Epic state;
+- a single current focus for continuation;
+- Project Map/index freshness.
+
+It does **not** run the Task navigator, scan source code or hash the entire repository merely to answer “what are we doing?”.
+
+### `project_search` — where should I look?
+
+Project Map is a metadata-only code navigation index. The scanner keeps compact breadcrumbs such as:
+
+- file path and language;
+- short deterministic purpose;
+- imports/dependencies;
+- classes, functions, methods and selected route metadata;
+- risk flags;
+- relationships to likely tests;
+- a semantic embedding of that compact navigation document.
+
+Project Map never persists source bodies. Search combines semantic metadata similarity with lexical path/symbol/purpose/import matches and returns a small ranked set of places to inspect.
+
+The returned locations are hints. The host must open current repository source before making code-truth claims or edits.
+
+### `knowledge_search` — what do we already know?
+
+Project Knowledge contains model-authored, review-gated semantic facts such as:
+
+- subsystem behavior;
+- invariants and constraints;
+- integration contracts;
+- fragile areas;
+- runtime/deployment/testing facts.
+
+Knowledge is separate from Project Map. Project Map answers **where**; Knowledge answers **what is important to understand**. Evidence changes can make reviewed Knowledge stale.
+
+`memory_search` is retained as a compatibility alias for `knowledge_search`.
+
+### `decision_search` — why was this chosen?
+
+Decisions preserve consequential architectural choices and rationale so later agents do not repeatedly reopen already-decided trade-offs without evidence.
+
+## Source of truth
+
+Current repository source is authoritative for code behavior.
+
+AI Layer intentionally does not turn PostgreSQL/vector storage into a second copy of the repository. Project Map contains navigation metadata; Knowledge contains reviewed semantic facts; Decisions contain rationale; Tasks/Epics contain work state.
+
+When an index is stale, it may still provide useful breadcrumbs, but current source must be verified.
+
+## Tasks
+
+Tasks remain a first-class durable capability. They are useful when work benefits from persistent lifecycle/state, independent review, findings, verification evidence, recovery or dashboard tracking.
+
+They are no longer a universal permission gate for every code change.
+
+Managed profiles remain available:
+
+- **MICRO** — bounded localized work with the existing inline managed exception;
+- **STANDARD** — IMPLEMENT → REVIEW, with FIX → REVIEW when needed;
+- **DISCOVERY_FIRST** — read-only discovery before implementation planning;
+- **ANALYSIS_ONLY** — read-only work that can complete without mutation.
+
+Inside an active managed Task, `task_next` remains the authoritative navigator. Existing provenance, worker leases, read-only review/discovery, adoption, review sandboxes, findings, remediation caps and verification mechanisms are preserved.
+
+A dirty worktree is valid user state. AI Layer must not discard/stash/reset user-owned work merely to make a workflow clean.
+
+## Epics
+
+Epics remain the durable outer layer for large outcomes:
+
+- specification and revisions;
+- independent audit;
+- human approval gate;
+- execution plan;
+- linked Tasks;
+- intervening review;
+- drift/reconciliation;
+- completion/archive state.
+
+An Epic does not replace native implementation. When an Epic creates/uses managed Tasks, Tasks own their internal stage lifecycle while the Epic owns the larger outcome and integration state.
+
+When `project_status` reports an executing Epic as the current focus and the user asks to continue, `epic_next` resumes the durable workflow instead of reconstructing it from chat history.
+
+## Agent Skills
+
+AI Layer keeps an authoritative skill catalog but relevance selection belongs to the host-native Agent Skills system.
+
+Global/project skills are synchronized to supported native locations for:
+
+- Cursor;
+- OpenAI Codex;
+- Claude Code;
+- Google Antigravity.
+
+The host discovers and loads relevant skill bodies progressively. AI Layer does not centrally inject a domain skill bundle into every task. `skill_get` remains available for explicit authoritative retrieval or section access.
+
+External/strict-private project modes keep project-specific AI Layer state and managed skill material outside repositories according to the privacy contract.
+
+## Model routing and economics
+
+Normal work uses the host's native model/runtime decisions.
+
+Managed Task stages retain model-policy metadata as an optional strict-flow capability. Defaults no longer pretend that two identical configured models form different cost tiers:
+
+- `economy` can request the configured cheap worker;
+- `balanced` defaults to `inherit`;
+- `strong` defaults to `inherit`.
+
+Requested model/tier is not treated as billing truth. Where the host does not expose actual model/token/cost data, telemetry remains explicitly unverified/estimated.
+
+The optimization target is **total cost to a verified accepted result**, not minimum tokens in one call and not maximum workflow ceremony.
+
+## Dashboard
+
+The local dashboard remains a major product surface. It exposes, without terminal dumps:
+
+- project overview and health;
+- current Task/stage and review findings;
+- Epics;
+- Project Intelligence summary (Project Map size/symbols/freshness/current focus);
+- Knowledge;
+- rules and native skills;
+- agent/runtime activity;
+- verification and protocol telemetry.
+
+Large collections are paginated or bounded rather than rendered as unbounded technical lists.
+
+## MCP/runtime behavior
+
+The persistent local core remains the MCP application boundary.
+
+Workload classes are explicit:
+
+- `project_status` is a fast, replay-safe read;
+- `project_search`, `knowledge_search`, `memory_context`, `memory_search` and `decision_search` use the context/embedding runtime class;
+- verification/import/update operations retain long-running budgets where required.
+
+A temporary failure of Project Intelligence should be disclosed and should not globally disable safe native source inspection. A failure inside an explicitly active managed Task/Epic transition must still preserve that durable workflow's integrity.
+
+## Scanner and privacy
+
+The incremental scanner stores deterministic file evidence and Project Map metadata. It does not persist raw repository source bodies as semantic memory.
+
+Changed files invalidate/rebuild only their navigation rows; unchanged Project Map embeddings can be reused. Scanner schema v5 introduces the dedicated Project Map lifecycle.
+
+Project Knowledge evidence is hash-bound to scanned paths and can become `STALE` when supporting repository evidence changes.
+
+## Installation and updates
+
+The supported flow remains the repository's one-command installer/updater and immutable machine runtime layout. Runtime state lives under the AI Layer machine home rather than being copied into target projects.
+
+Use the CLI health/update/install commands and generated host integrations rather than manually editing runtime internals. Strict-private/external projects should continue to use the zero-footprint path supported by the installer.
+
+## Quality and release gates
+
+Source changes are governed by the canonical repository gates:
 
 ```bash
-./install.sh
-ai-layer init /path/to/project
-ai-layer scan /path/to/project
-ai-layer service status
-ai-layer dashboard
+make quality
+make postgres-gate
 ```
 
-The daemon owns the always-on control plane/dashboard. `ai-layer dashboard` checks service availability and opens the browser rather than starting an independent dashboard backend.
+The quality gate covers formatting, linting, typing, architecture/complexity, migrations, skill contracts, governance, tests and deterministic release packaging. The PostgreSQL gate validates the real PostgreSQL/pgvector path and migrations.
 
-For a zero-repository-footprint privacy mode on an existing Git repository:
+Release promotion is fail-closed: package version, committed application wheel, runtime/tool locks and release manifest must agree. A source refactor is not described as a new binary release until that promotion is actually performed.
 
-```bash
-ai-layer init /path/to/project --external
-ai-layer init /path/to/project --private
-```
+## Architectural rule of thumb
 
-## Epics v1
+Use AI Layer when it prevents repeated work or preserves evidence that would otherwise be lost.
 
-An Epic is a durable human-approved product/architecture contract plus a scheduler over the existing Task Engine. It is **not** a second Task Engine: Epic state decides which ordinary Task is eligible next, while Task Engine remains the sole owner of IMPLEMENT/REVIEW/FIX stages, worker leases, repository baselines, verification, findings and remediation.
+Do not make an agent ask AI Layer for permission to do what its native runtime already does well.
 
-The intended conversational workflow is:
+The intended flow is:
 
-1. Discuss the product/architecture normally until the desired solution is clear.
-2. Ask the agent to create an Epic. The agent loads the native `epics` skill and writes a complete human-readable final-product specification with `epic_create`; it does not freeze a Task list yet.
-3. Read the specification in Dashboard or through `epic_get`. Run any number of independent audits and revisions while the Epic is DRAFT.
-4. Explicitly approve the current specification. Approval freezes the historical human baseline; it does not start implementation directly.
-5. The first execution Task is always read-only **Phase 0**. It checks the approved design against current repository source, detects stale assumptions and silent incomplete/temporary selected-scope solutions, and produces a reconciled execution spec. Obvious corrections or one clearly superior durable recommendation are applied automatically; genuine material trade-offs stop for a human decision.
-6. Only after Phase 0 is the implementation plan created. Each work item is an ordinary sequential `STANDARD` Task and therefore receives the full independent review/fix cycle.
-7. `epic_next` is the authoritative Epic navigator. When it says `continue_task`, use `task_next` until that linked Task is terminal, then return immediately to `epic_next`. Do not reconstruct position from chat history.
-8. Repository drift between accepted Epic Task boundaries triggers a targeted read-only reconciliation before the next planned Task.
-9. The last successfully completed Task always updates relevant project documentation and Project Knowledge and then independently reviews the **whole implemented Epic** against the execution specification/Definition of Done. Open findings stay in the existing FIX → REVIEW loop.
-10. Archive is mechanically blocked until the final reviewed Task changed project documentation and actually published reviewed Project Knowledge.
+> **status → targeted Project Map lookup when needed → current-source verification → native execution → durable recording only where useful**
 
-Dashboard exposes each Epic's readable current specification, approved/execution versions, audit history, Task plan and linked Task states. `memory_context` exposes only compact active-Epic state so a new or weak-model chat can recover by calling `epic_next` instead of receiving the entire specification on every prompt.
+That is the boundary the project should preserve as it grows.
 
-See ADR `docs/DECISIONS/0016-epics-v1-lifecycle.md`.
+## Documentation authority
 
-## Verified Project Knowledge
-
-AI Layer does **not** compete with Cursor/Codex/Antigravity for current-code discovery. `ai-layer scan` collects deterministic repository evidence and freshness data; host-native tools remain authoritative for reading/searching current source. Durable AI Layer memory stores what is expensive to reconstruct across chats/models: reviewed project overview/subsystem knowledge, invariants, source pointers, decisions and completed-work history.
-
-Project Knowledge is model-authored only during an explicit review-gated managed Task. The mapper can write evidence-backed `DRAFT` cards; an independent REVIEW must retrieve and verify those drafts before the Task Engine publishes them as `VERIFIED`. Supporting source changes mark only affected cards `STALE`. `memory_context` compiles a small presentation for the request: semantic reviewed knowledge for ordinary tasks, inventory-first context for Project Knowledge audits, and session-first context for explicit continuation. Stale scanner/profile facts are withheld, and raw current-source chunks are never copied into the brief.
-
-After the deterministic scan, inspect readiness with:
-
-```bash
-ai-layer memory status --path /path/to/project
-ai-layer memory knowledge --path /path/to/project --status VERIFIED
-```
-
-A project without a reviewed overview reports onboarding as recommended; AI Layer does not automatically spend model tokens or silently manufacture a baseline. See `docs/PROJECT_KNOWLEDGE_ARCHITECTURE_REPORT.md` and ADR `docs/DECISIONS/0010-verified-project-knowledge.md`.
-
-## Native-first skills
-
-Cursor, Codex and Antigravity own skill relevance through their native Agent Skills mechanisms. AI Layer keeps one authoritative skill store, validates routing descriptions, synchronizes thin native descriptors and serves targeted instructions through `skill_get`. `memory_context` never preloads domain skill bodies. Global Cursor/Codex descriptors share `~/.agents/skills`; Antigravity uses `~/.gemini/config/skills`; standard project skills use `.agents/skills`. External/strict-private project skills remain repository-zero-footprint through namespaced user-level descriptors.
-
-The built-in `epics` skill provides the complete Epic operating contract to weak models; bootstrap rules only keep the small invariant that `epic_next` is authoritative and the detailed skill/tool output owns procedure.
-
-See `docs/NATIVE_SKILL_ARCHITECTURE_REPORT.md` and ADR `docs/DECISIONS/0009-native-first-skill-routing.md`.
-
-## Context and skill economy monitoring
-
-AI Layer automatically records what **AI Layer itself** observes/configures: host rule/bootstrap files, MCP server instructions and tool-contract catalog, `memory_context` payload/components, native skill descriptor catalogs, explicit `skill_get` fetches, Task/Epic navigation results and other MCP result sizes. Host-native skill selection is marked `HOST_HIDDEN`; AI Layer does not claim to know the host's complete prompt or exact billing tokens. Diagnostic state is secret-redacted and stored outside the target repository.
-
-The current portable report is generated automatically at context/skill/stage boundaries and can be refreshed/exported at any time:
-
-```bash
-ai-layer context-report --path /path/to/project --output /tmp/ai-layer-context-report.json
-```
-
-Internal location: `~/.ai-layer/projects/<project_id>/diagnostics/context-monitor/context-report-latest.json`. The report intentionally distinguishes configured/observed AI Layer context from host-hidden Cursor system prompts, full chat context, exact model tokenizer/cache behavior and whether the model actually used a delivered skill. Token counts are approximate (`UTF-8 bytes / 4`) and are for relative economy analysis, not billing reconciliation. See `docs/CONTEXT_MONITORING.md`.
-
-## Static policy/bootstrap ownership
-
-AI Layer static workflow/engineering guidance is installed once through each host's native global instruction surface. Standard projects do **not** receive duplicate AI Layer text in `AGENTS.md`, `CLAUDE.md`, `.cursor/rules` or `.agents/rules`; exact project identity is carried by sparse workspace MCP bindings instead. `memory_context` returns only dynamic policy that differs by user/project/privacy state plus compact active-Epic navigation state. The bundled default policy remains locally managed but is not retransmitted on every context request. Runtime Task procedure is owned by `task_next`; Epic procedure is owned by `epic_next` plus the native `epics` skill. See ADR `docs/DECISIONS/0013-single-owner-static-bootstrap.md`.
-
-## Updates
-
-The client command is:
-
-```bash
-ai-layer update
-```
-
-It consumes a signed publisher manifest, verifies its detached signature and artifact SHA-256, safely extracts the immutable release, runs release preflight and delegates migration/atomic switch/service restart/health/project reconciliation to the installer. A real publisher manifest URL and public trust key must be provisioned by the release channel; this source archive does not invent one.
-
-## Quality
-
-Canonical local/CI/release gate:
-
-```bash
-python scripts/quality_gate.py --deterministic-wheel
-```
-
-See `QUALITY_GATES.md`. Missing Ruff/mypy or an unsupported dependency environment causes a failure.
-
-## Architecture and state
-
-Read in this order:
-
-1. `PROJECT_CHARTER.md`
-2. `ARCHITECTURE.md`
-3. `QUALITY_GATES.md`
-4. `CURRENT_STATE.md`
-5. `ROADMAP.md`
-6. relevant `docs/DECISIONS/*.md`
-
-Source code, executable tests and migrations override prose when they disagree.
+For actual product behavior, source code, migrations and executable tests take precedence over prose documentation. Documentation that disagrees with executable behavior is a defect.

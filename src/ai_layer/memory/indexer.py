@@ -130,14 +130,23 @@ def _replace_changed_source(
         return None
 
     semantic_sha256 = hashlib.sha256(prepared.encode("utf-8", errors="replace")).hexdigest()
+    current_navigation = db.scalar(
+        select(ProjectNavigation).where(
+            ProjectNavigation.project_id == project.id,
+            ProjectNavigation.path == rel,
+        )
+    )
     if (
         existing is not None
         and bool(getattr(existing, "indexed", True))
         and existing.sha256 == semantic_sha256
         and int(getattr(existing, "scanner_schema", 0) or 0) == SCANNER_SCHEMA_VERSION
         and not force_reparse
+        and current_navigation is not None
     ):
         update_source_identity(existing, snapshot)
+        current_navigation.content_sha256 = snapshot.content_sha256
+        current_navigation.scanner_schema = SCANNER_SCHEMA_VERSION
         return None
 
     language = language_for(Path(rel))
@@ -192,6 +201,11 @@ def _apply_source_changes(
 ) -> list[dict]:
     _delete_source_rows(db, project, changes.deleted)
     documents: list[dict] = []
+    navigation_paths = set(
+        db.scalars(
+            select(ProjectNavigation.path).where(ProjectNavigation.project_id == project.id)
+        ).all()
+    )
     if force_reparse:
         for rel in changes.metadata_only:
             document = _replace_changed_source(
@@ -206,8 +220,29 @@ def _apply_source_changes(
     else:
         for rel in changes.metadata_only:
             row = previous.get(rel)
-            if row is not None:
+            if row is None:
+                continue
+            if bool(row.indexed) and rel not in navigation_paths:
+                document = _replace_changed_source(
+                    db,
+                    project,
+                    changes.snapshots[rel],
+                    row,
+                    force_reparse=True,
+                )
+                if document is not None:
+                    documents.append(document)
+            else:
                 update_source_identity(row, changes.snapshots[rel])
+                if rel in navigation_paths:
+                    navigation = db.scalar(
+                        select(ProjectNavigation).where(
+                            ProjectNavigation.project_id == project.id,
+                            ProjectNavigation.path == rel,
+                        )
+                    )
+                    if navigation is not None:
+                        navigation.content_sha256 = changes.snapshots[rel].content_sha256
     for rel in changes.content_changed:
         document = _replace_changed_source(
             db,
@@ -221,16 +256,26 @@ def _apply_source_changes(
     return documents
 
 
+def _navigation_vectors(documents: list[dict]) -> list[list[float] | None]:
+    """Semantic search is an enhancement: metadata-only lexical Project Map must survive embedder failure."""
+    if not documents:
+        return []
+    try:
+        vectors = get_embedder().embed([str(item["navigation_text"]) for item in documents])
+    except Exception:
+        return [None] * len(documents)
+    if len(vectors) != len(documents):
+        return [None] * len(documents)
+    return list(vectors)
+
+
 def _store_navigation_documents(db: Session, project: Project, documents: list[dict]) -> int:
     if not documents:
         return 0
-    embedder = get_embedder()
-    count = 0
+    regenerated = 0
     for offset in range(0, len(documents), SEMANTIC_REEMBED_BATCH_SIZE):
         batch = documents[offset : offset + SEMANTIC_REEMBED_BATCH_SIZE]
-        vectors = embedder.embed([str(item["navigation_text"]) for item in batch])
-        if len(vectors) != len(batch):
-            raise RuntimeError("Embedding provider returned an incomplete Project Map batch.")
+        vectors = _navigation_vectors(batch)
         for item, vector in zip(batch, vectors, strict=True):
             db.add(
                 ProjectNavigation(
@@ -247,9 +292,10 @@ def _store_navigation_documents(db: Session, project: Project, documents: list[d
                     embedding=vector,
                 )
             )
-        count += len(batch)
+            if vector is not None:
+                regenerated += 1
         db.flush()
-    return count
+    return regenerated
 
 
 def _purge_legacy_scanner_knowledge(db: Session, project: Project) -> int:
@@ -356,10 +402,11 @@ def scan_project(
             .execution_options(populate_existing=True)
         ).all()
     )
-    navigation_items = int(
+    semantic_navigation_items = int(
         db.scalar(
             select(func.count(ProjectNavigation.id)).where(
-                ProjectNavigation.project_id == project.id
+                ProjectNavigation.project_id == project.id,
+                ProjectNavigation.embedding.is_not(None),
             )
         )
         or 0
@@ -377,7 +424,7 @@ def scan_project(
         file_state=file_state(rows),
         changes=changes.summary(),
         hashes_calculated=changes.hashes_calculated,
-        embeddings_reused=max(0, navigation_items - navigation_regenerated),
+        embeddings_reused=max(0, semantic_navigation_items - navigation_regenerated),
         embeddings_regenerated=navigation_regenerated,
         decisions_reembedded=decisions_reembedded,
         knowledge_reembedded=knowledge_reembedded,

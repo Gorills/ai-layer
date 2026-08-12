@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ai_layer.application.epic_common import (
     append_epic_event,
+    capture_identity,
     epic_for_update,
     epic_payload,
     lock_project,
@@ -50,6 +51,18 @@ def _assert_no_open_task(db: Session, project: Project) -> None:
     if open_task is not None:
         raise RuntimeError(
             f"Project already has open Task T-{int(open_task.sequence):04d}; continue it before Epic scheduling"
+        )
+
+
+def _assert_current_execution_boundary(project: Project, epic: Epic) -> None:
+    if not epic.execution_digest:
+        return
+    identity = capture_identity(project.root_path)
+    if identity["digest"] != epic.execution_digest:
+        raise RuntimeError(
+            "Repository changed since the last accepted Epic boundary. Call epic_next before "
+            "starting another Epic Task so accepted standalone Tasks can be reviewed or unknown "
+            "drift can be reconciled."
         )
 
 
@@ -103,6 +116,7 @@ def start_next(project_root: str | Path, *, key: str) -> dict:
             }
         if epic.status not in {"running", "final_review"}:
             raise RuntimeError(f"epic_start_next is not valid while Epic status is {epic.status}")
+        _assert_current_execution_boundary(project, epic)
         if epic.drift_task_id:
             raise RuntimeError("A drift reconciliation Task already exists; follow epic_next")
         pending = db.scalar(

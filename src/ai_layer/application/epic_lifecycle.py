@@ -13,6 +13,7 @@ from ai_layer.application.epic_common import (
     lock_project,
     project_for_root,
 )
+from ai_layer.application.epic_spec_editor import apply_spec_edits
 from ai_layer.db.epic_models import Epic, EpicAudit, EpicSpecVersion
 from ai_layer.db.models import utcnow
 from ai_layer.db.session import session_scope
@@ -21,6 +22,7 @@ from ai_layer.epics.contracts import (
     MAX_EPIC_SPEC_CHARS,
     MAX_EPIC_TITLE_CHARS,
     bounded_text,
+    epic_key,
     spec_quality,
 )
 
@@ -79,6 +81,145 @@ def get(
         return epic_payload(db, epic, include_spec=True, include_history=include_history)
 
 
+def get_spec_version(
+    project_root: str | Path,
+    *,
+    key: str,
+    version: int | None = None,
+) -> dict:
+    with session_scope() as db:
+        project = project_for_root(db, project_root)
+        epic = epic_for_update(db, project, key)
+        requested = epic.current_spec_version if version is None else int(version)
+        if requested <= 0:
+            raise ValueError("version must be a positive integer")
+        row = db.scalar(
+            select(EpicSpecVersion).where(
+                EpicSpecVersion.epic_id == epic.id,
+                EpicSpecVersion.version == requested,
+            )
+        )
+        if row is None:
+            raise ValueError(f"Epic {key} has no specification version v{requested}")
+        return {
+            "epic_key": epic_key(epic.sequence),
+            "title": epic.title,
+            "current_spec_version": epic.current_spec_version,
+            "is_current": requested == epic.current_spec_version,
+            "spec": {
+                "version": row.version,
+                "content": row.content,
+                "source": row.source,
+                "change_summary": row.change_summary,
+                "rationale": row.rationale,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            },
+        }
+
+
+def _assert_manual_revision_state(epic: Epic) -> None:
+    if epic.status not in {"draft", "approved"}:
+        raise RuntimeError(
+            "Manual spec revision is allowed only before Phase 0 while Epic is DRAFT/APPROVED; "
+            "execution-time reality changes must use epic_reconcile_complete"
+        )
+
+
+def _revision_receipt(
+    db,
+    epic: Epic,
+    *,
+    previous_version: int,
+    operation: str,
+    changed: bool,
+    edit_count: int | None = None,
+) -> dict:
+    payload = epic_payload(db, epic, include_spec=False, include_history=False)
+    payload["revision"] = {
+        "operation": operation,
+        "changed": changed,
+        "previous_spec_version": previous_version,
+        "current_spec_version": epic.current_spec_version,
+        "edit_count": edit_count,
+        "next_tool": "epic_next",
+    }
+    return payload
+
+
+def _persist_manual_revision(
+    db,
+    project,
+    epic: Epic,
+    *,
+    content: str,
+    source: str,
+    change_summary: str,
+    rationale: str,
+    operation: str,
+    edit_count: int | None = None,
+) -> dict:
+    current = current_spec(db, epic)
+    previous_version = int(current.version)
+    if content == current.content:
+        return _revision_receipt(
+            db,
+            epic,
+            previous_version=previous_version,
+            operation=operation,
+            changed=False,
+            edit_count=edit_count,
+        )
+    version = epic.current_spec_version + 1
+    db.add(
+        EpicSpecVersion(
+            epic_id=epic.id,
+            version=version,
+            content=content,
+            source=source,
+            change_summary=bounded_text(
+                change_summary,
+                field="change_summary",
+                max_chars=4_000,
+            ),
+            rationale=bounded_text(
+                rationale,
+                field="rationale",
+                max_chars=8_000,
+                required=False,
+            ),
+        )
+    )
+    epic.current_spec_version = version
+    epic.status = "draft"
+    epic.blocked_reason = ""
+    epic.decision_required = []
+    epic.approved_spec_version = None
+    epic.execution_spec_version = None
+    epic.approved_at = None
+    epic.updated_at = utcnow()
+    append_epic_event(
+        db,
+        project,
+        epic,
+        "EpicSpecRevised",
+        {
+            "spec_version": version,
+            "source": source,
+            "operation": operation,
+            "edit_count": edit_count,
+        },
+    )
+    db.flush()
+    return _revision_receipt(
+        db,
+        epic,
+        previous_version=previous_version,
+        operation=operation,
+        changed=True,
+        edit_count=edit_count,
+    )
+
+
 def revise_spec(
     project_root: str | Path,
     *,
@@ -90,50 +231,63 @@ def revise_spec(
     with session_scope() as db:
         project = project_for_root(db, project_root)
         epic = epic_for_update(db, project, key)
-        if epic.status not in {"draft", "approved"}:
-            raise RuntimeError(
-                "Manual spec revision is allowed only before Phase 0 while Epic is DRAFT/APPROVED; "
-                "execution-time reality changes must use epic_reconcile_complete"
-            )
+        _assert_manual_revision_state(epic)
         content = bounded_text(
             spec_markdown,
             field="epic spec",
             max_chars=MAX_EPIC_SPEC_CHARS,
         )
-        current = current_spec(db, epic)
-        if content == current.content:
-            return epic_payload(db, epic, include_spec=True, include_history=True)
-        version = epic.current_spec_version + 1
-        db.add(
-            EpicSpecVersion(
-                epic_id=epic.id,
-                version=version,
-                content=content,
-                source="revision",
-                change_summary=bounded_text(
-                    change_summary,
-                    field="change_summary",
-                    max_chars=4_000,
-                ),
-                rationale=bounded_text(
-                    rationale,
-                    field="rationale",
-                    max_chars=8_000,
-                    required=False,
-                ),
-            )
+        return _persist_manual_revision(
+            db,
+            project,
+            epic,
+            content=content,
+            source="revision",
+            change_summary=change_summary,
+            rationale=rationale,
+            operation="full_replace",
         )
-        epic.current_spec_version = version
-        epic.status = "draft"
-        epic.blocked_reason = ""
-        epic.decision_required = []
-        epic.approved_spec_version = None
-        epic.execution_spec_version = None
-        epic.approved_at = None
-        epic.updated_at = utcnow()
-        append_epic_event(db, project, epic, "EpicSpecRevised", {"spec_version": version})
-        db.flush()
-        return epic_payload(db, epic, include_spec=True, include_history=True)
+
+
+def edit_spec(
+    project_root: str | Path,
+    *,
+    key: str,
+    expected_spec_version: int,
+    edits: list[dict],
+    change_summary: str,
+    rationale: str = "",
+) -> dict:
+    with session_scope() as db:
+        project = project_for_root(db, project_root)
+        epic = epic_for_update(db, project, key)
+        _assert_manual_revision_state(epic)
+        expected = int(expected_spec_version)
+        if expected <= 0:
+            raise ValueError("expected_spec_version must be a positive integer")
+        if expected != epic.current_spec_version:
+            raise RuntimeError(
+                f"SPEC_VERSION_CONFLICT: expected v{expected}, current v{epic.current_spec_version}. "
+                "Read the current spec and reapply the intended edits."
+            )
+        current = current_spec(db, epic)
+        edited = apply_spec_edits(current.content, edits)
+        content = bounded_text(
+            edited,
+            field="edited epic spec",
+            max_chars=MAX_EPIC_SPEC_CHARS,
+        )
+        return _persist_manual_revision(
+            db,
+            project,
+            epic,
+            content=content,
+            source="edit",
+            change_summary=change_summary,
+            rationale=rationale,
+            operation="document_edit",
+            edit_count=len(edits),
+        )
 
 
 def record_audit(
@@ -176,7 +330,7 @@ def record_audit(
             {"spec_version": epic.current_spec_version, "findings": len(items)},
         )
         db.flush()
-        return audit_payload(row)
+        return audit_payload(row, current_spec_version=epic.current_spec_version)
 
 
 def approve(project_root: str | Path, *, key: str) -> dict:

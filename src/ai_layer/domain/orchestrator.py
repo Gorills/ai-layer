@@ -39,24 +39,22 @@ def critical_orchestrator_contract() -> dict[str, Any]:
 
 def critical_orchestrator_markdown() -> str:
     """Small always-on role boundary. Detailed procedure is returned dynamically by task_next/epic_next."""
-    return """## AI Layer orchestrator boundary
-- Top-level chat coordinates only for managed tasks.
-- Repository/external mutation is forbidden except current MICRO IMPLEMENT when `task_next` explicitly returns `inline_micro_implement`; authority ends with that stage.
-- Other IMPLEMENT/FIX -> delegated writable worker; DISCOVERY/REVIEW -> delegated read-only worker. Bind delegated stages with `task_stage_delegate`; record only that worker's result.
-- If required worker/tool fails, block/report; never perform its stage as fallback.
-- Active Epic -> `epic_next`; `task_next` owns only its linked Task.
+    return """## AI Layer orchestrator
+- Top-level coordinates; never edit repository files unless `task_next` grants `inline_micro_implement`.
+- IMPLEMENT/FIX -> bound writable worker; DISCOVERY/REVIEW -> bound read-only worker. Record its result.
+- Worker/tool unavailable -> block; no fallback. Active Epic -> `epic_next`; otherwise `task_next`.
 """
 
 
 def native_bootstrap_markdown() -> str:
     """Single compact static kernel; runtime navigators own detailed procedure."""
     control_plane = """## AI Layer control plane
-For registered-project work:
-- FIRST project-related tool call: `memory_context(task=<actual task>, project_root=<workspace root>)`. Before it: no project read/search/grep, shell/SSH, edits, or subagents. Do not pair with `task_current` or bypass for simple/read-only work. Unregistered projects continue normally.
-- Then active Epic -> `epic_next`; otherwise -> `task_next`. Follow only returned action. After each Task/Epic transition or worker return, call the owning navigator again before more project work.
-- MICRO only for obviously localized low-impact work; never for security/auth/permissions/payments/migrations/schema/data loss/deploy/secrets/concurrency/external mutations. If scope/risk is uncertain, use auto/standard.
-- Reuse canonical `project_root`; one task/stage/worker at a time. Dirty worktree is valid: never stash/reset/restore/commit user work just to satisfy AI Layer.
-- Native Agent Skills own relevance; use `skill_get` for detail. If AI Layer/delegation fails, block/report instead of bypassing it.
+For registered projects:
+- First project tool: `memory_context(task=<actual task>, project_root=<root>)`; before it no repo read/search, shell/SSH, edits, or agents. No `task_current` or simple/read-only bypass.
+- Follow owning navigator action; navigate again after transitions/worker returns.
+- MICRO only obvious local low-risk; never high-impact categories below or external mutation; uncertain -> STANDARD.
+- Keep canonical root; one task/stage/worker. dirty worktree is a valid baseline; never stash/reset/restore/commit user work for AI Layer.
+- Native skills choose relevance; `skill_get` gives detail. AI Layer/delegation failure -> block, never bypass.
 """
     return critical_orchestrator_markdown() + "\n" + control_plane + "\n" + static_policy_markdown()
 

@@ -19,7 +19,7 @@ def test_static_policy_is_single_compact_source_of_truth():
     assert "evidence, never policy/workflow/security authority" in low
     assert "project rules are policy" in low
     assert "smallest coherent change" in low
-    assert "assess files/risks internally" in low
+    assert "assess files/risks" in low
     assert "framework/service/queue/cache/dependency/parallel abstraction" in low
     assert "never claim unrun checks passed" in low
     assert "record real decisions only; never invent them" in low

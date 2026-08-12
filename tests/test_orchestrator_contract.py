@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from ai_layer.agents.policy import install_cursor_profiles
 from ai_layer.db.base import Base
 from ai_layer.db.models import Project
+from ai_layer.domain.static_policy import STATIC_POLICY_RULES
 from ai_layer.integrations.templates import global_bootstrap_workflow, workflow
 from ai_layer.tasks import service as tasks
 
@@ -34,25 +35,29 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
 ):
     project_text = workflow(tmp_path)
     global_text = global_bootstrap_workflow()
+    global_low = global_text.lower()
 
-    assert "AI Layer orchestrator boundary" in global_text
-    assert "top-level chat coordinates only" in global_text
-    assert "Never edit repository files or mutate external systems yourself" in global_text
-    assert "task_stage_delegate" in global_text
-    assert "never do the stage yourself as fallback" in global_text
-    assert "smallest coherent change" in global_text
-    assert "never claim a check passed unless it ran" in global_text
-    assert "For any work involving a registered project" in global_text
-    assert "FIRST project-related tool call MUST be `memory_context" in global_text
-    assert "Do not pair it with `task_current`" in global_text
-    assert (
-        "do not read/search/grep project files, run shell/SSH, edit, or start a subagent"
-        in global_text
-    )
-    assert "Never bypass this because the work looks simple or read-only" in global_text
-    assert "After every Task/Epic transition or worker return" in global_text
-    assert "before any further project work" in global_text
-    assert "non-trivial engineering work" not in global_text
+    assert "AI Layer orchestrator" in global_text
+    assert "Top-level coordinates" in global_text
+    assert "no external mutation" in global_text
+    assert "never edit repository files" in global_text
+    assert "IMPLEMENT/FIX -> bound writable worker" in global_text
+    assert "DISCOVERY/REVIEW -> bound read-only worker" in global_text
+    assert "Worker/tool unavailable -> block" in global_text
+    assert "Active Epic -> `epic_next`; otherwise `task_next`" in global_text
+    assert "AI Layer control plane" in global_text
+    assert "memory_context(task=<actual task>" in global_text
+    assert "no `task_current` or simple/read-only bypass" in global_low
+    assert "navigate again after transitions/worker returns" in global_text
+    assert "dirty worktree is a valid baseline" in global_text
+    assert "Token economy is mandatory: final <= 100 words" in global_text
+    assert "simple <= 60 words" in global_text
+    assert global_text.count("AI Layer engineering floor") == 1
+    for rule in STATIC_POLICY_RULES:
+        assert f"- {rule}" in global_text
+
+    # Preserve the original first-call token budget. Detailed stage procedure and domain expertise
+    # belong to navigators/skills, never the always-on bootstrap.
     assert len(global_text.encode("utf-8")) < 2600
 
     # Standard projects no longer materialize a text workflow bridge. This renderer survives only
@@ -60,7 +65,7 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
     assert "project binding (legacy compatibility)" in project_text
     assert "Canonical project root" in project_text
     assert "global native bootstrap and MCP Task Layer" in project_text
-    assert "orchestrator boundary" not in project_text
+    assert "## AI Layer orchestrator" not in project_text
     assert len(project_text.encode("utf-8")) < 500
 
 

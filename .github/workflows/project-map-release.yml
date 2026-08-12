@@ -1,0 +1,155 @@
+name: project-map-release-once
+
+on:
+  push:
+    branches:
+      - feature/project-map-enrichment
+    paths:
+      - .github/workflows/project-map-release.yml
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/project-map-enrichment
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Promote semantic Project Map release
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"expected source fragment missing in {path}: {old[:80]!r}")
+              target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once("pyproject.toml", 'version = "0.13.0"', 'version = "0.13.1"')
+          replace_once("src/ai_layer/__init__.py", '__version__ = "0.13.0"', '__version__ = "0.13.1"')
+
+          test_path = Path("tests/test_epics.py")
+          test_text = test_path.read_text(encoding="utf-8")
+          marker = '''        db.add(\n            RuntimeEvent(\n                project_id=project.id,\n                event_type="KnowledgePublished",\n                aggregate_type="task",\n                aggregate_id=str(retry_task.id),\n                correlation_id="epic-test",\n                actor_id="test",\n                actor_kind="system",\n                interface="test",\n                schema_version=1,\n                payload={"published": 1, "superseded": 0},\n            )\n        )\n        db.commit()\n'''
+          replacement = '''        db.add(\n            RuntimeEvent(\n                project_id=project.id,\n                event_type="KnowledgePublished",\n                aggregate_type="task",\n                aggregate_id=str(retry_task.id),\n                correlation_id="epic-test",\n                actor_id="test",\n                actor_kind="system",\n                interface="test",\n                schema_version=1,\n                payload={"published": 1, "superseded": 0},\n            )\n        )\n        db.add(\n            RuntimeEvent(\n                project_id=project.id,\n                event_type="ProjectMapReconciled",\n                aggregate_type="task",\n                aggregate_id=str(retry_task.id),\n                correlation_id="epic-test",\n                actor_id="test",\n                actor_kind="system",\n                interface="test",\n                schema_version=1,\n                payload={\n                    "source_ref": f"T-{int(retry_task.sequence):04d}",\n                    "updated": 0,\n                    "removed": 0,\n                    "updated_paths": [],\n                    "removed_paths": [],\n                    "scope_paths": ["CURRENT_STATE.md"],\n                    "no_changes_reason": (\n                        "Affected navigation was checked against current source and remains accurate."\n                    ),\n                },\n            )\n        )\n        db.commit()\n'''
+          if marker not in test_text:
+              raise SystemExit("stale Epic closure test marker missing")
+          test_path.write_text(test_text.replace(marker, replacement, 1), encoding="utf-8")
+
+          changelog = Path("CHANGELOG.md")
+          text = changelog.read_text(encoding="utf-8")
+          heading = "# Changelog\n\n"
+          if not text.startswith(heading):
+              raise SystemExit("CHANGELOG header changed unexpectedly")
+          release_notes = '''## 0.13.1 — Agent-maintained semantic Project Map\n\n- Added a separate agent-authored semantic Project Map layer over scanner-owned structural navigation; agents cannot overwrite deterministic paths/symbols/imports/hashes or persist source bodies.\n- Added `project_map_reconcile` with bounded validation, exact current-symbol/path checks, Task provenance, explicit checked scope and honest no-change reconciliation.\n- Semantic navigation is source-hash bound: changed source makes enrichment stale and search down-ranks it until later real work reconciles that area.\n- Added concise English canonical purposes/responsibilities/hints plus materially useful multilingual `domain_terms`; `project_search` accepts Russian, English or mixed queries without a forced translation step.\n- Integrated bounded Project Map reconciliation guidance into completed Tasks while allowing MICRO/cosmetic work with no reusable navigation knowledge to skip it.\n- Made scoped `ProjectMapReconciled` evidence mandatory for the final Epic Task alongside existing documentation and reviewed Project Knowledge closure evidence.\n- Split semantic write/reconciliation and search/ranking paths to stay within production module complexity limits, and made structural/semantic retrieval fail soft when embeddings/vector search are unavailable.\n- Added semantic current/stale/missing coverage to Project Intelligence/Dashboard projections and migration `0016_project_map_semantics`.\n\n'''
+          changelog.write_text(heading + release_notes + text[len(heading):], encoding="utf-8")
+
+          readme = Path("README.md")
+          text = readme.read_text(encoding="utf-8")
+          text = text.replace(
+              "Current package version: **0.12.2**.",
+              "Current package version: **0.13.1**.",
+              1,
+          )
+          operating_marker = "7. use `task_next` / `epic_next` when resuming or explicitly choosing a managed workflow.\n"
+          if operating_marker not in text:
+              raise SystemExit("README operating-model marker missing")
+          text = text.replace(
+              operating_marker,
+              operating_marker
+              + "8. after meaningful work, call `project_map_reconcile` only for navigation facts actually established from the inspected/affected scope; trivial work may skip it.\n",
+              1,
+          )
+          map_marker = "Project Map never persists source bodies. Search combines semantic metadata similarity with lexical path/symbol/purpose/import matches and returns a small ranked set of places to inspect.\n"
+          if map_marker not in text:
+              raise SystemExit("README Project Map marker missing")
+          map_extra = '''\nSince 0.13.1 the map has two ownership layers. The scanner owns deterministic structural facts. Working agents may add bounded semantic breadcrumbs—concise purpose/responsibilities, useful domain terms, current important symbols and related files/tests—through `project_map_reconcile` after real source work. Canonical semantic prose is concise English, source identifiers remain exact, and `domain_terms` may preserve materially useful Russian or other user/project vocabulary.\n\nSemantic enrichment is tied to the source hash it was learned from. When source changes, the old semantic row becomes stale and is down-ranked until real work reconciles it; AI Layer does not launch a duplicate background LLM mapper.\n'''
+          text = text.replace(map_marker, map_marker + map_extra, 1)
+          readme.write_text(text, encoding="utf-8")
+
+          state = Path("CURRENT_STATE.md")
+          text = state.read_text(encoding="utf-8")
+          text = text.replace(
+              "# Current State — v0.13.0 Project Intelligence control plane",
+              "# Current State — v0.13.1 semantic Project Map enrichment",
+              1,
+          )
+          project_map_bullet = "- **Project Map:** scanner schema v5 builds a dedicated metadata-only `project_navigation` index containing paths, language, compact purposes, imports, risk flags and bounded symbols/routes plus vector embeddings. Raw source bodies are not persisted.\n"
+          if project_map_bullet not in text:
+              raise SystemExit("CURRENT_STATE Project Map marker missing")
+          text = text.replace(
+              project_map_bullet,
+              project_map_bullet
+              + "- **Semantic Project Map:** `project_navigation_semantics` stores bounded agent-authored navigation learned from real source work: concise responsibilities/purpose, multilingual domain aliases, current important symbols and related files/tests. Scanner-owned structural facts remain immutable to agents.\n"
+              + "- **Project Map reconciliation:** `project_map_reconcile` validates current paths/symbols, records Task provenance and checked scope, permits an explicit factual no-change result, and binds semantic freshness to the source content hash. Completed meaningful Tasks are prompted to reconcile only what they learned; the final Epic Task must emit scoped reconciliation evidence before closure.\n",
+              1,
+          )
+          text = text.replace(
+              "Alembic migration `0015_project_navigation` adds the dedicated `project_navigation` table and HNSW cosine index. It is additive and does not reset Project/Task/Epic/Knowledge/Decision state.",
+              "Alembic migration `0016_project_map_semantics` adds the separate semantic navigation table and HNSW cosine index on top of `0015_project_navigation`. It is additive and does not reset Project/Task/Epic/Knowledge/Decision state.",
+              1,
+          )
+          text = text.replace("Release **0.13.0**", "Release **0.13.1**", 1)
+          text = text.replace("declared 0.13.0 release artifacts", "declared 0.13.1 release artifacts", 1)
+          state.write_text(text, encoding="utf-8")
+
+          manifest_path = Path("release/release-manifest.json")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          manifest["version"] = "0.13.1"
+          manifest["application_wheel"] = "dist/local_ai_development_layer-0.13.1-py3-none-any.whl"
+          manifest["application_wheel_sha256"] = "PENDING"
+          manifest["migration_compatibility"]["target_schema"] = "0016_project_map_semantics"
+          manifest["notes"] = (
+              "0.13.1 adds agent-maintained semantic Project Map enrichment over scanner-owned structural navigation, "
+              "Task/Epic reconciliation evidence, multilingual domain aliases, hash-based staleness and fail-soft hybrid search."
+          )
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          PY
+
+          python scripts/build_release_wheel.py
+
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          manifest_path = Path("release/release-manifest.json")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          wheel = Path(manifest["application_wheel"])
+          if not wheel.is_file():
+              raise SystemExit(f"release wheel was not built: {wheel}")
+          manifest["application_wheel_sha256"] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          PY
+
+          rm .github/workflows/project-map-release.yml
+          python scripts/governance_gate.py --write-baseline
+
+      - name: Commit promoted release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- \
+            .github/workflows/project-map-release.yml \
+            tests/test_epics.py \
+            pyproject.toml \
+            src/ai_layer/__init__.py \
+            README.md \
+            CHANGELOG.md \
+            CURRENT_STATE.md \
+            release/release-manifest.json \
+            release/governance-baseline.json \
+            dist/local_ai_development_layer-0.13.1-py3-none-any.whl
+          git commit -m "release: promote semantic Project Map as 0.13.1"
+          git push origin HEAD:feature/project-map-enrichment

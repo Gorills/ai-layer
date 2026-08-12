@@ -7,7 +7,7 @@ from ai_layer.core.paths import project_mode
 from ai_layer.skills.native_descriptor import (
     NATIVE_DESCRIPTOR_VERSION,
     native_descriptor_name,
-    render_native_descriptor,
+    render_native_skill,
     validate_native_catalog,
 )
 from ai_layer.skills.native_files import global_native_roots, sync_native_root
@@ -20,7 +20,7 @@ def _publishable_catalog(
     project_root: Path | None = None,
     external_scope: bool = False,
 ) -> tuple[dict[str, str], dict]:
-    """Render valid descriptors without letting one legacy skill brick an upgrade.
+    """Render valid full native activation documents without one legacy skill bricking upgrade.
 
     New/updated skills are rejected earlier by the manager quality gate. A pre-existing
     invalid skill remains in the canonical store for explicit retrieval but is not
@@ -43,7 +43,7 @@ def _publishable_catalog(
         name = native_descriptor_name(
             slug, project_root=project_root, external_scope=external_scope
         )
-        desired[name] = render_native_descriptor(
+        desired[name] = render_native_skill(
             skill,
             project_root=project_root,
             external_scope=external_scope,
@@ -69,6 +69,7 @@ def sync_global_native_skills(*, home: Path | None = None) -> dict:
     return {
         "descriptor_version": NATIVE_DESCRIPTOR_VERSION,
         "routing_owner": "host-native",
+        "activation_payload": "full-authoritative-skill",
         "canonical_skills": len(skills),
         "published_skills": validation["publication"]["published_count"],
         "blocked_skills": validation["publication"]["blocked_count"],
@@ -116,6 +117,7 @@ def sync_project_native_skills(project_root: str | Path, *, home: Path | None = 
             "repository_writes": False,
             "scope": "namespaced-global-zero-footprint",
             "descriptors": sorted(desired),
+            "activation_payload": "full-authoritative-skill",
             "validation": validation,
             "sync": results,
         }
@@ -126,6 +128,7 @@ def sync_project_native_skills(project_root: str | Path, *, home: Path | None = 
         "repository_writes": bool(desired),
         "scope": "workspace",
         "descriptors": sorted(desired),
+        "activation_payload": "full-authoritative-skill",
         "validation": validation,
         "sync": sync_native_root(target, desired, scope="project", project_key=project_key),
     }

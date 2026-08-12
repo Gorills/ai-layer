@@ -90,7 +90,7 @@ def skill_search(query: str, project_root: str | None = None, limit: int = 12) -
 
 
 def skill_get(slug: str, project_root: str | None = None, section: str | None = None) -> dict:
-    """WHEN: a host-native skill is selected, the user explicitly requests a skill, or a concrete expertise gap names the slug. INPUT: slug required; section optional (`core`, exact `##` heading, or `full`). Prefer one exact section; full content must be explicit and exceptional."""
+    """WHEN: explicit/manual selective reread, mandatory workflow core, package/diagnostic retrieval, or when a named skill cannot be consumed through native activation. INPUT: slug required; section optional (`core`, exact `##` heading, or `full`). Native activation already carries the complete professional skill; prefer one exact section for focused rereads."""
     root = project_root_for_tool(project_root, tool="skill_get")
     slug = _text(slug, tool="skill_get", field="slug")
     requested_section = section.strip() if isinstance(section, str) and section.strip() else None

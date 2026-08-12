@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ai_layer.agents.policy import DEFAULT_CURSOR_MODELS
+from ai_layer.core.mcp_runtime import CONTEXT_TOOLS, FAST_TOOLS, REPLAY_SAFE_TOOLS, tool_runtime_class
 from ai_layer.domain.orchestrator import native_bootstrap_markdown
 from ai_layer.memory.navigation import build_navigation_document, extract_symbols
 
@@ -44,3 +46,18 @@ def test_bootstrap_uses_status_and_project_map_without_disabling_native_executio
     assert "native reads, edits, shell, tests, code search and subagents are allowed" in bootstrap
     assert "first project-related tool call MUST be `memory_context" not in bootstrap
     assert "The top-level chat is the orchestrator, not an implementation worker" not in bootstrap
+
+
+def test_project_intelligence_runtime_classes_are_explicit_and_replay_safe():
+    assert "project_status" in FAST_TOOLS
+    assert tool_runtime_class("project_status") == "fast"
+    assert {"project_search", "knowledge_search"} <= CONTEXT_TOOLS
+    assert tool_runtime_class("project_search") == "context"
+    assert tool_runtime_class("knowledge_search") == "context"
+    assert {"project_status", "project_search", "knowledge_search"} <= REPLAY_SAFE_TOOLS
+
+
+def test_default_managed_model_tiers_do_not_claim_two_identical_cost_levels():
+    assert DEFAULT_CURSOR_MODELS["economy"] != DEFAULT_CURSOR_MODELS["balanced"]
+    assert DEFAULT_CURSOR_MODELS["balanced"] == "inherit"
+    assert DEFAULT_CURSOR_MODELS["strong"] == "inherit"

@@ -1,6 +1,6 @@
 ---
 slug: epics
-description: Epic-scale delivery discipline for decomposition, architecture gates, dependency order, task contracts, integration reviews and human acceptance.
+description: Live AI Layer Epic lifecycle for versioned specifications, independent audit, Phase 0, ordered managed Tasks, drift review, closure evidence and archive.
 kind: core
 keywords:
 - epic
@@ -10,216 +10,174 @@ keywords:
 - acceptance
 - architecture review
 - integration
-- milestone
-- dependencies
+- phase 0
+- epic_next
 entry_sections:
 - Apply when
 - Core contract
 - Decision rules
 ---
 
-# Epic Planning and Execution Skill
+# AI Layer Epic Lifecycle Skill
 
 ## Apply when
 
-Use when work is too large or risky for one bounded task: multiple capabilities, architectural decisions, migrations, coordinated frontend/backend work, staged rollout or several independently reviewable changes. The purpose is to keep a large outcome coherent without turning the epic into one giant implementation context.
+Use when the user is designing, approving, resuming, executing, reconciling or closing an AI Layer Epic. An Epic is durable product/architecture specification and scheduling state over the existing managed Task engine. It is not a second implementation runtime and it is not a generic task-DAG framework.
+
+If an Epic already exists, especially one created by an older AI Layer release, **do not infer its next procedure from this skill, chat history or stored prose**. Call `project_status`, identify the active/selected Epic, then call `epic_next`. The live `epic_next` response plus its current `agent_contract`/Project Map contract defines present runtime procedure.
 
 ## Core contract
 
-- An epic is an outcome with explicit scope, acceptance and integration logic—not a bucket of vaguely related tasks.
+- Current repository source is authoritative for code truth. Epic specifications express intended outcome, not proof of current implementation.
 
-- Begin with Phase 0 reality audit: verify current code, architecture, constraints and already-implemented behavior before designing the target.
+- `epic_next` is the authoritative live Epic navigator. Use it after Epic transitions, linked Task completion, context loss and when resuming an executing Epic.
 
-- Resolve architectural forks before parallel implementation. If two tasks depend on contradictory ownership/contracts, decomposition does not make the ambiguity disappear.
+- The current AI Layer runtime contract overrides historical Epic wording about procedure. Older specs remain valid product history but do not freeze old tool semantics.
 
-- Decompose by independently verifiable behavior and dependency boundaries, not by arbitrary file/component count.
+- DRAFT and APPROVED Epics are passive. They do not reserve ordinary host-native work or require unrelated work to enter a managed Task.
 
-- Every task needs a clear input context, owned scope, acceptance criteria, allowed dependencies, verification and handoff artifacts.
+- An Epic specification is immutable by version. Normal edits create a new version; human approval applies to one exact current version.
 
-- Order tasks by enabling contracts/migrations first, implementations next, integration/hardening after; avoid parallel work on unstable shared contracts.
+- Independent specification audit is an Epic operation, not managed Task DISCOVERY. Use `epic_audit_prepare` and `epic_audit_record`; do not fabricate an audit or route it through `task_stage_delegate`.
 
-- Keep one source of truth for epic state and task status. Agents must not infer progress from prose or duplicate plan documents.
+- Phase 0 is source-authoritative reconciliation before implementation planning. AI Layer executes it as an ordinary read-only `ANALYSIS_ONLY` managed Task.
 
-- Require independent review for material tasks and an integration review for the assembled epic; task-local green does not prove end-to-end coherence.
+- After successful Phase 0, the execution plan is an **ordered sequential list** of implementation work items. AI Layer owns conversion to managed Tasks and appends the mandatory final whole-Epic closure/review Task.
 
-- A failed/changed task should update downstream assumptions explicitly rather than letting stale plans continue.
+- Each linked implementation/final Task uses the current managed Task engine and its strict stage contracts. Do not reproduce IMPLEMENT/REVIEW/FIX logic inside the Epic layer.
 
-- Human acceptance is a separate gate from technical completion when the epic changes product behavior, architecture or other user-owned decisions.
+- Repository drift and accepted standalone Tasks are explicit boundaries. Follow `epic_next`: narrow intervening impact review is preferred when sufficient; targeted reconciliation is used when assumptions may actually have changed.
 
-## Evidence to inspect
+- Final Epic closure requires real evidence from the final managed Task: documentation updated where required, reviewed Project Knowledge published, and scoped `ProjectMapReconciled` evidence.
 
-- Current repository architecture, tests, migrations, configuration and recent code around the epic scope.
+- Project Map is navigation metadata, not Project Knowledge. Read it with `project_search`; update it with `project_map_reconcile` only for current-source scope actually inspected/understood.
 
-- Product/problem statement and non-goals, plus measurable/user-observable acceptance criteria.
+## Authoritative tools
 
-- Known dependencies: data/schema, APIs, shared components, deployment, external services and organizational approvals.
-
-- Risk register including security, compatibility, data migration, performance and rollback concerns.
-
-- Existing task/epic mechanism in AI Layer and its authoritative state transitions.
-
-- Integration/environment constraints needed to verify the complete outcome.
+- `epic_create` — create DRAFT spec v1 after the outcome is understood.
+- `epic_spec_get` — fetch exact current/older specification text.
+- `epic_spec_edit` — preferred atomic document-like edits before Phase 0.
+- `epic_spec_revise` — full-spec replacement fallback before Phase 0.
+- `epic_audit_prepare` / `epic_audit_record` — independent pre-Phase0 specification review.
+- `epic_approve` — explicit human approval of the exact current specification version.
+- `epic_next` — authoritative live navigator for all states.
+- `epic_start_next` — start exactly the next eligible Phase0/drift/plan Task only when `epic_next` directs it.
+- `epic_reconcile_complete` — record Phase0/drift reconciliation after the linked analysis-only Task completed.
+- `epic_plan_set` — submit implementation work items after successful Phase 0; AI Layer adds final closure automatically.
+- `epic_intervening_review_prepare` / `epic_intervening_review_record` — assess accepted standalone work since the Epic boundary.
+- `project_map_reconcile` — record scoped Project Map evidence when final closure requests it.
+- `epic_archive` — archive only after `epic_next` says archive.
 
 ## Decision rules
 
-- If a task cannot be reviewed/tested independently, either shrink it around one behavior or admit that the boundary is artificial and merge it with its owner work.
+- If `project_status` reports an executing Epic and the user says “continue”, call `epic_next` instead of reconstructing state from documentation or repository history.
 
-- If several tasks need the same new contract, define/approve that contract in an enabling task before parallel consumers implement against guesses.
+- If the Epic is DRAFT, refine/audit the product specification. Do not create implementation Tasks merely because a task list seems obvious.
 
-- If a migration has mixed-version constraints, schedule expansion before code that depends on it and contraction after all old use is gone.
+- If the current specification changed after approval, treat the new version as requiring current approval/audit state according to the returned Epic contract; never transfer approval by assumption.
 
-- If an architectural fork would change multiple downstream tasks, stop and resolve it before implementation rather than allowing agents to choose locally.
+- If `epic_next` requests Phase 0, start only the returned analysis-only Task and follow `task_next` for that managed Task.
 
-- If a task has broad allowed scope or vague “refactor as needed”, tighten ownership or split prerequisite cleanup.
+- If Phase 0 finds an obvious non-branching correction, reconcile it into the execution specification. If it finds a genuine material product/architecture trade-off, surface that decision to the human instead of letting a worker choose silently.
 
-- If late discovery invalidates acceptance criteria, revise the epic plan transparently; do not force implementation to satisfy obsolete wording.
+- If `epic_next` says `create_task_plan`, plan only implementation work items. Do not manually add another Phase 0 or final closure item; AI Layer owns those boundaries.
 
-- If individual tasks pass but integration behavior differs, integration findings take precedence and create explicit remediation tasks.
+- Do not invent parallel execution. The current Epic plan executes in ordered sequence through the managed Task engine unless the live runtime explicitly gains another contract in a future version.
 
-- If the epic cannot define a rollback/recovery path for high-risk rollout, it is not ready for execution.
+- If an unrelated accepted Task occurred during Epic execution, use the intervening review flow returned by `epic_next`; do not automatically perform a full repository audit.
 
-## Workflow
+- If repository drift is detected outside safely attributable accepted Task boundaries, follow targeted drift reconciliation. Never reset/stash/discard user changes just to restore an Epic digest.
 
-1. Phase 0 — audit reality: map current flows, architecture, data, tests, known defects and constraints relevant to the outcome.
+- If final docs and Project Knowledge evidence are complete but Project Map evidence is missing, do **not** create another final implementation Task. `epic_next` returns `project_map_reconcile` with the already-completed final Task key. Reconcile checked scope (or honest `no_changes_reason`), then call `epic_next` again.
 
-2. Define target outcome, non-goals, acceptance criteria, quality attributes and human decisions that require approval.
+- Archive only when `epic_next` returns archive. “All implementation tasks look done” is not sufficient closure evidence.
 
-3. Identify architectural choices and produce a dependency/risk map. Resolve high-impact forks before task creation.
+## Phase 0 reality audit
 
-4. Create a task DAG with enabling contracts/migrations first, feature slices next, then integration/hardening/documentation as needed.
+Phase 0 answers whether the approved intended outcome still matches current source before implementation planning begins.
 
-5. For each task, specify intent, scope/allowed paths or ownership, dependencies, acceptance, verification, risks and expected handoff.
+Inspect only evidence relevant to the Epic: current flows, architecture boundaries, data/schema, integrations, tests, deployment constraints, known defects and already-implemented behavior. Project Map can reduce discovery breadth, but current files remain authority.
 
-6. Execute ready tasks through implement → targeted tests → canonical gates → independent review → remediation/re-review.
+The deliverable is a compact reconciliation result: confirmed assumptions, factual corrections, risks, and only genuine human decisions. Do not turn Phase 0 into an unbounded architecture rewrite or general repository audit.
 
-7. After each task, update authoritative epic state and downstream context if contracts/assumptions changed.
+The Phase 0 Task is read-only `ANALYSIS_ONLY`. Its worker follows the managed Task delegation contract returned by `task_next`; the Epic coordinator does not edit source during that stage.
 
-8. Run integration review across complete user journeys, shared contracts, migration/deployment and nonfunctional requirements.
+## Planning contract
 
-9. Run final canonical quality/release gates and resolve all blocking findings.
+After Phase 0, create implementation work items that are independently verifiable and small enough for the managed Task lifecycle. Each item should name an outcome, not merely a file/layer.
 
-10. Present the completed epic plus evidence/residual risks for human acceptance; archive only after acceptance policy is satisfied.
+Prefer dependency order that stabilizes contracts before consumers: migrations/contract seams first when truly required, behavior slices next, integration/hardening where the outcome needs it. Avoid vague “refactor as needed” scope.
 
-## Implementation patterns
+The plan is ordered, not a generic graph. Do not launch several plan items concurrently because an older planning skill or stored Epic prose mentions a DAG. The live runtime owns scheduling.
 
-- Vertical slice tasks are strong when they deliver a bounded observable capability across layers without forcing several teams/tasks to modify the same core files concurrently.
+The mandatory final Task is automatically appended by AI Layer. It is responsible for whole-Epic integration/closure evidence, including appropriate docs, reviewed durable Project Knowledge and Project Map reconciliation.
 
-- Enabling tasks are appropriate for a stable shared contract, migration expansion or infrastructure seam that multiple later slices truly need.
+## Managed Task execution inside an Epic
 
-- A task DAG is preferable to a flat checklist: dependencies should explain why a task is blocked and what artifact/contract it consumes.
+Once an Epic plan item is started, the linked Task becomes the authoritative execution unit. Call `task_next` and follow its exact stage contract.
 
-- Use explicit integration tasks for cross-cutting behavior that cannot be proven inside one slice, such as end-to-end migration, performance, security or multi-provider switching.
+- IMPLEMENT/FIX stages are writable delegated workers (or current MICRO inline behavior when the Task engine explicitly returns it).
+- DISCOVERY/REVIEW stages are read-only delegated workers.
+- REVIEW findings must be resolved/re-reviewed according to Task state; Epic state does not bypass Task gates.
+- Only actual verification/review evidence may be recorded.
+- The Epic coordinator must not claim worker work or duplicate stage execution itself.
 
-- Keep research/spike tasks time- and output-bounded: their deliverable is a decision/evidence, not unreviewed production code.
+After a linked Task reaches terminal success, return to `epic_next`. Do not infer the next plan item from a saved list because drift/intervening-review/closure state may have changed.
 
-- Remediation findings should be attached to the task/epic whose acceptance they block; avoid an unowned backlog of review comments.
+## Project Knowledge and Project Map closure
 
-- For parallel agents, minimize overlapping write ownership and stabilize shared interfaces first.
+Project Knowledge and Project Map have different purposes and different write semantics.
 
-- Track decisions separately from transient implementation notes so handoffs remain compact and durable.
+**Project Knowledge** stores reviewed durable facts/invariants/fragile-area knowledge. Authoring/publishing is review-gated through supported managed Task flow. Ordinary unmanaged host-native work may read it with `knowledge_search` but must not pretend it can directly publish VERIFIED knowledge.
 
-## Task quality contract
+**Project Map** answers where code lives and how inspected areas relate. Structural facts are scanner-owned. Semantic enrichment is agent-authored only from current-source evidence via `project_map_reconcile`.
 
-- A task title should name the behavior/outcome, not 'update files' or a layer name.
+For final Epic closure, `ProjectMapReconciled` must be tied to the completed final Task and non-empty checked `scope_paths`. If the existing map is already accurate, use `no_changes_reason`; never manufacture descriptions just to satisfy the gate.
 
-- Acceptance criteria must be externally or programmatically checkable; avoid 'clean', 'robust' or 'properly' without defining evidence.
+## Drift and intervening work
 
-- Dependencies must identify the exact prerequisite artifact/contract/state rather than simply another task ID.
+An Epic repository digest is a durable boundary, not permission to rewrite user Git state.
 
-- Verification must include the narrow checks for the task and the repository's canonical gates required at that stage.
+When accepted standalone managed Tasks occurred since the Epic boundary, AI Layer can ask for a narrow read-only impact review. Judge only whether those changes invalidate remaining Epic assumptions. Record `unaffected` when they do not; route to reconciliation only when they do.
 
-- Handoff should record changed contracts, migration/feature-flag state, residual risk and what the next task can safely assume.
+For unattributed repository drift, run the targeted analysis-only reconciliation returned by `epic_next`. Resolve clear factual drift automatically. Ask the human only when multiple materially different acceptable outcomes exist.
 
-- Tasks should not secretly own architectural decisions already meant to be settled at epic level.
+Never stash, reset, restore, discard or commit changes merely to make an Epic digest match.
 
-## Review and remediation
+## Verification and review
 
-- Independent review examines correctness against task acceptance plus architecture/security/data/compatibility risks, not formatting preference.
+Per-item verification lives in the managed Task engine. Use the Task’s narrow checks, canonical gates and independent REVIEW/FIX cycles as returned by `task_next`.
 
-- A passing review cannot contain unresolved actionable findings; medium/high findings require remediation or explicit accepted-risk decision.
+The final Task must evaluate the assembled Epic, not just repeat the last item’s local tests. Verify cross-task contracts, integration paths, migrations/deployment implications and user-observable acceptance criteria that the Epic actually owns.
 
-- After remediation, re-review the changed area and any contract invalidated by the fix rather than assuming comments were resolved.
-
-- Integration review intentionally ignores task boundaries and traces complete journeys, shared data and deployment behavior.
-
-- Critical changes may require stronger reviewer/model/human approval according to project governance.
-
-## Progress and handoff
-
-- Status must come from authoritative task/epic state, not a narrative summary that can drift.
-
-- When a task discovers new scope, record whether it is required for current acceptance, a dependency defect or separate follow-up.
-
-- Do not keep huge transcripts as epic memory. Preserve decisions, contracts, evidence and unresolved risks only.
-
-- At each handoff, state the next ready task and why it is ready, or the exact blocker/decision needed.
+A passing final Task plus closure artifacts still does not authorize archive by inference. Return to `epic_next`; its mechanical closure state is authoritative.
 
 ## Failure modes
 
-- Mega-task epic: one task contains most implementation and defeats independent review/context control. Decompose by behavior/dependency.
-
-- Layer decomposition only: separate backend/frontend/database tasks all guess shared semantics. Stabilize contract and prefer slices where possible.
-
-- Parallel contract drift: agents implement different assumptions simultaneously. Resolve shared contract first.
-
-- Status theater: plan says complete while repository/task state differs. Use authoritative state and executable evidence.
-
-- Review flag only: same implementation context self-approves. Require independent reviewer where governance calls for it.
-
-- Task green/integration broken: local tests pass but journeys/rollout fail. Add integration review/gates.
-
-- Architecture decision hidden in implementation: downstream tasks become inconsistent. Promote the decision and replan.
-
-- Permanent transition tasks: flags/shims/migration compatibility never contract. Include explicit cleanup condition and later task.
-
-- Unbounded discovery: epic planning keeps expanding before any outcome can ship. Separate non-goals/follow-ups and preserve release slices.
-
-- Human gate bypass: technical green is treated as product acceptance. Keep acceptance stage explicit.
-
-## Verification
-
-- Confirm every acceptance criterion maps to one or more tasks and final integration evidence.
-
-- Validate task DAG has no circular or missing dependency and shared contracts are defined before consumers.
-
-- Check no two parallel tasks require uncontrolled edits to the same authoritative subsystem without coordination.
-
-- Run per-task targeted/canonical gates and independent reviews according to project governance.
-
-- At integration, trace complete success plus material failure/rollback journeys across task boundaries.
-
-- Verify migrations/feature flags/compatibility transitions are in the expected phase and cleanup is scheduled/completed.
-
-- Run final canonical quality/release suite against assembled branch.
-
-- Compare final diff to epic non-goals/scope for accidental expansion.
-
-- Summarize residual risk and unexecuted verification before human acceptance.
-
-- Archive tasks/epic only when authoritative status and acceptance policy permit.
+- **Old-spec procedure drift:** following stored Epic text that predates current tools. Fix: call `epic_next`; live runtime contract wins.
+- **Generic DAG orchestration:** parallelizing plan items because generic planning advice says so. Fix: current AI Layer Epic execution is ordered/sequential.
+- **Phase 0 bypass:** planning implementation before source reality is reconciled. Fix: complete the returned analysis-only Phase 0 Task.
+- **Epic self-implementation:** coordinator edits source while a linked managed Task owns execution. Fix: follow `task_next` delegation boundaries.
+- **Full drift audit by default:** rescanning the repository after unrelated accepted work. Fix: use narrow intervening review first when returned.
+- **Map/Knowledge conflation:** storing navigation prose as VERIFIED Project Knowledge or treating scanner evidence as semantic truth. Keep surfaces separate.
+- **Fake closure content:** inventing Knowledge or Project Map text solely to pass a gate. Record only source-backed durable knowledge; use honest Project Map no-change reconciliation where applicable.
+- **Redundant final retry:** creating a second final Task when only Project Map evidence is missing. Use the completed final Task key with `project_map_reconcile`.
+- **Archive by chat memory:** assuming completion because all visible tasks look green. Archive only when `epic_next` says archive.
 
 ## Completion criteria
 
-- The intended product/engineering outcome is demonstrably satisfied, not merely all tasks marked done.
-
-- Architecture decisions and shared contracts are coherent across all task implementations.
-
-- Task reviews/remediations and final integration review have no unresolved blocking findings.
-
-- Migration/compatibility/feature-flag lifecycle is safe and not left in an accidental transitional state.
-
-- Canonical quality/release gates pass for the assembled result.
-
-- Human acceptance is recorded where required, with residual risks explicit.
-
-- The epic leaves a clean authoritative history of decisions, evidence and follow-up rather than a giant transcript.
+- Current approved Epic outcome is reconciled with current source through Phase 0.
+- Ordered implementation items completed through their actual managed Task contracts.
+- Any intervening work/drift was reviewed or reconciled through the returned Epic flow.
+- Final whole-Epic Task passed its real verification and independent review requirements.
+- Required documentation is current.
+- Durable Project Knowledge produced by the final work is reviewed/published where applicable.
+- Scoped Project Map reconciliation evidence exists for the final Task, including honest no-change evidence when appropriate.
+- `epic_next` returns archive and `epic_archive` succeeds.
+- Residual risks/follow-ups are explicit and are not disguised as completed acceptance.
 
 ## Related skills and escalation
 
-- Use `architecture` during Phase 0/architecture gates and `legacy-change` when the epic modifies poorly understood systems.
+Use `ai-layer-workflow` for the overall control-plane boundary, `architecture` during material Phase 0 architecture analysis, `legacy-change` when current behavior is poorly understood, and domain skills such as `database-migrations`, `security`, `design` or `verification` inside the managed Tasks that need them.
 
-- Use specialized skills (`database-migrations`, `security`, `design`, etc.) inside tasks that carry those risks.
-
-- Use `verification` to make final acceptance evidence explicit.
-
-- Escalate unresolved architecture/product forks to the human owner before allowing dependent tasks to implement conflicting guesses.
+Escalate only genuine human-owned product/architecture trade-offs or explicit high-impact authorization gates. Do not escalate ordinary state-machine navigation that `epic_next` can resolve deterministically.

@@ -20,12 +20,7 @@ def _publishable_catalog(
     project_root: Path | None = None,
     external_scope: bool = False,
 ) -> tuple[dict[str, str], dict]:
-    """Render valid full native activation documents without one legacy skill bricking upgrade.
-
-    New/updated skills are rejected earlier by the manager quality gate. A pre-existing
-    invalid skill remains in the canonical store for explicit retrieval but is not
-    advertised to host-native routing until its metadata is fixed.
-    """
+    """Render valid full native activation documents without one legacy skill bricking upgrade."""
     validation = validate_native_catalog(skills)
     blocked_by_slug: dict[str, list[str]] = {}
     for issue in validation["issues"]:
@@ -54,7 +49,8 @@ def _publishable_catalog(
         "published": sorted(published),
         "published_count": len(published),
         "blocked": [
-            {"slug": slug, "issues": problems} for slug, problems in sorted(blocked_by_slug.items())
+            {"slug": slug, "issues": problems}
+            for slug, problems in sorted(blocked_by_slug.items())
         ],
         "blocked_count": len(blocked_by_slug),
     }
@@ -65,7 +61,9 @@ def sync_global_native_skills(*, home: Path | None = None) -> dict:
     skills = [skill for skill in list_skills() if skill.get("scope") == "global"]
     desired, validation = _publishable_catalog(skills)
     roots = global_native_roots(home)
-    synced = {host: sync_native_root(path, desired, scope="global") for host, path in roots.items()}
+    synced = {
+        host: sync_native_root(path, desired, scope="global") for host, path in roots.items()
+    }
     return {
         "descriptor_version": NATIVE_DESCRIPTOR_VERSION,
         "routing_owner": "host-native",
@@ -77,6 +75,7 @@ def sync_global_native_skills(*, home: Path | None = None) -> dict:
         "hosts": {
             "cursor": {"root": str(roots["cursor_codex"]), "shared_with": "codex"},
             "codex": {"root": str(roots["cursor_codex"]), "shared_with": "cursor"},
+            "claude": {"root": str(roots["claude"])},
             "antigravity": {"root": str(roots["antigravity"])},
         },
         "sync": synced,
@@ -122,7 +121,14 @@ def sync_project_native_skills(project_root: str | Path, *, home: Path | None = 
             "sync": results,
         }
     desired, validation = _project_skill_descriptors(root, external_scope=False)
-    target = root / ".agents" / "skills"
+    shared_target = root / ".agents" / "skills"
+    claude_target = root / ".claude" / "skills"
+    shared_sync = sync_native_root(
+        shared_target, desired, scope="project", project_key=project_key
+    )
+    claude_sync = sync_native_root(
+        claude_target, desired, scope="project", project_key=project_key
+    )
     return {
         "mode": mode,
         "repository_writes": bool(desired),
@@ -130,11 +136,18 @@ def sync_project_native_skills(project_root: str | Path, *, home: Path | None = 
         "descriptors": sorted(desired),
         "activation_payload": "full-authoritative-skill",
         "validation": validation,
-        "sync": sync_native_root(target, desired, scope="project", project_key=project_key),
+        # Preserve the historical primary sync shape for callers while exposing host-specific output.
+        "sync": shared_sync,
+        "host_sync": {
+            "cursor_codex": shared_sync,
+            "claude": claude_sync,
+        },
     }
 
 
-def sync_native_after_skill_change(*, scope: str, project_root: str | Path | None = None) -> dict:
+def sync_native_after_skill_change(
+    *, scope: str, project_root: str | Path | None = None
+) -> dict:
     if scope == "global":
         return sync_global_native_skills()
     if project_root is None:

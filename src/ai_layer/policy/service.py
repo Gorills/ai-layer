@@ -11,7 +11,6 @@ from ai_layer.core.paths import project_provenance, project_state_path
 from ai_layer.core.static_policy import (
     MAX_FINAL_WORDS,
     SIMPLE_FINAL_WORDS,
-    STATIC_POLICY_RULES,
     static_policy_markdown,
 )
 

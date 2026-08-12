@@ -1,0 +1,59 @@
+name: tmp-refresh-skill-activation
+
+on:
+  push:
+    paths:
+      - .github/workflows/tmp-refresh-skill-activation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/native-full-skill-activation
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refresh derived artifacts and stale tool guidance
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+
+          path = Path('src/ai_layer/mcp/tools/skills.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''    """WHEN: a host-native skill is selected, the user explicitly requests a skill, or a concrete expertise gap names the slug. INPUT: slug required; section optional (`core`, exact `##` heading, or `full`). Prefer one exact section; full content must be explicit and exceptional."""'''
+          new = '''    """WHEN: explicit/manual selective reread, mandatory workflow core, package/diagnostic retrieval, or when a named skill cannot be consumed through native activation. INPUT: slug required; section optional (`core`, exact `##` heading, or `full`). Native activation already carries the complete professional skill; prefer one exact section for focused rereads."""'''
+          if text.count(old) != 1:
+              raise SystemExit('skill_get docstring replacement target not found exactly once')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+
+          import subprocess
+          subprocess.run(['python', 'scripts/governance_gate.py', '--write-baseline'], check=True)
+          subprocess.run(['python', 'scripts/build_release_wheel.py'], check=True)
+
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest['notes'] = (
+              '0.12.2 keeps native skill discovery metadata-first, but publishes the complete authoritative '
+              'professional skill after host relevance selection. Explicit core retrieval preserves whole '
+              'entry sections without character clipping; unrelated skills remain unloaded.'
+          )
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+      - name: Commit refresh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- src/ai_layer/mcp/tools/skills.py release/governance-baseline.json dist/local_ai_development_layer-0.12.2-py3-none-any.whl release/release-manifest.json
+          git diff --cached --check
+          git commit -m 'chore(release): refresh skill activation artifacts'
+          git push origin HEAD:fix/native-full-skill-activation

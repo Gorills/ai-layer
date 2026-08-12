@@ -480,7 +480,5 @@ def next_action(project_root: str | Path, *, key: str) -> dict:
         return {
             "epic": epic_payload(db, epic, include_spec=False, include_history=False),
             "next_action": action,
-            "project_map": project_map_capability_contract(
-                source_task_key=source_task_key or None
-            ),
+            "project_map": project_map_capability_contract(source_task_key=source_task_key or None),
         }

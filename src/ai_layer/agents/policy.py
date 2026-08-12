@@ -14,10 +14,10 @@ COST_POLICIES = {"economy", "balanced", "quality"}
 OWNED_MARKER = "<!-- AI_LAYER_MANAGED_AGENT_PROFILE -->"
 
 DEFAULT_CURSOR_MODELS: dict[str, str] = {
-    # Keep both low/normal default tiers on the explicitly non-fast Composer variant.
-    # Operators can map balanced/strong to other models in ~/.ai-layer/agent-policy.json.
+    # Managed workflows may explicitly request a cheap worker. Balanced/strong inherit the
+    # host/operator model by default instead of pretending that two identical profiles form a cost tier.
     "economy": "composer-2.5[fast=false]",
-    "balanced": "composer-2.5[fast=false]",
+    "balanced": "inherit",
     "strong": "inherit",
 }
 DEFAULT_POLICY: dict[str, object] = {
@@ -254,14 +254,18 @@ def stage_policy(
         cost_policy=cost_policy,
     )
     policy = load_policy()
+    requested_model = str((policy.get("cursor_models") or {}).get(tier) or "inherit")
     return {
         "requirement": requirement.to_dict(),
         "tier": tier,
         "profile": agent_profile(tier=tier, readonly=requirement.readonly),
         "readonly": requirement.readonly,
         "reason": reason,
-        "cursor_model": str((policy.get("cursor_models") or {}).get(tier) or "inherit"),
+        "cursor_model": requested_model,
+        "selection_owner": "managed-workflow-policy",
+        "host_native_outside_managed_workflow": True,
         "actual_model_assurance": "requested_unverified",
+        "economic_effect_verified": False,
     }
 
 

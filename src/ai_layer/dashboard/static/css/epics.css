@@ -1,81 +1,70 @@
+.epic-list { display: grid; }
+.epic-row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) minmax(150px, .32fr);
+  gap: 16px;
+  align-items: center;
+  padding: 14px 15px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--ease);
+}
+.epic-row:last-child { border-bottom: 0; }
+.epic-row:hover { background: rgba(255,255,255,.025); }
+.epic-row-key { color: #9e93ed; font-family: var(--font-mono); font-size: 10.5px; font-weight: 650; }
+.epic-row-main { min-width: 0; }
+.epic-row-heading { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.epic-row-title { overflow: hidden; color: var(--text-soft); font-size: 12.5px; font-weight: 640; text-overflow: ellipsis; white-space: nowrap; }
+.epic-row-meta { margin-top: 4px; color: var(--muted-2); font-size: 10.5px; }
+.epic-row-side { display: grid; justify-items: end; gap: 5px; min-width: 0; }
+.epic-row-version { color: var(--muted); font-family: var(--font-mono); font-size: 10px; }
+.epic-progress { width: 100%; max-width: 180px; }
+.epic-progress-line { height: 3px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.07); }
+.epic-progress-value { height: 100%; border-radius: inherit; background: var(--accent); }
+.epic-progress-label { margin-top: 4px; color: var(--muted-2); font-size: 10.5px; text-align: right; }
+
+.epic-tabs {
+  display: flex;
+  gap: 3px;
+  margin: -2px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.epic-tab { padding: 6px 9px; border-radius: 6px; color: var(--muted); font-size: 11px; white-space: nowrap; transition: background var(--ease), color var(--ease); }
+.epic-tab:hover { background: var(--surface-raised); color: var(--text-soft); }
+.epic-tab.active { background: var(--accent-soft); color: #d5cffd; }
+
 .epic-spec {
   max-width: 980px;
-  font-size: 15px;
-  line-height: 1.72;
-  color: var(--text, #e7e9ee);
+  padding: 24px 26px 30px;
+  color: #cfd4db;
+  font-size: 12.5px;
+  line-height: 1.74;
 }
+.epic-spec h2, .epic-spec h3, .epic-spec h4, .epic-spec h5 { margin: 25px 0 9px; color: var(--text); line-height: 1.25; letter-spacing: -.012em; }
+.epic-spec h2:first-child, .epic-spec h3:first-child { margin-top: 0; }
+.epic-spec p { margin: 8px 0 12px; }
+.epic-spec ul, .epic-spec ol { margin: 8px 0 14px 21px; padding: 0; }
+.epic-spec li { margin: 5px 0; }
+.epic-spec code { padding: 2px 5px; border-radius: 5px; background: rgba(255,255,255,.055); font-family: var(--font-mono); font-size: .92em; }
+.epic-code { overflow: auto; padding: 13px 15px; border: 1px solid var(--border); border-radius: 7px; background: #0b0d10; font-family: var(--font-mono); white-space: pre-wrap; }
 
-.epic-spec h2,
-.epic-spec h3,
-.epic-spec h4,
-.epic-spec h5 {
-  margin: 26px 0 10px;
-  line-height: 1.25;
-}
+.epic-state-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
+.epic-state-grid .info-row:nth-child(odd) { padding-right: 14px; border-right: 1px solid var(--border); }
+.epic-state-grid .info-row:nth-child(even) { padding-left: 14px; }
+.epic-state-grid .info-row:nth-last-child(-n+2) { border-bottom: 0; }
+.epic-spec-quality { padding: 12px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+.epic-spec-quality strong { color: var(--text-soft); }
+.epic-mini-audits .finding:nth-child(n+4) { display: none; }
 
-.epic-spec h2:first-child,
-.epic-spec h3:first-child {
-  margin-top: 0;
-}
-
-.epic-spec p {
-  margin: 8px 0 12px;
-}
-
-.epic-spec ul,
-.epic-spec ol {
-  margin: 8px 0 14px 22px;
-  padding: 0;
-}
-
-.epic-spec li {
-  margin: 5px 0;
-}
-
-.epic-spec code {
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  font-size: 0.92em;
-}
-
-.epic-code {
-  overflow: auto;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.22);
-  white-space: pre-wrap;
-}
-
-.stage-row[href] {
-  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.stage-row[href]:hover {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.project-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: -3px 0 16px;
-}
-
-.project-actions a {
-  padding: 6px 9px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--muted, #8b9bab);
-  font-size: 9px;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-}
-
-.project-actions a:hover {
-  border-color: var(--border, #203142);
-  background: var(--panel-raised, #142231);
-  color: var(--text, #edf3f8);
+@media (max-width: 760px) {
+  .epic-row { grid-template-columns: 58px minmax(0,1fr); }
+  .epic-row-side { grid-column: 2; justify-items: stretch; }
+  .epic-progress { max-width: none; }
+  .epic-progress-label { text-align: left; }
+  .epic-state-grid { grid-template-columns: 1fr; }
+  .epic-state-grid .info-row:nth-child(odd), .epic-state-grid .info-row:nth-child(even) { padding-left: 0; padding-right: 0; border-right: 0; }
+  .epic-state-grid .info-row:nth-last-child(-n+2) { border-bottom: 1px solid var(--border); }
+  .epic-state-grid .info-row:last-child { border-bottom: 0; }
+  .epic-spec { padding: 19px 17px 24px; }
 }

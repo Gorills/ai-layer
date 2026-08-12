@@ -19,6 +19,7 @@ export const api = {
   overview: () => request("/overview"),
   tasks: (params = {}) => request("/tasks", params),
   task: (projectKey, taskKey) => request(`/tasks/${encodeURIComponent(projectKey)}/${encodeURIComponent(taskKey)}`),
+  epics: (params = {}) => request("/epics", params),
   skills: (params = {}) => request("/skills", params),
   skill: (slug, projectKey = null) => request(`/skills/${encodeURIComponent(slug)}`, { project_key: projectKey }),
   rules: (projectKey = null) => request("/rules", { project_key: projectKey }),

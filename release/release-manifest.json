@@ -1,6 +1,6 @@
 {
   "application_wheel": "dist/local_ai_development_layer-0.12.2-py3-none-any.whl",
-  "application_wheel_sha256": "34cf51590213a0426ab5c85d08788f0c562a8fa1a5107dabc85e5705765af242",
+  "application_wheel_sha256": "d468cfa685d39e9dc074dbf6473414e2e78924410f4c89352ed6a1fc9324b148",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -14,7 +14,7 @@
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
     "target_schema": "0014_epics_v1"
   },
-  "notes": "0.12.2 refreshes all 43 bundled project skills into deep, selectively retrievable professional playbooks, adds executable depth and distinctiveness quality floors, fixes strict core-content clipping, and hardens long-lived Epic/Task coexistence, document-style spec editing, independent spec audit guidance, and intervening-Task impact reconciliation. No schema migration is required.",
+  "notes": "0.12.2 refreshes the local Dashboard with Design System v2: calmer graphite surfaces, readable typography, scoped project context, a dedicated cross-project Epics workspace with progress/filtering, and a tabbed Epic detail view. Dashboard remains read-only and Task/Epic workflow authority is unchanged.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",

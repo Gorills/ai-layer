@@ -14,7 +14,7 @@ from ai_layer.projections.dashboard_reference import (
     skills_payload,
 )
 from ai_layer.projections.dashboard_tasks import task_detail_payload, tasks_payload
-from ai_layer.projections.epics import epic_detail_payload, project_epics_payload
+from ai_layer.projections.epics import epic_detail_payload, epics_payload, project_epics_payload
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
@@ -64,6 +64,24 @@ def dashboard_task(project_key: str, task_key: str):
             {"project_key": project_key, "task_key": task_key},
             "Task not found for this project.",
         )
+    return payload
+
+
+@router.get("/epics")
+def dashboard_epics(
+    project_key: str | None = None,
+    status: str | None = None,
+    page: int = 1,
+    page_size: int = 10,
+):
+    payload = epics_payload(
+        project_key_value=project_key,
+        status=status,
+        page=page,
+        page_size=page_size,
+    )
+    if payload is None:
+        raise _not_found({"project_key": str(project_key)}, "Registered project not found.")
     return payload
 
 

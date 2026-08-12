@@ -100,6 +100,11 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
     )
     monkeypatch.setattr(
         dashboard_api,
+        "epics_payload",
+        lambda **kwargs: {"kind": "epics", "kwargs": kwargs},
+    )
+    monkeypatch.setattr(
+        dashboard_api,
         "skills_payload",
         lambda **kwargs: {"kind": "skills", "kwargs": kwargs},
     )
@@ -132,6 +137,7 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
 
     client = TestClient(create_app())
     tasks = client.get("/api/v1/dashboard/tasks?project_key=p1&page=2&page_size=10")
+    epics = client.get("/api/v1/dashboard/epics?project_key=p1&status=open&page=2&page_size=10")
     skills = client.get("/api/v1/dashboard/skills?project_key=p1&page_size=10")
     rules = client.get("/api/v1/dashboard/rules?project_key=p1")
     knowledge = client.get("/api/v1/dashboard/knowledge/p1?status=DRAFT&page_size=10")
@@ -141,6 +147,10 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
     assert tasks.status_code == 200
     assert tasks.json()["kwargs"]["project_key_value"] == "p1"
     assert tasks.json()["kwargs"]["page"] == 2
+    assert epics.status_code == 200
+    assert epics.json()["kwargs"]["project_key_value"] == "p1"
+    assert epics.json()["kwargs"]["status"] == "open"
+    assert epics.json()["kwargs"]["page"] == 2
     assert skills.status_code == 200
     assert skills.json()["kwargs"]["project_key_value"] == "p1"
     assert rules.json() == {"kind": "rules", "project_key": "p1"}
@@ -170,10 +180,12 @@ def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
     assert "slice(0, 10)" in project_js
     assert "slice(0, 10)" in overview_js
     assert "page_size: 10" in app_js
+    assert 'current.kind === "epics"' in app_js
     assert "неограниченная история" not in epic_js
     assert "IDE-интеграции" in operations_js
     for label in (
         "Задачи",
+        "Эпики",
         "Скиллы",
         "Правила",
         "База знаний",
@@ -181,8 +193,27 @@ def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
         "Активность",
     ):
         assert label in index_html
+    assert 'data-route="epics"' in index_html
     assert "профиль пользователя" not in index_html.casefold()
     assert "личный кабинет" not in index_html.casefold()
+
+
+def test_dashboard_design_system_uses_flat_layers_and_project_scope():
+    root = Path(__file__).resolve().parents[1]
+    static = root / "src/ai_layer/dashboard/static"
+    index_html = (static / "index.html").read_text(encoding="utf-8")
+    tokens_css = (static / "css/tokens.css").read_text(encoding="utf-8")
+    app_css = (static / "css/app.css").read_text(encoding="utf-8")
+    components_css = (static / "css/components.css").read_text(encoding="utf-8")
+
+    assert 'id="project-scope"' in index_html
+    assert 'href="/dashboard-assets/css/tokens.css"' in index_html
+    assert 'href="/dashboard-assets/css/components.css"' in index_html
+    assert "--accent:" in tokens_css
+    assert "radial-gradient" not in app_css
+    assert "linear-gradient" not in app_css
+    assert "radial-gradient" not in components_css
+    assert "linear-gradient" not in components_css
 
 
 def test_dashboard_interface_does_not_cross_projection_boundaries():

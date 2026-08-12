@@ -30,42 +30,51 @@ def _db_project(tmp_path: Path):
     return db, project, root
 
 
-def test_critical_orchestrator_contract_has_one_compact_global_owner_without_project_duplication(
-    tmp_path: Path,
-):
+def test_critical_orchestrator_contract_is_readable_mandatory_first_call_kernel(tmp_path: Path):
     project_text = workflow(tmp_path)
     global_text = global_bootstrap_workflow()
-    global_low = global_text.lower()
 
-    assert "AI Layer orchestrator" in global_text
-    assert "Top-level coordinates" in global_text
-    assert "no external mutation" in global_text
-    assert "never edit repository files" in global_text
-    assert "IMPLEMENT/FIX -> bound writable worker" in global_text
-    assert "DISCOVERY/REVIEW -> bound read-only worker" in global_text
-    assert "Worker/tool unavailable -> block" in global_text
-    assert "Active Epic -> `epic_next`; otherwise `task_next`" in global_text
-    assert "AI Layer control plane" in global_text
-    assert "memory_context(task=<actual task>" in global_text
-    assert "no `task_current` or simple/read-only bypass" in global_low
-    assert "navigate again after transitions/worker returns" in global_text
+    assert "Mandatory AI Layer role boundary" in global_text
+    assert "These rules are mandatory" in global_text
+    assert "top-level chat is the ORCHESTRATOR" in global_text
+    assert "MUST NOT edit repository files or mutate external systems" in global_text
+    assert "`inline_micro_implement`" in global_text
+    assert "IMPLEMENT and FIX stages belong to one explicitly bound writable worker" in global_text
+    assert "DISCOVERY and REVIEW stages belong to one explicitly bound read-only worker" in global_text
+    assert "must never perform a delegated stage as fallback" in global_text
+    assert "STOP and report the blocker" in global_text
+
+    assert "Mandatory startup and navigation" in global_text
+    assert "FIRST project-related tool call MUST be `memory_context" in global_text
+    assert "Until `memory_context` succeeds, you MUST NOT read/search/grep project files" in global_text
+    assert "Do not bypass this rule for a small, obvious, read-only or diagnostic request" in global_text
+    assert "canonical project root returned by AI Layer" in global_text
+    assert 'skill_get(slug="ai-layer-workflow"' in global_text
+    assert 'section="core"' in global_text
+    assert "once per chat" in global_text
+    assert "call `epic_next`; otherwise call `task_next`" in global_text
+    assert "NEVER infer the next stage from chat history or memory" in global_text
+    assert "After every Task/Epic transition" in global_text
     assert "dirty worktree is a valid baseline" in global_text
-    assert "Token economy is mandatory: final <= 100 words" in global_text
-    assert "simple <= 60 words" in global_text
-    assert global_text.count("AI Layer engineering floor") == 1
+    assert "Never stash, reset, restore, discard or commit user changes" in global_text
+    assert "Native Agent Skills provide domain expertise" in global_text
+
+    assert "Mandatory engineering discipline" in global_text
+    assert "at or below 100 words" in global_text
+    assert "at or below 60 words" in global_text
+    assert global_text.count("Mandatory engineering discipline") == 1
     for rule in STATIC_POLICY_RULES:
         assert f"- {rule}" in global_text
 
-    # Preserve the original first-call token budget. Detailed stage procedure and domain expertise
-    # belong to navigators/skills, never the always-on bootstrap.
-    assert len(global_text.encode("utf-8")) < 2600
+    # This is a comprehension budget, not byte golf. Procedure/state/domain expertise still remain
+    # progressive, but the mandatory first-call discipline must be readable by weak models.
+    assert len(global_text.encode("utf-8")) < 9000
 
-    # Standard projects no longer materialize a text workflow bridge. This renderer survives only
-    # as a tiny compatibility helper for legacy callers; sparse project MCP config owns identity.
+    # Standard projects still do not materialize a duplicate text workflow bridge.
     assert "project binding (legacy compatibility)" in project_text
     assert "Canonical project root" in project_text
     assert "global native bootstrap and MCP Task Layer" in project_text
-    assert "## AI Layer orchestrator" not in project_text
+    assert "## Mandatory AI Layer role boundary" not in project_text
     assert len(project_text.encode("utf-8")) < 500
 
 

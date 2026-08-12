@@ -163,9 +163,14 @@ def skill_core_content(skill: dict, *, max_chars: int = 2400) -> str:
         if matched:
             chunks.append(sections[matched])
     content = "\n\n".join(chunks).strip() or str(skill.get("content") or "").strip()
+    if max_chars <= 0:
+        return ""
     if len(content) <= max_chars:
         return content
-    return content[: max_chars - 45].rstrip() + "\n...[skill core clipped; use skill_get section]"
+    suffix = "\n...[skill core clipped; use skill_get section]"
+    if len(suffix) >= max_chars:
+        return content[:max_chars]
+    return content[: max_chars - len(suffix)].rstrip() + suffix
 
 
 def skill_section_content(skill: dict, section: str | None = None) -> tuple[str, list[str]]:

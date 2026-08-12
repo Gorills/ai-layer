@@ -39,11 +39,7 @@ def project_intelligence_summary(
             "current_focus": (
                 {"kind": "task", "key": current_task.get("key")}
                 if current_task
-                else (
-                    {"kind": "epic", "key": active_epic.get("key")}
-                    if active_epic
-                    else None
-                )
+                else ({"kind": "epic", "key": active_epic.get("key")} if active_epic else None)
             ),
         }
 

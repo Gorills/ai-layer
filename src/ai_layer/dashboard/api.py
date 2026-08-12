@@ -34,6 +34,15 @@ def _not_found(ids: dict[str, str], message: str) -> HTTPException:
     )
 
 
+def _project_epics_best_effort(project_key: str) -> list[dict]:
+    """Keep the project page readable when durable Epic storage is temporarily unavailable."""
+    try:
+        payload = project_epics_payload(project_key) or {}
+    except Exception:
+        return []
+    return list(payload.get("epics") or [])
+
+
 @router.get("/overview")
 def dashboard_overview():
     return overview_payload()
@@ -179,12 +188,11 @@ def dashboard_project(project_key: str):
     payload = project_payload(project_key)
     if payload is None:
         raise _not_found({"project_key": project_key}, "Registered project not found.")
-    epics = project_epics_payload(project_key) or {}
     project = payload.get("project") or {}
     project["intelligence"] = project_intelligence_summary(
         project.get("root") or "",
         task_state=payload.get("task_state") or {},
-        epics=epics.get("epics") or [],
+        epics=_project_epics_best_effort(project_key),
     )
     return payload
 

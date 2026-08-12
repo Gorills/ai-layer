@@ -1,33 +1,51 @@
-# Current State — v0.12.0 Epics v1 candidate
+# Current State — v0.12.2 Project Intelligence control-plane source
 
 ## Implemented source state
 
-The foundation now includes the first complete durable Epic capability while preserving the existing Task Engine as the only per-Task execution state machine.
+AI Layer now uses **Project Intelligence + Durable Work State + Observability** as its primary architecture. Native coding-agent hosts remain the normal execution engine.
 
-- **Epics:** durable immutable specification versions, unlimited DRAFT audit history, explicit human approval, Phase 0 reconciliation, ordered Task plan, drift reconciliation, final whole-Epic review/closure and archive are implemented.
-- **Epic approval:** `approved_spec_version` preserves exactly what the human approved. Phase 0/drift corrections create a newer execution spec instead of silently rewriting the approved baseline.
-- **Phase 0:** the first execution Task is always an ordinary `analysis_only` Task. Current repository source is authoritative; non-branching/clearly superior durable corrections are applied automatically, while only genuine material product/architecture trade-offs block for human input.
-- **Epic Tasks:** implementation and final items are ordinary sequential `STANDARD` Tasks. Task Engine remains sole owner of worker leases, IMPLEMENT/REVIEW/FIX lifecycle, repository snapshots, verification, findings and remediation.
-- **Epic drift:** accepted repository identity is recorded after Phase 0 and each completed Epic Task. External repository drift before the next plan item requires targeted read-only reconciliation.
-- **Epic closure:** the last successfully completed Task updates relevant project documentation and drafts Project Knowledge, then independently reviews the whole implemented Epic against the execution spec/Definition of Done. Mechanical completion additionally requires documentation changes and actual reviewed `KnowledgePublished` evidence; otherwise another final review attempt is scheduled.
-- **Epic recovery/navigation:** `epic_next` is the authoritative Epic navigator. `memory_context` exposes compact active-Epic state so a new/weak-model chat can recover without loading the full specification on every request.
-- **Epic Dashboard:** project pages expose Epics; detail pages render the current human-readable specification, approved/execution versions, audit history, Task plan and spec history through read-only projections.
-- **Skills:** Cursor/Codex/Antigravity own skill relevance; AI Layer owns canonical skill content, validation, native descriptor sync and targeted `skill_get` retrieval. The built-in `epics` skill contains the full operating contract for weak models.
-- **Current source:** host-native code search/read owns current implementation discovery; AI Layer does not build a parallel semantic source index.
-- **Scanner:** `ai-layer scan` owns deterministic repository evidence, hashes/file identity, bounded project signals and freshness/invalidation. Scanner inference is labelled evidence, not reviewed semantic truth.
-- **Project Knowledge:** model-authored evidence-backed cards capture durable overview/subsystem knowledge, invariants, constraints, explicit unknowns and source pointers.
-- **Knowledge publication:** Mapper/Fixer can write only DRAFT cards in review-gated Tasks. A passing reviewer must first retrieve the task's DRAFT cards; successful review publishes VERIFIED cards. A reviewed overview is required for baseline readiness.
-- **Freshness:** supporting-file fingerprint changes move only affected VERIFIED cards to STALE. Cancelled-task drafts become SUPERSEDED.
-- **History:** durable completed Tasks, Decisions, WorkSessions and archived Epics remain separate first-class history sources.
-- **Context:** ordinary coding tasks get a compact semantic Project Knowledge brief; explicit Project Knowledge audits get a complete compact inventory-first view; explicit continuation prompts get a session-first brief; active Epic state adds only compact navigation metadata. Stale scanner/profile facts are withheld. Automatic raw-source memory and automatic domain skill bodies remain zero.
-- **Policy/bootstrap:** static AI Layer rules have one owner in each host’s global native instruction surface. Runtime Task procedure is owned by `task_next`; Epic procedure is owned by `epic_next` plus the native `epics` skill.
+- **Project status:** `project_status` is the cheap first state call for registered-project work. It restores Git/worktree state, current managed Task, executing/open Epic state, continuation focus and Project Map freshness without running Task/Epic navigators or scanning source.
+- **Continuation:** requests such as “continue” use durable `current_focus`. Active managed Task wins; otherwise an executing Epic is resumed; with neither, the request is treated as new native work.
+- **Project Map:** scanner schema v5 builds a dedicated metadata-only `project_navigation` index containing paths, language, compact purposes, imports, risk flags and bounded symbols/routes plus vector embeddings. Raw source bodies are not persisted.
+- **Project search:** `project_search` combines semantic Project Map similarity with lexical path/symbol/purpose/import matches and returns a small ranked set of breadcrumbs and related tests. Current repository source must be opened before code-truth claims or edits.
+- **Project Knowledge:** reviewed semantic facts/invariants remain separate from Project Map. `knowledge_search` is the explicit API; `memory_search` remains a compatibility alias. Evidence changes still make affected VERIFIED cards stale.
+- **Decisions:** `decision_search` remains the durable architectural-history channel.
+- **Legacy context:** `memory_context` remains for compatibility but is informational only. It no longer invokes `task_next`, selects workflow authority or acts as the mandatory project bootstrap.
+- **Native execution:** global bootstrap no longer disables source reads, edits, shell, tests, code search or native subagents. If a precise location is known, the host inspects it directly after status; if location is unknown, Project Map is consulted before broad repository discovery.
+- **Tasks:** durable Task records, stages, findings, worker leases, provenance/adoption, review sandboxes, verification evidence, remediation caps and MICRO/STANDARD/DISCOVERY_FIRST/ANALYSIS_ONLY profiles remain implemented. `task_next` is authoritative inside an active/selected managed Task, not for every repository action.
+- **Epics:** immutable specs, audits, approval, planning, linked Tasks, drift/reconciliation, intervening review, completion/archive and Dashboard views remain implemented. `epic_next` is authoritative inside an active/selected managed Epic.
+- **Strict workflow:** independent IMPLEMENT/REVIEW/FIX boundaries and read-only REVIEW/DISCOVERY are preserved as managed-workflow guarantees rather than universal host restrictions.
+- **Skills:** Cursor, Codex, Claude Code and Antigravity receive AI Layer skills through their native skill locations. Host-native relevance/progressive disclosure owns normal activation; explicit `skill_get` remains available.
+- **Model policy:** ordinary work is host-native. Managed routing retains optional cost-tier metadata; default `economy` can request the configured cheap worker, while `balanced` and `strong` inherit the host by default. Requested model/cost effect remains explicitly unverified when host telemetry is unavailable.
+- **MCP runtime:** `project_status` is a fast replay-safe call. `project_search`, `knowledge_search`, legacy context search and decision search use the context/embedding runtime class and warm persistent core.
+- **Dashboard:** project pages preserve Tasks/stages/findings/skills/agents and now expose Project Intelligence summary: current focus, Project Map file/symbol counts and freshness.
+- **Observability:** Project Intelligence calls emit bounded audit metrics without pretending host-hidden model/token/billing information is measured truth.
+- **Privacy:** Project Map stores navigation metadata rather than raw source. External/strict-private project modes continue to keep managed state/material outside target repositories according to their existing contracts.
 
-## Upgrade behavior
+## Database and migration state
 
-Alembic migration `0014_epics_v1` adds durable Epic, specification-version, audit and plan-item tables. It is additive and does not reset existing Project/Task/Knowledge state. The supported migration gate still starts at the declared minimum `0010_adaptive_task_workflow` and upgrades through head; the PR PostgreSQL hardening job has already exercised the new migration successfully on real PostgreSQL/pgvector during development.
+Alembic migration `0015_project_navigation` adds the dedicated `project_navigation` table and HNSW cosine index. It is additive and does not reset Project/Task/Epic/Knowledge/Decision state.
+
+The incremental scanner deletes/rebuilds Project Map rows only for changed/reparsed source paths and reuses unchanged navigation embeddings. Scanner schema v5 triggers construction of the new map from older scanner state.
+
+Real PostgreSQL/pgvector hardening CI has exercised the new migration successfully during development.
+
+## Architectural boundary
+
+The intended execution path is:
+
+> **project_status → project_search when location is unknown → current-source verification → host-native execution → durable recording/strict workflow only where useful**
+
+Project Map answers **where**. Project Knowledge answers **what is already understood**. Decisions answer **why**. Tasks/Epics answer **what work is active**. Source code remains final implementation truth.
+
+AI Layer must not rebuild a second generic agent runtime around native hosts. A new control-plane requirement should justify itself by reducing rediscovery, preserving durable state/evidence or improving measured reliability.
 
 ## Release validation status
 
-Canonical CI remains the source of truth for release readiness. Before merge, the final branch must pass both canonical `quality` and real PostgreSQL `postgres-hardening`, include a source-fresh deterministic 0.12.0 installable wheel, and have the governance baseline refreshed for protected policy/version files.
+Canonical CI is the source of truth for merge/release readiness. The source branch must pass:
 
-After merge, real supported-host field acceptance remains required before declaring the release fully promoted: clean install/update, daemon/dashboard/MCP runtime, a real Epic create→audit/revise→approve→Phase0→STANDARD Tasks→final review→archive flow, recovery across service/worker interruption, and multi-project reconciliation where applicable.
+- canonical formatting/lint/type/architecture/migration/skill/governance/test/release gate;
+- real PostgreSQL/pgvector hardening;
+- deterministic packaging checks against the currently declared 0.12.2 release artifacts.
+
+This refactor intentionally does not claim a new binary version until the repository's fail-closed promotion path can publish an aligned wheel and release manifest. After merge, supported-host field acceptance should exercise `project_status`, Project Map search, continuation, native execution, optional managed Task/Epic flows, dashboard visibility and native skills on real projects.

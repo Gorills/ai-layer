@@ -41,6 +41,10 @@ jobs:
               'assert "managed Tasks and Epics remain durable workflows" in global_text',
           )
           text = text.replace(
+              'assert "Current repository source is the final authority" in global_text',
+              'assert "Current repository source is final code truth" in global_text',
+          )
+          text = text.replace(
               'assert handoff["repository_mutation"] == "forbidden"',
               'assert handoff["repository_mutation"] == "forbidden_during_delegated_stage"',
           )

@@ -12,7 +12,7 @@ from ai_layer.privacy.service import privacy_check
 
 
 def session_list(project_root: str | None = None, limit: int = 20) -> list[dict]:
-    """WHEN: explicit session-history inspection/debugging. INPUT: optional project_root and limit. For normal prior-work recovery prefer session_restore(session_id="latest")."""
+    """WHEN: explicit historical WorkSession inspection/debugging only. INPUT: optional project_root and limit. Normal continuation starts with project_status; use session_restore only when unmanaged narrative handoff context is specifically needed."""
     root = project_root_for_tool(project_root, tool="session_list")
     with mcp_audit(root, "session_list", arg_keys=["project_root", "limit"]):
         with session_scope() as db:
@@ -21,7 +21,7 @@ def session_list(project_root: str | None = None, limit: int = 20) -> list[dict]
 
 
 def session_restore(session_id: str = "latest", project_root: str | None = None) -> dict | None:
-    """WHEN: prior session context is needed to correctly understand or execute the current request. INPUT: session_id="latest" (default) or exact id, optional project_root. If nothing is returned, DO NOT infer previous-session work from repository code."""
+    """WHEN: unmanaged prior-work narrative/handoff is specifically needed after project_status did not provide sufficient durable Task/Epic continuation state. INPUT: session_id="latest" (default) or exact id, optional project_root. WorkSession text is historical context, not current source truth and not a substitute for task_next/epic_next."""
     root = project_root_for_tool(project_root, tool="session_restore")
     wanted = (session_id or "latest").strip() or "latest"
     with mcp_audit(root, "session_restore", arg_keys=["session_id", "project_root"]) as audit:
@@ -42,7 +42,7 @@ def session_save(
     notable_findings: list[str] | str | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: terminal handoff for substantive work intentionally performed outside managed Task Layer. Managed tasks save exactly one terminal WorkSession automatically after the final review gate and MUST NOT call this tool for individual stages or after automatic completion. INPUT: goal + current_state required; list fields also accept one string. Use important_decisions only for new consequential choices; verified_facts for confirmed current behavior; notable_findings for review/investigation/advisory findings. Keep all fields compact."""
+    """WHEN: terminal handoff for substantive work intentionally performed outside a managed Task. Managed Tasks save exactly one terminal WorkSession automatically after the final review gate and MUST NOT call this tool for individual stages or after automatic completion. INPUT: goal + current_state required; list fields also accept one string. Use important_decisions only for new consequential choices; verified_facts for confirmed current behavior; notable_findings for review/investigation/advisory findings. Keep all fields compact."""
     root = project_root_for_tool(project_root, tool="session_save")
     goal = _text(goal, tool="session_save", field="goal")
     current_state = _text(current_state, tool="session_save", field="current_state")
@@ -76,7 +76,7 @@ def session_save(
                 managed = runtime.get("task") or {}
                 raise RuntimeError(
                     f"session_save is disabled while managed task {managed.get('key') or ''} is "
-                    "active/blocked. Complete the current Task Layer stage instead; the final "
+                    "active/blocked. Complete the current managed Task stage instead; the final "
                     "WorkSession handoff is written automatically after the review gates pass."
                 )
             completed = _list(completed_actions)
@@ -106,7 +106,7 @@ def session_save(
 
 
 def decision_search(query: str, project_root: str | None = None, limit: int = 8) -> list[dict]:
-    """WHEN: REQUIRED before choosing/designing/replacing/introducing/materially changing a consequential architecture/provider/API/migration/auth/security/concurrency/persistence approach among plausible alternatives when prior rationale may matter. INPUT: query, optional project_root/limit. Searches durable Decision/session rationale only; current source belongs to host-native tools and curated project facts belong to memory_search."""
+    """WHEN: REQUIRED before choosing/designing/replacing/introducing/materially changing a consequential architecture/provider/API/migration/auth/security/concurrency/persistence approach among plausible alternatives when prior rationale may matter. INPUT: query, optional project_root/limit. Searches durable Decision/session rationale only; current source belongs to host-native tools and reviewed project facts/invariants belong to knowledge_search."""
     root = project_root_for_tool(project_root, tool="decision_search")
     query = _text(query, tool="decision_search", field="query")
     with mcp_audit(root, "decision_search", arg_keys=["query", "project_root", "limit"]) as audit:

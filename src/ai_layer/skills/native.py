@@ -1,8 +1,8 @@
 """Native Agent Skills facade.
 
 Host relevance selection stays outside AI Layer. This module preserves a compact
-Skill Layer import surface while descriptor contracts, filesystem ownership and
-synchronization remain separate cohesive responsibilities.
+Skill Layer import surface while routing metadata, full activation documents,
+filesystem ownership and synchronization remain separate cohesive responsibilities.
 """
 
 from ai_layer.skills.native_descriptor import (
@@ -10,6 +10,7 @@ from ai_layer.skills.native_descriptor import (
     NATIVE_MARKER,
     native_descriptor_name,
     render_native_descriptor,
+    render_native_skill,
     routing_overlap_warnings,
     validate_native_catalog,
     validate_routing_description,
@@ -39,6 +40,7 @@ __all__ = [
     "remove_legacy_project_bridge",
     "remove_project_native_skills",
     "render_native_descriptor",
+    "render_native_skill",
     "routing_overlap_warnings",
     "sync_global_native_skills",
     "sync_native_after_skill_change",

@@ -42,13 +42,21 @@ function markdown(text) {
     }
     const bullet = line.match(/^[-*]\s+(.+)$/);
     if (bullet) {
-      if (list !== "ul") { closeList(); list = "ul"; out.push("<ul>"); }
+      if (list !== "ul") {
+        closeList();
+        list = "ul";
+        out.push("<ul>");
+      }
       out.push(`<li>${inline(bullet[1])}</li>`);
       continue;
     }
     const ordered = line.match(/^\d+\.\s+(.+)$/);
     if (ordered) {
-      if (list !== "ol") { closeList(); list = "ol"; out.push("<ol>"); }
+      if (list !== "ol") {
+        closeList();
+        list = "ol";
+        out.push("<ol>");
+      }
       out.push(`<li>${inline(ordered[1])}</li>`);
       continue;
     }
@@ -62,7 +70,8 @@ function markdown(text) {
 
 function plan(items) {
   if (!items?.length) return `<div class="empty">Task plan появится после Phase 0</div>`;
-  return `<div class="stage-list">${items.map((item) => `
+  const visible = items.slice(0, 10);
+  return `<div class="stage-list">${visible.map((item) => `
     <div class="stage-row ${escapeHtml(item.status || "")}">
       <div class="stage-index">${escapeHtml(item.ordinal)}</div>
       <div class="stage-body">
@@ -71,28 +80,31 @@ function plan(items) {
         <div class="stage-foot">${escapeHtml(item.kind)} · spec v${escapeHtml(item.spec_version)}${item.task_key ? ` · ${escapeHtml(item.task_key)} · ${escapeHtml(item.task_status || "—")}` : ""}</div>
       </div>
       ${stateBadge(item.status || "pending")}
-    </div>`).join("")}</div>`;
+    </div>`).join("")}${items.length > 10 ? `<div class="table-caption">Показаны первые 10 из ${escapeHtml(items.length)} пунктов plan</div>` : ""}</div>`;
 }
 
 function audits(items) {
   if (!items?.length) return `<div class="empty">Аудитов пока нет</div>`;
-  return `<div class="finding-list">${[...items].reverse().map((item) => `
+  const visible = [...items].reverse().slice(0, 10);
+  return `<div class="finding-list">${visible.map((item) => `
     <div class="finding">
       <div class="finding-head"><strong>spec v${escapeHtml(item.spec_version)}</strong><span>${escapeHtml(item.scope || "independent")}</span></div>
       <div class="finding-problem">${escapeHtml(item.summary)}</div>
       <div class="finding-path">${escapeHtml(item.created_at ? age(item.created_at) : "")}${item.auditor_id ? ` · ${escapeHtml(item.auditor_id)}` : ""}</div>
-      ${(item.findings || []).map((finding) => `<div class="finding-fix"><strong>${escapeHtml(finding.severity || "finding")}</strong> · ${escapeHtml(finding.problem || finding.summary || JSON.stringify(finding))}</div>`).join("")}
-    </div>`).join("")}</div>`;
+      ${(item.findings || []).slice(0, 5).map((finding) => `<div class="finding-fix"><strong>${escapeHtml(finding.severity || "finding")}</strong> · ${escapeHtml(finding.problem || finding.summary || JSON.stringify(finding))}</div>`).join("")}
+      ${(item.findings || []).length > 5 ? `<div class="finding-path">Показаны 5 из ${escapeHtml(item.findings.length)} findings</div>` : ""}
+    </div>`).join("")}${items.length > 10 ? `<div class="table-caption">Показаны 10 последних из ${escapeHtml(items.length)} аудитов</div>` : ""}</div>`;
 }
 
 export function renderEpicList(payload, projectKey) {
   const items = payload?.epics || [];
+  const visible = items.slice(0, 10);
   return `<section class="panel panel-accent">
     <div class="panel-header">
       <div><div class="panel-title">Epics</div><div class="panel-hint">Спеки, Phase 0, последовательные Tasks и финальный full-Epic review</div></div>
       <span class="muted">${escapeHtml(items.length)} всего</span>
     </div>
-    ${items.length ? `<div class="stage-list">${items.map((item) => `
+    ${visible.length ? `<div class="stage-list">${visible.map((item) => `
       <a class="stage-row ${escapeHtml(item.status || "")}" href="#/epic/${encodeURIComponent(projectKey)}/${encodeURIComponent(item.key)}" style="text-decoration:none;color:inherit">
         <div class="stage-index">${escapeHtml(item.key)}</div>
         <div class="stage-body">
@@ -101,7 +113,7 @@ export function renderEpicList(payload, projectKey) {
           <div class="stage-foot">${escapeHtml(item.updated_at ? age(item.updated_at) : "")}${item.blocked_reason ? ` · ${escapeHtml(item.blocked_reason)}` : ""}</div>
         </div>
         ${stateBadge(item.status || "draft")}
-      </a>`).join("")}</div>` : `<div class="empty">Epics ещё не созданы</div>`}
+      </a>`).join("")}${items.length > 10 ? `<div class="table-caption">Показаны 10 из ${escapeHtml(items.length)} Epics</div>` : ""}</div>` : `<div class="empty">Epics ещё не созданы</div>`}
   </section>`;
 }
 
@@ -109,6 +121,7 @@ export function renderEpicDetail(payload) {
   const epic = payload?.epic || {};
   const spec = epic.spec || {};
   const versions = epic.spec_versions || [];
+  const visibleVersions = versions.slice(-10).reverse();
   const quality = epic.spec_quality || {};
   return `
     <div class="project-head">
@@ -118,7 +131,7 @@ export function renderEpicDetail(payload) {
     ${epic.blocked_reason ? `<div class="alert">${escapeHtml(epic.blocked_reason)}</div>` : ""}
     <div class="summary-grid">
       <div class="metric"><div class="metric-label">Текущая спека</div><div class="metric-value">v${escapeHtml(epic.current_spec_version || 1)}</div><div class="metric-note">${escapeHtml(spec.source || "draft")}</div></div>
-      <div class="metric"><div class="metric-label">Аудиты</div><div class="metric-value">${escapeHtml((epic.audits || []).length)}</div><div class="metric-note">неограниченная история</div></div>
+      <div class="metric"><div class="metric-label">Аудиты</div><div class="metric-value">${escapeHtml((epic.audits || []).length)}</div><div class="metric-note">последние 10 на экране</div></div>
       <div class="metric"><div class="metric-label">Task plan</div><div class="metric-value">${escapeHtml((epic.plan || []).length)}</div><div class="metric-note">plan v${escapeHtml(epic.plan_version || 0)}</div></div>
       <div class="metric"><div class="metric-label">Spec quality</div><div class="metric-value">${quality.ready_for_human_review ? "ready" : "needs sections"}</div><div class="metric-note">${escapeHtml((quality.completeness_warnings || []).length)} completeness warning(s)</div></div>
     </div>
@@ -129,18 +142,18 @@ export function renderEpicDetail(payload) {
           <article class="epic-spec">${markdown(spec.content || "")}</article>
         </section>
         <section class="panel">
-          <div class="panel-header"><div><div class="panel-title">Task plan</div><div class="panel-hint">Phase 0 → STANDARD work Tasks → final docs/knowledge/full review</div></div></div>
+          <div class="panel-header"><div><div class="panel-title">Task plan</div><div class="panel-hint">Phase 0 → STANDARD work Tasks → final docs/knowledge/full review; максимум 10 строк</div></div></div>
           ${plan(epic.plan || [])}
         </section>
       </div>
       <div class="dashboard-side">
         <section class="panel">
-          <div class="panel-header"><div><div class="panel-title">Audits</div><div class="panel-hint">Каждый аудит привязан к точной версии спеки</div></div></div>
+          <div class="panel-header"><div><div class="panel-title">Audits</div><div class="panel-hint">Последние 10 аудитов точной версии спеки</div></div></div>
           ${audits(epic.audits || [])}
         </section>
         <section class="panel">
-          <div class="panel-header"><div><div class="panel-title">Spec history</div><div class="panel-hint">Approved baseline никогда не переписывается молча</div></div></div>
-          <div class="stage-list">${versions.map((item) => `<div class="stage-row"><div class="stage-index">v${escapeHtml(item.version)}</div><div class="stage-body"><div class="stage-title">${escapeHtml(item.source || "revision")}</div><div class="stage-summary">${escapeHtml(item.change_summary || "—")}</div><div class="stage-foot">${escapeHtml(item.rationale || "")}</div></div></div>`).join("") || `<div class="empty">Нет истории версий</div>`}</div>
+          <div class="panel-header"><div><div class="panel-title">Spec history</div><div class="panel-hint">Последние 10 immutable revisions</div></div></div>
+          <div class="stage-list">${visibleVersions.map((item) => `<div class="stage-row"><div class="stage-index">v${escapeHtml(item.version)}</div><div class="stage-body"><div class="stage-title">${escapeHtml(item.source || "revision")}</div><div class="stage-summary">${escapeHtml(item.change_summary || "—")}</div><div class="stage-foot">${escapeHtml(item.rationale || "")}</div></div></div>`).join("") || `<div class="empty">Нет истории версий</div>`}${versions.length > 10 ? `<div class="table-caption">Показаны 10 последних из ${escapeHtml(versions.length)} версий</div>` : ""}</div>
         </section>
       </div>
     </div>`;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI Layer Dashboard — Задачи и Epics</title>
+  <title>AI Layer Dashboard</title>
   <link rel="stylesheet" href="/dashboard-assets/css/app.css">
   <link rel="stylesheet" href="/dashboard-assets/css/epics.css">
 </head>
@@ -11,34 +11,45 @@
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">AI</div>
+        <div class="brand-mark" aria-hidden="true">AI</div>
         <div>
           <div class="brand-title">AI Layer</div>
-          <div class="brand-subtitle">Панель управления</div>
+          <div class="brand-subtitle">Локальная система</div>
         </div>
       </div>
+
       <nav class="nav" aria-label="Основная навигация">
-        <a class="nav-item" href="#/overview" data-route="overview">Обзор</a>
+        <a class="nav-item" href="#/overview" data-route="overview"><span class="nav-icon">◫</span><span>Обзор</span></a>
+        <a class="nav-item" href="#/tasks" data-route="tasks"><span class="nav-icon">✓</span><span>Задачи</span></a>
+        <a class="nav-item" href="#/skills" data-route="skills"><span class="nav-icon">◇</span><span>Скиллы</span></a>
+        <a class="nav-item" href="#/rules" data-route="rules"><span class="nav-icon">≡</span><span>Правила</span></a>
+        <a class="nav-item" href="#/knowledge" data-route="knowledge"><span class="nav-icon">▤</span><span>База знаний</span></a>
+        <a class="nav-item" href="#/monitoring" data-route="monitoring"><span class="nav-icon">⌁</span><span>Мониторинг</span></a>
+        <a class="nav-item" href="#/activity" data-route="activity"><span class="nav-icon">↻</span><span>Активность</span></a>
+
         <div class="nav-section">Проекты</div>
         <div id="project-nav" class="project-nav"></div>
-        <div class="nav-section">Epics</div>
-        <span class="nav-item disabled">Открываются внутри проекта</span>
       </nav>
+
       <div class="sidebar-footer">
-        <span id="connection-dot" class="status-dot"></span>
-        <span id="connection-label">Подключение…</span>
+        <div class="connection-line">
+          <span id="connection-dot" class="status-dot"></span>
+          <span id="connection-label">Подключение…</span>
+        </div>
+        <div id="sidebar-version" class="sidebar-version">AI Layer</div>
       </div>
     </aside>
 
     <main class="main">
       <header class="topbar">
-        <div>
-          <h1 id="page-title">Обзор</h1>
+        <div class="topbar-copy">
+          <h1 id="page-title">Обзор системы</h1>
           <p id="page-subtitle">Текущие задачи, стадии и состояние AI Layer</p>
         </div>
         <div class="topbar-actions">
+          <span class="system-state"><span class="status-dot online"></span><span>Локально</span></span>
           <span id="updated-at" class="muted">—</span>
-          <button id="refresh-button" type="button" class="button">Обновить</button>
+          <button id="refresh-button" type="button" class="button">↻&nbsp; Обновить</button>
         </div>
       </header>
       <section id="app" class="content" aria-live="polite"></section>

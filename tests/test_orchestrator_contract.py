@@ -38,6 +38,7 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
 
     assert "AI Layer orchestrator" in global_text
     assert "Top-level coordinates" in global_text
+    assert "no external mutation" in global_text
     assert "never edit repository files" in global_text
     assert "IMPLEMENT/FIX -> bound writable worker" in global_text
     assert "DISCOVERY/REVIEW -> bound read-only worker" in global_text

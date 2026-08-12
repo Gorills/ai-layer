@@ -30,6 +30,10 @@ def test_runtime_contract_names_current_control_plane_surfaces() -> None:
     assert contract["managed_work"]["epic_resume"] == "epic_next"
     assert contract["legacy"]["memory_context"] == "compatibility_only"
     assert contract["legacy"]["memory_search"] == "alias_of_knowledge_search"
+    precedence = contract["precedence"]
+    assert precedence.index("current AI Layer runtime/tool contracts") < precedence.index(
+        "stored Task/Epic prose and historical documentation"
+    )
 
 
 def test_bootstrap_and_static_policy_do_not_restore_legacy_permission_layer() -> None:

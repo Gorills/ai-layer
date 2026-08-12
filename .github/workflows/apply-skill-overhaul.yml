@@ -27,12 +27,38 @@ jobs:
           cat scripts/.skill-overhaul-payload/part-*.txt | base64 --decode > /tmp/skill-overhaul.tar.xz
           echo "2e30aaa02fb846aeab30c2d90d62552662430200b2fb01803aeba71b4247a8db  /tmp/skill-overhaul.tar.xz" | sha256sum --check
           tar -xJf /tmp/skill-overhaul.tar.xz
+      - name: Fix bounded core clipping exposed by deep skills
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/ai_layer/skills/service.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''    content = "\\n\\n".join(chunks).strip() or str(skill.get("content") or "").strip()
+    if len(content) <= max_chars:
+        return content
+    return content[: max_chars - 45].rstrip() + "\\n...[skill core clipped; use skill_get section]"
+'''
+          new = '''    content = "\\n\\n".join(chunks).strip() or str(skill.get("content") or "").strip()
+    if max_chars <= 0:
+        return ""
+    if len(content) <= max_chars:
+        return content
+    suffix = "\\n...[skill core clipped; use skill_get section]"
+    if len(suffix) >= max_chars:
+        return content[:max_chars]
+    return content[: max_chars - len(suffix)].rstrip() + suffix
+'''
+          if old not in text:
+              raise SystemExit("skill_core_content clipping block no longer matches expected baseline")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
       - name: Install development dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]'
       - name: Format changed Python files
-        run: ruff format scripts/skill_gate.py tests/test_skill_quality_gate.py
+        run: ruff format scripts/skill_gate.py src/ai_layer/skills/service.py tests/test_skill_quality_gate.py tests/test_skill_core_limits.py
       - name: Acknowledge reviewed governance change
         run: python scripts/governance_gate.py --write-baseline
       - name: Refresh deterministic wheel
@@ -51,7 +77,8 @@ jobs:
           manifest["notes"] = (
               "0.12.2 refreshes all 43 bundled project skills into deep, selectively retrievable "
               "professional playbooks, adds executable depth and distinctiveness quality floors, "
-              "and refreshes the deterministic wheel. No schema or Task/Epic transition semantics changed."
+              "fixes strict core-content clipping, and refreshes the deterministic wheel. "
+              "No schema or Task/Epic transition semantics changed."
           )
           manifest_path.write_text(
               json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
@@ -63,7 +90,7 @@ jobs:
           rm -rf scripts/.skill-overhaul-payload
           rm -f .github/workflows/apply-skill-overhaul.yml
       - name: Targeted skill quality tests
-        run: python -m pytest tests/test_skill_quality_gate.py tests/test_skills.py tests/test_native_skills.py -q
+        run: python -m pytest tests/test_skill_quality_gate.py tests/test_skill_core_limits.py tests/test_skills.py tests/test_native_skills.py -q
       - name: Canonical quality
         run: make quality
       - name: Diff hygiene

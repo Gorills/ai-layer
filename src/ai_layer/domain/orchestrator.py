@@ -31,6 +31,24 @@ def critical_orchestrator_contract() -> dict[str, Any]:
     }
 
 
+def managed_orchestrator_contract() -> dict[str, Any]:
+    """Coordinator boundary that applies only while an explicit managed Task is active."""
+    return {
+        "version": CRITICAL_ORCHESTRATOR_CONTRACT_VERSION,
+        "role": "orchestrator",
+        "authority": "managed_task_coordination",
+        "repository_mutation": "forbidden",
+        "external_mutation": "forbidden",
+        "scope": "active_managed_task_only",
+        "worker_rule": (
+            "Delegated IMPLEMENT/FIX belongs to the bound writable worker; delegated DISCOVERY/REVIEW "
+            "belongs to the bound read-only worker."
+        ),
+        "evidence_rule": "Record actual worker/check evidence only; never fabricate stage execution.",
+        "exit_rule": "The global host-native execution contract resumes outside this managed Task.",
+    }
+
+
 def critical_orchestrator_markdown() -> str:
     return """## AI Layer control-plane boundary
 
@@ -42,6 +60,7 @@ AI Layer provides Project Intelligence, durable work state, professional skills,
 - Use `knowledge_search` for reviewed project facts/invariants and `decision_search` for architectural history only when they are relevant. They are not substitutes for current source.
 - Native read/edit/search/shell/test/subagent capabilities remain available. AI Layer does not grant per-edit permission and must not replace the host's own agent loop.
 - Existing managed Tasks and Epics remain durable workflows. When `project_status` reports one as the current focus, or when the user explicitly chooses managed execution, use `task_next` / `epic_next` and follow that workflow's strict contracts.
+- Never stash, reset, restore, discard or commit user changes merely to satisfy AI Layer; a dirty worktree is valid project state.
 - If AI Layer state/index retrieval fails, disclose the missing context and continue with native source inspection when safe. Never fabricate Task/Epic/Knowledge state.
 """
 

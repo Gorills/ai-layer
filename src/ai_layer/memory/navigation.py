@@ -2,21 +2,31 @@ from __future__ import annotations
 
 import ast
 import re
-from collections import defaultdict
 from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_layer.db.models import Project, ProjectFile
+from ai_layer.db.models import Knowledge, Project, ProjectFile
 from ai_layer.memory.embeddings import get_embedder
 
+NAVIGATION_KIND = "project-navigation"
 MAX_SYMBOLS_PER_FILE = 80
 MAX_NAVIGATION_TEXT_CHARS = 6000
 MIN_PROJECT_SEARCH_SCORE = 0.10
 _TOKEN_RE = re.compile(r"[A-Za-zА-Яа-я0-9]+")
 _CAMEL_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
-_ROUTE_METHODS = {"get", "post", "put", "patch", "delete", "options", "head", "api_route", "websocket"}
+_ROUTE_METHODS = {
+    "get",
+    "post",
+    "put",
+    "patch",
+    "delete",
+    "options",
+    "head",
+    "api_route",
+    "websocket",
+}
 _STOP_WORDS = {
     "the",
     "and",
@@ -156,6 +166,8 @@ def _python_symbols(text: str) -> list[dict]:
                         signature=f"{child.name}({_python_args(child)})",
                     )
                 )
+                if len(result) >= MAX_SYMBOLS_PER_FILE:
+                    return result[:MAX_SYMBOLS_PER_FILE]
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             route = _python_route(node)
             result.append(
@@ -178,8 +190,18 @@ def _regex_symbols(text: str, language: str | None) -> list[dict]:
     if language in {"javascript", "typescript", "vue", "svelte"}:
         patterns = [
             ("class", re.compile(r"\bclass\s+([A-Za-z_$][\w$]*)")),
-            ("function", re.compile(r"\b(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)")),
-            ("function", re.compile(r"\b(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>")),
+            (
+                "function",
+                re.compile(
+                    r"\b(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)"
+                ),
+            ),
+            (
+                "function",
+                re.compile(
+                    r"\b(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>"
+                ),
+            ),
         ]
     elif language == "php":
         patterns = [
@@ -188,12 +210,18 @@ def _regex_symbols(text: str, language: str | None) -> list[dict]:
         ]
     elif language == "go":
         patterns = [
-            ("function", re.compile(r"\bfunc\s+(?:\([^)]*\)\s*)?([A-Za-z_][\w]*)\s*\(([^)]*)\)")),
+            (
+                "function",
+                re.compile(r"\bfunc\s+(?:\([^)]*\)\s*)?([A-Za-z_][\w]*)\s*\(([^)]*)\)"),
+            ),
             ("type", re.compile(r"\btype\s+([A-Za-z_][\w]*)\s+(?:struct|interface)\b")),
         ]
     elif language == "rust":
         patterns = [
-            ("function", re.compile(r"\b(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_][\w]*)\s*\(([^)]*)\)")),
+            (
+                "function",
+                re.compile(r"\b(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_][\w]*)\s*\(([^)]*)\)"),
+            ),
             ("type", re.compile(r"\b(?:pub\s+)?(?:struct|enum|trait)\s+([A-Za-z_][\w]*)")),
         ]
     elif language in {"java", "kotlin", "csharp", "cpp", "c"}:
@@ -257,13 +285,20 @@ def build_navigation_text(
     return "\n".join(lines)[:MAX_NAVIGATION_TEXT_CHARS]
 
 
-def build_navigation_metadata(
-    *, path: str, text: str, language: str | None, purpose: str, imports: list[str], risk_flags: list[str]
+def build_navigation_document(
+    *,
+    path: str,
+    text: str,
+    language: str | None,
+    purpose: str,
+    imports: list[str],
+    risk_flags: list[str],
 ) -> dict:
     symbols = extract_symbols(text, language)
     return {
-        "symbols": symbols,
-        "navigation_text": build_navigation_text(
+        "path": path,
+        "title": f"Project Map: {path}",
+        "content": build_navigation_text(
             path=path,
             language=language,
             purpose=purpose,
@@ -271,26 +306,45 @@ def build_navigation_metadata(
             risk_flags=risk_flags,
             symbols=symbols,
         ),
+        "meta": {
+            "schema": 1,
+            "path": path,
+            "language": language,
+            "purpose": purpose,
+            "imports": imports[:80],
+            "risk_flags": risk_flags[:40],
+            "symbols": symbols,
+            "provenance": "deterministic_navigation_metadata",
+        },
     }
 
 
+def _navigation_rows(db: Session, project: Project) -> list[Knowledge]:
+    return list(
+        db.scalars(
+            select(Knowledge)
+            .where(Knowledge.project_id == project.id, Knowledge.kind == NAVIGATION_KIND)
+            .order_by(Knowledge.source_path, Knowledge.id)
+        ).all()
+    )
+
+
 def project_map_status(db: Session, project: Project) -> dict:
-    rows = list(
+    files = list(
         db.scalars(
             select(ProjectFile)
             .where(ProjectFile.project_id == project.id)
             .order_by(ProjectFile.path)
         ).all()
     )
-    indexed = [row for row in rows if bool(row.indexed)]
+    navigation = _navigation_rows(db, project)
+    indexed = [row for row in files if bool(row.indexed)]
     return {
-        "files": len(rows),
+        "files": len(files),
         "indexed_files": len(indexed),
-        "symbol_count": sum(len(list(row.symbols or [])) for row in indexed),
-        "semantic_navigation_files": sum(
-            1 for row in indexed if getattr(row, "navigation_embedding", None) is not None
-        ),
-        "scanner_schema": max((int(row.scanner_schema or 0) for row in rows), default=0),
+        "navigation_files": len(navigation),
+        "symbol_count": sum(len(list((row.meta or {}).get("symbols") or [])) for row in navigation),
+        "scanner_schema": max((int(row.scanner_schema or 0) for row in files), default=0),
         "contract": (
             "Project Map stores navigation metadata (paths, symbols, imports and compact purposes), not source bodies. "
             "Current repository source remains authoritative."
@@ -298,11 +352,20 @@ def project_map_status(db: Session, project: Project) -> dict:
     }
 
 
-def _lexical_score(row: ProjectFile, query: str, query_tokens: set[str]) -> tuple[float, list[str], list[dict]]:
+def _lexical_score(
+    row: ProjectFile,
+    navigation_meta: dict,
+    query: str,
+    query_tokens: set[str],
+) -> tuple[float, list[str], list[dict]]:
     path = str(row.path or "")
-    purpose = str(row.purpose or "")
-    imports = [str(item) for item in list(row.imports or [])]
-    symbols = [dict(item) for item in list(row.symbols or []) if isinstance(item, dict)]
+    purpose = str(navigation_meta.get("purpose") or row.purpose or "")
+    imports = [str(item) for item in list(navigation_meta.get("imports") or row.imports or [])]
+    symbols = [
+        dict(item)
+        for item in list(navigation_meta.get("symbols") or [])
+        if isinstance(item, dict)
+    ]
     path_tokens = _tokens(path)
     purpose_tokens = _tokens(purpose)
     import_tokens = _tokens(" ".join(imports))
@@ -364,7 +427,12 @@ def _related_tests(rows: list[ProjectFile], top_hits: list[dict], *, limit: int 
     for row in rows:
         path = str(row.path or "")
         name = Path(path).name.casefold()
-        is_test = "test" in Path(path).parts or name.startswith("test_") or ".test." in name or ".spec." in name
+        is_test = (
+            "test" in Path(path).parts
+            or name.startswith("test_")
+            or ".test." in name
+            or ".spec." in name
+        )
         if not is_test:
             continue
         overlap = len(interest & _tokens(path))
@@ -382,42 +450,38 @@ def search_project_map(
         raise ValueError("project_search: `query` is required")
     limit = max(1, min(int(limit), 20))
     query_tokens = _tokens(query)
-    rows = list(
+    files = list(
         db.scalars(
             select(ProjectFile)
             .where(ProjectFile.project_id == project.id, ProjectFile.indexed.is_(True))
             .order_by(ProjectFile.path)
         ).all()
     )
+    navigation = _navigation_rows(db, project)
+    nav_by_path = {str(row.source_path or ""): row for row in navigation if row.source_path}
     semantic_scores: dict[str, float] = {}
-    semantic_available = any(
-        getattr(row, "navigation_embedding", None) is not None for row in rows
-    )
-    if semantic_available:
-        vector = get_embedder().embed([query])
-        if len(vector) != 1:
+    if navigation:
+        vectors = get_embedder().embed([query])
+        if len(vectors) != 1:
             raise RuntimeError("Embedding provider returned an incomplete Project Map query vector.")
         candidates = db.execute(
-            select(
-                ProjectFile,
-                ProjectFile.navigation_embedding.cosine_distance(vector[0]).label("distance"),
-            )
-            .where(
-                ProjectFile.project_id == project.id,
-                ProjectFile.indexed.is_(True),
-                ProjectFile.navigation_embedding.is_not(None),
-            )
+            select(Knowledge, Knowledge.embedding.cosine_distance(vectors[0]).label("distance"))
+            .where(Knowledge.project_id == project.id, Knowledge.kind == NAVIGATION_KIND)
             .order_by("distance")
             .limit(max(40, limit * 8))
         ).all()
         for row, distance in candidates:
-            semantic_scores[str(row.path)] = max(
-                0.0, 1.0 - float(distance if distance is not None else 1.0)
-            )
+            path = str(row.source_path or "")
+            if path:
+                semantic_scores[path] = max(
+                    0.0, 1.0 - float(distance if distance is not None else 1.0)
+                )
 
     ranked: list[dict] = []
-    for row in rows:
-        lexical, reasons, matched_symbols = _lexical_score(row, query, query_tokens)
+    for row in files:
+        nav = nav_by_path.get(str(row.path))
+        meta = dict(nav.meta or {}) if nav is not None else {}
+        lexical, reasons, matched_symbols = _lexical_score(row, meta, query, query_tokens)
         semantic = semantic_scores.get(str(row.path), 0.0)
         score = min(1.0, semantic * 0.60 + lexical * 0.40)
         if lexical >= 0.45:
@@ -427,16 +491,18 @@ def search_project_map(
         if semantic > 0:
             reasons.append("semantic navigation metadata match")
         symbols = matched_symbols or [
-            dict(item) for item in list(row.symbols or [])[:6] if isinstance(item, dict)
+            dict(item)
+            for item in list(meta.get("symbols") or [])[:6]
+            if isinstance(item, dict)
         ]
         ranked.append(
             {
                 "path": row.path,
-                "language": row.language,
-                "purpose": row.purpose,
+                "language": meta.get("language") or row.language,
+                "purpose": meta.get("purpose") or row.purpose,
                 "symbols": symbols[:8],
-                "imports": list(row.imports or [])[:10],
-                "risk_flags": list(row.risk_flags or [])[:8],
+                "imports": list(meta.get("imports") or row.imports or [])[:10],
+                "risk_flags": list(meta.get("risk_flags") or row.risk_flags or [])[:8],
                 "score": round(score, 4),
                 "semantic_score": round(semantic, 4) if semantic else None,
                 "lexical_score": round(lexical, 4),
@@ -448,9 +514,9 @@ def search_project_map(
     return {
         "query": query,
         "matches": hits,
-        "related_tests": _related_tests(rows, hits),
+        "related_tests": _related_tests(files, hits),
         "map": project_map_status(db, project),
-        "search_mode": "hybrid_metadata" if semantic_available else "lexical_metadata",
+        "search_mode": "hybrid_metadata" if navigation else "lexical_metadata",
         "source_contract": (
             "Use these results as breadcrumbs. Open only the relevant current source with host-native tools before making code-truth claims or edits."
         ),

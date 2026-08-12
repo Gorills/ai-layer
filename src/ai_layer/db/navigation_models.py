@@ -31,7 +31,7 @@ class ProjectNavigation(Base):
     navigation_text: Mapped[str] = mapped_column(Text)
     content_sha256: Mapped[str] = mapped_column(String(64))
     scanner_schema: Mapped[int] = mapped_column(Integer, default=1)
-    embedding: Mapped[list[float]] = mapped_column(VECTOR(384))
+    embedding: Mapped[list[float] | None] = mapped_column(VECTOR(384), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )

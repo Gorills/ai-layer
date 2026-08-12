@@ -45,6 +45,17 @@ def _epic_context(project_root: str | Path) -> dict:
             if execution
             else None
         ),
+        "open": [
+            {
+                "key": item.get("key"),
+                "title": item.get("title"),
+                "status": item.get("status"),
+                "mode": (
+                    "execution" if item.get("status") in EPIC_EXECUTION_STATUSES else "design"
+                ),
+            }
+            for item in open_rows[:8]
+        ],
         "contract": "Informational only. Call epic_next explicitly when resuming a managed Epic.",
     }
 

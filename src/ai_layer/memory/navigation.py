@@ -59,11 +59,7 @@ _STOP_WORDS = {
 def _tokens(value: object) -> set[str]:
     text = _CAMEL_RE.sub(" ", str(value or ""))
     text = text.replace("_", " ").replace("-", " ").casefold()
-    return {
-        token
-        for token in _TOKEN_RE.findall(text)
-        if len(token) >= 2 and token not in _STOP_WORDS
-    }
+    return {token for token in _TOKEN_RE.findall(text) if len(token) >= 2 and token not in _STOP_WORDS}
 
 
 def _symbol(
@@ -192,9 +188,7 @@ def _regex_symbols(text: str, language: str | None) -> list[dict]:
             ("type", re.compile(r"\b(?:pub\s+)?(?:struct|enum|trait)\s+([A-Za-z_][\w]*)")),
         ]
     elif language in {"java", "kotlin", "csharp", "cpp", "c"}:
-        patterns = [
-            ("type", re.compile(r"\b(?:class|interface|struct|enum)\s+([A-Za-z_][\w]*)"))
-        ]
+        patterns = [("type", re.compile(r"\b(?:class|interface|struct|enum)\s+([A-Za-z_][\w]*)"))]
 
     result: list[dict] = []
     seen: set[tuple[str, str, int]] = set()
@@ -257,7 +251,9 @@ def build_navigation_document(
 def project_map_status(db: Session, project: Project) -> dict:
     files = list(db.scalars(select(ProjectFile).where(ProjectFile.project_id == project.id)).all())
     navigation = list(
-        db.scalars(select(ProjectNavigation).where(ProjectNavigation.project_id == project.id)).all()
+        db.scalars(
+            select(ProjectNavigation).where(ProjectNavigation.project_id == project.id)
+        ).all()
     )
     return {
         "files": len(files),
@@ -343,7 +339,9 @@ def search_project_map(db: Session, project: Project, query: str, *, limit: int 
     if rows:
         vectors = get_embedder().embed([query])
         if len(vectors) != 1:
-            raise RuntimeError("Embedding provider returned an incomplete Project Map query vector.")
+            raise RuntimeError(
+                "Embedding provider returned an incomplete Project Map query vector."
+            )
         candidates = db.execute(
             select(
                 ProjectNavigation,

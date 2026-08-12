@@ -30,7 +30,7 @@ from ai_layer.tasks.navigation import (
     _latest_resumable_stage,
     _safe_git_changes,
     cleanup_current_review_sandbox,
-    next_task_action,
+    next_task_action as _next_task_action,
     prepare_current_review_sandbox,
     run_current_review_check,
 )
@@ -62,7 +62,7 @@ from ai_layer.tasks.views import (
     _stage_payload,
     _stages,
     _validate_worker_id,
-    current_task,
+    current_task as _current_task,
     task_to_dict,
 )
 from ai_layer.tasks.worker_leases import recover_disconnected_worker
@@ -89,3 +89,21 @@ _git_changed_paths = _workspace_repository.git_changed_paths
 _git_visible_paths = _workspace_repository.git_visible_paths
 _hash_file = _workspace_repository.hash_file
 _repository_files = _workspace_repository.repository_files
+
+
+def _managed_contract(result: dict) -> dict:
+    """Managed Task responses keep their strict coordinator boundary without affecting global native mode."""
+    from ai_layer.domain.orchestrator import managed_orchestrator_contract
+
+    result = dict(result)
+    if result.get("active"):
+        result["orchestrator_contract"] = managed_orchestrator_contract()
+    return result
+
+
+def current_task(db, project, *args, **kwargs):
+    return _managed_contract(_current_task(db, project, *args, **kwargs))
+
+
+def next_task_action(db, project, *args, **kwargs):
+    return _managed_contract(_next_task_action(db, project, *args, **kwargs))

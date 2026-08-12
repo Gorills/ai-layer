@@ -64,6 +64,12 @@ def _tokens(value: object) -> set[str]:
     }
 
 
+def semantic_score_from_distance(distance: float | None) -> float:
+    """Convert cosine distance to a bounded similarity without treating zero as missing."""
+    value = 1.0 if distance is None else float(distance)
+    return max(0.0, min(1.0, 1.0 - value))
+
+
 def _symbol(
     name: str,
     kind: str,
@@ -354,7 +360,7 @@ def search_project_map(db: Session, project: Project, query: str, *, limit: int 
             .limit(max(40, limit * 8))
         ).all()
         for row, distance in candidates:
-            semantic_scores[row.path] = max(0.0, 1.0 - float(distance or 1.0))
+            semantic_scores[row.path] = semantic_score_from_distance(distance)
 
     ranked: list[dict] = []
     for row in rows:

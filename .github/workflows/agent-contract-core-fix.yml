@@ -1,0 +1,28 @@
+name: agent-contract-core-fix
+
+on:
+  push:
+    branches:
+      - audit/agent-facing-contracts
+    paths:
+      - .github/workflows/agent-contract-core-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/agent-facing-contracts
+      - run: python scripts/agent_contract_core_fix_once.py
+      - name: Commit patch
+        run: |
+          rm -f scripts/agent_contract_core_fix_once.py .github/workflows/agent-contract-core-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: remove stale agent-facing Task and bootstrap semantics"
+          git push origin HEAD:audit/agent-facing-contracts

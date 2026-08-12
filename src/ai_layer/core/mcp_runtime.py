@@ -71,6 +71,7 @@ LONG_TOOLS = {
     "skill_install",
     "skill_update",
     "knowledge_draft_upsert",
+    "project_map_reconcile",
 }
 
 # These calls may be safely issued again after a post-dispatch transport timeout. Some of them

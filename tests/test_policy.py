@@ -1,4 +1,4 @@
-from ai_layer.core.static_policy import (
+from ai_layer.domain.static_policy import (
     MAX_FINAL_WORDS,
     SIMPLE_FINAL_WORDS,
     STATIC_POLICY_RULES,

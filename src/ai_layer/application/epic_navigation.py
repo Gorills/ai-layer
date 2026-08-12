@@ -25,6 +25,7 @@ from ai_layer.application.epic_task_boundary import accepted_task_identity
 from ai_layer.db.epic_models import Epic, EpicPlanItem
 from ai_layer.db.models import Project, RuntimeEvent, Task, utcnow
 from ai_layer.db.session import session_scope
+from ai_layer.domain.project_map import project_map_capability_contract
 from ai_layer.tasks.constants import OPEN_TASK_STATUSES
 from ai_layer.tasks.views import task_to_dict
 
@@ -65,14 +66,32 @@ def _final_closure_evidence(db: Session, task: Task) -> dict:
     }
 
 
+def _project_map_reconciliation_action(task: Task, evidence: dict) -> dict:
+    source_task_key = f"T-{int(task.sequence):04d}"
+    return {
+        "action": "reconcile_project_map",
+        "tool": "project_map_reconcile",
+        "source_task_key": source_task_key,
+        "required": ["scope_paths", "source_task_key"],
+        "task_changed_paths": list(evidence.get("changed_paths") or [])[:120],
+        "message": (
+            "The final Task is already completed and its documentation/Project Knowledge evidence is sufficient. "
+            "Only Project Map reconciliation is missing; do NOT create another implementation/review Task. "
+            "Project Map is AI Layer's reusable navigation index. Inspect the relevant current-source scope "
+            "and existing breadcrumbs as needed, then call project_map_reconcile with this completed Task key "
+            "and non-empty checked scope_paths. Add only semantic entries actually established from source; "
+            "if existing map semantics are already accurate, use no_changes_reason. Then call epic_next again."
+        ),
+        "project_map": project_map_capability_contract(source_task_key=source_task_key),
+    }
+
+
 def _complete_final_item(db: Session, project: Project, epic: Epic, task: Task) -> dict:
     evidence = _final_closure_evidence(db, task)
-    complete = (
-        evidence["docs_updated"]
-        and evidence["knowledge_published"] > 0
-        and evidence["project_map_reconciled"]
-    )
-    if complete:
+    docs_ready = bool(evidence["docs_updated"])
+    knowledge_ready = evidence["knowledge_published"] > 0
+    map_ready = bool(evidence["project_map_reconciled"])
+    if docs_ready and knowledge_ready and map_ready:
         epic.status = "completed"
         epic.completed_at = utcnow()
         epic.blocked_reason = ""
@@ -84,6 +103,14 @@ def _complete_final_item(db: Session, project: Project, epic: Epic, task: Task) 
             {"final_task": f"T-{int(task.sequence):04d}", **evidence},
         )
         return {"state": "completed", "closure": evidence}
+    if docs_ready and knowledge_ready and not map_ready:
+        epic.status = "final_review"
+        epic.blocked_reason = ""
+        return {
+            "state": "awaiting_project_map",
+            "closure": evidence,
+            "next_action": _project_map_reconciliation_action(task, evidence),
+        }
     retry_final_item(db, epic, evidence)
     epic.status = "final_review"
     epic.blocked_reason = ""
@@ -114,13 +141,20 @@ def _sync_active_item(db: Session, project: Project, epic: Epic) -> dict | None:
         epic.status = "blocked"
         epic.blocked_reason = f"Linked Task ended in unsupported status {task.status}"
         return {"state": "blocked"}
-    active.status = "completed"
-    active.completed_at = task.completed_at or utcnow()
     identity = accepted_task_identity(db, task)
     epic.execution_digest = identity["digest"]
     epic.execution_files = identity["file_count"]
     if active.kind == "final":
-        return _complete_final_item(db, project, epic, task)
+        result = _complete_final_item(db, project, epic, task)
+        if result.get("state") == "awaiting_project_map":
+            active.status = "active"
+            active.completed_at = None
+            return result
+        active.status = "completed"
+        active.completed_at = task.completed_at or utcnow()
+        return result
+    active.status = "completed"
+    active.completed_at = task.completed_at or utcnow()
     append_epic_event(
         db,
         project,
@@ -280,6 +314,8 @@ def _running_navigation(db: Session, project: Project, epic: Epic) -> dict:
     db.flush()
     if sync and sync.get("state") == "task_open":
         return {"action": "continue_task", "tool": "task_next", "task": sync["task"]}
+    if sync and sync.get("state") == "awaiting_project_map":
+        return dict(sync["next_action"])
     if epic.status == "completed":
         return {"action": "archive", "tool": "epic_archive"}
     if epic.status == "blocked":
@@ -436,7 +472,13 @@ def next_action(project_root: str | Path, *, key: str) -> dict:
         epic = epic_for_update(db, project, key)
         action = _navigation_action(db, project, epic)
         db.flush()
+        source_task_key = (
+            str(action.get("source_task_key") or "")
+            if action.get("tool") == "project_map_reconcile"
+            else None
+        )
         return {
             "epic": epic_payload(db, epic, include_spec=False, include_history=False),
             "next_action": action,
+            "project_map": project_map_capability_contract(source_task_key=source_task_key or None),
         }

@@ -6,7 +6,7 @@ from uuid import uuid4
 import ai_layer.application.epic_navigation as navigation
 
 
-def test_final_epic_closure_requires_project_map_reconciliation(monkeypatch):
+def test_final_epic_closure_waits_for_project_map_without_retrying_task(monkeypatch):
     evidence = {
         "docs_updated": True,
         "knowledge_published": 2,
@@ -33,8 +33,44 @@ def test_final_epic_closure_requires_project_map_reconciliation(monkeypatch):
     epic = SimpleNamespace(status="final_review", blocked_reason="", completed_at=None)
     task = SimpleNamespace(sequence=9)
     result = navigation._complete_final_item(object(), object(), epic, task)
-    assert result["state"] == "final_retry"
+    assert result["state"] == "awaiting_project_map"
     assert epic.status == "final_review"
+    assert retries == []
+    assert events == []
+    assert result["next_action"]["tool"] == "project_map_reconcile"
+    assert result["next_action"]["source_task_key"] == "T-0009"
+    assert result["next_action"]["project_map"]["update"]["tool"] == "project_map_reconcile"
+    assert "do NOT create another implementation/review Task" in result["next_action"]["message"]
+
+
+def test_final_epic_closure_still_retries_when_docs_or_knowledge_are_missing(monkeypatch):
+    evidence = {
+        "docs_updated": False,
+        "knowledge_published": 0,
+        "project_map_reconciled": False,
+        "project_map_updated": 0,
+        "project_map_removed": 0,
+        "project_map_scope_paths": [],
+        "project_map_no_changes_reason": "",
+        "changed_paths": [],
+    }
+    retries = []
+    events = []
+    monkeypatch.setattr(navigation, "_final_closure_evidence", lambda db, task: evidence)
+    monkeypatch.setattr(
+        navigation,
+        "retry_final_item",
+        lambda db, epic, closure: retries.append(dict(closure)),
+    )
+    monkeypatch.setattr(
+        navigation,
+        "append_epic_event",
+        lambda db, project, epic, event_type, payload: events.append(event_type),
+    )
+    epic = SimpleNamespace(status="final_review", blocked_reason="", completed_at=None)
+    task = SimpleNamespace(sequence=9)
+    result = navigation._complete_final_item(object(), object(), epic, task)
+    assert result["state"] == "final_retry"
     assert retries == [evidence]
     assert events == ["EpicFinalReviewRetryRequired"]
 

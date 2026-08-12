@@ -144,23 +144,38 @@ def memory_context(
     project_root: str | None = None,
     limit: int = 4,
 ) -> dict:
-    """Legacy composite context helper. It is no longer a workflow gate. Prefer project_status first, then project_search/knowledge_search/decision_search only when needed."""
+    """Legacy compatibility helper. Without task/query it serves project_status; otherwise it returns a compact knowledge brief. Prefer focused Project Intelligence tools."""
     root = project_root_for_tool(project_root, tool="memory_context")
     current_task = (task or query or "").strip()
-    if not current_task:
-        raise ValueError(
-            'memory_context: `task` is required. Example: memory_context(task="Fix duplicate payment creation", project_root="<workspace>").'
-        )
-    keys = ["task" if task else "query", "limit"] + (["project_root"] if project_root else [])
+    keys = (["task"] if task else (["query"] if query else [])) + ["limit"]
+    if project_root:
+        keys.append("project_root")
     with mcp_audit(root, "memory_context", arg_keys=keys) as audit:
         with session_scope() as db:
             project = _project(db, root)
+            if not current_task:
+                result = dict(get_project_status(db, project))
+                result["compatibility"] = {
+                    "requested_tool": "memory_context",
+                    "served_as": "project_status",
+                    "reason": (
+                        "No task/query was supplied. memory_context is legacy; project_status is the current "
+                        "startup and continuation surface."
+                    ),
+                }
+                bind_project_root(root)
+                audit["metrics"] = {
+                    "legacy_composite": False,
+                    "served_as": "project_status",
+                }
+                return _scoped(result, root)
+
             result = build_memory_context(db, project, current_task, max(1, min(limit, 12)))
-            brief = result.get("task_brief") or {}
+            hints = list(result.get("knowledge_hints") or [])
             audit["metrics"] = {
-                "knowledge_hits": len(brief.get("verified_knowledge") or []),
-                "history_hits": len(brief.get("relevant_history") or []),
+                "knowledge_hits": len(hints),
                 "legacy_composite": True,
+                "compact_compatibility": True,
             }
             return _scoped(result, root)
 

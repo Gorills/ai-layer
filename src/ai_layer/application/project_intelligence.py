@@ -6,6 +6,7 @@ from ai_layer.application import epics as epic_uc
 from ai_layer.application import tasks as task_uc
 from ai_layer.core.service import get_project
 from ai_layer.db.session import session_scope
+from ai_layer.domain.project_map import project_map_capability_contract
 from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES, EPIC_OPEN_STATUSES
 from ai_layer.memory.navigation import project_map_status, search_project_map
 from ai_layer.memory.project_map_search import merge_project_search, search_semantic_map
@@ -174,10 +175,7 @@ def project_status(project_root: str | Path) -> dict:
             "managed_workflow": (
                 "Use task_next/epic_next only when resuming or explicitly choosing a managed Task/Epic flow."
             ),
-            "project_map_enrichment": (
-                "After meaningful work, reconcile only navigation facts actually established from current source; "
-                "do not rescan unrelated areas or invent semantic descriptions."
-            ),
+            "project_map": project_map_capability_contract(),
         },
         "active": bool(focus),
     }

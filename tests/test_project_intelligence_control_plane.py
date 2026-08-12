@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ai_layer.agents.policy import DEFAULT_CURSOR_MODELS
+from ai_layer.application.context import _compact_legacy_context
 from ai_layer.core.mcp_runtime import (
     CONTEXT_TOOLS,
     FAST_TOOLS,
@@ -9,6 +10,7 @@ from ai_layer.core.mcp_runtime import (
     tool_runtime_class,
 )
 from ai_layer.domain.orchestrator import native_bootstrap_markdown
+from ai_layer.domain.project_map import project_map_capability_contract
 from ai_layer.memory.navigation import (
     build_navigation_document,
     extract_symbols,
@@ -57,11 +59,83 @@ def test_bootstrap_uses_status_and_project_map_without_disabling_native_executio
     bootstrap = native_bootstrap_markdown()
     assert "project_status" in bootstrap
     assert "project_search" in bootstrap
+    assert "project_map_reconcile" in bootstrap
     assert "knowledge_search" in bootstrap
     assert "host-native" in bootstrap
     assert "native reads, edits, shell, tests, code search and subagents are allowed" in bootstrap
     assert "first project-related tool call MUST be `memory_context" not in bootstrap
     assert "The top-level chat is the orchestrator, not an implementation worker" not in bootstrap
+
+
+def test_project_map_contract_is_dynamic_and_explicit_for_old_workflows():
+    contract = project_map_capability_contract(source_task_key="T-0042")
+    assert contract["read"]["tool"] == "project_search"
+    assert contract["update"]["tool"] == "project_map_reconcile"
+    assert contract["update"]["source_task_key"] == "T-0042"
+    assert contract["update"]["required"] == ["scope_paths", "source_task_key"]
+    assert "domain_terms" in contract["update"]["entry_fields"]
+    assert "no_changes_reason" in contract["update"]["optional"]
+
+
+def test_application_memory_context_compacts_legacy_composite_payload():
+    legacy = {
+        "project": {"name": "alia", "root_path": "/repo", "profile": {"framework": "legacy"}},
+        "knowledge_state": {
+            "verified": 5,
+            "stale": 20,
+            "draft": 0,
+            "baseline_ready": False,
+            "verified_categories": ["deployment"],
+        },
+        "task_brief": {
+            "verified_knowledge": [
+                {
+                    "key": "deployment",
+                    "title": "Deployment",
+                    "summary": "X" * 4000,
+                    "claims": ["must not leak"] * 20,
+                    "constraints": ["must not leak"] * 20,
+                    "source_pointers": [f"file-{i}.yml" for i in range(20)],
+                    "score": 0.8,
+                }
+            ]
+        },
+        "scanner_evidence": {"large": "Y" * 5000},
+        "freshness": {
+            "status": "refreshing",
+            "snapshot_available": True,
+            "background_refresh": True,
+            "refresh_job": "queued",
+            "scanner_evidence_withheld": True,
+        },
+        "task_runtime": {"huge": "runtime"},
+        "tool_guidance": {"huge": "guidance"},
+        "context_budget": {"huge": "budget"},
+        "response_contract": {"huge": "contract"},
+        "policy": "strict-private",
+    }
+    compact = _compact_legacy_context(legacy)
+    assert compact["compatibility"]["preferred_startup"] == "project_status"
+    assert compact["project_map"]["update"]["tool"] == "project_map_reconcile"
+    assert compact["preferred_calls"] == {
+        "state": "project_status",
+        "navigation": "project_search",
+        "map_update": "project_map_reconcile",
+        "knowledge": "knowledge_search",
+        "decisions": "decision_search",
+    }
+    assert len(compact["knowledge_hints"][0]["summary"]) == 700
+    assert len(compact["knowledge_hints"][0]["source_pointers"]) == 6
+    for removed in (
+        "task_brief",
+        "scanner_evidence",
+        "task_runtime",
+        "tool_guidance",
+        "context_budget",
+        "response_contract",
+    ):
+        assert removed not in compact
+    assert "must not leak" not in repr(compact)
 
 
 def test_project_intelligence_runtime_classes_are_explicit_and_replay_safe():

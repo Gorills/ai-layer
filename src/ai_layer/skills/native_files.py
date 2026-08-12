@@ -34,7 +34,7 @@ def descriptor_metadata(path: Path) -> dict[str, str] | None:
     except (OSError, UnicodeDecodeError):
         return None
     match = re.search(
-        r"<!-- AI-LAYER NATIVE SKILL v1 scope=(global|project) project=([^ ]+) canonical=([^ ]+) -->",
+        r"<!-- AI-LAYER NATIVE SKILL v(?:1|2) scope=(global|project) project=([^ ]+) canonical=([^ ]+) -->",
         content,
     )
     if not match:

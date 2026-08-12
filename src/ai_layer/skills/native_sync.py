@@ -49,8 +49,7 @@ def _publishable_catalog(
         "published": sorted(published),
         "published_count": len(published),
         "blocked": [
-            {"slug": slug, "issues": problems}
-            for slug, problems in sorted(blocked_by_slug.items())
+            {"slug": slug, "issues": problems} for slug, problems in sorted(blocked_by_slug.items())
         ],
         "blocked_count": len(blocked_by_slug),
     }
@@ -61,9 +60,7 @@ def sync_global_native_skills(*, home: Path | None = None) -> dict:
     skills = [skill for skill in list_skills() if skill.get("scope") == "global"]
     desired, validation = _publishable_catalog(skills)
     roots = global_native_roots(home)
-    synced = {
-        host: sync_native_root(path, desired, scope="global") for host, path in roots.items()
-    }
+    synced = {host: sync_native_root(path, desired, scope="global") for host, path in roots.items()}
     return {
         "descriptor_version": NATIVE_DESCRIPTOR_VERSION,
         "routing_owner": "host-native",
@@ -123,12 +120,8 @@ def sync_project_native_skills(project_root: str | Path, *, home: Path | None = 
     desired, validation = _project_skill_descriptors(root, external_scope=False)
     shared_target = root / ".agents" / "skills"
     claude_target = root / ".claude" / "skills"
-    shared_sync = sync_native_root(
-        shared_target, desired, scope="project", project_key=project_key
-    )
-    claude_sync = sync_native_root(
-        claude_target, desired, scope="project", project_key=project_key
-    )
+    shared_sync = sync_native_root(shared_target, desired, scope="project", project_key=project_key)
+    claude_sync = sync_native_root(claude_target, desired, scope="project", project_key=project_key)
     return {
         "mode": mode,
         "repository_writes": bool(desired),
@@ -145,9 +138,7 @@ def sync_project_native_skills(project_root: str | Path, *, home: Path | None = 
     }
 
 
-def sync_native_after_skill_change(
-    *, scope: str, project_root: str | Path | None = None
-) -> dict:
+def sync_native_after_skill_change(*, scope: str, project_root: str | Path | None = None) -> dict:
     if scope == "global":
         return sync_global_native_skills()
     if project_root is None:

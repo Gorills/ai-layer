@@ -50,9 +50,7 @@ def project_status(_scope: ApplicationScope, project: ProjectRef) -> dict:
     return intelligence_uc.project_status(project.root_path)
 
 
-def project_search(
-    _scope: ApplicationScope, project: ProjectRef, query: str, limit: int
-) -> dict:
+def project_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> dict:
     return intelligence_uc.project_search(project.root_path, query, limit)
 
 

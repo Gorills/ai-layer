@@ -40,14 +40,22 @@ def test_critical_orchestrator_contract_is_readable_mandatory_first_call_kernel(
     assert "MUST NOT edit repository files or mutate external systems" in global_text
     assert "`inline_micro_implement`" in global_text
     assert "IMPLEMENT and FIX stages belong to one explicitly bound writable worker" in global_text
-    assert "DISCOVERY and REVIEW stages belong to one explicitly bound read-only worker" in global_text
+    assert (
+        "DISCOVERY and REVIEW stages belong to one explicitly bound read-only worker" in global_text
+    )
     assert "must never perform a delegated stage as fallback" in global_text
     assert "STOP and report the blocker" in global_text
 
     assert "Mandatory startup and navigation" in global_text
     assert "FIRST project-related tool call MUST be `memory_context" in global_text
-    assert "Until `memory_context` succeeds, you MUST NOT read/search/grep project files" in global_text
-    assert "Do not bypass this rule for a small, obvious, read-only or diagnostic request" in global_text
+    assert (
+        "Until `memory_context` succeeds, you MUST NOT read/search/grep project files"
+        in global_text
+    )
+    assert (
+        "Do not bypass this rule for a small, obvious, read-only or diagnostic request"
+        in global_text
+    )
     assert "canonical project root returned by AI Layer" in global_text
     assert 'skill_get(slug="ai-layer-workflow"' in global_text
     assert 'section="core"' in global_text

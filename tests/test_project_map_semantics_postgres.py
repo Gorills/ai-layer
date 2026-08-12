@@ -9,11 +9,8 @@ from sqlalchemy.orm import Session
 
 from ai_layer.db.models import Project, RuntimeEvent
 from ai_layer.db.navigation_models import ProjectNavigation
-from ai_layer.memory.project_map_semantics import (
-    reconcile_project_map,
-    search_semantic_map,
-    semantic_map_status,
-)
+from ai_layer.memory.project_map_search import search_semantic_map
+from ai_layer.memory.project_map_semantics import reconcile_project_map, semantic_map_status
 
 POSTGRES_URL = os.getenv("AI_LAYER_TEST_POSTGRES_URL", "").strip()
 pytestmark = pytest.mark.postgres

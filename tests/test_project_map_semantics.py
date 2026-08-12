@@ -6,7 +6,8 @@ import pytest
 
 from ai_layer.db.navigation_models import ProjectNavigation
 from ai_layer.memory.navigation import _semantic_scores
-from ai_layer.memory.project_map_semantics import _normalize_entry, merge_project_search
+from ai_layer.memory.project_map_search import merge_project_search
+from ai_layer.memory.project_map_semantics import _normalize_entry
 
 
 def _navigation() -> ProjectNavigation:

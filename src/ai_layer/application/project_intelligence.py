@@ -8,12 +8,8 @@ from ai_layer.core.service import get_project
 from ai_layer.db.session import session_scope
 from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES, EPIC_OPEN_STATUSES
 from ai_layer.memory.navigation import project_map_status, search_project_map
-from ai_layer.memory.project_map_semantics import (
-    merge_project_search,
-    reconcile_project_map,
-    search_semantic_map,
-    semantic_map_status,
-)
+from ai_layer.memory.project_map_search import merge_project_search, search_semantic_map
+from ai_layer.memory.project_map_semantics import reconcile_project_map, semantic_map_status
 from ai_layer.memory.refresh_runtime import interactive_freshness
 from ai_layer.workspace.status import repository_runtime_status
 

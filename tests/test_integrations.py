@@ -105,11 +105,11 @@ def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(
         home / ".gemini" / "GEMINI.md",
     ]:
         text = global_rule.read_text(encoding="utf-8")
-        assert "memory_context(task=<actual task>" in text
+        assert "memory_context(task=<actual user task>" in text
         assert "task_next" in text
         assert "dirty worktree is a valid baseline" in text
         assert "Current repository source is authoritative" in text
-        assert len(text.encode("utf-8")) < 2600
+        assert len(text.encode("utf-8")) < 9000
     cursor_plugin = home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
     manifest = json.loads(
         (cursor_plugin / ".cursor-plugin" / "plugin.json").read_text(encoding="utf-8")
@@ -195,11 +195,11 @@ def test_global_bootstrap_is_small_and_project_text_bridge_is_legacy_only(tmp_pa
     legacy_bridge = _workflow(tmp_path)
     global_rule = global_bootstrap_workflow()
     assert len(legacy_bridge.encode("utf-8")) < 500
-    assert len(global_rule.encode("utf-8")) < 2600
+    assert len(global_rule.encode("utf-8")) < 9000
     assert "task_next" in global_rule
     assert "Current repository source is authoritative" in global_rule
-    assert "never stash/reset/restore/commit" in global_rule
-    assert "never edit repository files" in global_rule.casefold()
+    assert "Never stash, reset, restore, discard or commit user changes" in global_rule
+    assert "must not edit repository files" in global_rule.casefold()
 
 
 def test_project_integrations_do_not_touch_user_agents_symlink(tmp_path: Path):

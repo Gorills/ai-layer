@@ -52,6 +52,22 @@ If an Epic already exists, especially one created by an older AI Layer release, 
 
 - Project Map is navigation metadata, not Project Knowledge. Read it with `project_search`; update it with `project_map_reconcile` only for current-source scope actually inspected/understood.
 
+## Workflow
+
+Use the live state machine rather than reconstructing a workflow from memory:
+
+1. Start with `project_status` and identify whether the Epic is current focus or explicitly selected by the user.
+2. Call `epic_next` and follow exactly the returned action for the current Epic state.
+3. While DRAFT, refine the versioned specification and run independent spec audit when appropriate; obtain explicit human approval for the exact current version.
+4. When directed, run Phase 0 as the returned read-only `ANALYSIS_ONLY` managed Task. Follow `task_next` until that Task completes, then record reconciliation through the Epic tool returned by `epic_next`.
+5. After successful Phase 0, submit only ordered implementation work items. AI Layer owns the mandatory final closure item.
+6. For each started plan item, switch authority to its managed Task and follow `task_next` through IMPLEMENT/REVIEW/FIX/verification. Return to `epic_next` after terminal Task success.
+7. If the Epic reports intervening accepted work or unattributed repository drift, perform only the returned narrow impact review/reconciliation rather than inventing a broader audit.
+8. During final closure, satisfy the returned documentation, reviewed Project Knowledge and scoped Project Map evidence requirements. If only Project Map evidence is missing, reconcile against the already-completed final Task rather than creating another implementation Task.
+9. Archive only when `epic_next` returns the archive action.
+
+Every transition must come from the live runtime. Stored Epic prose describes intended product outcome/history; it does not override current tool semantics.
+
 ## Authoritative tools
 
 - `epic_create` — create DRAFT spec v1 after the outcome is understood.
@@ -92,6 +108,18 @@ If an Epic already exists, especially one created by an older AI Layer release, 
 
 - Archive only when `epic_next` returns archive. “All implementation tasks look done” is not sufficient closure evidence.
 
+## Evidence to inspect
+
+Use evidence proportionally to the current Epic state. Do not turn every Epic transition into a repository-wide audit.
+
+For specification/Phase 0 work, inspect current source paths that implement the intended behavior, relevant tests, schemas/migrations, configuration, integration boundaries, deployment/runtime constraints, and existing Project Knowledge/Decisions only when they materially affect the outcome. Use `project_search` to reduce discovery breadth when the location is unknown, then open current source before making code-truth claims.
+
+For implementation items, evidence comes from the linked managed Task: its actual repository delta, verification commands/results, worker provenance, review findings and remediation history. Do not substitute Epic summaries for Task evidence.
+
+For drift/intervening review, inspect only the accepted changed paths and the remaining Epic assumptions they could invalidate. For final closure, inspect the assembled cross-task result, required documentation changes, reviewed Knowledge publication evidence, and `ProjectMapReconciled` scope attached to the final Task.
+
+Historical Epic specs, sessions and documentation are useful rationale/context but cannot prove current code behavior. Scanner/Project Map metadata can guide navigation but is not source truth.
+
 ## Phase 0 reality audit
 
 Phase 0 answers whether the approved intended outcome still matches current source before implementation planning begins.
@@ -101,6 +129,16 @@ Inspect only evidence relevant to the Epic: current flows, architecture boundari
 The deliverable is a compact reconciliation result: confirmed assumptions, factual corrections, risks, and only genuine human decisions. Do not turn Phase 0 into an unbounded architecture rewrite or general repository audit.
 
 The Phase 0 Task is read-only `ANALYSIS_ONLY`. Its worker follows the managed Task delegation contract returned by `task_next`; the Epic coordinator does not edit source during that stage.
+
+## Implementation patterns
+
+Plan and execute Epics as ordered outcome slices through the existing managed Task engine. Prefer each implementation item to produce one independently verifiable coherent result rather than one task per file/layer.
+
+Stabilize true contracts before consumers when required: schema/API/interface seams first, behavior slices next, integration/hardening where the Epic acceptance criteria need them. Avoid speculative infrastructure, parallel abstractions, and vague “refactor as needed” items.
+
+Inside each item, let the managed Task engine own IMPLEMENT/REVIEW/FIX/verification and worker boundaries. The Epic layer schedules and reconciles; it does not duplicate repository mutation, worker leases, findings, checks or review state.
+
+Treat Phase 0, intervening review, drift reconciliation and final closure as explicit boundaries rather than ordinary implementation items. Project Knowledge publication and Project Map reconciliation use their own supported evidence contracts; neither should be fabricated to make an Epic mechanically green.
 
 ## Planning contract
 
@@ -144,11 +182,13 @@ For unattributed repository drift, run the targeted analysis-only reconciliation
 
 Never stash, reset, restore, discard or commit changes merely to make an Epic digest match.
 
-## Verification and review
+## Verification
 
-Per-item verification lives in the managed Task engine. Use the Task’s narrow checks, canonical gates and independent REVIEW/FIX cycles as returned by `task_next`.
+Per-item verification lives in the managed Task engine. Use the Task’s narrow checks, canonical gates and independent REVIEW/FIX cycles as returned by `task_next`. Record only checks that actually ran and worker/reviewer evidence that actually exists.
 
-The final Task must evaluate the assembled Epic, not just repeat the last item’s local tests. Verify cross-task contracts, integration paths, migrations/deployment implications and user-observable acceptance criteria that the Epic actually owns.
+The final Task must evaluate the assembled Epic, not just repeat the last item’s local tests. Verify cross-task contracts, integration paths, migrations/deployment implications and user-observable acceptance criteria that the Epic actually owns. Where the Epic changes persistence/public interfaces/deployment/security, include the relevant stronger checks required by those domains.
+
+Closure evidence is mechanical and separate from implementation confidence: required documentation must be current, durable Project Knowledge must have passed its supported review/publish flow, and Project Map reconciliation must be scoped to the completed final Task. An honest `no_changes_reason` is valid map evidence when checked semantics were already accurate.
 
 A passing final Task plus closure artifacts still does not authorize archive by inference. Return to `epic_next`; its mechanical closure state is authoritative.
 

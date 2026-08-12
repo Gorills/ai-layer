@@ -377,9 +377,7 @@ def search_project_map(db: Session, project: Project, query: str, *, limit: int 
             .order_by(ProjectNavigation.path)
         ).all()
     )
-    semantic_scores, semantic_available = _semantic_scores(
-        db, project, rows, query, limit=limit
-    )
+    semantic_scores, semantic_available = _semantic_scores(db, project, rows, query, limit=limit)
 
     ranked: list[dict] = []
     for row in rows:

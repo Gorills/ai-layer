@@ -52,9 +52,7 @@ def _tokens(value: object) -> set[str]:
     text = _CAMEL_RE.sub(" ", str(value or ""))
     text = text.replace("_", " ").replace("-", " ").casefold()
     return {
-        token
-        for token in _TOKEN_RE.findall(text)
-        if len(token) >= 2 and token not in _STOP_WORDS
+        token for token in _TOKEN_RE.findall(text) if len(token) >= 2 and token not in _STOP_WORDS
     }
 
 
@@ -67,7 +65,9 @@ def _normalize_path(value: object, *, field: str) -> str:
     raw = str(value or "").strip().replace("\\", "/")
     path = PurePosixPath(raw)
     if not raw or path.is_absolute() or ".." in path.parts or raw.startswith("./"):
-        raise ValueError(f"project_map_reconcile: `{field}` must be a canonical project-relative path")
+        raise ValueError(
+            f"project_map_reconcile: `{field}` must be a canonical project-relative path"
+        )
     return path.as_posix()
 
 
@@ -223,9 +223,7 @@ def _normalize_entry(
         raise ValueError(
             f"project_map_reconcile: `{path}` is not in the current scanner-owned Project Map"
         )
-    purpose = _text(
-        raw.get("purpose"), field="purpose", max_chars=320, canonical_english=True
-    )
+    purpose = _text(raw.get("purpose"), field="purpose", max_chars=320, canonical_english=True)
     responsibilities = _text_list(
         raw.get("responsibilities"),
         field="responsibilities",
@@ -396,9 +394,7 @@ def reconcile_project_map(
     if len(raw_scope) > MAX_SCOPE_PATHS:
         raise ValueError(f"project_map_reconcile: maximum {MAX_SCOPE_PATHS} scope paths per call")
     navigation_rows = _navigation_rows(db, project)
-    normalized = [
-        _normalize_entry(item, navigation_rows=navigation_rows) for item in raw_entries
-    ]
+    normalized = [_normalize_entry(item, navigation_rows=navigation_rows) for item in raw_entries]
     removals = _path_list(remove_paths or [], field="remove_paths", max_items=MAX_ENTRIES)
     scope = _path_list(raw_scope, field="scope_paths", max_items=MAX_SCOPE_PATHS)
     if not scope:
@@ -476,7 +472,9 @@ def semantic_map_status(db: Session, project: Project) -> dict:
     }
 
 
-def _lexical_score(row: ProjectNavigationSemantic, query_tokens: set[str]) -> tuple[float, list[str]]:
+def _lexical_score(
+    row: ProjectNavigationSemantic, query_tokens: set[str]
+) -> tuple[float, list[str]]:
     if not query_tokens:
         return 0.0, []
     fields = {
@@ -625,8 +623,10 @@ def merge_project_search(
     result = dict(structural_result)
     result["matches"] = ranked
     result["related_tests"] = list(dict.fromkeys(related_tests))[:12]
-    result["search_mode"] = "hybrid_structural_semantic" if semantic_hits else structural_result.get(
-        "search_mode", "hybrid_metadata"
+    result["search_mode"] = (
+        "hybrid_structural_semantic"
+        if semantic_hits
+        else structural_result.get("search_mode", "hybrid_metadata")
     )
     result["language_contract"] = (
         "Queries may be Russian, English or mixed. Canonical semantic descriptions are English; "

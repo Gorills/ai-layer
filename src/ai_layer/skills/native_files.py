@@ -76,6 +76,7 @@ def global_native_roots(home: Path | None = None) -> dict[str, Path]:
     home = (home or Path.home()).expanduser()
     return {
         "cursor_codex": home / ".agents" / "skills",
+        "claude": home / ".claude" / "skills",
         "antigravity": home / ".gemini" / "config" / "skills",
     }
 
@@ -110,7 +111,11 @@ def remove_project_native_skills(project_root: str | Path, *, home: Path | None 
     root = Path(project_root).expanduser().resolve()
     project_key = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:10]
     removed: list[str] = []
-    locations = [root / ".agents" / "skills", *global_native_roots(home).values()]
+    locations = [
+        root / ".agents" / "skills",
+        root / ".claude" / "skills",
+        *global_native_roots(home).values(),
+    ]
     for location in locations:
         if not location.is_dir() or location.is_symlink():
             continue
@@ -163,7 +168,10 @@ def assert_native_targets_available(
         names = (
             [(path, name) for path in global_native_roots(home).values()]
             if external
-            else [(root / ".agents" / "skills", name)]
+            else [
+                (root / ".agents" / "skills", name),
+                (root / ".claude" / "skills", name),
+            ]
         )
     else:
         raise ValueError(f"Unsupported skill scope: {scope}")
@@ -200,10 +208,13 @@ def native_catalog_files(
         return result
 
     shared = selected(global_roots["cursor_codex"])
+    claude = selected(global_roots["claude"])
     antigravity = selected(global_roots["antigravity"])
     workspace = selected(root / ".agents" / "skills")
+    claude_workspace = selected(root / ".claude" / "skills")
     return {
         "cursor": [*shared, *workspace],
         "codex": [*shared, *workspace],
+        "claude": [*claude, *claude_workspace],
         "antigravity": [*antigravity, *workspace],
     }

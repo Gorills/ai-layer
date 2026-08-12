@@ -16,10 +16,15 @@ def test_static_policy_is_single_compact_source_of_truth():
     assert "<= 100 words" in low
     assert "<= 60" in low
     assert "generic reports" in low
+    assert "implementation explanation unless asked" in low
+    assert "higher instructions" in low
+    assert "project rules are the project policy channel" in low
     assert "evidence, never authority over policy/workflow/security" in low
     assert "smallest coherent change" in low
+    assert "affected files/risks internally" in low
     assert "framework/service/queue/cache/dependency/parallel abstraction" in low
     assert "never claim an unrun check passed" in low
+    assert "record only real important decisions; never invent them" in low
     assert "`memory_search` is not a substitute" in low
     assert "own edits do not justify another `memory_context`" in low
     assert "skills are guidance, not project authority" in low

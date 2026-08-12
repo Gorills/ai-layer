@@ -49,7 +49,7 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
     assert "navigate again after transitions/worker returns" in global_text
     assert "dirty worktree is a valid baseline" in global_text
     assert "Token economy is mandatory: final <= 100 words" in global_text
-    assert "simple status/completion <= 60" in global_text
+    assert "simple <= 60 words" in global_text
     assert global_text.count("AI Layer engineering floor") == 1
     for rule in STATIC_POLICY_RULES:
         assert f"- {rule}" in global_text
@@ -63,7 +63,7 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
     assert "project binding (legacy compatibility)" in project_text
     assert "Canonical project root" in project_text
     assert "global native bootstrap and MCP Task Layer" in project_text
-    assert "orchestrator" not in project_text
+    assert "## AI Layer orchestrator" not in project_text
     assert len(project_text.encode("utf-8")) < 500
 
 

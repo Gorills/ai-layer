@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ai_layer.core.config import get_settings
 from ai_layer.core.paths import project_provenance, project_state_path
-from ai_layer.core.static_policy import (
+from ai_layer.domain.static_policy import (
     MAX_FINAL_WORDS,
     SIMPLE_FINAL_WORDS,
     static_policy_markdown,

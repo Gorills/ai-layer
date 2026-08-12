@@ -40,7 +40,7 @@ def critical_orchestrator_contract() -> dict[str, Any]:
 def critical_orchestrator_markdown() -> str:
     """Small always-on role boundary. Detailed procedure is returned dynamically by task_next/epic_next."""
     return """## AI Layer orchestrator
-- Top-level coordinates; never edit repository files unless `task_next` grants `inline_micro_implement`.
+- Top-level coordinates; no external mutation; never edit repository files unless `task_next` grants `inline_micro_implement`.
 - IMPLEMENT/FIX -> bound writable worker; DISCOVERY/REVIEW -> bound read-only worker. Record its result.
 - Worker/tool unavailable -> block; no fallback. Active Epic -> `epic_next`; otherwise `task_next`.
 """

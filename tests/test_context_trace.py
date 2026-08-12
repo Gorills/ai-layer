@@ -185,7 +185,8 @@ def test_mcp_execution_boundary_records_successful_tool_delivery(monkeypatch):
     assert result == {"value": 7}
     assert seen["tool"] == "project_info"
     assert seen["kwargs"] == {"value": 7}
-    assert "top-level chat" in seen["instructions"]
+    assert "project_status" in seen["instructions"]
+    assert "native host reads/edits/tests/subagents" in seen["instructions"]
 
 
 def test_mcp_boundary_resolves_bound_project_for_telemetry(monkeypatch, tmp_path: Path):

@@ -227,9 +227,7 @@ def test_document_style_spec_edit_is_atomic_versioned_and_compact(
         get_settings.cache_clear()
 
 
-def test_memory_context_keeps_passive_epic_from_hijacking_normal_task_navigation(
-    monkeypatch,
-) -> None:
+def test_memory_context_keeps_epic_state_passive_and_informational(monkeypatch) -> None:
     rows = [
         {
             "key": "E-0001",
@@ -239,27 +237,21 @@ def test_memory_context_keeps_passive_epic_from_hijacking_normal_task_navigation
         }
     ]
     monkeypatch.setattr(context_app.epic_uc, "list_for_project", lambda *args, **kwargs: rows)
-    runtime = {
-        "active": False,
-        "next_action": {"action": "create_task", "tool": "task_create"},
-    }
 
-    ordinary = context_app._epic_context("/tmp/project", "Fix payment timeout", runtime)
-    assert ordinary["open"][0]["passive"] is True
-    assert ordinary["workflow_focus"]["authority"] == "task"
-    assert ordinary["workflow_focus"]["tool"] == "task_create"
+    passive = context_app._epic_context("/tmp/project")
+    assert passive["available"] is True
+    assert passive["active"] is None
+    assert passive["open"][0]["key"] == "E-0001"
+    assert passive["open"][0]["mode"] == "design"
+    assert "Informational only" in passive["contract"]
+    assert "workflow_focus" not in passive
 
-    explicit = context_app._epic_context("/tmp/project", "Продолжим E-0001", runtime)
-    assert explicit["workflow_focus"]["authority"] == "epic"
-    assert explicit["workflow_focus"]["tool"] == "epic_next"
-
-    active_runtime = {
-        "active": True,
-        "next_action": {"action": "continue_stage", "tool": "task_next"},
-    }
-    active = context_app._epic_context("/tmp/project", "Продолжим E-0001", active_runtime)
-    assert active["workflow_focus"]["authority"] == "task"
-    assert active["workflow_focus"]["tool"] == "task_next"
+    rows[0]["status"] = "running"
+    rows[0]["execution_spec_version"] = 1
+    executing = context_app._epic_context("/tmp/project")
+    assert executing["active"]["key"] == "E-0001"
+    assert executing["active"]["status"] == "running"
+    assert "workflow_focus" not in executing
 
 
 def test_running_epic_allows_standalone_task_then_uses_narrow_impact_review(

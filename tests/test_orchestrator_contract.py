@@ -30,42 +30,23 @@ def _db_project(tmp_path: Path):
     return db, project, root
 
 
-def test_critical_orchestrator_contract_is_readable_mandatory_first_call_kernel(tmp_path: Path):
+def test_global_bootstrap_is_project_intelligence_first_and_host_native(tmp_path: Path):
     project_text = workflow(tmp_path)
     global_text = global_bootstrap_workflow()
 
-    assert "Mandatory AI Layer role boundary" in global_text
-    assert "These rules are mandatory" in global_text
-    assert "top-level chat is the ORCHESTRATOR" in global_text
-    assert "MUST NOT edit repository files or mutate external systems" in global_text
-    assert "`inline_micro_implement`" in global_text
-    assert "IMPLEMENT and FIX stages belong to one explicitly bound writable worker" in global_text
+    assert "AI Layer control-plane boundary" in global_text
+    assert "host agent runtime remains the execution engine" in global_text
+    assert "project_status" in global_text
+    assert "project_search" in global_text
+    assert "knowledge_search" in global_text
     assert (
-        "DISCOVERY and REVIEW stages belong to one explicitly bound read-only worker" in global_text
+        "Native read/edit/search/shell/test/subagent capabilities remain available" in global_text
     )
-    assert "must never perform a delegated stage as fallback" in global_text
-    assert "STOP and report the blocker" in global_text
-
-    assert "Mandatory startup and navigation" in global_text
-    assert "FIRST project-related tool call MUST be `memory_context" in global_text
-    assert (
-        "Until `memory_context` succeeds, you MUST NOT read/search/grep project files"
-        in global_text
-    )
-    assert (
-        "Do not bypass this rule for a small, obvious, read-only or diagnostic request"
-        in global_text
-    )
-    assert "canonical project root returned by AI Layer" in global_text
-    assert 'skill_get(slug="ai-layer-workflow"' in global_text
-    assert 'section="core"' in global_text
-    assert "once per chat" in global_text
-    assert "call `epic_next`; otherwise call `task_next`" in global_text
-    assert "NEVER infer the next stage from chat history or memory" in global_text
-    assert "After every Task/Epic transition" in global_text
-    assert "dirty worktree is a valid baseline" in global_text
+    assert "managed Tasks and Epics remain durable workflows" in global_text
+    assert "Current repository source is final code truth" in global_text
     assert "Never stash, reset, restore, discard or commit user changes" in global_text
-    assert "Native Agent Skills provide domain expertise" in global_text
+    assert "memory_context(task=<actual user task>" not in global_text
+    assert "top-level chat is the ORCHESTRATOR" not in global_text
 
     assert "Mandatory engineering discipline" in global_text
     assert "at or below 100 words" in global_text
@@ -73,16 +54,12 @@ def test_critical_orchestrator_contract_is_readable_mandatory_first_call_kernel(
     assert global_text.count("Mandatory engineering discipline") == 1
     for rule in STATIC_POLICY_RULES:
         assert f"- {rule}" in global_text
-
-    # This is a comprehension budget, not byte golf. Procedure/state/domain expertise still remain
-    # progressive, but the mandatory first-call discipline must be readable by weak models.
     assert len(global_text.encode("utf-8")) < 9000
 
-    # Standard projects still do not materialize a duplicate text workflow bridge.
     assert "project binding (legacy compatibility)" in project_text
     assert "Canonical project root" in project_text
     assert "global native bootstrap and MCP Task Layer" in project_text
-    assert "## Mandatory AI Layer role boundary" not in project_text
+    assert "## AI Layer control-plane boundary" not in project_text
     assert len(project_text.encode("utf-8")) < 500
 
 
@@ -102,7 +79,10 @@ def test_task_navigation_repeats_orchestrator_contract_at_delegation_and_complet
         assert before["orchestrator_contract"]["role"] == "orchestrator"
         assert before["orchestrator_contract"]["repository_mutation"] == "forbidden"
         assert before["next_action"]["action"] == "delegate_stage"
-        assert before["next_action"]["orchestrator_contract"]["repository_mutation"] == "forbidden"
+        assert (
+            before["next_action"]["orchestrator_contract"]["repository_mutation"]
+            == "forbidden_during_delegated_stage"
+        )
         assert "START that native worker" in before["next_action"]["message"]
         assert "orchestrator fallback implementation" in before["next_action"]["forbidden"]
 
@@ -110,7 +90,7 @@ def test_task_navigation_repeats_orchestrator_contract_at_delegation_and_complet
         handoff = delegated["orchestrator_handoff"]
         assert handoff["next_host_action"] == "START_THE_DELEGATED_WORKER_NOW"
         assert handoff["worker_id"] == "implementer-one"
-        assert handoff["repository_mutation"] == "forbidden"
+        assert handoff["repository_mutation"] == "forbidden_during_delegated_stage"
         assert handoff["delegation_contract"]["worker_role_contract"].startswith(
             "This delegated worker is the only actor allowed"
         )

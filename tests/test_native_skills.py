@@ -9,7 +9,7 @@ from ai_layer.core.registry import register_project
 from ai_layer.skills.manager import create_project_skill, set_skill_enabled
 from ai_layer.skills.native import (
     native_catalog_files,
-    render_native_descriptor,
+    render_native_skill,
     sync_global_native_skills,
     sync_project_native_skills,
     validate_native_catalog,
@@ -22,46 +22,56 @@ def _frontmatter(text: str) -> dict:
     return yaml.safe_load(text.split("---\n", 2)[1]) or {}
 
 
-def test_global_native_descriptors_share_agents_root_for_cursor_and_codex(tmp_path, monkeypatch):
+def test_global_native_skills_share_agents_root_for_cursor_and_codex(tmp_path, monkeypatch):
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("HOME", str(tmp_path / "user"))
     get_settings.cache_clear()
     try:
         result = sync_global_native_skills(home=tmp_path / "user")
         assert result["routing_owner"] == "host-native"
+        assert result["activation_payload"] == "full-authoritative-skill"
         assert result["canonical_skills"] == 44
         assert result["validation"]["ok"] is True
         shared = tmp_path / "user" / ".agents" / "skills" / "django" / "SKILL.md"
         antigravity = tmp_path / "user" / ".gemini" / "config" / "skills" / "django" / "SKILL.md"
         assert shared.is_file() and antigravity.is_file()
         assert shared.read_text(encoding="utf-8") == antigravity.read_text(encoding="utf-8")
-        meta = _frontmatter(shared.read_text(encoding="utf-8"))
+        text = shared.read_text(encoding="utf-8")
+        meta = _frontmatter(text)
         assert meta["name"] == "django"
         assert "description" in meta
         assert set(meta) == {"name", "description"}
-        assert "skill_get" in shared.read_text(encoding="utf-8")
+        assert "## Core contract" in text
+        assert "## Decision rules" in text
+        assert "## Migrations" in text
+        assert "skill_get" not in text
         assert "required" not in meta and "recommended" not in meta
 
-        workflow_descriptor = (
+        workflow_native = (
             tmp_path / "user" / ".agents" / "skills" / "ai-layer-workflow" / "SKILL.md"
         )
-        assert workflow_descriptor.is_file()
-        workflow_meta = _frontmatter(workflow_descriptor.read_text(encoding="utf-8"))
+        assert workflow_native.is_file()
+        workflow_text = workflow_native.read_text(encoding="utf-8")
+        workflow_meta = _frontmatter(workflow_text)
         assert workflow_meta["name"] == "ai-layer-workflow"
         assert "Task/Epic" in workflow_meta["description"]
-        assert "skill_get" in workflow_descriptor.read_text(encoding="utf-8")
+        assert "## Workflow" in workflow_text
+        assert "## Delegation and roles" in workflow_text
     finally:
         get_settings.cache_clear()
 
 
-def test_ai_layer_workflow_core_is_small_authoritative_startup_manual(tmp_path, monkeypatch):
+def test_ai_layer_workflow_core_keeps_complete_entry_sections(tmp_path, monkeypatch):
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "state"))
     get_settings.cache_clear()
     try:
         skill = load_skill("ai-layer-workflow")
         assert skill is not None
         core, sections = skill_section_content(skill, "core")
-        assert len(core) <= 2400
+        assert "## Apply when" in core
+        assert "## Core contract" in core
+        assert "## Decision rules" in core
+        assert "skill core clipped" not in core
         assert "`memory_context` establishes the canonical project context" in core
         assert "`task_next` and `epic_next` are the authoritative navigators" in core
         assert "Never reconstruct a stage from chat history" in core
@@ -71,29 +81,36 @@ def test_ai_layer_workflow_core_is_small_authoritative_startup_manual(tmp_path, 
         assert "Workflow" in sections
         assert "Delegation and roles" in sections
         assert "Dirty worktrees and adoption" in sections
-        assert "Recovery and context loss" not in sections or isinstance(sections, list)
+        assert len(core) < len(skill["content"])
     finally:
         get_settings.cache_clear()
 
 
-def test_descriptor_is_thin_and_points_to_selective_authoritative_retrieval(tmp_path, monkeypatch):
+def test_native_activation_contains_complete_authoritative_skill(tmp_path, monkeypatch):
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "state"))
     get_settings.cache_clear()
     try:
         skill = load_skill("django")
         assert skill is not None
-        descriptor = render_native_descriptor(skill)
-        assert len(descriptor.encode("utf-8")) < 1800
-        assert 'section="<exact section>"' in descriptor
-        assert 'section="full"' in descriptor
-        assert "## Migrations" not in descriptor
+        native = render_native_skill(skill)
+        meta = _frontmatter(native)
+        assert meta == {
+            "name": "django",
+            "description": skill["meta"]["description"],
+        }
+        assert skill["content"] in native
+        assert "## Core contract" in native
+        assert "## Decision rules" in native
+        assert "## Migrations" in native
+        assert "skill_get" not in native
+        assert len(native.encode("utf-8")) > len(skill["content"].encode("utf-8"))
         content, _ = skill_section_content(skill, "Migrations")
         assert "historical" in content.casefold()
     finally:
         get_settings.cache_clear()
 
 
-def test_project_skill_materializes_once_in_standard_workspace(tmp_path, monkeypatch):
+def test_project_skill_materializes_full_content_once_in_standard_workspace(tmp_path, monkeypatch):
     home = tmp_path / "home"
     project = tmp_path / "repo"
     project.mkdir()
@@ -110,8 +127,11 @@ def test_project_skill_materializes_once_in_standard_workspace(tmp_path, monkeyp
             content="# iiko project rules\n\n## Core contract\n\nPreserve the existing order pipeline and cart synchronization invariants.\n",
         )
         assert result["native_sync"]["scope"] == "workspace"
+        assert result["native_sync"]["activation_payload"] == "full-authoritative-skill"
         target = project / ".agents" / "skills" / "food-iiko-order-rules" / "SKILL.md"
         assert target.is_file()
+        target_text = target.read_text(encoding="utf-8")
+        assert "Preserve the existing order pipeline" in target_text
         assert not (project / ".cursor" / "skills" / "ai-layer" / "SKILL.md").exists()
         assert not (project / ".claude" / "skills" / "ai-layer" / "SKILL.md").exists()
 
@@ -123,7 +143,7 @@ def test_project_skill_materializes_once_in_standard_workspace(tmp_path, monkeyp
         get_settings.cache_clear()
 
 
-def test_strict_private_project_skill_uses_namespaced_global_descriptor_only(tmp_path, monkeypatch):
+def test_strict_private_project_skill_uses_namespaced_global_full_skill_only(tmp_path, monkeypatch):
     home = tmp_path / "home"
     project = tmp_path / "repo"
     project.mkdir()
@@ -147,14 +167,17 @@ def test_strict_private_project_skill_uses_namespaced_global_descriptor_only(tmp
         )
         result = sync_project_native_skills(project, home=home)
         assert result["repository_writes"] is False
+        assert result["activation_payload"] == "full-authoritative-skill"
         assert not (project / ".agents").exists()
         catalog = native_catalog_files(project, home=home)
         assert any("private-release" in str(path) for path in catalog["cursor"])
         assert any("private-release" in str(path) for path in catalog["antigravity"])
-        descriptor = next(path for path in catalog["cursor"] if "private-release" in str(path))
-        descriptor_meta = _frontmatter(descriptor.read_text(encoding="utf-8"))
-        assert str(project.resolve()) in descriptor_meta["description"]
-        assert "Activate only for the registered project" in descriptor_meta["description"]
+        native = next(path for path in catalog["cursor"] if "private-release" in str(path))
+        native_text = native.read_text(encoding="utf-8")
+        native_meta = _frontmatter(native_text)
+        assert str(project.resolve()) in native_meta["description"]
+        assert "Activate only for the registered project" in native_meta["description"]
+        assert "Verify deployment and rollback contracts." in native_text
     finally:
         get_settings.cache_clear()
 

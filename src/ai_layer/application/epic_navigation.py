@@ -330,7 +330,7 @@ def _draft_navigation(db: Session, epic: Epic) -> dict:
             "Run unlimited independent audit/edit rounds; approval freezes only the human baseline."
         )
     return {
-        "action": "audit_edit_or_approve",
+        "action": "audit_revise_or_approve",
         "allowed_tools": [
             "epic_audit_prepare",
             "epic_audit_record",

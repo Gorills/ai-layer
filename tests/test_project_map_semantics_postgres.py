@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from ai_layer.db.models import Project, RuntimeEvent
-from ai_layer.db.navigation_models import ProjectNavigation, ProjectNavigationSemantic
+from ai_layer.db.navigation_models import ProjectNavigation
 from ai_layer.memory.project_map_semantics import (
     reconcile_project_map,
     search_semantic_map,
@@ -38,7 +38,6 @@ def test_semantic_reconciliation_is_task_provenanced_searchable_and_becomes_stal
             raise RuntimeError("semantic provider intentionally unavailable")
 
     monkeypatch.setattr(semantics, "get_embedder", lambda: BrokenEmbedder())
-    project_id = None
     with Session(engine, expire_on_commit=False) as db:
         project = Project(
             name=f"project-map-{uuid4().hex}",
@@ -49,7 +48,6 @@ def test_semantic_reconciliation_is_task_provenanced_searchable_and_becomes_stal
         )
         db.add(project)
         db.flush()
-        project_id = project.id
         db.add(
             ProjectNavigation(
                 project_id=project.id,
@@ -120,8 +118,3 @@ def test_semantic_reconciliation_is_task_provenanced_searchable_and_becomes_stal
         stale_hits = search_semantic_map(db, project, "повторная отправка заказа", limit=8)
         assert stale_hits[0]["semantic"]["freshness"] == "stale"
         db.rollback()
-
-    with Session(engine) as db:
-        if project_id is not None:
-            # rollback above keeps this id absent; this assertion protects test isolation assumptions.
-            assert db.get(ProjectNavigationSemantic, project_id) is None

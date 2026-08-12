@@ -157,6 +157,10 @@ def _task_for_key(db: Session, project: Project, task_key: str | None) -> tuple[
     )
     if task is None:
         raise ValueError(f"project_map_reconcile: task `{rendered}` does not exist in this project")
+    if task.status != "completed":
+        raise ValueError(
+            f"project_map_reconcile: task `{rendered}` must be completed before semantic map reconciliation"
+        )
     return task, f"T-{int(task.sequence):04d}"
 
 
@@ -405,6 +409,10 @@ def reconcile_project_map(
             "project_map_reconcile: provide semantic entries/removals or a factual `no_changes_reason`"
         )
     task, source_ref = _task_for_key(db, project, source_task_key)
+    if task is not None and not scope:
+        raise ValueError(
+            "project_map_reconcile: task-linked reconciliation must identify at least one checked scope path"
+        )
     for item in normalized:
         _upsert_semantic_row(db, project, item, task=task, source_ref=source_ref)
     removed = _remove_semantic_rows(db, project, removals)

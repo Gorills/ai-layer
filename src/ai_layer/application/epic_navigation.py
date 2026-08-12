@@ -52,13 +52,14 @@ def _final_closure_evidence(db: Session, task: Task) -> dict:
     published = int((knowledge_event.payload or {}).get("published") or 0) if knowledge_event else 0
     map_event = _latest_task_event(db, task, "ProjectMapReconciled")
     map_payload = dict(map_event.payload or {}) if map_event else {}
+    map_scope_paths = list(map_payload.get("scope_paths") or [])[:120]
     return {
         "docs_updated": docs_updated,
         "knowledge_published": published,
-        "project_map_reconciled": map_event is not None,
+        "project_map_reconciled": map_event is not None and bool(map_scope_paths),
         "project_map_updated": int(map_payload.get("updated") or 0),
         "project_map_removed": int(map_payload.get("removed") or 0),
-        "project_map_scope_paths": list(map_payload.get("scope_paths") or [])[:120],
+        "project_map_scope_paths": map_scope_paths,
         "project_map_no_changes_reason": str(map_payload.get("no_changes_reason") or "")[:500],
         "changed_paths": sorted(paths),
     }

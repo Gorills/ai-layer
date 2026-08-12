@@ -7,6 +7,7 @@ from ai_layer.agents.policy import install_cursor_profiles
 from ai_layer.db.base import Base
 from ai_layer.db.models import Project
 from ai_layer.integrations.templates import global_bootstrap_workflow, workflow
+from ai_layer.policy.service import STATIC_POLICY_RULES
 from ai_layer.tasks import service as tasks
 
 
@@ -36,24 +37,26 @@ def test_critical_orchestrator_contract_has_one_compact_global_owner_without_pro
     global_text = global_bootstrap_workflow()
 
     assert "AI Layer orchestrator boundary" in global_text
-    assert "top-level chat coordinates only" in global_text
-    assert "Never edit repository files or mutate external systems yourself" in global_text
+    assert "Top-level chat coordinates only" in global_text
+    assert "Repository/external mutation is forbidden" in global_text
     assert "task_stage_delegate" in global_text
-    assert "never do the stage yourself as fallback" in global_text
-    assert "smallest coherent change" in global_text
-    assert "never claim a check passed unless it ran" in global_text
-    assert "For any work involving a registered project" in global_text
-    assert "FIRST project-related tool call MUST be `memory_context" in global_text
-    assert "Do not pair it with `task_current`" in global_text
-    assert (
-        "do not read/search/grep project files, run shell/SSH, edit, or start a subagent"
-        in global_text
-    )
-    assert "Never bypass this because the work looks simple or read-only" in global_text
-    assert "After every Task/Epic transition or worker return" in global_text
-    assert "before any further project work" in global_text
-    assert "non-trivial engineering work" not in global_text
-    assert len(global_text.encode("utf-8")) < 2600
+    assert "never perform its stage as fallback" in global_text
+    assert "AI Layer control plane" in global_text
+    assert "FIRST project-related tool call: `memory_context" in global_text
+    assert "Do not pair with `task_current`" in global_text
+    assert "no project read/search/grep, shell/SSH, edits, or subagents" in global_text
+    assert "bypass for simple/read-only work" in global_text
+    assert "After each Task/Epic transition or worker return" in global_text
+    assert "before more project work" in global_text
+    assert "Token economy: final <= 100 words" in global_text
+    assert "simple status/completion <= 60" in global_text
+    assert global_text.count("AI Layer engineering floor") == 1
+    for rule in STATIC_POLICY_RULES:
+        assert f"- {rule}" in global_text
+
+    # The complete first-call kernel remains intentionally small. Detailed stage procedure and
+    # domain expertise belong to navigators/skills, not always-on context.
+    assert len(global_text.encode("utf-8")) < 3800
 
     # Standard projects no longer materialize a text workflow bridge. This renderer survives only
     # as a tiny compatibility helper for legacy callers; sparse project MCP config owns identity.

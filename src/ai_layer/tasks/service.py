@@ -30,9 +30,11 @@ from ai_layer.tasks.navigation import (
     _latest_resumable_stage,
     _safe_git_changes,
     cleanup_current_review_sandbox,
-    next_task_action as _next_task_action,
     prepare_current_review_sandbox,
     run_current_review_check,
+)
+from ai_layer.tasks.navigation import (
+    next_task_action as _next_task_action,
 )
 from ai_layer.tasks.review_contracts import (
     _add_findings,
@@ -62,8 +64,10 @@ from ai_layer.tasks.views import (
     _stage_payload,
     _stages,
     _validate_worker_id,
-    current_task as _current_task,
     task_to_dict,
+)
+from ai_layer.tasks.views import (
+    current_task as _current_task,
 )
 from ai_layer.tasks.worker_leases import recover_disconnected_worker
 from ai_layer.workspace import repository as _workspace_repository

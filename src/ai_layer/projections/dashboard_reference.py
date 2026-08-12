@@ -159,11 +159,7 @@ def _read_text(path: Path | None) -> str:
     if path is None:
         return ""
     try:
-        return (
-            path.read_text(encoding="utf-8")
-            if path.is_file() and not path.is_symlink()
-            else ""
-        )
+        return path.read_text(encoding="utf-8") if path.is_file() and not path.is_symlink() else ""
     except (OSError, UnicodeDecodeError):
         return ""
 

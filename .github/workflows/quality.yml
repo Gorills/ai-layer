@@ -57,3 +57,19 @@ jobs:
           name: ai-layer-release-candidate
           path: dist/local_ai_development_layer-0.14.0-py3-none-any.whl
           if-no-files-found: error
+
+  formatted-source-artifact:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install ruff==0.16.2
+      - run: ruff format .
+      - run: tar --exclude=.git -czf /tmp/ai-layer-formatted-source.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-layer-formatted-source
+          path: /tmp/ai-layer-formatted-source.tar.gz
+          if-no-files-found: error

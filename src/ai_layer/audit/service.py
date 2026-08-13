@@ -252,8 +252,7 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
         (
             index
             for index, event in enumerate(segment)
-            if event.get("ok", False)
-            and event.get("tool") in {"project_status", "memory_context"}
+            if event.get("ok", False) and event.get("tool") in {"project_status", "memory_context"}
         ),
         None,
     )

@@ -68,7 +68,9 @@ def test_idle_managed_task_contract_is_native_first_and_task_create_is_optional(
     assert action["tool"] is None
     assert action["managed_option"]["tool"] == "task_create"
     assert action["managed_option"]["required"] == ["goal"]
-    assert "ordinary host-native work" in result["agent_contract"]["managed_work"]["idle"].casefold()
+    assert (
+        "ordinary host-native work" in result["agent_contract"]["managed_work"]["idle"].casefold()
+    )
 
 
 def test_epic_application_navigation_always_attaches_current_runtime_contract(monkeypatch) -> None:

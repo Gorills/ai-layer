@@ -131,7 +131,9 @@ def test_application_memory_context_compacts_legacy_composite_payload():
     }
     assert len(compact["knowledge_hints"]) == LEGACY_CONTEXT_KNOWLEDGE_HINT_LIMIT - 1
     assert len(compact["knowledge_hints"][0]["summary"]) == LEGACY_CONTEXT_SUMMARY_MAX_CHARS
-    assert len(compact["knowledge_hints"][0]["source_pointers"]) == LEGACY_CONTEXT_SOURCE_POINTER_LIMIT
+    assert (
+        len(compact["knowledge_hints"][0]["source_pointers"]) == LEGACY_CONTEXT_SOURCE_POINTER_LIMIT
+    )
     for removed in (
         "task_brief",
         "scanner_evidence",

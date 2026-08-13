@@ -75,7 +75,9 @@ def _knowledge_hint(item: dict) -> dict:
         "key": item.get("key"),
         "title": item.get("title"),
         "summary": str(item.get("summary") or "")[:LEGACY_CONTEXT_SUMMARY_MAX_CHARS],
-        "source_pointers": list(item.get("source_pointers") or [])[:LEGACY_CONTEXT_SOURCE_POINTER_LIMIT],
+        "source_pointers": list(item.get("source_pointers") or [])[
+            :LEGACY_CONTEXT_SOURCE_POINTER_LIMIT
+        ],
         "score": item.get("score"),
     }
 
@@ -106,7 +108,10 @@ def _compact_legacy_context(payload: dict) -> dict:
             "baseline_ready": bool(state.get("baseline_ready")),
         },
         "knowledge_hints": [
-            _knowledge_hint(item) for item in list(brief.get("verified_knowledge") or [])[:LEGACY_CONTEXT_KNOWLEDGE_HINT_LIMIT]
+            _knowledge_hint(item)
+            for item in list(brief.get("verified_knowledge") or [])[
+                :LEGACY_CONTEXT_KNOWLEDGE_HINT_LIMIT
+            ]
         ],
         "freshness": {
             "status": freshness.get("status"),

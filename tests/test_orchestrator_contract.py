@@ -57,7 +57,9 @@ def test_global_bootstrap_is_project_intelligence_first_and_host_native(tmp_path
 
     assert "project binding (legacy compatibility)" in project_text
     assert "Canonical project root" in project_text
-    assert "global native bootstrap and MCP Project Intelligence/control-plane tools" in project_text
+    assert (
+        "global native bootstrap and MCP Project Intelligence/control-plane tools" in project_text
+    )
     assert "## AI Layer control-plane boundary" not in project_text
     assert "Mandatory engineering discipline" not in project_text
 

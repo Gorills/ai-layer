@@ -27,18 +27,13 @@ jobs:
       - name: Print only architecture errors
         shell: bash
         run: |
+          set -euo pipefail
+          python scripts/architecture_gate.py --json > /tmp/architecture.json || true
           python - <<'PY'
           import json
           from pathlib import Path
-          import importlib.util
-
-          path = Path("scripts/architecture_gate.py")
-          spec = importlib.util.spec_from_file_location("architecture_gate", path)
-          assert spec and spec.loader
-          module = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(module)
-          result = module.run_gate(Path.cwd())
-          print(json.dumps(result.get("errors", []), indent=2))
+          payload = json.loads(Path("/tmp/architecture.json").read_text(encoding="utf-8"))
+          print(json.dumps(payload.get("errors", []), indent=2))
           PY
 
   postgres-hardening:

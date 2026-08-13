@@ -300,9 +300,12 @@ def state(project_root: str | Path, *, limit: int = 8) -> dict:
             "recent": recent[: max(1, min(limit, 20))],
             "live": [item for item in active if item.get("live")],
             "attention": [
-                item
-                for item in active
-                if item.get("status") == "blocked" or item.get("map_pending")
+                *[item for item in active if item.get("status") == "blocked"],
+                *[
+                    item
+                    for item in recent
+                    if (item.get("map_disposition") or {}).get("status") in {"pending", "deferred"}
+                ],
             ],
             "observability_contract": (
                 "WorkItems are durable user-work records. live=true requires a non-stale observed AgentRun; "

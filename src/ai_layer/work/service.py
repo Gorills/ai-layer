@@ -3,8 +3,6 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import UUID
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 

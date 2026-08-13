@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from ai_layer.agents.policy import DEFAULT_CURSOR_MODELS
-from ai_layer.application.context import _compact_legacy_context
+from ai_layer.application.context import (
+    LEGACY_CONTEXT_KNOWLEDGE_HINT_LIMIT,
+    LEGACY_CONTEXT_SOURCE_POINTER_LIMIT,
+    LEGACY_CONTEXT_SUMMARY_MAX_CHARS,
+    _compact_legacy_context,
+)
 from ai_layer.core.mcp_runtime import (
     CONTEXT_TOOLS,
     FAST_TOOLS,
@@ -124,8 +129,9 @@ def test_application_memory_context_compacts_legacy_composite_payload():
         "knowledge": "knowledge_search",
         "decisions": "decision_search",
     }
-    assert len(compact["knowledge_hints"][0]["summary"]) == 700
-    assert len(compact["knowledge_hints"][0]["source_pointers"]) == 6
+    assert len(compact["knowledge_hints"]) == LEGACY_CONTEXT_KNOWLEDGE_HINT_LIMIT - 1
+    assert len(compact["knowledge_hints"][0]["summary"]) == LEGACY_CONTEXT_SUMMARY_MAX_CHARS
+    assert len(compact["knowledge_hints"][0]["source_pointers"]) == LEGACY_CONTEXT_SOURCE_POINTER_LIMIT
     for removed in (
         "task_brief",
         "scanner_evidence",

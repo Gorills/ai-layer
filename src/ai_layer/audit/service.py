@@ -206,15 +206,8 @@ def read_audit(project_root: str | Path, limit: int = 50) -> list[dict]:
 
 
 def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
-    """Verify the latest task-sized MCP flow without logging prompt/source/result payloads."""
+    """Verify the latest completed MCP flow against the current control-plane contract."""
     events = read_audit(project_root, limit=max(10, limit))
-    latest_context = None
-    for index in range(len(events) - 1, -1, -1):
-        if events[index].get("tool") == "memory_context":
-            latest_context = index
-            break
-    if latest_context is None:
-        return {"ok": False, "reason": "no memory_context event found", "events": 0}
 
     def terminal_kind(event: dict) -> str | None:
         if not event.get("ok", False):
@@ -237,39 +230,69 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
             return "cancelled_task"
         return None
 
-    previous_terminal = -1
-    for index in range(latest_context - 1, -1, -1):
-        if terminal_kind(events[index]) is not None:
-            previous_terminal = index
-            break
-
     completion_index = None
     completion_kind = None
-    for index in range(latest_context + 1, len(events)):
+    for index in range(len(events) - 1, -1, -1):
         kind = terminal_kind(events[index])
         if kind is not None:
             completion_index = index
             completion_kind = kind
             break
 
-    end = completion_index if completion_index is not None else len(events) - 1
-    flow = events[previous_terminal + 1 : end + 1]
+    boundary = completion_index if completion_index is not None else len(events)
+    previous_terminal = -1
+    for index in range(boundary - 1, -1, -1):
+        if terminal_kind(events[index]) is not None:
+            previous_terminal = index
+            break
+    segment_end = completion_index + 1 if completion_index is not None else len(events)
+    segment = events[previous_terminal + 1 : segment_end]
+
+    start_offset = next(
+        (
+            index
+            for index, event in enumerate(segment)
+            if event.get("ok", False)
+            and event.get("tool") in {"project_status", "memory_context"}
+        ),
+        None,
+    )
+    if start_offset is None:
+        return {
+            "ok": False,
+            "reason": "no project_status or legacy memory_context start event found in latest flow",
+            "events": len(segment),
+        }
+
+    flow = segment[start_offset:]
     tools = [str(item.get("tool")) for item in flow]
+    start_tool = tools[0]
     failures = [
         {"tool": item.get("tool"), "error_type": item.get("error_type")}
         for item in flow
         if not item.get("ok", False)
     ]
-    context_calls = sum(1 for tool in tools if tool == "memory_context")
-    duplicate_context = context_calls > 1
+    project_status_calls = sum(1 for tool in tools if tool == "project_status")
+    legacy_context_calls = sum(1 for tool in tools if tool == "memory_context")
+    duplicate_context = legacy_context_calls > 1
     warnings: list[dict] = []
+    if start_tool == "memory_context":
+        warnings.append(
+            {
+                "code": "legacy_flow_start",
+                "message": (
+                    "Latest flow started through legacy memory_context. Refresh installed AI Layer bootstrap "
+                    "instructions so registered-project work starts with project_status."
+                ),
+            }
+        )
     if duplicate_context:
         warnings.append(
             {
                 "code": "tool_economy",
                 "message": (
-                    f"server-side memory_context was called {context_calls} times in one "
-                    "completed flow; reuse returned context unless state changed materially."
+                    f"legacy memory_context was called {legacy_context_calls} times in one completed flow; "
+                    "prefer focused Project Intelligence tools instead of repeating the compatibility payload."
                 ),
             }
         )
@@ -284,13 +307,17 @@ def check_latest_flow(project_root: str | Path, limit: int = 200) -> dict:
     versions = sorted(
         {str(item.get("server_version")) for item in flow if item.get("server_version")}
     )
+    current_start = start_tool == "project_status"
     return {
-        "ok": successful_terminal and handoff_written and context_calls >= 1 and not failures,
+        "ok": successful_terminal and handoff_written and current_start and not failures,
         "tools": tools,
+        "flow_start_tool": start_tool,
+        "current_contract_start": current_start,
         "session_saved": handoff_written,
         "terminal_checkpoint": completion_kind,
         "managed_task": completion_kind == "managed_task",
-        "memory_context_calls": context_calls,
+        "project_status_calls": project_status_calls,
+        "memory_context_calls": legacy_context_calls,
         "memory_context_count_scope": "ai_layer_server_audit_events_only",
         "host_tool_schema_discovery_counted": False,
         "duplicate_memory_context": duplicate_context,

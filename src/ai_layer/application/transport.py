@@ -74,10 +74,17 @@ def project_map_reconcile(
     )
 
 
+def knowledge_search(
+    _scope: ApplicationScope, project: ProjectRef, query: str, limit: int
+) -> list[dict]:
+    return context_uc.search_knowledge(project.root_path, query, limit)
+
+
 def memory_search(
     _scope: ApplicationScope, project: ProjectRef, query: str, limit: int
 ) -> list[dict]:
-    return context_uc.search_memory(project.root_path, query, limit)
+    """Backward-compatible transport alias for knowledge_search."""
+    return knowledge_search(_scope, project, query, limit)
 
 
 def memory_context(_scope: ApplicationScope, project: ProjectRef, task: str, limit: int) -> dict:

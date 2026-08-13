@@ -22,7 +22,6 @@ from ai_layer.integrations.config_files import (
     _server_is_owned,
 )
 from ai_layer.integrations.global_install import (
-    GLOBAL_BOOTSTRAP_MARKER,
     _cursor_plugin_owned,
     _merge_codex_config,
 )
@@ -51,9 +50,11 @@ from ai_layer.skills.native import (
     remove_project_native_skills,
     sync_project_native_skills,
 )
-
-INTEGRATION_TEMPLATE_VERSION = 23
-GLOBAL_BOOTSTRAP_VERSION = 13
+from ai_layer.integrations.versioning import (
+    GLOBAL_BOOTSTRAP_MARKER,
+    GLOBAL_BOOTSTRAP_VERSION,
+    INTEGRATION_TEMPLATE_VERSION,
+)
 
 LEGACY_PROJECT_RULE_PATHS = (
     "AGENTS.md",

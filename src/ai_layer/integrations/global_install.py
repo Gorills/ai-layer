@@ -30,10 +30,11 @@ from ai_layer.integrations.config_files import (
 from ai_layer.integrations.runtime_config import _global_bootstrap_workflow, _mcp_command, _server
 from ai_layer.integrations.status import _json_ai_layer_server
 from ai_layer.skills.native import remove_global_native_skills, sync_global_native_skills
-
-INTEGRATION_TEMPLATE_VERSION = 23
-GLOBAL_BOOTSTRAP_VERSION = 13
-GLOBAL_BOOTSTRAP_MARKER = f"<!-- AI-LAYER GLOBAL BOOTSTRAP v{GLOBAL_BOOTSTRAP_VERSION} -->"
+from ai_layer.integrations.versioning import (
+    GLOBAL_BOOTSTRAP_MARKER,
+    GLOBAL_BOOTSTRAP_VERSION,
+    INTEGRATION_TEMPLATE_VERSION,
+)
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 

@@ -37,8 +37,8 @@ def _build_findings(events: list[dict]) -> list[dict]:
                     "session_id": session_id,
                     "count": len(context_calls),
                     "message": (
-                        "memory_context was delivered more than once in one MCP session; verify that "
-                        "task goal or external repository state actually changed."
+                        "Legacy memory_context was delivered more than once in one MCP session; prefer "
+                        "project_status plus focused Project Intelligence tools unless compatibility is required."
                     ),
                 }
             )

@@ -77,32 +77,24 @@ import json
 import os
 from pathlib import Path
 
-from ai_layer.application.context import get_memory_context, search_memory
+from ai_layer.application.context import search_knowledge
 from ai_layer.application.knowledge import status as knowledge_status
+from ai_layer.application.project_intelligence import project_status
 
 root = Path(os.environ["DEMO_ROOT"])
 state = knowledge_status(root)
 assert state["verified"] == 0, state
 assert state["baseline_ready"] is False, state
 assert state["onboarding_recommended"] is True, state
-assert search_memory(root, "FastAPI health endpoint") == [], "scan must not index current source as Project Knowledge"
+assert search_knowledge(root, "FastAPI health endpoint") == [], "scan must not index current source as Project Knowledge"
 
-ordinary = get_memory_context(root, "Add another health endpoint")
-assert ordinary["policy"] == "", ordinary
-assert "latest" not in ordinary["task_runtime"], ordinary["task_runtime"]
-assert "task_execution" not in ordinary["tool_guidance"], ordinary["tool_guidance"]
-assert "avoid" not in ordinary["tool_guidance"], ordinary["tool_guidance"]
-assert ordinary["context_budget"]["raw_source_memory_chars"] == 0, ordinary["context_budget"]
-
-continuation = get_memory_context(root, "продолжай")
-assert continuation["policy"] == "", continuation
-assert continuation["task_brief"]["presentation_mode"] == "continuation", continuation["task_brief"]
-assert continuation["scanner_evidence"]["available"] is False, continuation["scanner_evidence"]
-calls = [item["tool"] for item in continuation["tool_guidance"]["recommended_calls"]]
-assert calls[0] == "session_restore", calls
-assert "memory_search" not in calls, calls
-assert "latest" not in continuation["task_runtime"], continuation["task_runtime"]
-print("bootstrap/policy/context smoke PASS")
+status_payload = project_status(root)
+assert status_payload["agent_contract"]["startup"]["tool"] == "project_status", status_payload
+assert status_payload["guidance"]["execution_owner"] == "host-native agent runtime", status_payload
+assert status_payload["work"]["continuation"]["kind"] == "none", status_payload["work"]
+assert status_payload["guidance"]["project_map"]["read"]["tool"] == "project_search", status_payload
+assert status_payload["guidance"]["project_map"]["update"]["tool"] == "project_map_reconcile", status_payload
+print("bootstrap/policy/project-intelligence smoke PASS")
 PY
 
 printf '\nSMOKE PASS\n'

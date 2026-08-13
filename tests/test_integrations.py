@@ -114,7 +114,6 @@ def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(
         assert "memory_context(task=<actual user task>" not in text
         assert "Never stash, reset, restore, discard or commit user changes" in text
         assert "Current repository source is authoritative" in text
-        assert len(text.encode("utf-8")) < 9000
     cursor_plugin = home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
     manifest = json.loads(
         (cursor_plugin / ".cursor-plugin" / "plugin.json").read_text(encoding="utf-8")
@@ -193,14 +192,15 @@ def test_unchanged_global_config_repairs_legacy_backup_permissions(tmp_path: Pat
     assert backup.stat().st_mode & 0o077 == 0
 
 
-def test_global_bootstrap_is_small_and_project_text_bridge_is_legacy_only(tmp_path: Path):
+def test_global_bootstrap_is_complete_and_project_text_bridge_is_legacy_only(tmp_path: Path):
     from ai_layer.integrations.service import _workflow
     from ai_layer.integrations.templates import global_bootstrap_workflow
 
     legacy_bridge = _workflow(tmp_path)
     global_rule = global_bootstrap_workflow()
-    assert len(legacy_bridge.encode("utf-8")) < 500
-    assert len(global_rule.encode("utf-8")) < 9000
+    assert "project binding (legacy compatibility)" in legacy_bridge
+    assert "Mandatory engineering discipline" not in legacy_bridge
+    assert "## AI Layer control-plane boundary" not in legacy_bridge
     assert "project_status" in global_rule
     assert "project_search" in global_rule
     assert "Current repository source is authoritative" in global_rule

@@ -197,7 +197,9 @@ def _task_id(db: Session, project: Project, key: str | None):
     match = _TASK_KEY_RE.fullmatch(rendered)
     if not match:
         raise ValueError("linked_task_key must look like T-0001")
-    task = db.scalar(select(Task).where(Task.project_id == project.id, Task.sequence == int(match.group(1))))
+    task = db.scalar(
+        select(Task).where(Task.project_id == project.id, Task.sequence == int(match.group(1)))
+    )
     if task is None:
         raise ValueError(f"managed task {rendered} does not exist in this project")
     return task.id
@@ -251,7 +253,9 @@ def begin_work(
     sequence = (
         int(
             db.scalar(
-                select(func.coalesce(func.max(WorkItem.sequence), 0)).where(WorkItem.project_id == project.id)
+                select(func.coalesce(func.max(WorkItem.sequence), 0)).where(
+                    WorkItem.project_id == project.id
+                )
             )
             or 0
         )
@@ -379,7 +383,7 @@ def finish_work(
             raise ValueError("repository_delta must be an object")
         work.repository_delta = dict(repository_delta)
     work.map_disposition = _map_disposition(map_disposition)
-    work.updated_at = now,
+    work.updated_at = now
     work.last_milestone_at = now
     work.completed_at = now
     runs = list(

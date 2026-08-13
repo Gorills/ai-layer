@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.0 — Durable Work spine and truthful observability
+
+- Added first-class `WorkItem` and `AgentRun` lifecycle for ordinary host-native user work while keeping managed Tasks/Epics as optional stricter assurance. Multiple WorkItems may coexist per project; the managed Task single-open constraint does not leak into ordinary work.
+- Added idempotent `work_begin`, milestone `work_checkpoint`, and terminal Work MCP commands backed by the existing `CommandReceipt`/advisory-lock boundary.
+- Added additive schema `0017_work_spine` with durable Work/AgentRun records plus `runtime_event_context` correlation for Work/Run/Task/Epic and host/session/model identity.
+- Made `RuntimeEvent` the durable human activity journal and kept JSONL/context trace diagnostic-only; common MCP execution now records safe terminal operation evidence without copying raw prompt/source bodies.
+- Made Dashboard project state truthful: live ordinary work requires a non-stale AgentRun; managed Task state and MCP bridge traffic are displayed separately and no longer prove that user work is currently executing.
+- Added bounded effective project policy to `project_status` with version/hash and corrected the repository bootstrap to the canonical root `DECISIONS/` ADR directory.
+- Published Search Contract v2: non-English intent uses a concise English code-centric primary Project Map query, preserves exact identifiers, allows at most one original/mixed widening variant, and requires current-source verification.
+- Added unit and real PostgreSQL regression coverage for Work concurrency/idempotency, event correlation, safe activity presentation, project policy, multilingual search fusion and truthful Dashboard state.
+
 ## 0.13.3 — Live agent contract and repository hygiene
 
 - Audited every agent-facing control-plane surface: native/MCP bootstrap, `project_status`, Task/Epic navigation, MCP descriptions, recovery/error guidance, skills and compatibility paths now describe the current Project Intelligence architecture consistently.

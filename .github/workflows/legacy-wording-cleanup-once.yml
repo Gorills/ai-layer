@@ -1,0 +1,28 @@
+name: legacy-wording-cleanup-once
+on:
+  push:
+    branches:
+      - audit/agent-facing-contracts
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/agent-facing-contracts
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/legacy_wording_cleanup_once.py
+      - run: rm -f scripts/legacy_wording_cleanup_once.py .github/workflows/legacy-wording-cleanup-once.yml
+      - name: Commit cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --exit-code && exit 0
+          git commit -m 'docs: make legacy compatibility wording explicit'
+          git push origin HEAD:audit/agent-facing-contracts

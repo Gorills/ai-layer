@@ -17,11 +17,15 @@ def _uuid(value: object):
         return None
 
 
+def _mapping(value: object) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
 def _result_context(result: object) -> dict[str, Any]:
     if not isinstance(result, dict):
         return {}
-    work = result.get("work") if isinstance(result.get("work"), dict) else {}
-    root_run = result.get("root_run") if isinstance(result.get("root_run"), dict) else {}
+    work = _mapping(result.get("work"))
+    root_run = _mapping(result.get("root_run"))
     return {
         "work_id": _uuid(work.get("id")),
         "run_id": _uuid(root_run.get("id")),

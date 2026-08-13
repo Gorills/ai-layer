@@ -6,7 +6,7 @@ from ai_layer.core.jsonutil import dumps
 from ai_layer.domain.errors import normalize_error
 
 app = typer.Typer(help="Local AI Development Layer")
-memory_app = typer.Typer(help="Project memory commands")
+memory_app = typer.Typer(help="Project Intelligence and legacy memory compatibility commands")
 session_app = typer.Typer(help="Cross-chat session memory")
 projects_app = typer.Typer(help="Machine project registry")
 audit_app = typer.Typer(help="Privacy-minimal MCP call audit")

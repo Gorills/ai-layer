@@ -92,7 +92,7 @@ def upgrade(
 def sync(
     path: str = typer.Argument("."),
     scan: bool = typer.Option(
-        False, "--scan", help="Also rebuild project memory after syncing adapters."
+        False, "--scan", help="Also rebuild Project Intelligence indexes after syncing adapters."
     ),
 ):
     """Idempotently refresh host rules/skills/MCP adapters for one initialized project."""

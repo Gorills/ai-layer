@@ -1,6 +1,6 @@
 ---
 slug: ai-layer-workflow
-description: AI Layer operating model for Project Intelligence, continuation, host-native execution, optional managed Tasks/Epics, review, recovery and durable project memory.
+description: AI Layer operating model for Project Intelligence, continuation, host-native execution, optional managed Tasks/Epics, review, recovery and durable project knowledge/history.
 kind: core
 keywords:
 - ai layer

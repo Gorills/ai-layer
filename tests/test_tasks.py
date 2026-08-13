@@ -1223,7 +1223,7 @@ def test_task_adopt_records_unmanaged_git_changes_and_starts_at_review(tmp_path:
         adopted = tasks.adopt_task(
             db,
             project,
-            goal="Review work that was performed outside Task Layer",
+            goal="Review work that was performed outside a managed Task",
             acceptance_criteria=["implementation is safe"],
             constraints=[],
         )

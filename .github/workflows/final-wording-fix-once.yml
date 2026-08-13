@@ -1,0 +1,91 @@
+name: final-wording-fix-once
+on:
+  push:
+    branches:
+      - audit/agent-facing-contracts
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/agent-facing-contracts
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Align public and agent-facing terminology
+        shell: python
+        run: |
+          from pathlib import Path
+          root = Path.cwd()
+
+          def replace(path: str, old: str, new: str) -> None:
+              target = root / path
+              text = target.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one occurrence, found {count}: {old!r}")
+              target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace(
+              "README.md",
+              "Current package version: **0.13.2**. The source architecture described here reflects the current control-plane implementation; release promotion remains governed by the repository release gate and committed wheel/manifest.",
+              "Current package version: **0.13.3**. The source architecture described here reflects the current control-plane implementation; release promotion remains governed by the repository release gate and committed wheel/manifest.",
+          )
+          replace(
+              "pyproject.toml",
+              'description = "Local AI Engineering Layer: project memory, skills, policies, sessions, FastAPI and MCP."',
+              'description = "Local AI engineering control plane: Project Intelligence, durable work state, skills, observability, FastAPI and MCP."',
+          )
+          replace(
+              "src/ai_layer/cli/root.py",
+              'memory_app = typer.Typer(help="Project memory commands")',
+              'memory_app = typer.Typer(help="Project Intelligence and legacy memory compatibility commands")',
+          )
+          replace(
+              "src/ai_layer/cli/commands/operations.py",
+              'help="Also rebuild project memory after syncing adapters."',
+              'help="Also rebuild Project Intelligence indexes after syncing adapters."',
+          )
+          replace(
+              "src/ai_layer/builtin_skills/ai-layer-workflow.md",
+              "description: AI Layer operating model for Project Intelligence, continuation, host-native execution, optional managed Tasks/Epics, review, recovery and durable project memory.",
+              "description: AI Layer operating model for Project Intelligence, continuation, host-native execution, optional managed Tasks/Epics, review, recovery and durable project knowledge/history.",
+          )
+          replace(
+              "tests/test_tasks.py",
+              'goal="Review work that was performed outside Task Layer"',
+              'goal="Review work that was performed outside a managed Task"',
+          )
+      - name: Rebuild deterministic 0.13.3 wheel
+        run: python scripts/build_release_wheel.py
+      - name: Refresh release digest and governance baseline
+        shell: python
+        run: |
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path.cwd()
+          manifest_path = root / "release/release-manifest.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if manifest.get("version") != "0.13.3":
+              raise SystemExit("expected promoted 0.13.3 manifest")
+          wheel = root / manifest["application_wheel"]
+          manifest["application_wheel_sha256"] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+      - run: |
+          python scripts/governance_gate.py --write-baseline
+          python scripts/governance_gate.py
+      - name: Remove temporary audit/fix workflows
+        run: rm -f .github/workflows/final-release-wording-audit-once.yml .github/workflows/final-wording-fix-once.yml
+      - name: Commit wording-aligned 0.13.3
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --exit-code && { echo 'no changes'; exit 1; }
+          git commit -m 'release: align 0.13.3 public product wording'
+          git push origin HEAD:audit/agent-facing-contracts

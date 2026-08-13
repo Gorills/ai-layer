@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from ai_layer import __version__
 from ai_layer.application import epics as epic_app
 from ai_layer.application.tasks import _idle_managed_task_payload
 from ai_layer.domain.agent_contract import agent_runtime_contract
@@ -129,6 +131,20 @@ def test_integration_and_bootstrap_versions_have_one_canonical_source() -> None:
         text = (ROOT / relative).read_text(encoding="utf-8")
         assert "INTEGRATION_TEMPLATE_VERSION =" not in text
         assert "GLOBAL_BOOTSTRAP_VERSION =" not in text
+
+
+def test_release_facing_state_tracks_current_runtime_contract() -> None:
+    manifest = json.loads((ROOT / "release/release-manifest.json").read_text(encoding="utf-8"))
+    current_state = (ROOT / "CURRENT_STATE.md").read_text(encoding="utf-8")
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+
+    assert manifest["version"] == __version__
+    assert manifest["migration_compatibility"]["target_schema"] == "0016_project_map_semantics"
+    assert current_state.startswith(f"# Current State — v{__version__} ")
+    assert f"Release **{__version__}** is promoted" in current_state
+    assert "live runtime/tool contract is the procedural authority" in current_state
+    assert f"## {__version__} —" in changelog
+    assert "Release **0.13.1** is promoted" not in current_state
 
 
 def test_legacy_terms_are_explicit_compatibility_only_outside_historical_detectors() -> None:

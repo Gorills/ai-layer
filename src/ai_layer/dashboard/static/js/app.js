@@ -44,6 +44,16 @@ function route() {
     status: params.get("status") || null,
     mode: params.get("mode") || null,
     page: intParam(params, "page", 1),
+    cursor: params.get("cursor") || null,
+    occurredAfter: params.get("occurred_after") || null,
+    occurredBefore: params.get("occurred_before") || null,
+    workId: params.get("work_id") || null,
+    taskId: params.get("task_id") || null,
+    epicId: params.get("epic_id") || null,
+    actorId: params.get("actor_id") || null,
+    eventType: params.get("event_type") || null,
+    importance: params.get("importance") || null,
+    assurance: params.get("assurance") || null,
   };
   if (parts[0] === "project" && parts[1]) return { kind: "project", key: decodeURIComponent(parts[1]), ...common };
   if (parts[0] === "epic" && parts[1] && parts[2]) return { kind: "epic", projectKey: decodeURIComponent(parts[1]), epicKey: decodeURIComponent(parts[2]), ...common };
@@ -116,6 +126,11 @@ function navigateScope(projectKey) {
 
 function bindDynamicControls() {
   document.querySelectorAll("[data-project-key]").forEach((row) => row.addEventListener("click", () => { location.hash = `#/project/${encodeURIComponent(row.dataset.projectKey)}`; }));
+  document.querySelectorAll("[data-history-back]").forEach((button) => button.addEventListener("click", () => history.back()));
+  document.querySelectorAll("form[data-hash-form]").forEach((form) => form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    location.hash = hashUrl(form.dataset.hashPath, Object.fromEntries(new FormData(form).entries()));
+  }));
   document.querySelectorAll("select[data-hash-select]").forEach((select) => select.addEventListener("change", () => {
     if (select.value) location.hash = select.value.startsWith("#") ? select.value.slice(1) : select.value;
   }));
@@ -222,8 +237,23 @@ async function load() {
       });
       nextPollMs = IDLE_POLL_MS;
     } else if (current.kind === "activity") {
-      const data = await api.activity({ project_key: current.project, page: current.page, page_size: 10 });
-      renderChanged(current, data, () => { setPage("Активность", "Компактный журнал технических операций"); app.innerHTML = renderActivity(data, current); });
+      const data = await api.activity({
+        project_key: current.project,
+        mode: current.mode || "milestones",
+        occurred_after: current.occurredAfter,
+        occurred_before: current.occurredBefore,
+        work_id: current.workId,
+        task_id: current.taskId,
+        epic_id: current.epicId,
+        actor_id: current.actorId,
+        event_type: current.eventType,
+        status: current.status,
+        importance: current.importance,
+        assurance: current.assurance,
+        cursor: current.cursor,
+        limit: 25,
+      });
+      renderChanged(current, data, () => { setPage("Активность", "Durable milestone-first журнал работы"); app.innerHTML = renderActivity(data, current); });
       nextPollMs = overviewIsLive(overviewCache) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
     } else {
       renderChanged(current, overviewCache, () => {

@@ -15,6 +15,8 @@ EXCLUDED_DIRS = {".git", ".pytest_cache", "__pycache__", ".mypy_cache", ".ruff_c
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 EXCLUDED_ROOT_ENTRIES = {
     ".coverage",
+    ".agents",
+    ".codex",
     ".git",
     ".idea",
     ".mypy_cache",
@@ -34,6 +36,7 @@ ALLOWED_ROOT_FILES = {
     "GEMINI.md",
     "MAINTAINER_INSTRUCTIONS.md",
     "Makefile",
+    "PRODUCT_GOAL.md",
     "README.md",
     "PROJECT_CHARTER.md",
     "ARCHITECTURE.md",

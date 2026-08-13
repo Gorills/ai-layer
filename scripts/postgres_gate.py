@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real-PostgreSQL migration, recovery and concurrency gate for pre-Epics invariants."""
+"""Real-PostgreSQL migration, recovery and concurrency gate for durable invariants."""
 
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ def main() -> int:
                     "pytest",
                     "-m",
                     "postgres",
-                    "tests/test_postgres_hardening.py",
+                    "tests",
                 ],
                 fresh_url,
             ),

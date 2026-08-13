@@ -20,9 +20,10 @@ from ai_layer.core.mcp_runtime import (
     start_runtime_warmup,
     tool_runtime_class,
 )
-from ai_layer.core.request_context import tool_execution_context
+from ai_layer.core.request_context import operation_context, tool_execution_context
 from ai_layer.domain.errors import normalize_error
 from ai_layer.domain.orchestrator import mcp_bootstrap_instructions
+from ai_layer.domain.security import Actor
 from ai_layer.mcp.context import bind_project_root, resolve_project_root
 
 MCP_INSTRUCTIONS = mcp_bootstrap_instructions()
@@ -177,7 +178,7 @@ def core_tool():
             begin_bridge_activity(name, correlation_id, TOOL_TIMEOUTS[tool_runtime_class(name)])
             try:
                 try:
-                    return call_core_tool(name, arguments)
+                    return call_core_tool(name, arguments, correlation_id=correlation_id)
                 except CoreServiceUnavailable:
                     # Availability fallback for headless/non-systemd environments. This remains bounded:
                     # direct execution uses interactive DB deadlines and never runs a full freshness scan.
@@ -190,13 +191,20 @@ def core_tool():
     return decorate
 
 
-def execute_core_tool(name: str, arguments: dict):
+def execute_core_tool(name: str, arguments: dict, *, correlation_id: str | None = None):
     func = TOOL_HANDLERS.get(name)
     if func is None:
         raise ValueError(f"Unknown AI Layer MCP tool: {name}")
     if not isinstance(arguments, dict):
         raise ValueError("MCP tool arguments must be an object")
-    return _execute_local_tool(func, name, (), arguments)
+    actor = Actor(
+        actor_id="local:mcp",
+        kind="local",
+        capabilities=frozenset({"*"}),
+        authenticated=True,
+    )
+    with operation_context(actor=actor, interface="mcp", correlation_id=correlation_id):
+        return _execute_local_tool(func, name, (), arguments)
 
 
 def project_root_for_tool(project_root: str | None, *, tool: str) -> str:

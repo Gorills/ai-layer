@@ -112,6 +112,10 @@
       "capability": "Observability"
     },
     {
+      "prefix": "ai_layer.work",
+      "capability": "Work"
+    },
+    {
       "prefix": "ai_layer.integrations",
       "capability": "Integrations"
     },
@@ -209,6 +213,16 @@
       "from": "Tasks",
       "to": "Interfaces",
       "reason": "Task Engine is invoked by interfaces"
+    },
+    {
+      "from": "Work",
+      "to": "Interfaces",
+      "reason": "durable Work lifecycle is invoked through application use cases"
+    },
+    {
+      "from": "Work",
+      "to": "Dashboard",
+      "reason": "Work lifecycle cannot depend on its read-side UI"
     },
     {
       "from": "Skills",

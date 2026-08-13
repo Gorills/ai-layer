@@ -1,6 +1,6 @@
 {
   "application_wheel": "dist/local_ai_development_layer-0.14.0-py3-none-any.whl",
-  "application_wheel_sha256": "PENDING_RELEASE_CANDIDATE",
+  "application_wheel_sha256": "32c50af78cb91255bebba4643f204e5c5fcff7a06d3e9a0beae87b194a6f263d",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -14,7 +14,7 @@
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
     "target_schema": "0017_work_spine"
   },
-  "notes": "0.14.0 introduces the durable ordinary-work spine: WorkItem and AgentRun are distinct from managed Task assurance and transport activity; project_status delivers bounded effective project policy and truthful work state; Project Search publishes a bounded multilingual/code-centric query contract; RuntimeEvent correlation becomes the durable activity journal while JSONL remains diagnostic; Dashboard separates Work, managed Tasks, Project Map semantics and MCP bridges.",
+  "notes": "0.14.0 introduces the durable ordinary-work spine: WorkItem and AgentRun are distinct from managed Task assurance and transport activity; project_status delivers bounded effective project policy and truthful work state; Project Search publishes a bounded multilingual/code-centric query contract; RuntimeEvent correlation becomes the durable activity journal while JSONL remains diagnostic; stdio/core execution shares correlation identity; semantic Project Map reconciliation can retain source Work provenance; Dashboard separates Work, managed Tasks, Project Map semantics and MCP bridges, exposes bounded versioned Work list/detail contracts, and provides a milestone-first filterable Activity v2 timeline with deterministic keyset cursors.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",

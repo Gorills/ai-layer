@@ -42,7 +42,7 @@ def test_global_bootstrap_is_project_intelligence_first_and_host_native(tmp_path
     assert (
         "Native read/edit/search/shell/test/subagent capabilities remain available" in global_text
     )
-    assert "managed Tasks and Epics remain durable workflows" in global_text
+    assert "managed Tasks and Epics remain durable strict workflows" in global_text
     assert "Current repository source is final code truth" in global_text
     assert "Never stash, reset, restore, discard or commit user changes" in global_text
     assert "memory_context(task=<actual user task>" not in global_text

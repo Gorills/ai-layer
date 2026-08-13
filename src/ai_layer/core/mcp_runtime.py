@@ -312,18 +312,27 @@ def _post_dispatch_timeout(tool: str, message: str) -> CoreRequestTimeout:
     )
 
 
-def _rpc_request(tool: str, arguments: dict[str, Any], timeout: float) -> Any:
+def _rpc_request(
+    tool: str,
+    arguments: dict[str, Any],
+    timeout: float,
+    *,
+    correlation_id: str | None = None,
+) -> Any:
     token = ensure_core_token()
     body = json.dumps({"arguments": arguments}, ensure_ascii=False).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        CORE_TOKEN_HEADER: token,
+        "X-AI-Layer-Bridge-Version": __version__,
+    }
+    if correlation_id:
+        headers["X-AI-Layer-Correlation-ID"] = str(correlation_id)[:64]
     request = urllib.request.Request(
         f"{CORE_BASE_URL}{CORE_RPC_PREFIX}/{tool}",
         data=body,
         method="POST",
-        headers={
-            "Content-Type": "application/json",
-            CORE_TOKEN_HEADER: token,
-            "X-AI-Layer-Bridge-Version": __version__,
-        },
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - loopback only
@@ -372,7 +381,12 @@ def _rpc_request(tool: str, arguments: dict[str, Any], timeout: float) -> Any:
     return payload.get("result")
 
 
-def call_core_tool(tool: str, arguments: dict[str, Any]) -> Any:
+def call_core_tool(
+    tool: str,
+    arguments: dict[str, Any],
+    *,
+    correlation_id: str | None = None,
+) -> Any:
     global _HEALTH_OK_UNTIL
     timeout = timeout_for_tool(tool)
     from ai_layer.core.background_service import probe_service, start_user_service
@@ -392,7 +406,7 @@ def call_core_tool(tool: str, arguments: dict[str, Any]) -> Any:
         with _HEALTH_LOCK:
             _HEALTH_OK_UNTIL = time.monotonic() + HEALTH_CACHE_SECONDS
     try:
-        result = _rpc_request(tool, arguments, timeout)
+        result = _rpc_request(tool, arguments, timeout, correlation_id=correlation_id)
     except (CoreServiceUnavailable, CoreRequestTimeout, CoreProtocolError):
         with _HEALTH_LOCK:
             _HEALTH_OK_UNTIL = 0.0

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import os
-from uuid import uuid4
+from concurrent.futures import ThreadPoolExecutor
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import create_engine, func, select
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 from ai_layer.application import work as work_uc
 from ai_layer.db.models import Project, RuntimeEvent
 from ai_layer.db.work_models import AgentRun, RuntimeEventContext, WorkItem
+from ai_layer.projections import dashboard_activity
 
 POSTGRES_URL = os.getenv("AI_LAYER_TEST_POSTGRES_URL", "").strip()
 pytestmark = pytest.mark.postgres
@@ -100,10 +102,61 @@ def test_work_lifecycle_is_parallel_idempotent_and_durably_observable(monkeypatc
         assert [item["key"] for item in state["active"]] == ["W-0002"]
         assert state["recent"][0]["key"] == "W-0001"
 
+        entry = {"root": root, "project_id": "work-spine", "name": "Work Spine"}
+        monkeypatch.setattr(dashboard_activity, "selected_entries", lambda _key: [entry])
+        monkeypatch.setattr(dashboard_activity, "project_options", lambda: [{"key": "work-spine"}])
+        activity_first = dashboard_activity.activity_payload(
+            project_key_value="work-spine",
+            mode="milestones",
+            work_id=UUID(first["work"]["id"]),
+            limit=1,
+        )
+        assert activity_first is not None
+        assert activity_first["has_more"] is True
+        activity_second = dashboard_activity.activity_payload(
+            project_key_value="work-spine",
+            mode="milestones",
+            work_id=UUID(first["work"]["id"]),
+            cursor=activity_first["next_cursor"],
+            limit=1,
+        )
+        assert activity_second is not None
+        assert {
+            activity_first["items"][0]["event_id"],
+            activity_second["items"][0]["event_id"],
+        } == {
+            item["event_id"]
+            for item in dashboard_activity.activity_payload(
+                project_key_value="work-spine",
+                mode="milestones",
+                work_id=UUID(first["work"]["id"]),
+                limit=10,
+            )["items"]
+        }
+        completed_activity = dashboard_activity.activity_payload(
+            project_key_value="work-spine",
+            status="completed",
+            work_id=UUID(first["work"]["id"]),
+        )
+        assert completed_activity is not None
+        assert [item["event_type"] for item in completed_activity["items"]] == ["WorkCompleted"]
+
+        def concurrent_begin(number: int) -> dict:
+            return work_uc.begin(
+                root,
+                goal=f"Concurrent work {number}",
+                kind="review",
+                idempotency_key=f"work-concurrent-{number}-{uuid4().hex}",
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            concurrent = list(executor.map(concurrent_begin, (1, 2)))
+        assert {item["work"]["key"] for item in concurrent} == {"W-0003", "W-0004"}
+
         with Session(engine, expire_on_commit=False) as db:
             assert (
                 db.scalar(select(func.count(WorkItem.id)).where(WorkItem.project_id == project_id))
-                == 2
+                == 4
             )
             assert (
                 db.scalar(
@@ -111,7 +164,7 @@ def test_work_lifecycle_is_parallel_idempotent_and_durably_observable(monkeypatc
                     .join(WorkItem)
                     .where(WorkItem.project_id == project_id)
                 )
-                == 2
+                == 4
             )
             work_started = db.scalars(
                 select(RuntimeEvent).where(
@@ -119,13 +172,13 @@ def test_work_lifecycle_is_parallel_idempotent_and_durably_observable(monkeypatc
                     RuntimeEvent.event_type == "WorkStarted",
                 )
             ).all()
-            assert len(work_started) == 2
+            assert len(work_started) == 4
             contexts = db.scalars(
                 select(RuntimeEventContext).where(
                     RuntimeEventContext.event_id.in_([item.id for item in work_started])
                 )
             ).all()
-            assert len(contexts) == 2
+            assert len(contexts) == 4
             assert all(item.work_id is not None for item in contexts)
     finally:
         db_session._engine = previous_engine

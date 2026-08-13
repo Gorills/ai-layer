@@ -1,8 +1,31 @@
+# Local Python environments
 .venv/
+venv/
+
+# Python caches and build output
 __pycache__/
+*.py[cod]
+*$py.class
 .pytest_cache/
 .ruff_cache/
-*.pyc
-.env
+.mypy_cache/
 .coverage
+.coverage.*
 htmlcov/
+/build/
+*.egg-info/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and host-agent workspace state
+.idea/
+.vscode/
+.agents/
+.codex/
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db

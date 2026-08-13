@@ -1,5 +1,7 @@
 import os
+import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 from ai_layer.core.config import get_settings
@@ -150,11 +152,12 @@ def test_external_git_guard_chains_executable_legacy_hook_and_blocks_provenance(
     # Stand-in CLI exercises generated hooks without importing DB/runtime dependencies.
     cli = stable_bin / "ai-layer"
     source_root = str((Path(__file__).parents[1] / "src").resolve())
+    python = shlex.quote(sys.executable)
     cli.write_text(
         "#!/bin/sh\n"
         'msg=""\n'
         'if [ "${5:-}" = "--commit-message" ]; then msg="${6:-}"; fi\n'
-        f'PYTHONPATH="{source_root}" python -c \'import sys; from ai_layer.privacy.service import privacy_check; '
+        f'PYTHONPATH="{source_root}" {python} -c \'import sys; from ai_layer.privacy.service import privacy_check; '
         "r=privacy_check(sys.argv[1], staged=True, commit_message=(sys.argv[2] or None)); print(r); "
         'raise SystemExit(0 if r["ok"] else 1)\' "$3" "$msg"\n',
         encoding="utf-8",

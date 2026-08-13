@@ -93,6 +93,33 @@ def test_dashboard_strict_private_rule_read_does_not_create_project_state(
 
 
 def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
+    from ai_layer.dashboard import activity_api
+
+    seen_work = {}
+
+    def work_items(**kwargs):
+        seen_work.update(kwargs)
+        return {
+            "contract_version": 1,
+            "generated_at": "2026-08-13T00:00:00+00:00",
+            "items": [],
+            "pagination": {
+                "page": 1,
+                "page_size": 10,
+                "total": 0,
+                "pages": 0,
+                "has_previous": False,
+                "has_next": False,
+            },
+            "projects": [],
+            "filters": {
+                "project_key": kwargs.get("project_key_value"),
+                "status": kwargs.get("status"),
+            },
+            "ordering": ["updated_at:desc", "id:desc"],
+        }
+
+    monkeypatch.setattr(dashboard_api, "work_items_payload", work_items)
     monkeypatch.setattr(
         dashboard_api,
         "tasks_payload",
@@ -127,23 +154,101 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
         "monitoring_payload",
         lambda project_key=None: {"kind": "monitoring", "project_key": project_key},
     )
-    monkeypatch.setattr(
-        dashboard_api,
-        "activity_payload",
-        lambda **kwargs: {"kind": "activity", "kwargs": kwargs},
-    )
+    seen_activity = {}
+
+    def activity_payload(**kwargs):
+        seen_activity.update(kwargs)
+        return {
+            "contract_version": 2,
+            "generated_at": "2026-08-13T00:00:00+00:00",
+            "items": [],
+            "next_cursor": None,
+            "has_more": False,
+            "limit": kwargs["limit"],
+            "projects": [],
+            "filters": {
+                "project_key": kwargs["project_key_value"],
+                "mode": kwargs["mode"],
+                "occurred_after": None,
+                "occurred_before": None,
+                "work_id": None,
+                "task_id": None,
+                "epic_id": None,
+                "actor_id": kwargs["actor_id"],
+                "event_type": kwargs["event_type"],
+                "status": kwargs["status"],
+                "importance": kwargs["importance"],
+                "assurance": kwargs["assurance"],
+            },
+            "ordering": ["occurred_at:desc", "event_id:desc"],
+            "retention": "durable RuntimeEvent journal",
+        }
+
+    monkeypatch.setattr(activity_api, "activity_payload", activity_payload)
 
     from ai_layer.api.app import create_app
 
-    client = TestClient(create_app())
+    application = create_app()
+    client = TestClient(application)
+    work = client.get("/api/v1/dashboard/work?project_key=p1&status=blocked&page=2&page_size=10")
     tasks = client.get("/api/v1/dashboard/tasks?project_key=p1&page=2&page_size=10")
     epics = client.get("/api/v1/dashboard/epics?project_key=p1&status=open&page=2&page_size=10")
     skills = client.get("/api/v1/dashboard/skills?project_key=p1&page_size=10")
     rules = client.get("/api/v1/dashboard/rules?project_key=p1")
     knowledge = client.get("/api/v1/dashboard/knowledge/p1?status=DRAFT&page_size=10")
     monitoring = client.get("/api/v1/dashboard/monitoring?project_key=p1")
-    activity = client.get("/api/v1/dashboard/activity?project_key=p1&page=3&page_size=10")
+    activity = client.get(
+        "/api/v1/dashboard/activity?project_key=p1&mode=all&event_type=WorkCompleted"
+        "&status=completed&actor_id=agent:root&importance=high"
+        "&assurance=host_reported&limit=20"
+    )
 
+    assert work.status_code == 200
+    assert seen_work["project_key_value"] == "p1"
+    assert seen_work["status"] == "blocked"
+    assert seen_work["page"] == 2
+    schema = application.openapi()
+    assert (
+        schema["paths"]["/api/v1/dashboard/work"]["get"]["responses"]["200"]["content"][
+            "application/json"
+        ]["schema"]["$ref"]
+        == "#/components/schemas/WorkListRead"
+    )
+    assert (
+        schema["paths"]["/api/v1/dashboard/work/{project_key}/{work_key}"]["get"]["responses"][
+            "200"
+        ]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/WorkDetailRead"
+    )
+    assert (
+        schema["paths"]["/api/v1/dashboard/activity"]["get"]["responses"]["200"]["content"][
+            "application/json"
+        ]["schema"]["$ref"]
+        == "#/components/schemas/ActivityRead"
+    )
+    activity_payload_schema = schema["components"]["schemas"]["SafeEventPayload"]
+    assert "additionalProperties" not in activity_payload_schema
+    assert set(activity_payload_schema["properties"]) == {
+        "status",
+        "summary",
+        "reason",
+        "goal",
+        "kind",
+        "tool",
+        "command_name",
+        "duration_ms",
+        "error_type",
+        "updated",
+        "removed",
+        "scope_paths",
+        "map_status",
+    }
+    assert (
+        schema["paths"]["/api/v1/dashboard/activity"]["get"]["responses"]["422"]["content"][
+            "application/json"
+        ]["schema"]["$ref"]
+        == "#/components/schemas/DashboardValidationError"
+    )
     assert tasks.status_code == 200
     assert tasks.json()["kwargs"]["project_key_value"] == "p1"
     assert tasks.json()["kwargs"]["page"] == 2
@@ -159,7 +264,14 @@ def test_dashboard_redesign_routes_are_wired_to_read_models(monkeypatch):
     assert monitoring.status_code == 200
     assert monitoring.json() == {"kind": "monitoring", "project_key": "p1"}
     assert activity.status_code == 200
-    assert activity.json()["kwargs"]["page"] == 3
+    assert seen_activity["project_key_value"] == "p1"
+    assert seen_activity["mode"] == "all"
+    assert seen_activity["event_type"] == "WorkCompleted"
+    assert seen_activity["status"] == "completed"
+    assert seen_activity["actor_id"] == "agent:root"
+    assert seen_activity["importance"] == "high"
+    assert seen_activity["assurance"] == "host_reported"
+    assert seen_activity["limit"] == 20
 
 
 def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():

@@ -3,98 +3,40 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ai_layer.db.models import Project, Task, utcnow
-from ai_layer.db.work_models import AgentRun, WorkItem
+from ai_layer.core.redaction import redact_secrets
+from ai_layer.db.models import Project, RuntimeEvent, Task, utcnow
+from ai_layer.db.work_models import (
+    OBSERVABILITY_COVERAGE,
+    AgentRun,
+    RuntimeEventContext,
+    WorkItem,
+)
+from ai_layer.work.evidence import (
+    assurance_source,
+    check_evidence,
+    project_paths,
+    safe_metadata_text,
+)
+from ai_layer.work.evidence import (
+    map_disposition as normalize_map_disposition,
+)
+from ai_layer.work.evidence import (
+    repository_delta as normalize_repository_delta,
+)
 
 WORK_RUN_STALE_SECONDS = 300
 WORK_RECENT_LIMIT = 8
 WORK_GOAL_MAX_CHARS = 2000
 WORK_SUMMARY_MAX_CHARS = 4000
 WORK_ACTION_MAX_CHARS = 1000
-WORK_PATH_LIMIT = 120
-WORK_CHECK_LIMIT = 40
 _TASK_KEY_RE = re.compile(r"^T-(\d{1,9})$", re.IGNORECASE)
 _EPIC_KEY_RE = re.compile(r"^E-(\d{1,9})$", re.IGNORECASE)
 _WORK_KEY_RE = re.compile(r"^W-(\d{1,9})$", re.IGNORECASE)
-
-
-def _text(value: object, *, field: str, max_chars: int, required: bool = False) -> str:
-    result = " ".join(str(value or "").strip().split())
-    if required and not result:
-        raise ValueError(f"{field} is required")
-    if len(result) > max_chars:
-        raise ValueError(f"{field} exceeds {max_chars} characters")
-    return result
-
-
-def _paths(value: object, *, field: str) -> list[str]:
-    if value is None:
-        return []
-    if not isinstance(value, list):
-        raise ValueError(f"{field} must be a list")
-    if len(value) > WORK_PATH_LIMIT:
-        raise ValueError(f"{field} exceeds {WORK_PATH_LIMIT} paths")
-    result: list[str] = []
-    for raw in value:
-        path = str(raw or "").strip().replace("\\", "/")
-        if not path or path.startswith("/") or path.startswith("../") or "/../" in path:
-            raise ValueError(f"{field} contains a non-project-relative path")
-        if path not in result:
-            result.append(path)
-    return result
-
-
-def _checks(value: object) -> list[dict]:
-    if value is None:
-        return []
-    if not isinstance(value, list):
-        raise ValueError("checks must be a list")
-    if len(value) > WORK_CHECK_LIMIT:
-        raise ValueError(f"checks exceeds {WORK_CHECK_LIMIT} items")
-    result: list[dict] = []
-    for item in value:
-        if not isinstance(item, dict):
-            raise ValueError("each check must be an object")
-        result.append(
-            {
-                "name": _text(
-                    item.get("name") or item.get("command"),
-                    field="checks.name",
-                    max_chars=240,
-                    required=True,
-                ),
-                "status": _text(
-                    item.get("status"), field="checks.status", max_chars=32, required=True
-                ),
-                "summary": _text(item.get("summary"), field="checks.summary", max_chars=500),
-            }
-        )
-    return result
-
-
-def _map_disposition(value: object) -> dict:
-    if value is None:
-        return {"status": "pending"}
-    if not isinstance(value, dict):
-        raise ValueError("map_disposition must be an object")
-    status = _text(value.get("status"), field="map_disposition.status", max_chars=32, required=True)
-    allowed = {"reconciled", "checked_no_change", "not_applicable", "deferred", "pending"}
-    if status not in allowed:
-        raise ValueError(
-            "map_disposition.status must be reconciled, checked_no_change, not_applicable, deferred or pending"
-        )
-    scope = _paths(value.get("scope") or [], field="map_disposition.scope")
-    reason = _text(value.get("reason"), field="map_disposition.reason", max_chars=500)
-    event_id = _text(value.get("event_id"), field="map_disposition.event_id", max_chars=64)
-    if status == "checked_no_change" and not scope:
-        raise ValueError("checked_no_change requires non-empty map_disposition.scope")
-    if status in {"not_applicable", "deferred"} and not reason:
-        raise ValueError(f"{status} requires map_disposition.reason")
-    return {"status": status, "scope": scope, "reason": reason, "event_id": event_id or None}
 
 
 def work_key(work: WorkItem) -> str:
@@ -120,12 +62,12 @@ def run_to_dict(run: AgentRun, *, now: datetime | None = None) -> dict[str, Any]
         "status": run.status,
         "effective_status": "stale" if stale else run.status,
         "stale": stale,
-        "host": run.host,
-        "client": run.client,
-        "session_id": run.session_id,
-        "turn_id": run.turn_id,
-        "model": run.model,
-        "last_meaningful_action": run.last_meaningful_action,
+        "host": redact_secrets(run.host),
+        "client": redact_secrets(run.client),
+        "session_id": redact_secrets(run.session_id),
+        "turn_id": redact_secrets(run.turn_id),
+        "model": redact_secrets(run.model),
+        "last_meaningful_action": redact_secrets(run.last_meaningful_action),
         "observability_coverage": run.observability_coverage,
         "assurance": run.assurance,
         "started_at": run.started_at.isoformat(),
@@ -134,31 +76,52 @@ def run_to_dict(run: AgentRun, *, now: datetime | None = None) -> dict[str, Any]
     }
 
 
-def work_to_dict(db: Session, work: WorkItem, *, include_runs: bool = True) -> dict[str, Any]:
+def work_to_dict(
+    db: Session,
+    work: WorkItem,
+    *,
+    include_runs: bool = True,
+    preloaded_runs: list[AgentRun] | None = None,
+) -> dict[str, Any]:
     runs: list[dict] = []
     live = False
     if include_runs:
-        rows = db.scalars(
-            select(AgentRun)
-            .where(AgentRun.work_id == work.id)
-            .order_by(AgentRun.started_at, AgentRun.id)
-        ).all()
+        rows = preloaded_runs
+        if rows is None:
+            rows = list(
+                db.scalars(
+                    select(AgentRun)
+                    .where(AgentRun.work_id == work.id)
+                    .order_by(AgentRun.started_at, AgentRun.id)
+                ).all()
+            )
         runs = [run_to_dict(row) for row in rows]
         live = any(item["status"] == "active" and not item["stale"] for item in runs)
     disposition = dict(work.map_disposition or {}) or {"status": "pending"}
     return {
         "id": str(work.id),
         "key": work_key(work),
-        "goal": work.goal,
+        "goal": redact_secrets(work.goal),
         "kind": work.kind,
         "status": work.status,
         "live": live and work.status in {"active", "blocked"},
-        "result_summary": work.result_summary,
+        "result_summary": redact_secrets(work.result_summary),
         "reviewed_paths": list(work.reviewed_paths or []),
         "changed_paths": list(work.changed_paths or []),
         "repository_delta": dict(work.repository_delta or {}),
-        "checks": list(work.checks or []),
-        "map_disposition": disposition,
+        "checks": [
+            {
+                **item,
+                "name": redact_secrets(str(item.get("name") or "")),
+                "summary": redact_secrets(str(item.get("summary") or "")),
+            }
+            for item in (work.checks or [])
+            if isinstance(item, dict)
+        ],
+        "map_disposition": {
+            **disposition,
+            "reason": redact_secrets(str(disposition.get("reason") or "")),
+        },
         "map_pending": disposition.get("status") == "pending",
         "observability_coverage": work.observability_coverage,
         "assurance": work.assurance,
@@ -242,14 +205,13 @@ def begin_work(
     if normalized_kind not in {"change", "diagnose", "review", "research", "planning", "ops"}:
         raise ValueError("kind must be change, diagnose, review, research, planning or ops")
     normalized_coverage = str(observability_coverage or "lifecycle_only").strip()
-    if normalized_coverage not in {
-        "full_host_hooks",
-        "lifecycle_only",
-        "control_plane_only",
-        "inferred_repository_delta",
-        "unavailable",
-    }:
+    if normalized_coverage not in OBSERVABILITY_COVERAGE:
         raise ValueError("unsupported observability_coverage")
+    # Work sequences are human-facing project-local identifiers. Lock the durable project row so
+    # different idempotency keys cannot concurrently observe the same MAX(sequence).
+    locked_project = db.scalar(select(Project).where(Project.id == project.id).with_for_update())
+    if locked_project is None:
+        raise ValueError("project no longer exists")
     sequence = (
         int(
             db.scalar(
@@ -265,12 +227,12 @@ def begin_work(
     work = WorkItem(
         project_id=project.id,
         sequence=sequence,
-        goal=_text(goal, field="goal", max_chars=WORK_GOAL_MAX_CHARS, required=True),
+        goal=safe_metadata_text(goal, field="goal", max_chars=WORK_GOAL_MAX_CHARS, required=True),
         kind=normalized_kind,
         status="active",
         map_disposition={"status": "pending"},
         observability_coverage=normalized_coverage,
-        assurance=_text(assurance, field="assurance", max_chars=32) or "agent_reported",
+        assurance=assurance_source(assurance or "agent_reported"),
         linked_task_id=_task_id(db, project, linked_task_key),
         linked_epic_id=_epic_id(db, project, linked_epic_key),
         started_at=now,
@@ -283,11 +245,11 @@ def begin_work(
         work_id=work.id,
         role="root",
         status="active",
-        host=_text(host, field="host", max_chars=64) or "unknown",
-        client=_text(client, field="client", max_chars=64) or "unknown",
-        session_id=_text(session_id, field="session_id", max_chars=128),
-        turn_id=_text(turn_id, field="turn_id", max_chars=128),
-        model=_text(model, field="model", max_chars=128),
+        host=safe_metadata_text(host, field="host", max_chars=64) or "unknown",
+        client=safe_metadata_text(client, field="client", max_chars=64) or "unknown",
+        session_id=safe_metadata_text(session_id, field="session_id", max_chars=128),
+        turn_id=safe_metadata_text(turn_id, field="turn_id", max_chars=128),
+        model=safe_metadata_text(model, field="model", max_chars=128),
         observability_coverage=normalized_coverage,
         assurance=work.assurance,
         started_at=now,
@@ -315,17 +277,17 @@ def checkpoint_work(
         raise RuntimeError(f"work item {work_key(work)} is terminal: {work.status}")
     now = utcnow()
     if summary:
-        work.result_summary = _text(summary, field="summary", max_chars=WORK_SUMMARY_MAX_CHARS)
+        work.result_summary = safe_metadata_text(
+            summary, field="summary", max_chars=WORK_SUMMARY_MAX_CHARS
+        )
     if reviewed_paths is not None:
-        work.reviewed_paths = _paths(reviewed_paths, field="reviewed_paths")
+        work.reviewed_paths = project_paths(reviewed_paths, field="reviewed_paths")
     if changed_paths is not None:
-        work.changed_paths = _paths(changed_paths, field="changed_paths")
+        work.changed_paths = project_paths(changed_paths, field="changed_paths")
     if checks is not None:
-        work.checks = _checks(checks)
+        work.checks = check_evidence(checks)
     if repository_delta is not None:
-        if not isinstance(repository_delta, dict):
-            raise ValueError("repository_delta must be an object")
-        work.repository_delta = dict(repository_delta)
+        work.repository_delta = normalize_repository_delta(repository_delta)
     if blocked is not None:
         work.status = "blocked" if blocked else "active"
     work.updated_at = now
@@ -339,7 +301,7 @@ def checkpoint_work(
     if run is not None:
         run.heartbeat_at = now
         if summary:
-            run.last_meaningful_action = _text(
+            run.last_meaningful_action = safe_metadata_text(
                 summary, field="summary", max_chars=WORK_ACTION_MAX_CHARS
             )
     db.flush()
@@ -367,22 +329,55 @@ def finish_work(
         if work.status == terminal:
             return work, []
         raise RuntimeError(f"work item {work_key(work)} is already terminal: {work.status}")
-    now = utcnow()
-    work.status = terminal
-    work.result_summary = _text(
+    normalized_summary = safe_metadata_text(
         summary, field="summary", max_chars=WORK_SUMMARY_MAX_CHARS, required=True
     )
-    if reviewed_paths is not None:
-        work.reviewed_paths = _paths(reviewed_paths, field="reviewed_paths")
-    if changed_paths is not None:
-        work.changed_paths = _paths(changed_paths, field="changed_paths")
-    if checks is not None:
-        work.checks = _checks(checks)
-    if repository_delta is not None:
-        if not isinstance(repository_delta, dict):
-            raise ValueError("repository_delta must be an object")
-        work.repository_delta = dict(repository_delta)
-    work.map_disposition = _map_disposition(map_disposition)
+    normalized_reviewed_paths = (
+        project_paths(reviewed_paths, field="reviewed_paths")
+        if reviewed_paths is not None
+        else None
+    )
+    normalized_changed_paths = (
+        project_paths(changed_paths, field="changed_paths") if changed_paths is not None else None
+    )
+    normalized_checks = check_evidence(checks) if checks is not None else None
+    normalized_repository_delta = (
+        normalize_repository_delta(repository_delta) if repository_delta is not None else None
+    )
+    disposition = normalize_map_disposition(map_disposition)
+    if disposition["status"] == "reconciled":
+        event_id = UUID(str(disposition["event_id"]))
+        event = db.scalar(
+            select(RuntimeEvent)
+            .join(RuntimeEventContext, RuntimeEventContext.event_id == RuntimeEvent.id)
+            .where(
+                RuntimeEvent.id == event_id,
+                RuntimeEvent.project_id == project.id,
+                RuntimeEvent.event_type == "ProjectMapReconciled",
+                RuntimeEventContext.work_id == work.id,
+            )
+        )
+        if event is None:
+            raise ValueError(
+                "reconciled map_disposition.event_id must identify a ProjectMapReconciled "
+                "event for this Work item"
+            )
+        if list((event.payload or {}).get("scope_paths") or []) != disposition["scope"]:
+            raise ValueError(
+                "reconciled map_disposition.scope must match the ProjectMapReconciled event scope"
+            )
+    now = utcnow()
+    work.status = terminal
+    work.result_summary = normalized_summary
+    if normalized_reviewed_paths is not None:
+        work.reviewed_paths = normalized_reviewed_paths
+    if normalized_changed_paths is not None:
+        work.changed_paths = normalized_changed_paths
+    if normalized_checks is not None:
+        work.checks = normalized_checks
+    if normalized_repository_delta is not None:
+        work.repository_delta = normalized_repository_delta
+    work.map_disposition = disposition
     work.updated_at = now
     work.last_milestone_at = now
     work.completed_at = now

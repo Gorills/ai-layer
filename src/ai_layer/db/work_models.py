@@ -16,6 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
+from ai_layer.db import epic_models as _epic_models  # noqa: F401 - register linked Epic table
 from ai_layer.db.base import Base
 from ai_layer.db.models import utcnow
 
@@ -28,6 +29,13 @@ OBSERVABILITY_COVERAGE = (
     "control_plane_only",
     "inferred_repository_delta",
     "unavailable",
+)
+WORK_ASSURANCE = (
+    "ai_layer_observed",
+    "host_reported",
+    "agent_reported",
+    "inferred_unattributed",
+    "requested_unverified",
 )
 
 
@@ -45,6 +53,16 @@ class WorkItem(Base):
         CheckConstraint(
             "status IN ('active','blocked','completed','failed','interrupted','abandoned')",
             name="ck_work_items_status",
+        ),
+        CheckConstraint(
+            "observability_coverage IN ('full_host_hooks','lifecycle_only',"
+            "'control_plane_only','inferred_repository_delta','unavailable')",
+            name="ck_work_items_observability_coverage",
+        ),
+        CheckConstraint(
+            "assurance IN ('ai_layer_observed','host_reported','agent_reported',"
+            "'inferred_unattributed','requested_unverified')",
+            name="ck_work_items_assurance",
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -89,6 +107,16 @@ class AgentRun(Base):
             name="ck_agent_runs_status",
         ),
         CheckConstraint("role IN ('root','subagent')", name="ck_agent_runs_role"),
+        CheckConstraint(
+            "observability_coverage IN ('full_host_hooks','lifecycle_only',"
+            "'control_plane_only','inferred_repository_delta','unavailable')",
+            name="ck_agent_runs_observability_coverage",
+        ),
+        CheckConstraint(
+            "assurance IN ('ai_layer_observed','host_reported','agent_reported',"
+            "'inferred_unattributed','requested_unverified')",
+            name="ck_agent_runs_assurance",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     work_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("work_items.id", ondelete="CASCADE"))
@@ -117,6 +145,8 @@ class RuntimeEventContext(Base):
     __table_args__ = (
         Index("ix_runtime_event_context_work", "work_id", "event_id"),
         Index("ix_runtime_event_context_run", "run_id", "event_id"),
+        Index("ix_runtime_event_context_task", "task_id", "event_id"),
+        Index("ix_runtime_event_context_epic", "epic_id", "event_id"),
     )
     event_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("runtime_events.id", ondelete="CASCADE"), primary_key=True

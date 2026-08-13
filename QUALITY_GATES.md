@@ -36,6 +36,30 @@ make postgres-gate # real PostgreSQL/pgvector hardening
 make preflight     # full local pre-push composition
 ```
 
+### Local verification contract
+
+`make dev-setup` creates the checkout-owned `.venv` with CPython 3.12, installs development dependencies there and activates the tracked hooks. When that environment exists, Make prepends its `bin` directory to `PATH`; agents do not need to activate it, and repository targets do not silently prefer an ambient AI Layer installation. `make preflight` fails with a setup instruction if `.venv` is absent.
+
+The gate owners are deliberately non-overlapping:
+
+| Command | Proves | Environment |
+| --- | --- | --- |
+| `make fast-gate` | format, lint and architecture policy | checkout `.venv`; no database |
+| `make quality` | deterministic static, unit/integration, governance and release contracts | database-independent; PostgreSQL-marked tests are excluded from an inherited database URL |
+| `make postgres-gate` | migrations, constraints, transactions and concurrency | caller-supplied PostgreSQL server; gate-owned migrated test databases |
+| `make preflight` | `quality` plus `postgres-gate` on the exact worktree | checkout `.venv` plus an ephemeral Docker PostgreSQL project |
+
+Run focused non-PostgreSQL tests as `.venv/bin/python -m pytest ...`. Do not use SQLite as evidence for PostgreSQL behavior, and do not run PostgreSQL-marked tests directly against an empty shared database: `scripts/postgres_gate.py` owns database creation, migration and cleanup for that suite.
+
+Local `make preflight` creates a unique Compose project, asks Docker for an ephemeral loopback port, reads that actual mapping, and removes its containers, network and volume after success or failure. It ignores inherited `COMPOSE_FILE`, `COMPOSE_PROJECT_NAME` and fixed-port settings. The long-lived `db-up`/`db-down` targets remain separate and use the checkout's ordinary Compose project. Never stop, remove or reuse a container from another checkout merely to make preflight pass; inspect Docker ownership labels and report a cleanup failure if the ephemeral project cannot be removed.
+
+Recovery is bounded to resources whose ownership is known:
+
+- missing `.venv`: run `make dev-setup`; a wrong-version `.venv` must first be moved aside or removed by its owner, then recreated with CPython 3.12;
+- unavailable Docker daemon or failed image startup: restore Docker and rerun `make preflight`; do not substitute SQLite or CI;
+- interrupted preflight that left resources behind: use the exact project name printed by the runner, verify its `com.docker.compose.project` labels, then run `docker compose --project-name <printed-project> --file docker-compose.yml down --volumes --remove-orphans`;
+- controlled external PostgreSQL (CI or diagnostics): set `AI_LAYER_TEST_POSTGRES_URL` and run `make postgres-gate` or `make preflight-ci`; never point it at valuable data because the gate creates and drops databases.
+
 `make preflight-ci` composes `make quality` and `make postgres-gate` when `AI_LAYER_TEST_POSTGRES_URL` is already supplied by CI or another controlled environment. GitHub Actions calls these same Make targets rather than duplicating raw gate commands.
 
 The tracked pre-commit hook runs `make fast-gate`; the tracked pre-push hook runs `make preflight`. `make dev-setup` activates them explicitly with `core.hooksPath=.githooks`; installing the runtime package never mutates Git configuration.

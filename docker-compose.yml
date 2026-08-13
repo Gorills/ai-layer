@@ -1,14 +1,13 @@
 services:
   postgres:
     image: pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9
-    container_name: ai-layer-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ai_layer
       POSTGRES_USER: ai_layer
       POSTGRES_PASSWORD: ai_layer
     ports:
-      - "127.0.0.1:54329:5432"
+      - "127.0.0.1:${AI_LAYER_POSTGRES_PORT:-54329}:5432"
     volumes:
       - ai_layer_pgdata:/var/lib/postgresql/data
     healthcheck:

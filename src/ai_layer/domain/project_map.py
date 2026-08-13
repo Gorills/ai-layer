@@ -14,7 +14,13 @@ def project_map_capability_contract(*, source_task_key: str | None = None) -> di
     update_call: dict[str, Any] = {
         "tool": "project_map_reconcile",
         "required": ["scope_paths"],
-        "optional": ["entries", "remove_paths", "no_changes_reason", "source_task_key"],
+        "optional": [
+            "entries",
+            "remove_paths",
+            "no_changes_reason",
+            "source_task_key",
+            "source_work_key",
+        ],
         "entry_fields": [
             "path",
             "purpose",
@@ -53,6 +59,7 @@ def project_map_capability_contract(*, source_task_key: str | None = None) -> di
                 "Canonical purpose/responsibilities/navigation_hints are concise English.",
                 "Keep source identifiers exact; useful Russian/other wording belongs in domain_terms.",
                 "If checked navigation is already accurate, use no_changes_reason instead of inventing entries.",
+                "Use at most one provenance key: source_task_key or source_work_key.",
             ],
         },
         "source_of_truth": "Current repository source via host-native tools.",

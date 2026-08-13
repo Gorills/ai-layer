@@ -32,11 +32,17 @@ For unknown code locations, `project_search` uses a bounded search contract. For
 
 Semantic Project Map enrichment remains canonical-English for purpose/responsibilities/navigation hints, preserves exact code identifiers, and may store useful multilingual aliases in `domain_terms`.
 
+`project_map_reconcile(source_work_key=...)` binds inspected semantic scope directly to ordinary Work provenance and returns the durable `ProjectMapReconciled` event identifier. A terminal WorkItem may report `reconciled` only with both a non-empty checked scope and that event identifier; honest no-change/not-applicable/deferred dispositions remain available.
+
 ## Durable observability
 
-`RuntimeEvent` is the durable event journal. `runtime_event_context` adds Work/Run/Task/Epic and host/session/model correlation without rewriting historical events. Common MCP execution records safe terminal `OperationCompleted` / `OperationFailed` evidence best-effort. Raw prompts and source bodies are not copied into the human activity presenter.
+`RuntimeEvent` is the durable event journal. `runtime_event_context` adds Work/Run/Task/Epic and host/session/model correlation without rewriting historical events. The stdio bridge propagates its correlation identifier into core execution, and common MCP execution records safe terminal `OperationCompleted` / `OperationFailed` evidence best-effort. Raw prompts and source bodies are not copied into the human activity presenter.
 
 Existing JSONL/context-trace telemetry remains diagnostic only. Dashboard activity now reads the durable RuntimeEvent journal; Work, managed Tasks, Project Map quality and MCP bridges are presented as separate concepts.
+
+Dashboard exposes versioned, bounded Work list/detail read contracts at `/api/v1/dashboard/work` and `/api/v1/dashboard/work/{project_key}/{work_key}`. The portfolio list supports project/status filters and deterministic ordering, batch-loads AgentRuns, and the detail response includes a safe bounded timeline from the durable RuntimeEvent journal.
+
+`/api/v1/dashboard/activity` now exposes Activity contract v2: milestone-first by default, bounded by an opaque filter-bound keyset cursor ordered on `(occurred_at, event_id)`, and filterable by project, date range, Work/Task/Epic identity, actor, event type, status, importance and assurance. The Dashboard keeps transport-level events available through an explicit all-events mode instead of mixing them into the default human work history.
 
 Current observability is truthful but intentionally incomplete: Work lifecycle visibility is available now, while richer native-host hooks and deeper subagent/tool observation remain future adapter work and are not claimed as implemented in this release.
 

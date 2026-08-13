@@ -87,10 +87,11 @@ def project_map_reconcile(
     remove_paths: list[str] | None = None,
     scope_paths: list[str] | None = None,
     source_task_key: str | None = None,
+    source_work_key: str | None = None,
     no_changes_reason: str | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: after meaningful real work established better navigation facts. Reconcile only inspected/affected paths. Canonical purpose/responsibilities/hints must be concise English; keep code identifiers exact and put useful Russian/other aliases in domain_terms. For Epic finalization pass source_task_key so closure has durable ProjectMapReconciled evidence."""
+    """WHEN: after meaningful real work established better navigation facts. Reconcile only inspected/affected paths. Canonical purpose/responsibilities/hints must be concise English; keep code identifiers exact and put useful Russian/other aliases in domain_terms. Pass source_work_key for ordinary Work closure or source_task_key for managed/Epic closure, never both."""
     root = project_root_for_tool(project_root, tool="project_map_reconcile")
     with mcp_audit(
         root,
@@ -100,6 +101,7 @@ def project_map_reconcile(
             "remove_paths",
             "scope_paths",
             "source_task_key",
+            "source_work_key",
             "no_changes_reason",
             "project_root",
         ],
@@ -113,6 +115,7 @@ def project_map_reconcile(
                 remove_paths=remove_paths,
                 scope_paths=scope_paths,
                 source_task_key=(source_task_key or "").strip() or None,
+                source_work_key=(source_work_key or "").strip() or None,
                 no_changes_reason=(no_changes_reason or "").strip() or None,
             )
             audit["metrics"] = {

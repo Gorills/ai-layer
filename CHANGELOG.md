@@ -4,12 +4,15 @@
 
 - Added first-class `WorkItem` and `AgentRun` lifecycle for ordinary host-native user work while keeping managed Tasks/Epics as optional stricter assurance. Multiple WorkItems may coexist per project; the managed Task single-open constraint does not leak into ordinary work.
 - Added idempotent `work_begin`, milestone `work_checkpoint`, and terminal Work MCP commands backed by the existing `CommandReceipt`/advisory-lock boundary.
-- Added additive schema `0017_work_spine` with durable Work/AgentRun records plus `runtime_event_context` correlation for Work/Run/Task/Epic and host/session/model identity.
-- Made `RuntimeEvent` the durable human activity journal and kept JSONL/context trace diagnostic-only; common MCP execution now records safe terminal operation evidence without copying raw prompt/source bodies.
+- Added additive schema `0017_work_spine` with durable Work/AgentRun records, Work-provenanced semantic Project Map rows, and `runtime_event_context` correlation for Work/Run/Task/Epic and host/session/model identity.
+- Made `RuntimeEvent` the durable human activity journal and kept JSONL/context trace diagnostic-only; stdio bridge/core execution shares one correlation identifier and common MCP execution records safe linked terminal operation evidence without copying raw prompt/source bodies.
+- Restricted durable Work evidence to bounded check and repository-delta metadata with explicit assurance; raw commands, output and source content are rejected.
 - Made Dashboard project state truthful: live ordinary work requires a non-stale AgentRun; managed Task state and MCP bridge traffic are displayed separately and no longer prove that user work is currently executing.
+- Added versioned, bounded Dashboard Work list/detail API contracts with project/status filters, deterministic ordering, batch-loaded AgentRuns, Task/Epic link keys, and a privacy-safe durable event timeline.
+- Replaced offset-based technical activity with Activity API v2 and a milestone-first Dashboard timeline using filter-bound keyset cursors, deterministic timestamp/UUID ordering, full Work/Task/Epic/actor/date/type/status/importance/assurance filters, and explicit access to diagnostic all-event detail.
 - Added bounded effective project policy to `project_status` with version/hash and corrected the repository bootstrap to the canonical root `DECISIONS/` ADR directory.
 - Published Search Contract v2: non-English intent uses a concise English code-centric primary Project Map query, preserves exact identifiers, allows at most one original/mixed widening variant, and requires current-source verification.
-- Added unit and real PostgreSQL regression coverage for Work concurrency/idempotency, event correlation, safe activity presentation, project policy, multilingual search fusion and truthful Dashboard state.
+- Added unit and real PostgreSQL regression coverage for concurrent Work sequence allocation, idempotency, event correlation, Work-to-Map provenance, cursor-stable safe activity presentation and filtering, project policy, multilingual search fusion and truthful Dashboard state; the canonical PostgreSQL gate discovers every `postgres`-marked contract.
 
 ## 0.13.3 — Live agent contract and repository hygiene
 

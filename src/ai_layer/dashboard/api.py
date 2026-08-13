@@ -1,10 +1,15 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
+from ai_layer.dashboard.activity_api import router as activity_router
+from ai_layer.dashboard.error_contracts import (
+    DASHBOARD_NOT_FOUND_RESPONSES,
+    DASHBOARD_QUERY_RESPONSES,
+)
+from ai_layer.dashboard.work_contracts import WorkDetailRead, WorkListRead
 from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
 from ai_layer.projections.dashboard import overview_payload, project_payload
-from ai_layer.projections.dashboard_activity import activity_payload
 from ai_layer.projections.dashboard_intelligence import project_intelligence_summary
 from ai_layer.projections.dashboard_monitoring import monitoring_payload
 from ai_layer.projections.dashboard_reference import (
@@ -15,10 +20,15 @@ from ai_layer.projections.dashboard_reference import (
     skills_payload,
 )
 from ai_layer.projections.dashboard_tasks import task_detail_payload, tasks_payload
+from ai_layer.projections.dashboard_work import (
+    work_detail_payload,
+    work_items_payload,
+)
 from ai_layer.projections.dashboard_work_state import enrich_overview, enrich_project
 from ai_layer.projections.epics import epic_detail_payload, epics_payload, project_epics_payload
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
+router.include_router(activity_router)
 
 
 def _not_found(ids: dict[str, str], message: str) -> HTTPException:
@@ -30,6 +40,20 @@ def _not_found(ids: dict[str, str], message: str) -> HTTPException:
             message=message,
             retryable=True,
             required_action="Use keys returned by the dashboard APIs.",
+            ids=ids,
+        ).to_dict(),
+    )
+
+
+def _invalid_query(exc: ValueError, *, action: str, ids: dict[str, str]) -> HTTPException:
+    return HTTPException(
+        status_code=422,
+        detail=StructuredError(
+            code=ErrorCode.VALIDATION_FAILED,
+            category=ErrorCategory.VALIDATION,
+            message=str(exc),
+            retryable=True,
+            required_action=action,
             ids=ids,
         ).to_dict(),
     )
@@ -47,6 +71,46 @@ def _project_epics_best_effort(project_key: str) -> list[dict]:
 @router.get("/overview")
 def dashboard_overview():
     return enrich_overview(overview_payload())
+
+
+@router.get("/work", response_model=WorkListRead, responses=DASHBOARD_QUERY_RESPONSES)
+def dashboard_work_items(
+    project_key: str | None = None,
+    status: str | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=50),
+):
+    try:
+        payload = work_items_payload(
+            project_key_value=project_key,
+            status=status,
+            page=page,
+            page_size=page_size,
+        )
+    except ValueError as exc:
+        raise _invalid_query(
+            exc,
+            action="Use a documented Work status filter.",
+            ids={"status": str(status)},
+        ) from exc
+    if payload is None:
+        raise _not_found({"project_key": str(project_key)}, "Registered project not found.")
+    return payload
+
+
+@router.get(
+    "/work/{project_key}/{work_key}",
+    response_model=WorkDetailRead,
+    responses=DASHBOARD_NOT_FOUND_RESPONSES,
+)
+def dashboard_work_item(project_key: str, work_key: str):
+    payload = work_detail_payload(project_key, work_key)
+    if payload is None:
+        raise _not_found(
+            {"project_key": project_key, "work_key": work_key},
+            "Work item not found for this project.",
+        )
+    return payload
 
 
 @router.get("/tasks")
@@ -163,22 +227,6 @@ def dashboard_knowledge_detail(project_key: str, knowledge_id: str):
 @router.get("/monitoring")
 def dashboard_monitoring(project_key: str | None = None):
     payload = monitoring_payload(project_key)
-    if payload is None:
-        raise _not_found({"project_key": str(project_key)}, "Registered project not found.")
-    return payload
-
-
-@router.get("/activity")
-def dashboard_activity(
-    project_key: str | None = None,
-    page: int = 1,
-    page_size: int = 10,
-):
-    payload = activity_payload(
-        project_key_value=project_key,
-        page=page,
-        page_size=page_size,
-    )
     if payload is None:
         raise _not_found({"project_key": str(project_key)}, "Registered project not found.")
     return payload

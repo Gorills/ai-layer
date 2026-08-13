@@ -343,6 +343,7 @@ def project_map_reconcile(
     remove_paths: list[str] | None = None,
     scope_paths: list[str] | None = None,
     source_task_key: str | None = None,
+    source_work_key: str | None = None,
     no_changes_reason: str | None = None,
 ) -> dict:
     """Persist bounded semantic Project Map knowledge learned from real source work."""
@@ -356,6 +357,7 @@ def project_map_reconcile(
             remove_paths=remove_paths,
             scope_paths=scope_paths,
             source_task_key=source_task_key,
+            source_work_key=source_work_key,
             no_changes_reason=no_changes_reason,
         )
         map_state = project_map_status(db, project)

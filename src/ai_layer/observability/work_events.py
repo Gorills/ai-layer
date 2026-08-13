@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from ai_layer.core.redaction import redact_secrets
 from ai_layer.db.models import Project, RuntimeEvent
 from ai_layer.db.work_models import AgentRun, RuntimeEventContext, WorkItem
 from ai_layer.observability.domain_events import append_event
@@ -25,6 +26,41 @@ SAFE_EVENT_FIELDS = frozenset(
         "map_status",
     }
 )
+SAFE_EVENT_TEXT_LIMITS = {
+    "status": 32,
+    "summary": 4_000,
+    "reason": 1_000,
+    "goal": 2_000,
+    "kind": 32,
+    "tool": 128,
+    "command_name": 128,
+    "error_type": 128,
+    "map_status": 32,
+}
+
+
+def _safe_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    for key, max_chars in SAFE_EVENT_TEXT_LIMITS.items():
+        value = raw.get(key)
+        if value is None or not isinstance(value, (str, int, float, bool)):
+            continue
+        payload[key] = redact_secrets(str(value)[:max_chars])
+    duration = raw.get("duration_ms")
+    if isinstance(duration, (int, float)) and not isinstance(duration, bool):
+        payload["duration_ms"] = max(0, duration)
+    for key in ("updated", "removed"):
+        value = raw.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            payload[key] = value
+    scope_paths = raw.get("scope_paths")
+    if isinstance(scope_paths, list):
+        payload["scope_paths"] = [
+            redact_secrets(item[:512])
+            for item in scope_paths[:120]
+            if isinstance(item, str) and item
+        ]
+    return payload
 
 
 def append_contextual_event(
@@ -82,7 +118,7 @@ def safe_event_payload(
     context: RuntimeEventContext | None = None,
 ) -> dict[str, Any]:
     raw = dict(event.payload or {})
-    payload = {key: raw[key] for key in SAFE_EVENT_FIELDS if key in raw}
+    payload = _safe_payload({key: raw[key] for key in SAFE_EVENT_FIELDS if key in raw})
     return {
         "event_id": str(event.id),
         "event_type": event.event_type,
@@ -93,14 +129,14 @@ def safe_event_payload(
         "epic_id": str(context.epic_id) if context and context.epic_id else None,
         "correlation_id": event.correlation_id,
         "causation_id": event.causation_id,
-        "actor_id": event.actor_id,
-        "actor_kind": event.actor_kind,
-        "interface": event.interface,
-        "host": context.host if context else "",
-        "client": context.client if context else "",
-        "session_id": context.session_id if context else "",
-        "turn_id": context.turn_id if context else "",
-        "model": context.model if context else "",
+        "actor_id": redact_secrets(event.actor_id),
+        "actor_kind": redact_secrets(event.actor_kind),
+        "interface": redact_secrets(event.interface),
+        "host": redact_secrets(context.host) if context else "",
+        "client": redact_secrets(context.client) if context else "",
+        "session_id": redact_secrets(context.session_id) if context else "",
+        "turn_id": redact_secrets(context.turn_id) if context else "",
+        "model": redact_secrets(context.model) if context else "",
         "retention_class": context.retention_class if context else "durable",
         "importance": context.importance if context else "normal",
         "payload": payload,

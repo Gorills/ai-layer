@@ -31,8 +31,8 @@ def test_core_tool_client_uses_persistent_service_and_deadline(monkeypatch):
     monkeypatch.setattr(
         mcp_runtime,
         "_rpc_request",
-        lambda tool, arguments, timeout: (
-            seen.update(tool=tool, arguments=arguments, timeout=timeout) or {"ok": True}
+        lambda tool, arguments, timeout, **kwargs: (
+            seen.update(tool=tool, arguments=arguments, timeout=timeout, **kwargs) or {"ok": True}
         ),
     )
 
@@ -73,22 +73,29 @@ def test_ready_runtime_does_not_rewarm_on_every_context_call(monkeypatch):
             mcp_runtime._RUNTIME_STATE.update(previous)
 
 
-def test_bridge_wrapper_proxies_without_executing_local_handler(monkeypatch):
+def test_bridge_wrapper_proxies_with_the_same_correlation_id(monkeypatch):
     from ai_layer.mcp import runtime as mcp_runtime
     from ai_layer.mcp import server
 
     monkeypatch.setenv("AI_LAYER_MCP_BRIDGE", "1")
-    monkeypatch.setattr(mcp_runtime, "begin_bridge_activity", lambda *args, **kwargs: None)
-    monkeypatch.setattr(mcp_runtime, "end_bridge_activity", lambda *args, **kwargs: None)
+    seen = {}
     monkeypatch.setattr(
         mcp_runtime,
-        "call_core_tool",
-        lambda name, arguments: {"tool": name, "arguments": arguments},
+        "begin_bridge_activity",
+        lambda name, correlation_id, timeout: seen.update(marker_correlation=correlation_id),
     )
+    monkeypatch.setattr(mcp_runtime, "end_bridge_activity", lambda *args, **kwargs: None)
+
+    def call_core(name, arguments, **kwargs):
+        seen["rpc_correlation"] = kwargs.get("correlation_id")
+        return {"tool": name, "arguments": arguments}
+
+    monkeypatch.setattr(mcp_runtime, "call_core_tool", call_core)
 
     result = server.project_info(project_root="/tmp/example")
     assert result["tool"] == "project_info"
     assert result["arguments"]["project_root"] == "/tmp/example"
+    assert seen["rpc_correlation"] == seen["marker_correlation"]
 
 
 def test_interactive_freshness_never_runs_full_refresh(monkeypatch):
@@ -237,30 +244,38 @@ def test_connection_loss_after_dispatch_is_ambiguous(monkeypatch):
 
 
 def test_internal_core_rpc_requires_token_and_dispatches(monkeypatch):
-    from fastapi.testclient import TestClient
+    import pytest
+    from fastapi import HTTPException
 
     from ai_layer.api import app as api_module
     from ai_layer.mcp import server
 
     monkeypatch.setattr(api_module, "start_runtime_warmup", lambda: None)
     monkeypatch.setattr(api_module, "validate_core_token", lambda token: token == "good-token")
-    monkeypatch.setattr(
-        server, "execute_core_tool", lambda name, arguments: {"name": name, "arguments": arguments}
-    )
+    seen = {}
+
+    def execute_core(name, arguments, **kwargs):
+        seen["correlation_id"] = kwargs.get("correlation_id")
+        return {"name": name, "arguments": arguments}
+
+    monkeypatch.setattr(server, "execute_core_tool", execute_core)
     app = api_module.create_app()
-    with TestClient(app) as client:
-        denied = client.post("/internal/mcp/tools/task_next", json={"arguments": {}})
-        assert denied.status_code == 403
-        allowed = client.post(
-            "/internal/mcp/tools/task_next",
-            json={"arguments": {"project_root": "/tmp/p"}},
-            headers={
-                "X-AI-Layer-Core-Token": "good-token",
-                "X-AI-Layer-Bridge-Version": api_module.__version__,
-            },
-        )
-    assert allowed.status_code == 200
-    assert allowed.json()["result"]["name"] == "task_next"
+    route = next(
+        item for item in app.routes if getattr(item, "path", "") == "/internal/mcp/tools/{tool}"
+    )
+    endpoint = route.endpoint
+    with pytest.raises(HTTPException) as denied:
+        endpoint("task_next", api_module.ToolCallRequest(arguments={}), None, None, None)
+    assert denied.value.status_code == 403
+    allowed = endpoint(
+        "task_next",
+        api_module.ToolCallRequest(arguments={"project_root": "/tmp/p"}),
+        "good-token",
+        api_module.__version__,
+        "bridge-correlation",
+    )
+    assert allowed["result"]["name"] == "task_next"
+    assert seen["correlation_id"] == "bridge-correlation"
 
 
 def test_create_app_initializes_streamable_http_before_session_manager(monkeypatch):

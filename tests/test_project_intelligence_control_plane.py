@@ -80,6 +80,7 @@ def test_project_map_contract_is_dynamic_and_explicit_for_old_workflows():
     assert contract["update"]["required"] == ["scope_paths", "source_task_key"]
     assert "domain_terms" in contract["update"]["entry_fields"]
     assert "no_changes_reason" in contract["update"]["optional"]
+    assert "source_work_key" in contract["update"]["optional"]
 
 
 def test_application_memory_context_compacts_legacy_composite_payload():

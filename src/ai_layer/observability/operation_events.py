@@ -4,8 +4,10 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
+
 from ai_layer.core.request_context import current_operation
-from ai_layer.core.service import get_project
+from ai_layer.db.models import Project
 from ai_layer.db.session import session_scope
 from ai_layer.observability.work_events import append_contextual_event
 
@@ -26,6 +28,17 @@ def _result_context(result: object) -> dict[str, Any]:
         return {}
     work = _mapping(result.get("work"))
     root_run = _mapping(result.get("root_run"))
+    if not root_run:
+        runs = work.get("runs")
+        if isinstance(runs, list):
+            root_run = next(
+                (
+                    _mapping(item)
+                    for item in runs
+                    if isinstance(item, dict) and item.get("role") == "root"
+                ),
+                {},
+            )
     return {
         "work_id": _uuid(work.get("id")),
         "run_id": _uuid(root_run.get("id")),
@@ -54,7 +67,9 @@ def record_mcp_terminal(
     linked = _result_context(result)
     root = Path(project_root).expanduser().resolve()
     with session_scope() as db:
-        project = get_project(db, root)
+        project = db.scalar(select(Project).where(Project.root_path == str(root)))
+        if project is None:
+            return
         append_contextual_event(
             db,
             event_type="OperationFailed" if error is not None else "OperationCompleted",

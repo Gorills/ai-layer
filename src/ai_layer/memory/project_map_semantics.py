@@ -6,9 +6,11 @@ from pathlib import PurePosixPath
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_layer.db.models import Project, RuntimeEvent, Task
+from ai_layer.db.models import Project, Task
 from ai_layer.db.navigation_models import ProjectNavigation, ProjectNavigationSemantic
+from ai_layer.db.work_models import WorkItem
 from ai_layer.memory.embeddings import get_embedder
+from ai_layer.observability.work_events import append_contextual_event
 
 MAX_ENTRIES = 40
 MAX_SCOPE_PATHS = 120
@@ -19,6 +21,7 @@ _CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _CAMEL_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _TASK_KEY_RE = re.compile(r"^T-(\d{1,9})$", re.IGNORECASE)
+_WORK_KEY_RE = re.compile(r"^W-(\d{1,9})$", re.IGNORECASE)
 _STOP_WORDS = {
     "the",
     "and",
@@ -164,6 +167,26 @@ def _task_for_key(db: Session, project: Project, task_key: str | None) -> tuple[
     return task, f"T-{int(task.sequence):04d}"
 
 
+def _work_for_key(db: Session, project: Project, work_key: str | None) -> WorkItem | None:
+    rendered = str(work_key or "").strip().upper()
+    if not rendered:
+        return None
+    match = _WORK_KEY_RE.fullmatch(rendered)
+    if not match:
+        raise ValueError("project_map_reconcile: `source_work_key` must look like W-0001")
+    work = db.scalar(
+        select(WorkItem).where(
+            WorkItem.project_id == project.id,
+            WorkItem.sequence == int(match.group(1)),
+        )
+    )
+    if work is None:
+        raise ValueError(
+            f"project_map_reconcile: work item `{rendered}` does not exist in this project"
+        )
+    return work
+
+
 def _navigation_rows(db: Session, project: Project) -> dict[str, ProjectNavigation]:
     rows = db.scalars(
         select(ProjectNavigation).where(ProjectNavigation.project_id == project.id)
@@ -298,6 +321,7 @@ def _upsert_semantic_row(
     item: dict,
     *,
     task: Task | None,
+    work: WorkItem | None,
     source_ref: str,
 ) -> None:
     row = db.scalar(
@@ -318,9 +342,10 @@ def _upsert_semantic_row(
     row.navigation_hints = item["navigation_hints"]
     row.semantic_text = _semantic_text(item)
     row.content_sha256 = item["content_sha256"]
-    row.source_kind = "task" if task is not None else "agent"
+    row.source_kind = "task" if task is not None else "work" if work is not None else "agent"
     row.source_ref = source_ref
     row.source_task_id = task.id if task is not None else None
+    row.source_work_id = work.id if work is not None else None
     row.embedding = _embed(row.semantic_text)
 
 
@@ -349,34 +374,31 @@ def _record_reconciliation_event(
     project: Project,
     *,
     task: Task | None,
+    work: WorkItem | None,
     source_ref: str,
     updated: list[str],
     removed: list[str],
     scope_paths: list[str],
     no_changes_reason: str,
-) -> None:
-    aggregate_type = "task" if task is not None else "project"
-    aggregate_id = str(task.id if task is not None else project.id)
-    db.add(
-        RuntimeEvent(
-            project_id=project.id,
-            event_type="ProjectMapReconciled",
-            aggregate_type=aggregate_type,
-            aggregate_id=aggregate_id,
-            actor_id="agent:project-map",
-            actor_kind="agent",
-            interface="mcp",
-            payload={
-                "source_ref": source_ref,
-                "updated": len(updated),
-                "removed": len(removed),
-                "updated_paths": updated,
-                "removed_paths": removed,
-                "scope_paths": scope_paths,
-                "no_changes_reason": no_changes_reason,
-                "language_policy": "canonical English semantics; exact source identifiers; multilingual domain terms",
-            },
-        )
+):
+    aggregate_type = "task" if task is not None else "work" if work is not None else "project"
+    aggregate_id = str(task.id if task is not None else work.id if work is not None else project.id)
+    return append_contextual_event(
+        db,
+        event_type="ProjectMapReconciled",
+        project=project,
+        aggregate_type=aggregate_type,
+        aggregate_id=aggregate_id,
+        work=work,
+        task_id=task.id if task is not None else None,
+        payload={
+            "source_ref": source_ref,
+            "updated": len(updated),
+            "removed": len(removed),
+            "scope_paths": scope_paths,
+            "reason": no_changes_reason,
+        },
+        importance="high",
     )
 
 
@@ -389,6 +411,7 @@ def reconcile_project_map(
     scope_paths: list[str] | None,
     source_task_key: str | None,
     no_changes_reason: str | None,
+    source_work_key: str | None = None,
 ) -> dict:
     """Replace semantic breadcrumbs for explicitly reconciled paths without touching scanner data."""
     raw_entries = list(entries or [])
@@ -397,6 +420,10 @@ def reconcile_project_map(
     raw_scope = list(scope_paths or [])
     if len(raw_scope) > MAX_SCOPE_PATHS:
         raise ValueError(f"project_map_reconcile: maximum {MAX_SCOPE_PATHS} scope paths per call")
+    if source_task_key and source_work_key:
+        raise ValueError(
+            "project_map_reconcile: `source_task_key` and `source_work_key` are mutually exclusive"
+        )
     navigation_rows = _navigation_rows(db, project)
     normalized = [_normalize_entry(item, navigation_rows=navigation_rows) for item in raw_entries]
     removals = _path_list(remove_paths or [], field="remove_paths", max_items=MAX_ENTRIES)
@@ -408,19 +435,25 @@ def reconcile_project_map(
         raise ValueError(
             "project_map_reconcile: provide semantic entries/removals or a factual `no_changes_reason`"
         )
-    task, source_ref = _task_for_key(db, project, source_task_key)
-    if task is not None and not scope:
+    task, task_source_ref = _task_for_key(db, project, source_task_key)
+    work = _work_for_key(db, project, source_work_key)
+    source_ref = (
+        task_source_ref if task is not None else f"W-{int(work.sequence):04d}" if work else "agent"
+    )
+    if (task is not None or work is not None) and not scope:
         raise ValueError(
-            "project_map_reconcile: task-linked reconciliation must identify at least one checked scope path"
+            "project_map_reconcile: task/work-linked reconciliation must identify at least one "
+            "checked scope path"
         )
     for item in normalized:
-        _upsert_semantic_row(db, project, item, task=task, source_ref=source_ref)
+        _upsert_semantic_row(db, project, item, task=task, work=work, source_ref=source_ref)
     removed = _remove_semantic_rows(db, project, removals)
     updated = [item["path"] for item in normalized]
-    _record_reconciliation_event(
+    event = _record_reconciliation_event(
         db,
         project,
         task=task,
+        work=work,
         source_ref=source_ref,
         updated=updated,
         removed=removed,
@@ -431,6 +464,7 @@ def reconcile_project_map(
     return {
         "ok": True,
         "source_ref": source_ref,
+        "event_id": str(event.id),
         "updated": updated,
         "removed": removed,
         "scope_paths": scope,

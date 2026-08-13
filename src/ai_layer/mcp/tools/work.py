@@ -66,7 +66,7 @@ def work_checkpoint(
     idempotency_key: str | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: a long work phase reaches a meaningful milestone or blocker. Do not checkpoint every file/tool action. Reuse idempotency_key for delivery retries."""
+    """WHEN: a long work phase reaches a meaningful milestone or blocker. Do not checkpoint every file/tool action. checks use bounded name/status/summary metadata, never raw output. repository_delta accepts only revision IDs, changed_files/insertions/deletions counts, dirty, and assurance. Reuse idempotency_key for delivery retries."""
     root = project_root_for_tool(project_root, tool="work_checkpoint")
     work_key = _text(work_key, tool="work_checkpoint", field="work_key")
     with mcp_audit(
@@ -161,7 +161,7 @@ def work_complete(
     idempotency_key: str | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: substantive work reached a terminal successful result. Report only observed paths/checks/delta. Map disposition may be reconciled, checked_no_change, not_applicable, deferred, or pending until the semantic-map closure phase is adopted."""
+    """WHEN: substantive work reached a terminal successful result. Report only observed paths and bounded check/delta metadata; never raw commands, output, or source. A reconciled Map disposition must include the checked scope and event_id returned by project_map_reconcile; otherwise use checked_no_change, not_applicable, deferred, or pending."""
     return _terminal(
         "work_complete",
         work_key,

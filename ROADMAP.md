@@ -1,39 +1,46 @@
-# Roadmap
+# Roadmap — current improvement program
 
-## v0.12.0 — Epics v1
+The canonical target outcome is [PRODUCT_GOAL.md](PRODUCT_GOAL.md). This file contains sequencing only; it must not redefine the product goal or claim planned behavior as implemented. Verified implementation state remains in [CURRENT_STATE.md](CURRENT_STATE.md).
 
-The first complete Epic capability is implemented in source. Its scope is intentionally narrow and complete rather than framework-like:
+## Phase 0 — truthful foundations
 
-- versioned human-readable specification;
-- unlimited pre-approval audits and revisions;
-- explicit human approval baseline;
-- mandatory source-authoritative Phase 0;
-- automatic obvious/strong-recommendation reconciliation and human attention only for genuine material trade-offs;
-- post-Phase0 sequential STANDARD Task plan;
-- repository-drift reconciliation;
-- mandatory final documentation + Project Knowledge + whole-Epic independent review;
-- mechanical completion/archive gates;
-- `epic_next` weak-model navigation, native `epics` skill and compact memory-context recovery;
-- Dashboard spec/audit/plan/history read views.
+- Separate WorkItem, managed Task/Epic and RuntimeEvent identities.
+- Stop deriving “agent working” from open Tasks or MCP bridges.
+- Deliver effective project rules through the normal startup path.
+- Make structural and semantic Project Map quality visible separately.
+- Establish one safe durable event journal and correlation spine.
+- Restrict Work/check/repository evidence to bounded nonsecret metadata.
 
-Epics remain a scheduler over the existing Task Engine. They do not duplicate TaskStage, worker leases, repository snapshots, verification, review/fix remediation, findings or Task transitions.
+## Phase 1 — durable Work history and Dashboard
 
-## Promotion gate for v0.12.0
+- Provide Work list/detail read models and stable API contracts.
+- Build portfolio Now / Needs attention / Recently completed views.
+- Add a unified milestone-first RuntimeEvent timeline with deterministic cursor pagination and filters.
+- Display host sessions, subagents, managed workers and MCP bridges separately.
+- Expose heartbeat, lease, staleness, observability coverage and assurance.
+- Make Project Map disposition and semantic coverage first-class attention signals.
 
-Before treating Epics v1 as fully promoted on a working machine, run the already-wired release checks plus real supported-host field acceptance:
+## Phase 2 — host integration coverage
 
-1. CPython 3.12 canonical quality gate with pinned dependencies, Ruff, mypy, deterministic source-fresh wheel and full tests.
-2. PostgreSQL 16 + pgvector `scripts/postgres_gate.py`, including the declared supported `0010_adaptive_task_workflow -> head` migration path through `0014_epics_v1`.
-3. Clean install/update of the 0.12.0 wheel and correct installed version/schema.
-4. Real daemon/service restart and active-Task/expired-worker recovery under `systemd --user`.
-5. Real MCP/dashboard Task smoke plus a real Epic black-box flow: create → audit/revise → explicit approval → Phase 0 → plan → sequential STANDARD Tasks → final whole-Epic review → documentation/Project Knowledge closure → archive.
-6. Context-loss/new-chat recovery: `memory_context` exposes active Epic and a weak model resumes from `epic_next` rather than inventing a parallel Task.
-7. Repository-drift black-box during an Epic and targeted reconciliation before future work.
-8. Multi-project reconcile/sync behavior with an active/archived Epic present.
-9. Production signed update-channel black-box when publisher infrastructure is available.
+- Add capability-negotiated adapters for official work/session/tool/subagent hooks.
+- Propagate stable host session, turn, actor, work and correlation identities.
+- Record inferred repository deltas only as unattributed evidence.
+- Publish explicit per-host coverage contracts and black-box tests.
 
-These are validation/promotion items. Do not add another architecture-hardening phase unless field acceptance exposes a concrete defect.
+## Phase 3 — target-project and installation boundary
 
-## After Epics v1
+- Move mutable canonical project runtime state out of standard target repositories.
+- Define minimal standard-mode and zero-footprint artifact contracts.
+- Add a declarative installed-artifact ledger with desired hashes and ownership.
+- Make install/update/repair/uninstall symlink-safe, phased, restartable and recoverable.
+- Prevent global policy/rule installation from affecting unrelated repositories.
 
-Use Epics in real projects before extending scope. Potential future capabilities must be justified by field evidence. Repository-level parallel mutation remains separate: DB-safe concurrent control-plane requests do not make simultaneous repository writers safe; worktrees/merge/conflict/provenance policy must be explicitly designed and verified before any parallel mutating workers are enabled.
+## Phase 4 — retention, scale and field acceptance
+
+- Add retention classes, heartbeat rollups and diagnostic cleanup.
+- Remove portfolio N+1 reads and validate query/latency budgets at representative scale.
+- Exercise restart/replay, mixed-version migration and partial-failure recovery.
+- Run supported-host black-box journeys for ordinary Work, managed Task/Epic, Project Map closure, privacy and multi-project Dashboard use.
+- Measure the success metrics from `PRODUCT_GOAL.md` and adjust only from field evidence.
+
+Each phase must leave one canonical path and pass repository quality gates. Later phases do not justify weakening correctness, privacy or truthful-state guarantees in earlier phases.

@@ -7,6 +7,7 @@ from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from ai_layer.db import work_models as _work_models  # noqa: F401 - register WorkItem FK target
 from ai_layer.db.base import Base
 from ai_layer.db.models import utcnow
 
@@ -67,6 +68,9 @@ class ProjectNavigationSemantic(Base):
     source_ref: Mapped[str] = mapped_column(String(128), default="")
     source_task_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    source_work_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("work_items.id", ondelete="SET NULL"), nullable=True
     )
     embedding: Mapped[list[float] | None] = mapped_column(VECTOR(384), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

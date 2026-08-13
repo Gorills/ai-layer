@@ -46,6 +46,16 @@ def upgrade() -> None:
             "status IN ('active','blocked','completed','failed','interrupted','abandoned')",
             name="ck_work_items_status",
         ),
+        sa.CheckConstraint(
+            "observability_coverage IN ('full_host_hooks','lifecycle_only',"
+            "'control_plane_only','inferred_repository_delta','unavailable')",
+            name="ck_work_items_observability_coverage",
+        ),
+        sa.CheckConstraint(
+            "assurance IN ('ai_layer_observed','host_reported','agent_reported',"
+            "'inferred_unattributed','requested_unverified')",
+            name="ck_work_items_assurance",
+        ),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["linked_task_id"], ["tasks.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["linked_epic_id"], ["epics.id"], ondelete="SET NULL"),
@@ -57,6 +67,23 @@ def upgrade() -> None:
         "ix_work_items_project_status_updated",
         "work_items",
         ["project_id", "status", "updated_at"],
+    )
+    op.add_column(
+        "project_navigation_semantics",
+        sa.Column("source_work_id", sa.Uuid(), nullable=True),
+    )
+    op.create_foreign_key(
+        "fk_project_navigation_semantics_source_work",
+        "project_navigation_semantics",
+        "work_items",
+        ["source_work_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
+    op.create_index(
+        "ix_project_navigation_semantics_source_work",
+        "project_navigation_semantics",
+        ["source_work_id"],
     )
 
     op.create_table(
@@ -81,6 +108,16 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "status IN ('active','completed','failed','interrupted','abandoned')",
             name="ck_agent_runs_status",
+        ),
+        sa.CheckConstraint(
+            "observability_coverage IN ('full_host_hooks','lifecycle_only',"
+            "'control_plane_only','inferred_repository_delta','unavailable')",
+            name="ck_agent_runs_observability_coverage",
+        ),
+        sa.CheckConstraint(
+            "assurance IN ('ai_layer_observed','host_reported','agent_reported',"
+            "'inferred_unattributed','requested_unverified')",
+            name="ck_agent_runs_assurance",
         ),
         sa.ForeignKeyConstraint(["work_id"], ["work_items.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["parent_run_id"], ["agent_runs.id"], ondelete="SET NULL"),
@@ -123,13 +160,35 @@ def upgrade() -> None:
         "runtime_event_context",
         ["run_id", "event_id"],
     )
+    op.create_index(
+        "ix_runtime_event_context_task",
+        "runtime_event_context",
+        ["task_id", "event_id"],
+    )
+    op.create_index(
+        "ix_runtime_event_context_epic",
+        "runtime_event_context",
+        ["epic_id", "event_id"],
+    )
 
 
 def downgrade() -> None:
+    op.drop_index("ix_runtime_event_context_epic", table_name="runtime_event_context")
+    op.drop_index("ix_runtime_event_context_task", table_name="runtime_event_context")
     op.drop_index("ix_runtime_event_context_run", table_name="runtime_event_context")
     op.drop_index("ix_runtime_event_context_work", table_name="runtime_event_context")
     op.drop_table("runtime_event_context")
     op.drop_index("ix_agent_runs_work_status_heartbeat", table_name="agent_runs")
     op.drop_table("agent_runs")
+    op.drop_index(
+        "ix_project_navigation_semantics_source_work",
+        table_name="project_navigation_semantics",
+    )
+    op.drop_constraint(
+        "fk_project_navigation_semantics_source_work",
+        "project_navigation_semantics",
+        type_="foreignkey",
+    )
+    op.drop_column("project_navigation_semantics", "source_work_id")
     op.drop_index("ix_work_items_project_status_updated", table_name="work_items")
     op.drop_table("work_items")

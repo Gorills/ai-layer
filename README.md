@@ -64,6 +64,8 @@ Project Map never persists source bodies. Search combines semantic metadata simi
 
 Since 0.13.1 the map has two ownership layers. The scanner owns deterministic structural facts. Working agents may add bounded semantic breadcrumbs—concise purpose/responsibilities, useful domain terms, current important symbols and related files/tests—through `project_map_reconcile` after real source work. Canonical semantic prose is concise English, source identifiers remain exact, and `domain_terms` may preserve materially useful Russian or other user/project vocabulary.
 
+Ordinary Work can pass `source_work_key` during reconciliation. AI Layer then stores `source_work_id` provenance and returns the durable reconciliation event identifier used by the WorkItem's terminal Map disposition; managed Task provenance remains available independently.
+
 Semantic enrichment is tied to the source hash it was learned from. When source changes, the old semantic row becomes stale and is down-ranked until real work reconciles it; AI Layer does not launch a duplicate background LLM mapper.
 
 The returned locations are hints. The host must open current repository source before making code-truth claims or edits.
@@ -162,6 +164,8 @@ The optimization target is **total cost to a verified accepted result**, not min
 The local dashboard remains a major product surface. It exposes, without terminal dumps:
 
 - project overview and health;
+- bounded durable Work list/detail read models at `/api/v1/dashboard/work` and `/api/v1/dashboard/work/{project_key}/{work_key}`;
+- a milestone-first durable RuntimeEvent timeline at `/api/v1/dashboard/activity`, with opaque keyset cursors and bounded project/date/Work/Task/Epic/actor/event/status/importance/assurance filters;
 - current Task/stage and review findings;
 - Epics;
 - Project Intelligence summary (Project Map size/symbols/freshness/current focus);
@@ -170,7 +174,7 @@ The local dashboard remains a major product surface. It exposes, without termina
 - agent/runtime activity;
 - verification and protocol telemetry.
 
-Large collections are paginated or bounded rather than rendered as unbounded technical lists.
+Large collections are cursor-paginated or otherwise bounded rather than rendered as unbounded technical lists. Transport-level events remain available through the timeline's explicit all-events mode; they are not the default human work history.
 
 ## MCP/runtime behavior
 

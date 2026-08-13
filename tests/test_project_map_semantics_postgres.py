@@ -8,9 +8,11 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from ai_layer.db.models import Project, RuntimeEvent
-from ai_layer.db.navigation_models import ProjectNavigation
+from ai_layer.db.navigation_models import ProjectNavigation, ProjectNavigationSemantic
+from ai_layer.db.work_models import RuntimeEventContext
 from ai_layer.memory.project_map_search import search_semantic_map
 from ai_layer.memory.project_map_semantics import reconcile_project_map, semantic_map_status
+from ai_layer.work.service import begin_work
 
 POSTGRES_URL = os.getenv("AI_LAYER_TEST_POSTGRES_URL", "").strip()
 pytestmark = pytest.mark.postgres
@@ -70,6 +72,12 @@ def test_semantic_reconciliation_is_task_provenanced_searchable_and_becomes_stal
             )
         )
         db.flush()
+        work, _run = begin_work(
+            db,
+            project,
+            goal="Inspect checkout retry flow",
+            kind="diagnose",
+        )
         result = reconcile_project_map(
             db,
             project,
@@ -86,6 +94,7 @@ def test_semantic_reconciliation_is_task_provenanced_searchable_and_becomes_stal
             scope_paths=["src/orders/retry.py"],
             source_task_key=None,
             no_changes_reason=None,
+            source_work_key="W-0001",
         )
         assert result["updated"] == ["src/orders/retry.py"]
         assert semantic_map_status(db, project)["semantic_current"] == 1
@@ -99,7 +108,17 @@ def test_semantic_reconciliation_is_task_provenanced_searchable_and_becomes_stal
             )
         )
         assert event is not None
+        assert result["event_id"] == str(event.id)
         assert event.payload["scope_paths"] == ["src/orders/retry.py"]
+        context = db.get(RuntimeEventContext, event.id)
+        assert context is not None and context.work_id == work.id
+        semantic = db.scalar(
+            select(ProjectNavigationSemantic).where(
+                ProjectNavigationSemantic.project_id == project.id,
+                ProjectNavigationSemantic.path == "src/orders/retry.py",
+            )
+        )
+        assert semantic is not None and semantic.source_work_id == work.id
         structural = db.scalar(
             select(ProjectNavigation).where(
                 ProjectNavigation.project_id == project.id,

@@ -1,18 +1,27 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 from ai_layer.application.project_intelligence import _fuse_search, _search_queries
-from ai_layer.db.models import RuntimeEvent
+from ai_layer.db.base import Base
+from ai_layer.db.models import Project, RuntimeEvent
 from ai_layer.db.work_models import RuntimeEventContext
 from ai_layer.domain.agent_contract import agent_runtime_contract
 from ai_layer.domain.orchestrator import native_bootstrap_markdown
+from ai_layer.memory.project_map_semantics import reconcile_project_map
+from ai_layer.observability.operation_events import _result_context
 from ai_layer.observability.work_events import safe_event_payload
 from ai_layer.policy import project_policy as project_policy_module
 from ai_layer.projections.dashboard_work_state import _truthful_state
+from ai_layer.work.evidence import check_evidence, map_disposition, project_paths, repository_delta
+from ai_layer.work.service import begin_work, finish_work
 
 
 def test_agent_contract_separates_work_from_managed_assurance_and_defines_search_protocol():
@@ -99,6 +108,7 @@ def test_runtime_event_presenter_never_exposes_unapproved_payload_fields():
             "tool": "project_search",
             "status": "completed",
             "duration_ms": 12.5,
+            "summary": "token=must-not-leak",
             "raw_prompt": "must-not-leak",
             "source_body": "must-not-leak",
         },
@@ -116,6 +126,7 @@ def test_runtime_event_presenter_never_exposes_unapproved_payload_fields():
     )
     rendered = safe_event_payload(event, context)
     assert rendered["payload"]["tool"] == "project_search"
+    assert rendered["payload"]["summary"] == "token=<redacted>"
     assert "raw_prompt" not in rendered["payload"]
     assert "source_body" not in rendered["payload"]
     assert "must-not-leak" not in repr(rendered)
@@ -129,3 +140,155 @@ def test_project_policy_snapshot_is_bounded_versioned_and_hashed(monkeypatch):
     assert payload["chars"] == len("project rule")
     assert len(payload["sha256"]) == 64
     assert payload["truncated"] is False
+
+
+def test_work_lifecycle_has_an_explicit_architecture_owner():
+    root = Path(__file__).parents[1]
+    policy = json.loads((root / "release" / "architecture-policy.json").read_text(encoding="utf-8"))
+    owners = {item["prefix"]: item["capability"] for item in policy["capabilities"]}
+    assert owners["ai_layer.work"] == "Work"
+
+
+def test_terminal_operation_context_links_the_work_and_root_run():
+    work_id = uuid4()
+    run_id = uuid4()
+    context = _result_context(
+        {
+            "work": {
+                "id": str(work_id),
+                "runs": [
+                    {
+                        "id": str(run_id),
+                        "role": "root",
+                        "host": "codex",
+                        "session_id": "session-1",
+                    }
+                ],
+            }
+        }
+    )
+    assert context["work_id"] == work_id
+    assert context["run_id"] == run_id
+    assert context["host"] == "codex"
+
+
+def test_work_evidence_accepts_only_bounded_safe_metadata():
+    assert (
+        repository_delta(
+            {
+                "base_revision": "abc123",
+                "final_revision": "def456",
+                "changed_files": 2,
+                "insertions": 10,
+                "deletions": 3,
+                "dirty": True,
+                "assurance": "host_reported",
+            }
+        )["changed_files"]
+        == 2
+    )
+    with pytest.raises(ValueError, match="unsupported fields"):
+        repository_delta({"source_body": "must-not-be-durable"})
+    with pytest.raises(ValueError, match="non-negative integer"):
+        repository_delta({"changed_files": True})
+    with pytest.raises(ValueError, match="unsupported fields"):
+        check_evidence([{"command": "pytest --token=secret", "status": "passed"}])
+    with pytest.raises(ValueError, match="checks.status must be one of"):
+        check_evidence([{"name": "tests", "status": "arbitrary"}])
+    with pytest.raises(ValueError, match="unsupported fields"):
+        check_evidence([{"name": "tests", "status": "passed", "output": "must-not-be-durable"}])
+    assert (
+        check_evidence([{"name": "tests", "status": "passed", "summary": "token=secret-value"}])[0][
+            "summary"
+        ]
+        == "token=<redacted>"
+    )
+    with pytest.raises(ValueError, match="project-relative"):
+        project_paths(["src/.."], field="reviewed_paths")
+    with pytest.raises(ValueError, match="scope and map_disposition.reason"):
+        map_disposition({"status": "checked_no_change", "scope": ["src/app.py"]})
+    with pytest.raises(ValueError, match="event_id must be a UUID"):
+        map_disposition(
+            {"status": "reconciled", "scope": ["src/app.py"], "event_id": "not-an-event"}
+        )
+
+
+def test_reconciled_work_disposition_requires_matching_durable_event():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine, expire_on_commit=False) as db:
+        project = Project(
+            name="Work map evidence",
+            root_path="/tmp/work-map-evidence",
+            languages={"python": 1},
+            dependencies={},
+            architecture_summary="",
+        )
+        db.add(project)
+        db.flush()
+        work, run = begin_work(db, project, goal="Verify map closure")
+        event = RuntimeEvent(
+            project_id=project.id,
+            event_type="ProjectMapReconciled",
+            aggregate_type="work",
+            aggregate_id=str(work.id),
+            payload={"scope_paths": ["src/app.py"]},
+        )
+        db.add(event)
+        db.flush()
+        db.add(RuntimeEventContext(event_id=event.id, work_id=work.id, run_id=run.id))
+        db.flush()
+
+        with pytest.raises(ValueError, match="must identify a ProjectMapReconciled event"):
+            finish_work(
+                db,
+                project,
+                work_key_value="W-0001",
+                status="completed",
+                summary="Done",
+                map_disposition={
+                    "status": "reconciled",
+                    "scope": ["src/app.py"],
+                    "event_id": str(uuid4()),
+                },
+            )
+        with pytest.raises(ValueError, match="must match"):
+            finish_work(
+                db,
+                project,
+                work_key_value="W-0001",
+                status="completed",
+                summary="Done",
+                map_disposition={
+                    "status": "reconciled",
+                    "scope": ["src/other.py"],
+                    "event_id": str(event.id),
+                },
+            )
+        completed, _runs = finish_work(
+            db,
+            project,
+            work_key_value="W-0001",
+            status="completed",
+            summary="Done token=secret-value",
+            map_disposition={
+                "status": "reconciled",
+                "scope": ["src/app.py"],
+                "event_id": str(event.id),
+            },
+        )
+        assert completed.result_summary == "Done token=<redacted>"
+
+
+def test_project_map_provenance_keys_are_mutually_exclusive_before_database_access():
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        reconcile_project_map(
+            object(),
+            object(),
+            entries=None,
+            remove_paths=None,
+            scope_paths=["src/app.py"],
+            source_task_key="T-0001",
+            source_work_key="W-0001",
+            no_changes_reason="Existing map is accurate.",
+        )

@@ -286,7 +286,7 @@ def test_event_metadata_is_attributed_from_operation_context(tmp_path: Path) -> 
         assert row.actor_kind == "user"
         assert row.interface == "test"
         assert row.command_id == "cmd-42"
-        assert row.schema_version == 1
+        assert row.schema_version == 2
     finally:
         db.close()
 

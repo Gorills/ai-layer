@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ai_layer.core.request_context import current_operation
 from ai_layer.db.models import EventConsumerCheckpoint, Project, RuntimeEvent, utcnow
 
-EVENT_SCHEMA_VERSION = 1
+EVENT_SCHEMA_VERSION = 2
 EVENT_TYPES = frozenset(
     {
         "ProjectRegistered",
@@ -28,6 +28,7 @@ EVENT_TYPES = frozenset(
         "TaskBlocked",
         "TaskResumed",
         "TaskCompleted",
+        "TaskCancelled",
         "SkillPlanCreated",  # legacy schema only: retained so historical events stay readable
         "SkillLoaded",
         "AgentAssigned",
@@ -37,9 +38,24 @@ EVENT_TYPES = frozenset(
         "ApprovalRequested",
         "ApprovalResolved",
         "CommandExecuted",
+        "SessionSaved",
         "KnowledgeDraftUpdated",
         "KnowledgeReviewInspected",
         "KnowledgePublished",
+        "ProjectMapReconciled",
+        "WorkStarted",
+        "WorkCheckpointed",
+        "WorkCompleted",
+        "WorkFailed",
+        "WorkInterrupted",
+        "WorkAbandoned",
+        "AgentRunStarted",
+        "AgentRunStopped",
+        "OperationCompleted",
+        "OperationFailed",
+        "RepositoryDeltaObserved",
+        "CheckCompleted",
+        "MapDispositionRecorded",
         "EpicCreated",
         "EpicSpecRevised",
         "EpicAudited",

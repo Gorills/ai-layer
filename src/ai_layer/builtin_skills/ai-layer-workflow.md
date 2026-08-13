@@ -1,6 +1,6 @@
 ---
 slug: ai-layer-workflow
-description: AI Layer operating model for Project Intelligence, continuation, host-native execution, optional managed Tasks/Epics, review, recovery and durable project memory.
+description: AI Layer operating model for Project Intelligence, continuation, host-native execution, optional managed Tasks/Epics, review, recovery and durable project knowledge/history.
 kind: core
 keywords:
 - ai layer
@@ -92,7 +92,7 @@ The default workflow is deliberately short:
 6. Use host-native reads, edits, shell commands, tests, code search, and subagents to do the engineering work.
 7. Verify the smallest sufficient surface first, widening tests/checks when risk or evidence requires it.
 8. If the work materially improved understanding of where a behavior lives, reconcile only that semantic Project Map delta. Otherwise skip it.
-9. Persist Project Knowledge, Decisions, Task/Epic state, findings, or verification evidence only when it has durable value.
+9. Persist durable state through its supported owner only: Decisions when consequential rationale matters; managed Task/Epic state through their live workflows; Project Knowledge authoring/publishing only through its review-gated managed flow. Ordinary native work may read Knowledge but must not claim direct VERIFIED publication.
 
 For an active managed Task, switch from the default native workflow into that Task’s live contract. `task_next` becomes authoritative for the managed lifecycle. STANDARD normally uses IMPLEMENT → REVIEW and, when review finds actionable defects, FIX → REVIEW. DISCOVERY_FIRST begins with a read-only evidence-gathering stage. ANALYSIS_ONLY can complete without mutation. MICRO may permit bounded inline implementation when the live Task contract grants that exception.
 
@@ -150,7 +150,7 @@ User says “continue”. Do not infer from chat fragments. `project_status.work
 
 ### Durable-knowledge pattern
 
-During real investigation, the agent establishes a non-obvious invariant such as “retry processing must remain idempotent by provider event id” and verifies it against source/tests. If this will matter to later work, record it as Project Knowledge with precise evidence paths rather than a transient session narrative. Review-gated Knowledge is useful because later agents can search it without repeating the original investigation. Do not put such behavioral invariants into Project Map merely because they mention a useful file.
+During real investigation, the agent establishes a non-obvious invariant such as “retry processing must remain idempotent by provider event id” and verifies it against source/tests. If the current work is inside a supported managed Knowledge author/review flow, draft it with precise evidence paths so an independent review can publish it. During ordinary unmanaged host-native work, do not pretend VERIFIED Knowledge can be written directly; create/use an explicit managed Knowledge/onboarding task when durable publication is actually valuable. Do not put behavioral invariants into Project Map merely because they mention a useful file.
 
 ### Strict managed Task pattern
 
@@ -174,7 +174,7 @@ For code reached through Project Map, confirm that the selected current source r
 
 Before writing Project Map enrichment, verify every referenced path exists in the current structural map and every `important_symbols` entry is a current scanner-known source symbol. Related tests/files must be current project paths. If evidence is insufficient, omit the field rather than guess.
 
-For Project Knowledge, verify important claims against current source, tests, configuration, or other authoritative project evidence before creating/updating durable cards. Evidence paths are pointers that make future staleness detectable.
+When a supported managed flow authors Project Knowledge, verify important claims against current source, tests, configuration, or other authoritative project evidence before drafting/reviewing durable cards. Evidence paths are pointers that make future staleness detectable. Ordinary unmanaged work should use `knowledge_search` for reads and must not fabricate direct publication authority.
 
 For managed Tasks, preserve the existing verification runner, review sandbox, findings, review rounds, and stage evidence where the Task contract requires them. REVIEW is independent when the profile says it is independent. Do not turn a failing review into `pass` simply to close the Task. FIX must address actionable findings and then return to REVIEW when required.
 

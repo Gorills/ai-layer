@@ -2,16 +2,21 @@ from __future__ import annotations
 
 from typing import Any
 
+from ai_layer.domain.agent_contract import (
+    AGENT_RUNTIME_CONTRACT_VERSION,
+    agent_runtime_bootstrap_line,
+)
 from ai_layer.domain.project_map import project_map_bootstrap_line
 from ai_layer.domain.static_policy import static_policy_markdown
 
-CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 7
+CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 8
 
 
 def critical_orchestrator_contract() -> dict[str, Any]:
     """Host-neutral always-on contract for the Project Intelligence control plane."""
     return {
         "version": CRITICAL_ORCHESTRATOR_CONTRACT_VERSION,
+        "agent_runtime_contract_version": AGENT_RUNTIME_CONTRACT_VERSION,
         "role": "host_native_engineer",
         "authority": "host_native_execution",
         "repository_mutation": "host_native",
@@ -37,6 +42,7 @@ def managed_orchestrator_contract() -> dict[str, Any]:
     """Coordinator boundary that applies only while an explicit managed Task is active."""
     return {
         "version": CRITICAL_ORCHESTRATOR_CONTRACT_VERSION,
+        "agent_runtime_contract_version": AGENT_RUNTIME_CONTRACT_VERSION,
         "role": "orchestrator",
         "authority": "managed_task_coordination",
         "repository_mutation": "forbidden",
@@ -87,20 +93,20 @@ For work involving a registered project:
 
 Token-economy objective: use AI Layer to avoid rediscovering known project structure and state, not to add ceremony. A control-plane call is justified only when it reduces uncertainty, preserves durable state, or supplies evidence the host would otherwise have to reconstruct.
 """
-    return critical_orchestrator_markdown() + "\n" + startup + "\n" + static_policy_markdown()
+    return (
+        critical_orchestrator_markdown()
+        + "\n"
+        + agent_runtime_bootstrap_line()
+        + "\n\n"
+        + startup
+        + "\n"
+        + static_policy_markdown()
+    )
 
 
 def mcp_bootstrap_instructions() -> str:
     """Compact fallback when native bootstrap delivery is unavailable or drifted."""
-    return (
-        "For registered-project work call project_status first. Use its current_focus to resume existing "
-        "Task/Epic work. If code location is unknown, call project_search before broad repository discovery; "
-        "if a precise file/symbol is already known, inspect it directly. Project Map is read with project_search "
-        "and updated/reviewed with project_map_reconcile; use no_changes_reason when checked map semantics are "
-        "already accurate. Use knowledge_search/decision_search only when relevant. Current source is authoritative "
-        "and native host reads/edits/tests/subagents remain the execution engine. task_next/epic_next govern only "
-        "explicitly managed active workflows."
-    )
+    return agent_runtime_bootstrap_line()
 
 
 def inline_micro_stage_instruction() -> dict[str, Any]:

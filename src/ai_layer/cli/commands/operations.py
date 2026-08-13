@@ -92,7 +92,7 @@ def upgrade(
 def sync(
     path: str = typer.Argument("."),
     scan: bool = typer.Option(
-        False, "--scan", help="Also rebuild project memory after syncing adapters."
+        False, "--scan", help="Also rebuild Project Intelligence indexes after syncing adapters."
     ),
 ):
     """Idempotently refresh host rules/skills/MCP adapters for one initialized project."""
@@ -434,7 +434,7 @@ def audit_check(
     path: str = typer.Option(".", "--path", help="Initialized project path."),
     limit: int = typer.Option(200, "--limit", min=10, max=1000),
 ):
-    """Verify the latest memory_context -> ... -> session_save MCP flow for QA."""
+    """Verify the latest completed MCP flow against the current project_status-first contract."""
     root = normalize_root(path)
     result = check_latest_flow(root, limit)
     echo({"path": str(audit_path(root)), **result})

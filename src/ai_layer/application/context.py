@@ -10,16 +10,26 @@ from ai_layer.domain.project_map import project_map_capability_contract
 from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES, EPIC_OPEN_STATUSES
 from ai_layer.memory.service import decision_search, memory_search
 
+LEGACY_CONTEXT_EPIC_OPEN_LIMIT = 8
+LEGACY_CONTEXT_KNOWLEDGE_HINT_LIMIT = 2
+LEGACY_CONTEXT_SUMMARY_MAX_CHARS = 700
+LEGACY_CONTEXT_SOURCE_POINTER_LIMIT = 6
+
 
 def project_details(project_root: str | Path) -> dict:
     with session_scope() as db:
         return project_info(db, project_root)
 
 
-def search_memory(project_root: str | Path, query: str, limit: int = 8) -> list[dict]:
+def search_knowledge(project_root: str | Path, query: str, limit: int = 8) -> list[dict]:
     with session_scope() as db:
         project = get_project(db, project_root)
         return memory_search(db, project, query, limit)
+
+
+def search_memory(project_root: str | Path, query: str, limit: int = 8) -> list[dict]:
+    """Backward-compatible application alias for search_knowledge."""
+    return search_knowledge(project_root, query, limit)
 
 
 def _epic_context(project_root: str | Path) -> dict:
@@ -54,7 +64,7 @@ def _epic_context(project_root: str | Path) -> dict:
                     "execution" if item.get("status") in EPIC_EXECUTION_STATUSES else "design"
                 ),
             }
-            for item in open_rows[:8]
+            for item in open_rows[:LEGACY_CONTEXT_EPIC_OPEN_LIMIT]
         ],
         "contract": "Informational only. Call epic_next explicitly when resuming a managed Epic.",
     }
@@ -64,8 +74,10 @@ def _knowledge_hint(item: dict) -> dict:
     return {
         "key": item.get("key"),
         "title": item.get("title"),
-        "summary": str(item.get("summary") or "")[:700],
-        "source_pointers": list(item.get("source_pointers") or [])[:6],
+        "summary": str(item.get("summary") or "")[:LEGACY_CONTEXT_SUMMARY_MAX_CHARS],
+        "source_pointers": list(item.get("source_pointers") or [])[
+            :LEGACY_CONTEXT_SOURCE_POINTER_LIMIT
+        ],
         "score": item.get("score"),
     }
 
@@ -96,7 +108,10 @@ def _compact_legacy_context(payload: dict) -> dict:
             "baseline_ready": bool(state.get("baseline_ready")),
         },
         "knowledge_hints": [
-            _knowledge_hint(item) for item in list(brief.get("verified_knowledge") or [])[:2]
+            _knowledge_hint(item)
+            for item in list(brief.get("verified_knowledge") or [])[
+                :LEGACY_CONTEXT_KNOWLEDGE_HINT_LIMIT
+            ]
         ],
         "freshness": {
             "status": freshness.get("status"),

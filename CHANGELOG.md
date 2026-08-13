@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.3 — Live agent contract and repository hygiene
+
+- Audited every agent-facing control-plane surface: native/MCP bootstrap, `project_status`, Task/Epic navigation, MCP descriptions, recovery/error guidance, skills and compatibility paths now describe the current Project Intelligence architecture consistently.
+- Made the versioned live runtime contract the procedural authority over historical Task/Epic prose; ordinary host-native work no longer inherits the old mandatory Task permission model, while active managed work still follows `task_next`/`epic_next`.
+- Rewrote the `epics` native skill around the real ordered AI Layer state machine and current Project Map closure contract instead of generic DAG/orchestration advice.
+- Made installed bootstrap readiness version-aware so `doctor`/integration status can detect stale global instructions rather than accepting any historical managed block.
+- Promoted `knowledge_search`/`search_knowledge` to canonical internal names while retaining explicit `memory_search` compatibility aliases; legacy `memory_context` remains diagnosable but is not a successful current-flow start.
+- Updated QA, smoke and audit flows to start from `project_status`; legacy `memory_context`-first flows now surface a compatibility warning and fail current-contract validation instead of defining success.
+- Removed accidental architecture constraints such as exact bootstrap byte size, exact skill/policy-rule counts, transitive dependency-count floors and brittle exact prose assertions; retained real safety/protocol/performance limits and named meaningful compatibility bounds.
+- Centralized bootstrap/integration compatibility versions, cleaned stale `Task Layer`/memory wording, added semantic governance regression tests and ADR 0019. No database migration; target remains `0016_project_map_semantics`.
+
 ## 0.13.2 — Project Map runtime contract hardening
 
 - Compacted MCP-facing `memory_context` into a compatibility brief instead of returning the legacy multi-surface context payload; focused Project Intelligence APIs remain the preferred path.

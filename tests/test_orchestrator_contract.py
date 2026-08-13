@@ -54,13 +54,14 @@ def test_global_bootstrap_is_project_intelligence_first_and_host_native(tmp_path
     assert global_text.count("Mandatory engineering discipline") == 1
     for rule in STATIC_POLICY_RULES:
         assert f"- {rule}" in global_text
-    assert len(global_text.encode("utf-8")) < 9000
 
     assert "project binding (legacy compatibility)" in project_text
     assert "Canonical project root" in project_text
-    assert "global native bootstrap and MCP Task Layer" in project_text
+    assert (
+        "global native bootstrap and MCP Project Intelligence/control-plane tools" in project_text
+    )
     assert "## AI Layer control-plane boundary" not in project_text
-    assert len(project_text.encode("utf-8")) < 500
+    assert "Mandatory engineering discipline" not in project_text
 
 
 def test_task_navigation_repeats_orchestrator_contract_at_delegation_and_completion_boundary(

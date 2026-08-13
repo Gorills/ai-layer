@@ -45,14 +45,15 @@ from ai_layer.integrations.status import (
 from ai_layer.integrations.status import (
     integration_status as _integration_status,
 )
+from ai_layer.integrations.versioning import (
+    GLOBAL_BOOTSTRAP_MARKER,
+    INTEGRATION_TEMPLATE_VERSION,
+)
 from ai_layer.skills.native import (
     remove_legacy_project_bridge,
     remove_project_native_skills,
     sync_project_native_skills,
 )
-
-INTEGRATION_TEMPLATE_VERSION = 22
-GLOBAL_BOOTSTRAP_VERSION = 9
 
 LEGACY_PROJECT_RULE_PATHS = (
     "AGENTS.md",
@@ -195,6 +196,7 @@ def _status_dependencies() -> IntegrationStatusDependencies:
         toml_end=TOML_END,
         owned_file_marker=OWNED_FILE_MARKER,
         integration_template_version=INTEGRATION_TEMPLATE_VERSION,
+        global_bootstrap_marker=GLOBAL_BOOTSTRAP_MARKER,
         project_integration_paths=PROJECT_INTEGRATION_PATHS,
     )
 

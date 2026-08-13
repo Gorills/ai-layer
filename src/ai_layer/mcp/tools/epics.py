@@ -174,7 +174,7 @@ def epic_approve(epic_key: str, project_root: str | None = None) -> dict:
 
 @core_tool()
 def epic_next(epic_key: str, project_root: str | None = None) -> dict:
-    """PRIMARY EPIC NAVIGATOR. Call when the user intentionally works on this Epic, after Epic metadata transitions, after linked Task completion, and after context loss. DRAFT/APPROVED Epics do not pre-empt unrelated Task work. During execution, accepted standalone Tasks may pause the Epic and trigger a narrow impact review rather than automatic full drift reconciliation."""
+    """PRIMARY EPIC NAVIGATOR. Call when project_status shows this executing Epic, when the user explicitly selects/resumes it, after Epic transitions or linked Task completion, and after context loss. Its live next_action plus current agent/Project Map contracts define present procedure even for Epics created by older releases; stored historical prose must not override them. DRAFT/APPROVED Epics remain passive."""
     root = project_root_for_tool(project_root, tool="epic_next")
     key = _text(epic_key, tool="epic_next", field="epic_key")
     with mcp_audit(root, "epic_next", arg_keys=["epic_key", "project_root"]) as audit:
@@ -273,7 +273,7 @@ def epic_plan_set(
     work_items: list[dict],
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: epic_next says create_task_plan after successful Phase 0. INPUT only implementation work items. AI Layer automatically preserves Phase 0 and appends the mandatory final whole-Epic review Task."""
+    """WHEN: epic_next says create_task_plan after successful Phase 0. INPUT only ordered implementation work items; current Epic execution is sequential through the managed Task engine, not a generic parallel DAG. AI Layer preserves Phase 0 and appends the mandatory final whole-Epic closure/review Task for integration, documentation, reviewed Project Knowledge and Project Map evidence."""
     root = project_root_for_tool(project_root, tool="epic_plan_set")
     if not isinstance(work_items, list):
         raise ValueError("epic_plan_set: `work_items` must be a list of task objects")
@@ -287,7 +287,7 @@ def epic_plan_set(
 
 @core_tool()
 def epic_archive(epic_key: str, project_root: str | None = None) -> dict:
-    """WHEN: epic_next says archive. Allowed only after the final STANDARD Task passed and mechanical closure gates prove documentation changed and reviewed Project Knowledge was published."""
+    """WHEN: epic_next says archive. Allowed only after the final STANDARD Task passed and mechanical closure gates prove required documentation, reviewed Project Knowledge, and scoped ProjectMapReconciled evidence are complete. Never archive by inferring completion from chat or child Task status alone."""
     root = project_root_for_tool(project_root, tool="epic_archive")
     result = app_epics.archive(
         root,

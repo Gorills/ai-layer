@@ -29,10 +29,11 @@ from ai_layer.integrations.config_files import (
 )
 from ai_layer.integrations.runtime_config import _global_bootstrap_workflow, _mcp_command, _server
 from ai_layer.integrations.status import _json_ai_layer_server
+from ai_layer.integrations.versioning import (
+    GLOBAL_BOOTSTRAP_MARKER,
+    GLOBAL_BOOTSTRAP_VERSION,
+)
 from ai_layer.skills.native import remove_global_native_skills, sync_global_native_skills
-
-INTEGRATION_TEMPLATE_VERSION = 22
-GLOBAL_BOOTSTRAP_VERSION = 12
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
@@ -85,7 +86,7 @@ def _write_cursor_global_plugin(workflow: str) -> Path:
 
 
 def _install_global_bootstrap_files() -> dict:
-    workflow = _global_bootstrap_workflow()
+    workflow = GLOBAL_BOOTSTRAP_MARKER + "\n" + _global_bootstrap_workflow()
     home = Path.home()
     codex = home / ".codex" / "AGENTS.md"
     claude = home / ".claude" / "CLAUDE.md"
@@ -123,7 +124,7 @@ def _merge_codex_config(
 
 def _write_cursor_rule(path: Path, workflow: str) -> None:
     content = (
-        "---\ndescription: Mandatory Local AI Development Layer workflow\nalwaysApply: true\n---\n\n"
+        "---\ndescription: Local AI Development Layer control plane\nalwaysApply: true\n---\n\n"
         + workflow
     )
     _write_owned_text(path, content)

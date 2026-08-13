@@ -179,7 +179,7 @@ def _safe_database_status(value: dict) -> dict:
     }
 
 
-def _latest_memory_context_skill_state(events: list[dict]) -> dict:
+def _latest_legacy_memory_context_skill_state(events: list[dict]) -> dict:
     completed = [
         item
         for item in events
@@ -199,7 +199,7 @@ def _latest_memory_context_skill_state(events: list[dict]) -> dict:
 
 
 def _task_skill_state(root: Path, task: dict | None, events: list[dict]) -> dict:
-    last_context = _latest_memory_context_skill_state(events)
+    last_context = _latest_legacy_memory_context_skill_state(events)
     fetches = []
     for event in events:
         if event.get("operation") != "skill_get" or event.get("status") != "completed":

@@ -29,7 +29,7 @@ from ai_layer.mcp.runtime import (
 
 
 def task_current(project_root: str | None = None) -> dict:
-    """WHEN: recover/inspect the durable task position after restart, context loss, or before delegation. INPUT: optional project_root. RETURNS the one open task and exact next sequential stage, or create_task guidance. Does not mutate repository or task state."""
+    """WHEN: project_status shows an active managed Task, or explicit managed Task state inspection is needed. INPUT: optional project_root. RETURNS the one open managed Task and exact next stage; if none is active, returns host-native idle guidance plus task_create as an optional managed-work choice. Does not mutate repository or task state."""
     root = project_root_for_tool(project_root, tool="task_current")
     with mcp_audit(
         root, "task_current", arg_keys=["project_root"] if project_root else []
@@ -46,7 +46,7 @@ def task_current(project_root: str | None = None) -> dict:
 
 
 def task_next(project_root: str | None = None) -> dict:
-    """PRIMARY WORKFLOW NAVIGATOR. WHEN: after memory_context, after every task transition, after a worker returns, or after context loss. RETURNS exactly one next allowed action, forbidden actions, and the stage-specific tool/schema when applicable. Do not infer the next step from chat history."""
+    """PRIMARY MANAGED TASK NAVIGATOR. WHEN: project_status reports an active/selected managed Task, after each managed Task transition, after its worker returns, or after context loss inside that Task. RETURNS the exact managed next action and stage contract. If no managed Task is active, ordinary host-native work remains allowed and task_create is optional; do not create a Task merely to authorize edits."""
     root = project_root_for_tool(project_root, tool="task_next")
     with mcp_audit(root, "task_next", arg_keys=["project_root"] if project_root else []) as audit:
         with session_scope() as db:
@@ -170,7 +170,7 @@ def task_create(
     cost_policy: str = "auto",
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: no active task exists. INPUT: goal plus compact acceptance_criteria/constraints; normally keep workflow=auto, risk=auto, complexity=auto, uncertainty=auto, cost_policy=auto so machine policy decides the tier budget. Dirty worktrees are valid: AI Layer captures the exact current repository state as the immutable task baseline and preserves pre-existing changes separately from the later managed delta. AI Layer classifies MICRO/STANDARD/DISCOVERY_FIRST/ANALYSIS_ONLY and returns one next action plus requested subagent tier/profile. MICRO auto-escalates when its actual diff cannot remain inside the proven low-risk envelope."""
+    """WHEN: no managed Task is active and the user/agent explicitly chooses durable or strict managed execution. This tool is NOT required before ordinary host-native edits. INPUT: goal plus compact acceptance_criteria/constraints; normally keep workflow/risk/complexity/uncertainty/cost_policy=auto. Dirty worktrees are valid: AI Layer captures the exact current repository state as the immutable Task baseline and preserves pre-existing changes separately from the later managed delta. AI Layer classifies MICRO/STANDARD/DISCOVERY_FIRST/ANALYSIS_ONLY and returns the live managed next action."""
     root = project_root_for_tool(project_root, tool="task_create")
     goal = _text(goal, tool="task_create", field="goal")
     criteria = _list(acceptance_criteria)
@@ -224,7 +224,7 @@ def task_adopt(
     constraints: list[str] | str | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: substantive repository edits already happened outside Task Layer and must now be reviewed honestly. INPUT: goal required; compact acceptance_criteria/constraints; project_root explicit or safely bound. Requires a dirty Git worktree, records those paths as unmanaged pre-task provenance, SKIPS IMPLEMENT, and starts at read-only REVIEW. Never use this to pretend prior edits were managed implementation."""
+    """WHEN: substantive repository edits already happened outside a managed Task and the user/agent now explicitly wants AI Layer managed review/remediation. INPUT: goal required; compact acceptance_criteria/constraints; project_root explicit or safely bound. Requires a dirty Git worktree, records those paths as unmanaged pre-task provenance, SKIPS IMPLEMENT, and starts at read-only REVIEW. Never use this to pretend prior edits were managed implementation."""
     root = project_root_for_tool(project_root, tool="task_adopt")
     goal = _text(goal, tool="task_adopt", field="goal")
     criteria = _list(acceptance_criteria)

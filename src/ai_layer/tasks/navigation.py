@@ -68,7 +68,7 @@ def _known_completed_terminal_state(db: Session, project: Project, root: Path) -
         "task": task_key(latest),
         "repository_digest": expected_digest,
         "execution_origin": latest.execution_origin or "managed",
-        "assurance": "current repository state exactly matches the last completed Task Layer terminal state",
+        "assurance": "current repository state exactly matches the last completed managed Task terminal state",
     }
 
 
@@ -125,13 +125,18 @@ def _inactive_navigation(db: Session, project: Project, runtime: dict, root: Pat
     dirty = _safe_git_changes(root) or {}
     preexisting = dirty if int(dirty.get("total") or 0) else {}
     known_terminal = _known_completed_terminal_state(db, project, root) if preexisting else None
-    message = "Create the managed task before substantive repository or external mutations."
     if preexisting:
         message = (
-            f"Repository already has {int(preexisting.get('total') or 0)} pre-existing changed path(s). "
-            "task_create is allowed: AI Layer will capture the exact current worktree as the immutable task baseline "
-            "and measure only later managed changes against it. Use task_adopt only when the existing edits themselves "
-            "are the implementation you want reviewed. Do not stash/reset/restore/commit merely to create the task."
+            f"No managed Task is active and the repository already has {int(preexisting.get('total') or 0)} "
+            "pre-existing changed path(s). Ordinary host-native work remains allowed. If strict/durable managed "
+            "execution is explicitly useful, task_create can baseline the exact current worktree and measure only "
+            "later managed changes; use task_adopt only when the existing edits themselves should enter managed "
+            "review/remediation. Never stash/reset/restore/commit merely to satisfy AI Layer."
+        )
+    else:
+        message = (
+            "No managed Task is active. Continue ordinary work through the host-native agent runtime; create a "
+            "managed Task only when durable state, strict review/remediation, or explicit user intent makes it useful."
         )
     payload = {
         **runtime,
@@ -139,20 +144,26 @@ def _inactive_navigation(db: Session, project: Project, runtime: dict, root: Pat
         "project_root": str(root),
         "preexisting_changes": preexisting,
         "next_action": {
-            "action": "create_task",
-            "tool": "task_create",
-            "required": ["goal"],
-            "optional": ["acceptance_criteria", "constraints", "workflow", "risk", "cost_policy"],
-            "forbidden": [
-                "edit repository before task_create",
-                "stash/reset/restore/commit solely to make the worktree clean for AI Layer",
-            ],
+            "action": "host_native",
+            "tool": None,
+            "message": message,
+            "managed_option": {
+                "tool": "task_create",
+                "required": ["goal"],
+                "optional": [
+                    "acceptance_criteria",
+                    "constraints",
+                    "workflow",
+                    "risk",
+                    "cost_policy",
+                ],
+            },
             "alternative": (
-                "Use task_adopt only if the pre-existing dirty changes are themselves the work for the intended task."
+                "Use task_adopt only if the pre-existing dirty changes are themselves the work to review/manage."
                 if preexisting
                 else None
             ),
-            "message": message,
+            "worktree_rule": "Do not stash/reset/restore/commit solely to satisfy AI Layer.",
         },
     }
     if known_terminal is not None:

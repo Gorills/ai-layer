@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from ai_layer.application.transport import application_scope as session_scope
+from ai_layer.application.transport import knowledge_search as search_knowledge
 from ai_layer.application.transport import memory_context as build_memory_context
-from ai_layer.application.transport import memory_search as search_memory
 from ai_layer.application.transport import project_info as get_project_info
 from ai_layer.application.transport import project_map_reconcile as reconcile_project_map
 from ai_layer.application.transport import project_search as search_project
@@ -116,7 +116,7 @@ def knowledge_search(query: str, project_root: str | None = None, limit: int = 8
     with mcp_audit(root, "knowledge_search", arg_keys=["query", "project_root", "limit"]) as audit:
         with session_scope() as db:
             project = _project(db, root)
-            result = search_memory(db, project, query, bounded_limit)
+            result = search_knowledge(db, project, query, bounded_limit)
             audit["metrics"] = {"hits": len(result), "limit": bounded_limit}
             return result
 
@@ -129,7 +129,7 @@ def memory_search(query: str, project_root: str | None = None, limit: int = 8) -
     with mcp_audit(root, "memory_search", arg_keys=["query", "project_root", "limit"]) as audit:
         with session_scope() as db:
             project = _project(db, root)
-            result = search_memory(db, project, query, bounded_limit)
+            result = search_knowledge(db, project, query, bounded_limit)
             audit["metrics"] = {
                 "hits": len(result),
                 "limit": bounded_limit,

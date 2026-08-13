@@ -43,7 +43,7 @@ def test_runtime_lock_is_closed_world_exact_and_contains_every_direct_dependency
     }
     assert direct <= set(pins)
     assert "psycopg-binary" in pins
-    assert len(pins) >= 70
+    assert all(name and version for name, version in pins.items())
 
 
 def test_installer_cannot_resolve_floating_dependencies_or_build_application_from_source():

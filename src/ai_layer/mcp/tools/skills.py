@@ -19,7 +19,7 @@ from ai_layer.skills.service import load_skill, skill_section_content, skill_sec
 
 
 def skill_list(project_root: str | None = None) -> list[dict]:
-    """WHEN: diagnostics or explicit manual skill discovery only. INPUT: optional project_root. Normal Cursor/Codex/Antigravity tasks rely on host-native Agent Skills discovery, not memory_context routing."""
+    """WHEN: diagnostics or explicit manual skill discovery only. INPUT: optional project_root. Normal Cursor/Codex/Claude Code/Antigravity tasks rely on host-native Agent Skills discovery; AI Layer does not route skills through memory_context."""
     root = project_root_for_tool(project_root, tool="skill_list")
     with mcp_audit(root, "skill_list", arg_keys=["project_root"] if project_root else []):
         with session_scope() as db:
@@ -90,7 +90,7 @@ def skill_search(query: str, project_root: str | None = None, limit: int = 12) -
 
 
 def skill_get(slug: str, project_root: str | None = None, section: str | None = None) -> dict:
-    """WHEN: explicit/manual selective reread, mandatory workflow core, package/diagnostic retrieval, or when a named skill cannot be consumed through native activation. INPUT: slug required; section optional (`core`, exact `##` heading, or `full`). Native activation already carries the complete professional skill; prefer one exact section for focused rereads."""
+    """WHEN: explicit/manual reread, package/diagnostic retrieval, or when a named skill cannot be consumed through host-native activation. INPUT: slug required; section optional (`core`, exact `##` heading, or `full`). Normal relevance selection belongs to the host-native skill system; do not use skill_get to preload unrelated skills."""
     root = project_root_for_tool(project_root, tool="skill_get")
     slug = _text(slug, tool="skill_get", field="slug")
     requested_section = section.strip() if isinstance(section, str) and section.strip() else None

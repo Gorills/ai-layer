@@ -74,7 +74,7 @@ def build_tool_guidance(task: str, project_root: str, memory: list[dict]) -> dic
     if memory and top_score < 0.35:
         calls.append(
             {
-                "tool": "memory_search",
+                "tool": "knowledge_search",
                 "when": "one concrete reviewed project fact is still missing",
                 "args": {"query": task[:240], "project_root": project_root},
             }

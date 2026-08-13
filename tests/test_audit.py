@@ -42,25 +42,52 @@ def test_audit_check_requires_completion_save(tmp_path: Path):
     project = tmp_path / "project"
     project.mkdir()
     register_project(project, "audit-test", project.name)
-    with mcp_audit(project, "memory_context", arg_keys=["task"]):
+    with mcp_audit(project, "project_status", arg_keys=["task"]):
         pass
     failed = check_latest_flow(project)
     assert failed["ok"] is False
     assert failed["session_saved"] is False
 
-    with mcp_audit(project, "memory_search", arg_keys=["query"]):
+    with mcp_audit(project, "knowledge_search", arg_keys=["query"]):
         pass
     with mcp_audit(project, "session_save", arg_keys=["goal", "current_state"]):
         pass
     passed = check_latest_flow(project)
     assert passed["ok"] is True
-    assert passed["tools"] == ["memory_context", "memory_search", "session_save"]
+    assert passed["tools"] == ["project_status", "knowledge_search", "session_save"]
+
+
+def test_audit_check_marks_legacy_memory_context_start_as_compatibility_only(tmp_path: Path):
+    project = tmp_path / "legacy-flow"
+    project.mkdir()
+    register_project(project, "audit-legacy", project.name)
+    with mcp_audit(project, "memory_context", arg_keys=["task"]):
+        pass
+    with mcp_audit(project, "session_save", arg_keys=["goal", "current_state"]):
+        pass
+
+    result = check_latest_flow(project)
+    assert result["flow_start_tool"] == "memory_context"
+    assert result["current_contract_start"] is False
+    assert result["session_saved"] is True
+    assert result["ok"] is False
+    assert result["warnings"] == [
+        {
+            "code": "legacy_flow_start",
+            "message": (
+                "Latest flow started through legacy memory_context. Refresh installed AI Layer bootstrap "
+                "instructions so registered-project work starts with project_status."
+            ),
+        }
+    ]
 
 
 def test_audit_check_detects_duplicate_memory_context_in_same_flow(tmp_path: Path):
     project = tmp_path / "project"
     project.mkdir()
     register_project(project, "audit-test", project.name)
+    with mcp_audit(project, "project_status", arg_keys=[]):
+        pass
     with mcp_audit(project, "memory_context", arg_keys=["task"]):
         pass
     with mcp_audit(project, "memory_context", arg_keys=["task"]):
@@ -70,6 +97,8 @@ def test_audit_check_detects_duplicate_memory_context_in_same_flow(tmp_path: Pat
 
     result = check_latest_flow(project)
     assert result["ok"] is True
+    assert result["flow_start_tool"] == "project_status"
+    assert result["project_status_calls"] == 1
     assert result["memory_context_calls"] == 2
     assert result["memory_context_count_scope"] == "ai_layer_server_audit_events_only"
     assert result["host_tool_schema_discovery_counted"] is False
@@ -77,7 +106,7 @@ def test_audit_check_detects_duplicate_memory_context_in_same_flow(tmp_path: Pat
     assert result["warnings"] == [
         {
             "code": "tool_economy",
-            "message": "server-side memory_context was called 2 times in one completed flow; reuse returned context unless state changed materially.",
+            "message": "legacy memory_context was called 2 times in one completed flow; prefer focused Project Intelligence tools instead of repeating the compatibility payload.",
         }
     ]
 
@@ -99,7 +128,7 @@ def test_audit_check_fails_when_tool_error_occurs_inside_completed_flow(tmp_path
     project = tmp_path / "project-error"
     project.mkdir()
     register_project(project, "audit-test", project.name)
-    with mcp_audit(project, "memory_context", arg_keys=["task"]):
+    with mcp_audit(project, "project_status", arg_keys=["task"]):
         pass
     try:
         with mcp_audit(project, "decision_search", arg_keys=["query"]):
@@ -134,7 +163,7 @@ def test_audit_check_accepts_completed_managed_task_with_automatic_handoff(tmp_p
     project = tmp_path / "managed-task"
     project.mkdir()
     register_project(project, "audit-managed", project.name)
-    with mcp_audit(project, "memory_context", arg_keys=["task"]):
+    with mcp_audit(project, "project_status", arg_keys=["task"]):
         pass
     with mcp_audit(project, "task_create", arg_keys=["goal"]) as state:
         state["metrics"] = {"task": "T-0001", "status": "active", "stage": "implement"}
@@ -179,8 +208,8 @@ def test_audit_log_rotates_and_reads_bounded_recent_history(monkeypatch, tmp_pat
     previous = current.with_name("mcp.previous.jsonl")
     assert current.exists()
     assert previous.exists()
-    assert current.stat().st_size < 1400
-    assert previous.stat().st_size < 1400
+    assert current.stat().st_size < 2 * audit.MAX_AUDIT_BYTES
+    assert previous.stat().st_size < 2 * audit.MAX_AUDIT_BYTES
     recent = read_audit(project, limit=4)
     assert len(recent) == 4
     assert recent[-1]["tool"] == "tool_11"
@@ -190,7 +219,7 @@ def test_audit_check_accepts_stage_specific_terminal_completion(tmp_path: Path):
     project = tmp_path / "managed-task-specific"
     project.mkdir()
     register_project(project, "audit-managed-specific", project.name)
-    with mcp_audit(project, "memory_context", arg_keys=["task"]):
+    with mcp_audit(project, "project_status", arg_keys=["task"]):
         pass
     with mcp_audit(project, "task_create", arg_keys=["goal"]) as state:
         state["metrics"] = {"task": "T-0001", "status": "active", "stage": "implement"}

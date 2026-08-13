@@ -1223,7 +1223,7 @@ def test_task_adopt_records_unmanaged_git_changes_and_starts_at_review(tmp_path:
         adopted = tasks.adopt_task(
             db,
             project,
-            goal="Review work that was performed outside Task Layer",
+            goal="Review work that was performed outside a managed Task",
             acceptance_criteria=["implementation is safe"],
             constraints=[],
         )
@@ -1373,9 +1373,11 @@ def test_task_create_accepts_unknown_dirty_git_worktree_as_captured_baseline(tmp
         (root / "app.py").write_text("VALUE = 41\n", encoding="utf-8")
         nav = tasks.next_task_action(db, project)
         assert nav["state"] == "idle_with_preexisting_changes"
-        assert nav["next_action"]["action"] == "create_task"
+        assert nav["next_action"]["action"] == "host_native"
         assert nav["preexisting_changes"]["paths"] == ["app.py"]
-        assert "Do not stash/reset/restore/commit" in nav["next_action"]["message"]
+        message = nav["next_action"]["message"].casefold()
+        assert "stash/reset/restore/commit" in message
+        assert "merely to satisfy ai layer" in message
 
         created = tasks.create_task(
             db,
@@ -1497,7 +1499,7 @@ def test_verified_terminal_dirty_state_is_allowed_as_next_task_baseline(tmp_path
         assert tasks._git_changed_paths(root)["paths"] == ["app.py"]
 
         nav = tasks.next_task_action(db, project)
-        assert nav["next_action"]["action"] == "create_task"
+        assert nav["next_action"]["action"] == "host_native"
         assert nav["known_preexisting_state"]["task"] == first["key"]
         second = tasks.create_task(
             db, project, goal="Second managed change", acceptance_criteria=[], constraints=[]
@@ -1807,8 +1809,8 @@ def test_dashboard_state_exposes_create_task_navigation_when_only_historical_tas
         assert dashboard["current"] is None
         assert dashboard["latest"]["id"] == created["id"]
         assert dashboard["latest"]["next_action"]["action"] == "none"
-        assert dashboard["next_action"]["action"] == "create_task"
-        assert dashboard["next_action"]["tool"] == "task_create"
+        assert dashboard["next_action"]["action"] == "host_native"
+        assert dashboard["next_action"]["managed_option"]["tool"] == "task_create"
     finally:
         db.close()
 

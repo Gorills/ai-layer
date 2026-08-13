@@ -186,7 +186,7 @@ def test_mcp_execution_boundary_records_successful_tool_delivery(monkeypatch):
     assert seen["tool"] == "project_info"
     assert seen["kwargs"] == {"value": 7}
     assert "project_status" in seen["instructions"]
-    assert "native host reads/edits/tests/subagents" in seen["instructions"]
+    assert "Normal execution remains host-native" in seen["instructions"]
 
 
 def test_mcp_boundary_resolves_bound_project_for_telemetry(monkeypatch, tmp_path: Path):

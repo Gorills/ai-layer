@@ -137,6 +137,8 @@ def test_release_facing_state_tracks_current_runtime_contract() -> None:
     manifest = json.loads((ROOT / "release/release-manifest.json").read_text(encoding="utf-8"))
     current_state = (ROOT / "CURRENT_STATE.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
     assert manifest["version"] == __version__
     assert manifest["migration_compatibility"]["target_schema"] == "0016_project_map_semantics"
@@ -144,6 +146,9 @@ def test_release_facing_state_tracks_current_runtime_contract() -> None:
     assert f"Release **{__version__}** is promoted" in current_state
     assert "live runtime/tool contract is the procedural authority" in current_state
     assert f"## {__version__} —" in changelog
+    assert f"Current package version: **{__version__}**" in readme
+    assert "Project Intelligence, durable work state" in pyproject
+    assert "project memory" not in pyproject.casefold()
     assert "Release **0.13.1** is promoted" not in current_state
 
 

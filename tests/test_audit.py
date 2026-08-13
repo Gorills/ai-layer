@@ -54,7 +54,32 @@ def test_audit_check_requires_completion_save(tmp_path: Path):
         pass
     passed = check_latest_flow(project)
     assert passed["ok"] is True
-    assert passed["tools"] == ["memory_context", "knowledge_search", "session_save"]
+    assert passed["tools"] == ["project_status", "knowledge_search", "session_save"]
+
+
+def test_audit_check_marks_legacy_memory_context_start_as_compatibility_only(tmp_path: Path):
+    project = tmp_path / "legacy-flow"
+    project.mkdir()
+    register_project(project, "audit-legacy", project.name)
+    with mcp_audit(project, "memory_context", arg_keys=["task"]):
+        pass
+    with mcp_audit(project, "session_save", arg_keys=["goal", "current_state"]):
+        pass
+
+    result = check_latest_flow(project)
+    assert result["flow_start_tool"] == "memory_context"
+    assert result["current_contract_start"] is False
+    assert result["session_saved"] is True
+    assert result["ok"] is False
+    assert result["warnings"] == [
+        {
+            "code": "legacy_flow_start",
+            "message": (
+                "Latest flow started through legacy memory_context. Refresh installed AI Layer bootstrap "
+                "instructions so registered-project work starts with project_status."
+            ),
+        }
+    ]
 
 
 def test_audit_check_detects_duplicate_memory_context_in_same_flow(tmp_path: Path):

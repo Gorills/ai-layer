@@ -14,8 +14,8 @@ from ai_layer.domain.static_policy import (
     static_policy_markdown,
 )
 
-# Keep this small: it is returned on every memory_context call and therefore directly affects
-# token cost for every supported model.
+# Shared response metadata for interfaces that expose concise-output guidance. Keep the contract
+# explicit and stable; do not optimize it around the legacy memory_context transport.
 RESPONSE_CONTRACT = {
     "mode": "concise_mandatory",
     "max_words": MAX_FINAL_WORDS,
@@ -23,8 +23,8 @@ RESPONSE_CONTRACT = {
     "exception": "user_requested_detail_or_material_risk",
 }
 
-# DEFAULT_POLICY is intentionally rendered from the same first-call rules used by native hosts.
-# Bundled defaults can therefore be omitted from memory_context without creating a second source.
+# DEFAULT_POLICY is rendered from the same always-on engineering rules used by native hosts.
+# Dynamic policy surfaces therefore omit the bundled copy and return only user/project additions.
 DEFAULT_POLICY = "# Global AI Engineering Policy\n\n" + static_policy_markdown()
 
 
@@ -79,10 +79,11 @@ def ensure_global_policy(force: bool = False) -> Path:
 
 
 def dynamic_policy(project_root: str | Path, *, read_only: bool = False) -> str:
-    """Return only policy that is not already delivered by the static native bootstrap.
+    """Return only policy not already delivered by the always-on native bootstrap.
 
-    Bundled defaults are intentionally omitted from memory_context. A user-modified global policy,
-    repository-specific rules, and strict-private constraints remain dynamic authoritative inputs.
+    Bundled defaults are intentionally omitted from dynamic Project Intelligence/compatibility
+    payloads. A user-modified global policy, repository-specific rules, and strict-private
+    constraints remain dynamic authoritative inputs.
     """
     global_path = ensure_global_policy()
     parts: list[str] = []
@@ -108,12 +109,13 @@ def dynamic_policy(project_root: str | Path, *, read_only: bool = False) -> str:
             """# Strict Private Repository Policy
 
 - Do not create AI Layer artifacts or AI-development provenance inside the repository.
-- Never bypass the privacy guard or rewrite user Git state merely to satisfy AI Layer.
-""".strip()
+- Never bypass the privacy guard or rewrite user Git state merely to satisfy AI Layer."""
         )
-
-    if read_only and parts:
+    if read_only:
         parts.append(
-            "Read-only stage: do not mutate product files or consequential external state."
+            """# Read-only stage
+
+- Do not modify repository files or execute commands that can mutate repository state.
+- Inspection and verification must remain read-only."""
         )
-    return "\n\n".join(parts)
+    return "\n\n".join(part.strip() for part in parts if part.strip())

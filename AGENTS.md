@@ -5,7 +5,7 @@ Repository source, tests, migrations and executable gates are authoritative; pro
 
 ## Before editing
 
-1. Read `MAINTAINER_INSTRUCTIONS.md`, `PROJECT_CHARTER.md`, `ARCHITECTURE.md`, `QUALITY_GATES.md`, `CURRENT_STATE.md`, and relevant ADRs in `docs/DECISIONS/`.
+1. Read `MAINTAINER_INSTRUCTIONS.md`, `PROJECT_CHARTER.md`, `ARCHITECTURE.md`, `QUALITY_GATES.md`, `CURRENT_STATE.md`, and relevant ADRs in `DECISIONS/`.
 2. Inspect the actual source, tests, migrations and current diff for the requested change.
 3. Identify the owning capability and preserve existing boundaries. Do not create parallel workflow engines, speculative routers or convenience bypasses.
 4. In a fresh local clone, run `make dev-setup` once. It installs development dependencies and activates the repository-owned Git hooks.

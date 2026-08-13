@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import inspect
 import os
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -61,27 +62,52 @@ def _telemetry_project_root(func, name: str, args, kwargs) -> str | None:
         return None
 
 
+def _record_terminal_safely(
+    *,
+    name: str,
+    project_root: str | None,
+    started: float,
+    result: object = None,
+    error: BaseException | None = None,
+) -> None:
+    try:
+        from ai_layer.observability.operation_events import record_mcp_terminal
+
+        record_mcp_terminal(
+            tool=name,
+            project_root=project_root,
+            duration_ms=(time.monotonic() - started) * 1000.0,
+            result=result,
+            error=error,
+        )
+    except Exception:
+        # Durable observability is best effort and must never change tool semantics.
+        pass
+
+
 def _execute_local_tool(func, name: str, args, kwargs):
     tool_class = tool_runtime_class(name)
+    project_root = _telemetry_project_root(func, name, args, kwargs)
+    started = time.monotonic()
     with tool_execution_context(name, tool_class):
-        if tool_class == "context" and (
-            os.getenv("AI_LAYER_SERVICE_MODE") == "background"
-            or os.getenv("AI_LAYER_MCP_BRIDGE") == "1"
-        ):
-            # Warmup belongs to process/service startup, never to the request's latency budget.
-            start_runtime_warmup()
-            state = runtime_state()
-            if state.get("embeddings") != "warm":
-                if state.get("status") == "degraded":
-                    raise RuntimeError(
-                        "AI_LAYER_CORE_DEGRADED: persistent runtime warmup failed: "
-                        + str(state.get("warm_error") or "unknown warmup error")
-                    )
-                raise RuntimeError(
-                    "AI_LAYER_EMBEDDINGS_WARMING: embedding runtime is not ready yet; retry shortly. "
-                    "The persistent core warms it outside the interactive request path."
-                )
         try:
+            if tool_class == "context" and (
+                os.getenv("AI_LAYER_SERVICE_MODE") == "background"
+                or os.getenv("AI_LAYER_MCP_BRIDGE") == "1"
+            ):
+                # Warmup belongs to process/service startup, never to the request's latency budget.
+                start_runtime_warmup()
+                state = runtime_state()
+                if state.get("embeddings") != "warm":
+                    if state.get("status") == "degraded":
+                        raise RuntimeError(
+                            "AI_LAYER_CORE_DEGRADED: persistent runtime warmup failed: "
+                            + str(state.get("warm_error") or "unknown warmup error")
+                        )
+                    raise RuntimeError(
+                        "AI_LAYER_EMBEDDINGS_WARMING: embedding runtime is not ready yet; retry shortly. "
+                        "The persistent core warms it outside the interactive request path."
+                    )
             result = func(*args, **kwargs)
             try:
                 from ai_layer.observability.context_trace import record_tool_delivery
@@ -93,14 +119,20 @@ def _execute_local_tool(func, name: str, args, kwargs):
                     kwargs,
                     result,
                     mcp_instructions=MCP_INSTRUCTIONS,
-                    mcp_tool_catalog=_configured_tool_catalog()
-                    if name == "memory_context"
-                    else None,
-                    resolved_project_root=_telemetry_project_root(func, name, args, kwargs),
+                    mcp_tool_catalog=(
+                        _configured_tool_catalog() if name == "memory_context" else None
+                    ),
+                    resolved_project_root=project_root,
                 )
             except Exception:
                 # Context telemetry is diagnostic only and must never make an MCP tool fail.
                 pass
+            _record_terminal_safely(
+                name=name,
+                project_root=project_root,
+                started=started,
+                result=result,
+            )
             return result
         except Exception as exc:
             try:
@@ -112,10 +144,16 @@ def _execute_local_tool(func, name: str, args, kwargs):
                     args,
                     kwargs,
                     exc,
-                    resolved_project_root=_telemetry_project_root(func, name, args, kwargs),
+                    resolved_project_root=project_root,
                 )
             except Exception:
                 pass
+            _record_terminal_safely(
+                name=name,
+                project_root=project_root,
+                started=started,
+                error=exc,
+            )
             raise normalize_error(exc) from exc
 
 

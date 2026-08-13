@@ -15,6 +15,7 @@ from ai_layer.projections.dashboard_reference import (
     skills_payload,
 )
 from ai_layer.projections.dashboard_tasks import task_detail_payload, tasks_payload
+from ai_layer.projections.dashboard_work_state import enrich_overview, enrich_project
 from ai_layer.projections.epics import epic_detail_payload, epics_payload, project_epics_payload
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
@@ -45,7 +46,7 @@ def _project_epics_best_effort(project_key: str) -> list[dict]:
 
 @router.get("/overview")
 def dashboard_overview():
-    return overview_payload()
+    return enrich_overview(overview_payload())
 
 
 @router.get("/tasks")
@@ -188,6 +189,7 @@ def dashboard_project(project_key: str):
     payload = project_payload(project_key)
     if payload is None:
         raise _not_found({"project_key": project_key}, "Registered project not found.")
+    payload = enrich_project(payload)
     project = payload.get("project") or {}
     project["intelligence"] = project_intelligence_summary(
         project.get("root") or "",

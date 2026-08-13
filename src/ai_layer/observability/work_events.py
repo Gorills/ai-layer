@@ -37,6 +37,8 @@ def append_contextual_event(
     payload: dict[str, Any] | None = None,
     work: WorkItem | None = None,
     run: AgentRun | None = None,
+    work_id=None,
+    run_id=None,
     task_id=None,
     epic_id=None,
     host: str = "",
@@ -59,8 +61,8 @@ def append_contextual_event(
     db.add(
         RuntimeEventContext(
             event_id=row.id,
-            work_id=work.id if work is not None else None,
-            run_id=run.id if run is not None else None,
+            work_id=work.id if work is not None else work_id,
+            run_id=run.id if run is not None else run_id,
             task_id=task_id,
             epic_id=epic_id,
             host=str(host or "")[:64],
@@ -75,7 +77,10 @@ def append_contextual_event(
     return row
 
 
-def safe_event_payload(event: RuntimeEvent, context: RuntimeEventContext | None = None) -> dict[str, Any]:
+def safe_event_payload(
+    event: RuntimeEvent,
+    context: RuntimeEventContext | None = None,
+) -> dict[str, Any]:
     raw = dict(event.payload or {})
     payload = {key: raw[key] for key in SAFE_EVENT_FIELDS if key in raw}
     return {

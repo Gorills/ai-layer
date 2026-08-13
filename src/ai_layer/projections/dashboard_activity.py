@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ai_layer.observability.events import aggregate_events
+from sqlalchemy import func, select
+
+from ai_layer.core.service import get_project
+from ai_layer.db.models import RuntimeEvent
+from ai_layer.db.session import session_scope
+from ai_layer.db.work_models import RuntimeEventContext
+from ai_layer.observability.work_events import safe_event_payload
 from ai_layer.projections.dashboard_common import (
     page_info,
     project_key,
@@ -20,42 +26,66 @@ def activity_payload(
     entries = selected_entries(project_key_value)
     if project_key_value and not entries:
         return None
-
     normalized_size = max(1, min(int(page_size or 10), 50))
     requested_page = max(1, int(page or 1))
-    recent_limit = requested_page * normalized_size
-    items = []
-    total = 0
-    for entry in entries:
-        root = Path(str(entry["root"])).expanduser().resolve()
-        metrics = aggregate_events(
-            root,
-            since_seconds=7 * 24 * 3600,
-            recent_limit=recent_limit,
-        )
-        total += int(metrics.get("terminal") or 0)
-        for event in metrics.get("recent_terminal") or []:
-            items.append(
-                {
-                    "ts": event.get("ts"),
-                    "project_key": project_key(entry),
-                    "project_name": entry.get("name") or root.name,
-                    "client": event.get("client") or "unknown",
-                    "category": event.get("category") or "unknown",
-                    "operation": event.get("operation") or "unknown",
-                    "status": event.get("status") or "unknown",
-                    "duration_ms": event.get("duration_ms"),
-                    "error_type": event.get("error_type"),
-                }
+    offset = (requested_page - 1) * normalized_size
+
+    with session_scope() as db:
+        projects = []
+        names: dict[str, tuple[str, str]] = {}
+        for entry in entries:
+            root = Path(str(entry["root"])).expanduser().resolve()
+            project = get_project(db, root)
+            projects.append(project)
+            names[str(project.id)] = (project_key(entry), str(entry.get("name") or root.name))
+        project_ids = [item.id for item in projects]
+        if not project_ids:
+            total = 0
+            rows = []
+        else:
+            total = int(
+                db.scalar(
+                    select(func.count(RuntimeEvent.id)).where(
+                        RuntimeEvent.project_id.in_(project_ids)
+                    )
+                )
+                or 0
             )
-    items.sort(key=lambda item: str(item.get("ts") or ""), reverse=True)
-    pagination = page_info(total, page, normalized_size)
-    start = (pagination["page"] - 1) * pagination["page_size"]
-    end = start + pagination["page_size"]
+            rows = db.execute(
+                select(RuntimeEvent, RuntimeEventContext)
+                .outerjoin(
+                    RuntimeEventContext,
+                    RuntimeEventContext.event_id == RuntimeEvent.id,
+                )
+                .where(RuntimeEvent.project_id.in_(project_ids))
+                .order_by(RuntimeEvent.created_at.desc(), RuntimeEvent.id.desc())
+                .offset(offset)
+                .limit(normalized_size)
+            ).all()
+
+    items = []
+    for event, context in rows:
+        safe = safe_event_payload(event, context)
+        key, name = names.get(str(event.project_id), ("", "unknown"))
+        details = safe.get("payload") or {}
+        items.append(
+            {
+                **safe,
+                "ts": safe.get("occurred_at"),
+                "project_key": key,
+                "project_name": name,
+                "client": safe.get("client") or "unknown",
+                "category": "runtime_event",
+                "operation": details.get("tool") or safe.get("event_type") or "unknown",
+                "status": details.get("status") or "observed",
+                "duration_ms": details.get("duration_ms"),
+                "error_type": details.get("error_type"),
+            }
+        )
     return {
-        "items": items[start:end],
-        "pagination": pagination,
+        "items": items,
+        "pagination": page_info(total, requested_page, normalized_size),
         "projects": project_options(),
         "project_key": project_key_value,
-        "retention": "7-day retained event window",
+        "retention": "durable RuntimeEvent journal; JSONL telemetry is diagnostic only",
     }

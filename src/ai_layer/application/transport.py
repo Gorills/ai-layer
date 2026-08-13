@@ -50,8 +50,19 @@ def project_status(_scope: ApplicationScope, project: ProjectRef) -> dict:
     return intelligence_uc.project_status(project.root_path)
 
 
-def project_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> dict:
-    return intelligence_uc.project_search(project.root_path, query, limit)
+def project_search(
+    _scope: ApplicationScope,
+    project: ProjectRef,
+    query: str,
+    limit: int,
+    query_variants: list[str] | None = None,
+) -> dict:
+    return intelligence_uc.project_search(
+        project.root_path,
+        query,
+        limit,
+        query_variants=query_variants,
+    )
 
 
 def project_map_reconcile(
@@ -129,7 +140,9 @@ def task_complete_legacy(_scope: ApplicationScope, project: ProjectRef, **kwargs
     return tasks_uc.complete_legacy(project.root_path, **kwargs)
 
 
-def task_worker_disconnected(_scope: ApplicationScope, project: ProjectRef, *, reason: str) -> dict:
+def task_worker_disconnected(
+    _scope: ApplicationScope, project: ProjectRef, *, reason: str
+) -> dict:
     return tasks_uc.worker_disconnected(project.root_path, reason=reason)
 
 
@@ -171,7 +184,11 @@ def list_sessions(_scope: ApplicationScope, project: ProjectRef, limit: int) -> 
     return sessions_uc.list_project_sessions(project.root_path, limit)
 
 
-def restore_session(_scope: ApplicationScope, project: ProjectRef, session_id: str) -> dict | None:
+def restore_session(
+    _scope: ApplicationScope,
+    project: ProjectRef,
+    session_id: str,
+) -> dict | None:
     return sessions_uc.restore_project_session(project.root_path, session_id)
 
 

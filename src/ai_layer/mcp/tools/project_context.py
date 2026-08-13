@@ -13,10 +13,12 @@ from ai_layer.mcp.runtime import _project, _scoped, _text, core_tool, project_ro
 
 
 def project_status(project_root: str | None = None) -> dict:
-    """WHEN: first state call for registered-project work. Restores cheap Task/Epic/Git/index state without running workflow navigators or scanning source. INPUT: optional project_root."""
+    """WHEN: first state call for registered-project work. Returns Work/Task/Epic/Git/index/effective-policy state without scanning source."""
     root = project_root_for_tool(project_root, tool="project_status")
     with mcp_audit(
-        root, "project_status", arg_keys=["project_root"] if project_root else []
+        root,
+        "project_status",
+        arg_keys=["project_root"] if project_root else [],
     ) as audit:
         with session_scope() as db:
             project = _project(db, root)
@@ -24,7 +26,10 @@ def project_status(project_root: str | None = None) -> dict:
             bind_project_root(root)
             work = result.get("work") or {}
             map_state = (result.get("index") or {}).get("project_map") or {}
+            policy = result.get("project_policy") or {}
             audit["metrics"] = {
+                "active_work": len(work.get("active_work") or []),
+                "live_work": len(work.get("live_work") or []),
                 "active_task": bool(work.get("active_task")),
                 "active_epic": bool(work.get("active_epic")),
                 "dirty": (result.get("repository") or {}).get("dirty"),
@@ -32,26 +37,47 @@ def project_status(project_root: str | None = None) -> dict:
                 "symbols": int(map_state.get("symbol_count") or 0),
                 "semantic_current": int(map_state.get("semantic_current") or 0),
                 "semantic_stale": int(map_state.get("semantic_stale") or 0),
+                "semantic_missing": int(map_state.get("semantic_missing") or 0),
+                "policy_chars": int(policy.get("chars") or 0),
+                "policy_version": policy.get("version"),
             }
             return _scoped(result, root)
 
 
-def project_search(query: str, project_root: str | None = None, limit: int = 8) -> dict:
-    """WHEN: the relevant code location is unknown. Use before broad repository grep/search. Accepts Russian, English or mixed queries and returns structural + semantic breadcrumbs, never source bodies."""
+def project_search(
+    query: str,
+    project_root: str | None = None,
+    limit: int = 8,
+    query_variants: list[str] | None = None,
+) -> dict:
+    """WHEN: code location is unknown. PRIMARY QUERY CONTRACT: for non-English natural-language intent, send concise English code-centric retrieval terms and preserve exact code identifiers verbatim. Optionally pass at most one original-language/mixed query_variants entry to widen domain aliases. Returns Project Map breadcrumbs only; open current source before claims/edits."""
     root = project_root_for_tool(project_root, tool="project_search")
     query = _text(query, tool="project_search", field="query")
     bounded_limit = max(1, min(limit, 20))
-    with mcp_audit(root, "project_search", arg_keys=["query", "project_root", "limit"]) as audit:
+    variants = list(query_variants or [])
+    with mcp_audit(
+        root,
+        "project_search",
+        arg_keys=["query", "project_root", "limit", "query_variants"],
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
-            result = search_project(db, project, query, bounded_limit)
+            result = search_project(
+                db,
+                project,
+                query,
+                bounded_limit,
+                query_variants=variants,
+            )
             matches = list(result.get("matches") or [])
             audit["metrics"] = {
                 "hits": len(matches),
                 "limit": bounded_limit,
+                "queries_used": len(result.get("queries_used") or [query]),
                 "top_score": matches[0].get("score") if matches else None,
                 "search_mode": result.get("search_mode"),
                 "semantic_hits": sum(1 for item in matches if item.get("semantic")),
+                "semantic_degraded": bool(result.get("semantic_search_degraded")),
             }
             return _scoped(result, root)
 
@@ -108,12 +134,20 @@ def project_info(project_root: str | None = None) -> dict:
             return _scoped(result, root)
 
 
-def knowledge_search(query: str, project_root: str | None = None, limit: int = 8) -> list[dict]:
+def knowledge_search(
+    query: str,
+    project_root: str | None = None,
+    limit: int = 8,
+) -> list[dict]:
     """WHEN: you need reviewed project facts, invariants or fragile-area knowledge. Searches curated VERIFIED Project Knowledge only; current source remains authoritative."""
     root = project_root_for_tool(project_root, tool="knowledge_search")
     query = _text(query, tool="knowledge_search", field="query")
     bounded_limit = max(1, min(limit, 20))
-    with mcp_audit(root, "knowledge_search", arg_keys=["query", "project_root", "limit"]) as audit:
+    with mcp_audit(
+        root,
+        "knowledge_search",
+        arg_keys=["query", "project_root", "limit"],
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = search_knowledge(db, project, query, bounded_limit)
@@ -121,12 +155,20 @@ def knowledge_search(query: str, project_root: str | None = None, limit: int = 8
             return result
 
 
-def memory_search(query: str, project_root: str | None = None, limit: int = 8) -> list[dict]:
+def memory_search(
+    query: str,
+    project_root: str | None = None,
+    limit: int = 8,
+) -> list[dict]:
     """Backward-compatible alias for knowledge_search. Prefer knowledge_search for reviewed semantic project facts."""
     root = project_root_for_tool(project_root, tool="memory_search")
     query = _text(query, tool="memory_search", field="query")
     bounded_limit = max(1, min(limit, 20))
-    with mcp_audit(root, "memory_search", arg_keys=["query", "project_root", "limit"]) as audit:
+    with mcp_audit(
+        root,
+        "memory_search",
+        arg_keys=["query", "project_root", "limit"],
+    ) as audit:
         with session_scope() as db:
             project = _project(db, root)
             result = search_knowledge(db, project, query, bounded_limit)
@@ -170,7 +212,12 @@ def memory_context(
                 }
                 return _scoped(result, root)
 
-            result = build_memory_context(db, project, current_task, max(1, min(limit, 12)))
+            result = build_memory_context(
+                db,
+                project,
+                current_task,
+                max(1, min(limit, 12)),
+            )
             hints = list(result.get("knowledge_hints") or [])
             audit["metrics"] = {
                 "knowledge_hits": len(hints),

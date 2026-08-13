@@ -21,6 +21,7 @@ AI Layer uses one current, versioned agent runtime contract as the procedural au
 - Historical Task/Epic prose and legacy compatibility tools cannot override the current runtime/tool contract.
 - `memory_context` and `memory_search` remain explicit compatibility surfaces only; current internal/application naming uses Project Intelligence terminology.
 - Current QA/smoke flows validate the current control plane. Legacy flows may remain readable for migration/telemetry, but must be labeled as legacy and must not define current success criteria.
+- A completed flow that starts with legacy `memory_context` remains diagnosable, but audit reports it as a non-current contract start rather than treating compatibility behavior as a successful current workflow.
 - Integration/bootstrap compatibility versions have one production source of truth.
 
 Tests and governance protect semantic/product contracts rather than incidental representation whenever possible. Therefore:

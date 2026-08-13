@@ -22,6 +22,13 @@ def test_native_agent_bootstrap_is_single_source() -> None:
     assert "@./AGENTS.md" in gemini
 
 
+def test_native_agent_bootstrap_points_to_canonical_decisions_directory() -> None:
+    agents = _text("AGENTS.md")
+    assert "relevant ADRs in `DECISIONS/`" in agents
+    assert "docs/DECISIONS/" not in agents
+    assert (ROOT / "DECISIONS" / "0020-durable-work-spine-and-truthful-observability.md").is_file()
+
+
 def test_git_hooks_fail_closed_into_repository_targets() -> None:
     pre_commit = _text(".githooks/pre-commit")
     pre_push = _text(".githooks/pre-push")

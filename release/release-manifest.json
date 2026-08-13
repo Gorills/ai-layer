@@ -1,6 +1,6 @@
 {
-  "application_wheel": "dist/local_ai_development_layer-0.13.2-py3-none-any.whl",
-  "application_wheel_sha256": "68000483dce6bc017b6edbb324399ac23c40bf2f604fca66d3b4518ec0438c2b",
+  "application_wheel": "dist/local_ai_development_layer-0.13.3-py3-none-any.whl",
+  "application_wheel_sha256": "89df6a63ee3367dff918fe06e6c0ea55767cbe43f861081fe7d542f8a99432d5",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -14,7 +14,7 @@
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
     "target_schema": "0016_project_map_semantics"
   },
-  "notes": "0.13.2 compacts legacy memory_context, publishes an explicit Project Map runtime contract to new and old workflows, and fixes Epic map-only closure without a redundant retry Task.",
+  "notes": "0.13.3 audits and hardens all agent-facing contracts: project_status/live runtime semantics are authoritative, stale memory/task permission-layer guidance is removed from bootstrap, skills, QA and tests, legacy compatibility is explicit, and brittle accidental byte/count/wording constraints are replaced by semantic governance while real protocol/safety bounds remain enforced.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",
@@ -41,5 +41,5 @@
     "task_workflow_black_box": "required_before_promotion_on_supported_host",
     "update_black_box": "required_before_promotion_on_supported_host"
   },
-  "version": "0.13.2"
+  "version": "0.13.3"
 }

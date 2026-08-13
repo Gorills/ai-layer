@@ -1,4 +1,4 @@
-# Current State — v0.13.2 Project Map runtime contract hardening
+# Current State — v0.13.3 Live agent contract and semantic governance
 
 ## Implemented source state
 
@@ -42,14 +42,16 @@ Project Map answers **where**. Project Knowledge answers **what is already under
 
 AI Layer must not rebuild a second generic agent runtime around native hosts. A new control-plane requirement should justify itself by reducing rediscovery, preserving durable state/evidence or improving measured reliability.
 
+The live runtime/tool contract is the procedural authority presented to agents. Historical Task/Epic prose and legacy compatibility names may remain for migration/history, but they must not override current `project_status`, `task_next`, `epic_next` or focused Project Intelligence tool semantics. Agent-facing quality tests protect these meanings rather than arbitrary byte counts, catalog counts or exact wording.
+
 ## Release validation status
 
-Release **0.13.1** is promoted in the source branch with an aligned deterministic application wheel, release manifest and governance baseline. ADR 0017 records the execution-model change.
+Release **0.13.3** is promoted in the source branch with an aligned deterministic application wheel, release manifest and governance baseline. ADR 0019 records the live-agent-contract and semantic-governance rules; ADRs 0017–0018 remain the Project Intelligence and semantic Project Map foundations.
 
 Merge/release readiness still requires the committed clean head to pass:
 
 - canonical formatting/lint/type/architecture/migration/skill/governance/test/release gate;
 - real PostgreSQL/pgvector hardening;
-- deterministic packaging checks against the declared 0.13.1 release artifacts.
+- deterministic packaging checks against the declared 0.13.3 release artifacts.
 
 After merge, supported-host field acceptance should exercise `project_status`, Project Map search, continuation, native execution, optional managed Task/Epic flows, dashboard visibility and native skills on real projects.

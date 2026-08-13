@@ -130,6 +130,20 @@ def test_integration_and_bootstrap_versions_have_one_canonical_source() -> None:
         assert "GLOBAL_BOOTSTRAP_VERSION =" not in text
 
 
+def test_legacy_terms_are_explicit_compatibility_only_outside_historical_detectors() -> None:
+    runtime = (ROOT / "src/ai_layer/core/runtime.py").read_text(encoding="utf-8")
+    dashboard = (ROOT / "src/ai_layer/projections/dashboard.py").read_text(encoding="utf-8")
+    audit_cli = (ROOT / "src/ai_layer/cli/commands/operations.py").read_text(encoding="utf-8")
+    legacy_detector = (ROOT / "src/ai_layer/integrations/config_files.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "Task Layer schema" not in runtime
+    assert "def _latest_memory_context_skill_state" not in dashboard
+    assert "memory_context -> ... -> session_save" not in audit_cli
+    assert "Historical markers are intentionally preserved" in legacy_detector
+
+
 def test_known_agent_facing_files_do_not_contain_removed_workflow_phrases() -> None:
     paths = [
         "src/ai_layer/domain/static_policy.py",

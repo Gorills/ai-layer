@@ -128,6 +128,8 @@ def _assert_json_mcp_merge_safe(path: Path, server: dict) -> None:
 
 
 def _legacy_owned_file(path: Path, content: str) -> bool:
+    # Historical markers are intentionally preserved only for safe ownership detection/removal.
+    # They are not current agent instructions or current workflow semantics.
     if path.name == "ai-layer.mdc":
         return "Mandatory Local AI Development Layer workflow" in content
     if path.name in {"SKILL.md", "ai-layer.md"}:

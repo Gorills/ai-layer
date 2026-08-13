@@ -257,12 +257,12 @@ def _detect_unversioned_revision(inspector, tables: set[str]) -> str:
     task_tables = {"tasks", "task_stages", "review_findings"}
     if tables & task_tables and not task_tables.issubset(tables):
         raise RuntimeError(
-            "Unversioned Task Layer schema is partially migrated; manual recovery is required."
+            "Unversioned managed Task schema is partially migrated; manual recovery is required."
         )
     if task_tables.issubset(tables):
         if not incremental.issubset(project_file_columns) or not evidence.issubset(session_columns):
             raise RuntimeError(
-                "Unversioned Task Layer schema is inconsistent with its prerequisite revisions."
+                "Unversioned managed Task schema is inconsistent with its prerequisite revisions."
             )
         finding_columns = _column_names(inspector, "review_findings")
         hardening = {"verification_evidence", "verification_history", "verified_by_stage_id"}

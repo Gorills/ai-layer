@@ -21,7 +21,23 @@ def work_begin(
     """WHEN: begin one substantive user request performed through normal host-native execution. One WorkItem records what happened; a managed Task remains optional assurance. For short work pair this with work_complete and skip checkpoints. Reuse idempotency_key when retrying the same host event."""
     root = project_root_for_tool(project_root, tool="work_begin")
     goal = _text(goal, tool="work_begin", field="goal")
-    with mcp_audit(root, "work_begin", arg_keys=["goal", "kind", "host", "client", "session_id", "turn_id", "model", "linked_task_key", "linked_epic_key", "idempotency_key", "project_root"]) as audit:
+    with mcp_audit(
+        root,
+        "work_begin",
+        arg_keys=[
+            "goal",
+            "kind",
+            "host",
+            "client",
+            "session_id",
+            "turn_id",
+            "model",
+            "linked_task_key",
+            "linked_epic_key",
+            "idempotency_key",
+            "project_root",
+        ],
+    ) as audit:
         result = work_uc.begin(
             root,
             goal=goal,
@@ -53,7 +69,21 @@ def work_checkpoint(
     """WHEN: a long work phase reaches a meaningful milestone or blocker. Do not checkpoint every file/tool action. Reuse idempotency_key for delivery retries."""
     root = project_root_for_tool(project_root, tool="work_checkpoint")
     work_key = _text(work_key, tool="work_checkpoint", field="work_key")
-    with mcp_audit(root, "work_checkpoint", arg_keys=["work_key", "summary", "reviewed_paths", "changed_paths", "checks", "repository_delta", "blocked", "idempotency_key", "project_root"]) as audit:
+    with mcp_audit(
+        root,
+        "work_checkpoint",
+        arg_keys=[
+            "work_key",
+            "summary",
+            "reviewed_paths",
+            "changed_paths",
+            "checks",
+            "repository_delta",
+            "blocked",
+            "idempotency_key",
+            "project_root",
+        ],
+    ) as audit:
         result = work_uc.checkpoint(
             root,
             work_key=work_key,
@@ -84,7 +114,21 @@ def _terminal(
     root = project_root_for_tool(project_root, tool=operation)
     work_key = _text(work_key, tool=operation, field="work_key")
     summary = _text(summary, tool=operation, field="summary")
-    with mcp_audit(root, operation, arg_keys=["work_key", "summary", "reviewed_paths", "changed_paths", "checks", "repository_delta", "map_disposition", "idempotency_key", "project_root"]) as audit:
+    with mcp_audit(
+        root,
+        operation,
+        arg_keys=[
+            "work_key",
+            "summary",
+            "reviewed_paths",
+            "changed_paths",
+            "checks",
+            "repository_delta",
+            "map_disposition",
+            "idempotency_key",
+            "project_root",
+        ],
+    ) as audit:
         handler = getattr(work_uc, operation.removeprefix("work_"))
         result = handler(
             root,
@@ -106,24 +150,108 @@ def _terminal(
         return _scoped(result, root)
 
 
-def work_complete(work_key: str, summary: str, reviewed_paths: list[str] | None = None, changed_paths: list[str] | None = None, checks: list[dict] | None = None, repository_delta: dict | None = None, map_disposition: dict | None = None, idempotency_key: str | None = None, project_root: str | None = None) -> dict:
+def work_complete(
+    work_key: str,
+    summary: str,
+    reviewed_paths: list[str] | None = None,
+    changed_paths: list[str] | None = None,
+    checks: list[dict] | None = None,
+    repository_delta: dict | None = None,
+    map_disposition: dict | None = None,
+    idempotency_key: str | None = None,
+    project_root: str | None = None,
+) -> dict:
     """WHEN: substantive work reached a terminal successful result. Report only observed paths/checks/delta. Map disposition may be reconciled, checked_no_change, not_applicable, deferred, or pending until the semantic-map closure phase is adopted."""
-    return _terminal("work_complete", work_key, summary, reviewed_paths, changed_paths, checks, repository_delta, map_disposition, idempotency_key, project_root)
+    return _terminal(
+        "work_complete",
+        work_key,
+        summary,
+        reviewed_paths,
+        changed_paths,
+        checks,
+        repository_delta,
+        map_disposition,
+        idempotency_key,
+        project_root,
+    )
 
 
-def work_fail(work_key: str, summary: str, reviewed_paths: list[str] | None = None, changed_paths: list[str] | None = None, checks: list[dict] | None = None, repository_delta: dict | None = None, map_disposition: dict | None = None, idempotency_key: str | None = None, project_root: str | None = None) -> dict:
+def work_fail(
+    work_key: str,
+    summary: str,
+    reviewed_paths: list[str] | None = None,
+    changed_paths: list[str] | None = None,
+    checks: list[dict] | None = None,
+    repository_delta: dict | None = None,
+    map_disposition: dict | None = None,
+    idempotency_key: str | None = None,
+    project_root: str | None = None,
+) -> dict:
     """WHEN: work terminated unsuccessfully rather than merely hitting a temporary blocker."""
-    return _terminal("work_fail", work_key, summary, reviewed_paths, changed_paths, checks, repository_delta, map_disposition, idempotency_key, project_root)
+    return _terminal(
+        "work_fail",
+        work_key,
+        summary,
+        reviewed_paths,
+        changed_paths,
+        checks,
+        repository_delta,
+        map_disposition,
+        idempotency_key,
+        project_root,
+    )
 
 
-def work_interrupt(work_key: str, summary: str, reviewed_paths: list[str] | None = None, changed_paths: list[str] | None = None, checks: list[dict] | None = None, repository_delta: dict | None = None, map_disposition: dict | None = None, idempotency_key: str | None = None, project_root: str | None = None) -> dict:
+def work_interrupt(
+    work_key: str,
+    summary: str,
+    reviewed_paths: list[str] | None = None,
+    changed_paths: list[str] | None = None,
+    checks: list[dict] | None = None,
+    repository_delta: dict | None = None,
+    map_disposition: dict | None = None,
+    idempotency_key: str | None = None,
+    project_root: str | None = None,
+) -> dict:
     """WHEN: work stops with useful continuation state and may be resumed by a later WorkItem or host session."""
-    return _terminal("work_interrupt", work_key, summary, reviewed_paths, changed_paths, checks, repository_delta, map_disposition, idempotency_key, project_root)
+    return _terminal(
+        "work_interrupt",
+        work_key,
+        summary,
+        reviewed_paths,
+        changed_paths,
+        checks,
+        repository_delta,
+        map_disposition,
+        idempotency_key,
+        project_root,
+    )
 
 
-def work_abandon(work_key: str, summary: str, reviewed_paths: list[str] | None = None, changed_paths: list[str] | None = None, checks: list[dict] | None = None, repository_delta: dict | None = None, map_disposition: dict | None = None, idempotency_key: str | None = None, project_root: str | None = None) -> dict:
+def work_abandon(
+    work_key: str,
+    summary: str,
+    reviewed_paths: list[str] | None = None,
+    changed_paths: list[str] | None = None,
+    checks: list[dict] | None = None,
+    repository_delta: dict | None = None,
+    map_disposition: dict | None = None,
+    idempotency_key: str | None = None,
+    project_root: str | None = None,
+) -> dict:
     """WHEN: user/host intentionally abandons the WorkItem and it must no longer appear active."""
-    return _terminal("work_abandon", work_key, summary, reviewed_paths, changed_paths, checks, repository_delta, map_disposition, idempotency_key, project_root)
+    return _terminal(
+        "work_abandon",
+        work_key,
+        summary,
+        reviewed_paths,
+        changed_paths,
+        checks,
+        repository_delta,
+        map_disposition,
+        idempotency_key,
+        project_root,
+    )
 
 
 work_begin = core_tool()(work_begin)

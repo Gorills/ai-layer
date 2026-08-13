@@ -140,9 +140,7 @@ def task_complete_legacy(_scope: ApplicationScope, project: ProjectRef, **kwargs
     return tasks_uc.complete_legacy(project.root_path, **kwargs)
 
 
-def task_worker_disconnected(
-    _scope: ApplicationScope, project: ProjectRef, *, reason: str
-) -> dict:
+def task_worker_disconnected(_scope: ApplicationScope, project: ProjectRef, *, reason: str) -> dict:
     return tasks_uc.worker_disconnected(project.root_path, reason=reason)
 
 

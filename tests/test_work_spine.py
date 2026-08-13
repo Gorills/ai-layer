@@ -49,7 +49,11 @@ def test_project_search_query_variants_are_bounded_and_fused_without_duplicate_p
                 "повтор заказа",
                 {
                     "matches": [
-                        {"path": "src/orders.py", "score": 0.8, "semantic": {"freshness": "current"}},
+                        {
+                            "path": "src/orders.py",
+                            "score": 0.8,
+                            "semantic": {"freshness": "current"},
+                        },
                         {"path": "tests/test_orders.py", "score": 0.6, "semantic": {}},
                     ]
                 },

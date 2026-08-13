@@ -83,7 +83,9 @@ def test_work_lifecycle_is_parallel_idempotent_and_durably_observable(monkeypatc
             summary="Retry flow inspected and verified.",
             reviewed_paths=["src/orders/retry.py"],
             changed_paths=[],
-            checks=[{"name": "pytest tests/test_orders.py", "status": "passed", "summary": "1 passed"}],
+            checks=[
+                {"name": "pytest tests/test_orders.py", "status": "passed", "summary": "1 passed"}
+            ],
             repository_delta={"changed_files": 0},
             map_disposition={
                 "status": "checked_no_change",
@@ -100,16 +102,14 @@ def test_work_lifecycle_is_parallel_idempotent_and_durably_observable(monkeypatc
 
         with Session(engine, expire_on_commit=False) as db:
             assert (
-                db.scalar(
-                    select(func.count(WorkItem.id)).where(WorkItem.project_id == project_id)
-                )
+                db.scalar(select(func.count(WorkItem.id)).where(WorkItem.project_id == project_id))
                 == 2
             )
             assert (
                 db.scalar(
-                    select(func.count(AgentRun.id)).join(WorkItem).where(
-                        WorkItem.project_id == project_id
-                    )
+                    select(func.count(AgentRun.id))
+                    .join(WorkItem)
+                    .where(WorkItem.project_id == project_id)
                 )
                 == 2
             )

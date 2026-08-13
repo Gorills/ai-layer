@@ -62,8 +62,15 @@ def _checks(value: object) -> list[dict]:
             raise ValueError("each check must be an object")
         result.append(
             {
-                "name": _text(item.get("name") or item.get("command"), field="checks.name", max_chars=240, required=True),
-                "status": _text(item.get("status"), field="checks.status", max_chars=32, required=True),
+                "name": _text(
+                    item.get("name") or item.get("command"),
+                    field="checks.name",
+                    max_chars=240,
+                    required=True,
+                ),
+                "status": _text(
+                    item.get("status"), field="checks.status", max_chars=32, required=True
+                ),
                 "summary": _text(item.get("summary"), field="checks.summary", max_chars=500),
             }
         )
@@ -78,7 +85,9 @@ def _map_disposition(value: object) -> dict:
     status = _text(value.get("status"), field="map_disposition.status", max_chars=32, required=True)
     allowed = {"reconciled", "checked_no_change", "not_applicable", "deferred", "pending"}
     if status not in allowed:
-        raise ValueError("map_disposition.status must be reconciled, checked_no_change, not_applicable, deferred or pending")
+        raise ValueError(
+            "map_disposition.status must be reconciled, checked_no_change, not_applicable, deferred or pending"
+        )
     scope = _paths(value.get("scope") or [], field="map_disposition.scope")
     reason = _text(value.get("reason"), field="map_disposition.reason", max_chars=500)
     event_id = _text(value.get("event_id"), field="map_disposition.event_id", max_chars=64)
@@ -131,7 +140,9 @@ def work_to_dict(db: Session, work: WorkItem, *, include_runs: bool = True) -> d
     live = False
     if include_runs:
         rows = db.scalars(
-            select(AgentRun).where(AgentRun.work_id == work.id).order_by(AgentRun.started_at, AgentRun.id)
+            select(AgentRun)
+            .where(AgentRun.work_id == work.id)
+            .order_by(AgentRun.started_at, AgentRun.id)
         ).all()
         runs = [run_to_dict(row) for row in rows]
         live = any(item["status"] == "active" and not item["stale"] for item in runs)
@@ -187,7 +198,9 @@ def _task_id(db: Session, project: Project, key: str | None):
     match = _TASK_KEY_RE.fullmatch(rendered)
     if not match:
         raise ValueError("linked_task_key must look like T-0001")
-    task = db.scalar(select(Task).where(Task.project_id == project.id, Task.sequence == int(match.group(1))))
+    task = db.scalar(
+        select(Task).where(Task.project_id == project.id, Task.sequence == int(match.group(1)))
+    )
     if task is None:
         raise ValueError(f"managed task {rendered} does not exist in this project")
     return task.id
@@ -202,7 +215,9 @@ def _epic_id(db: Session, project: Project, key: str | None):
         raise ValueError("linked_epic_key must look like E-0001")
     from ai_layer.db.epic_models import Epic
 
-    epic = db.scalar(select(Epic).where(Epic.project_id == project.id, Epic.sequence == int(match.group(1))))
+    epic = db.scalar(
+        select(Epic).where(Epic.project_id == project.id, Epic.sequence == int(match.group(1)))
+    )
     if epic is None:
         raise ValueError(f"epic {rendered} does not exist in this project")
     return epic.id
@@ -228,12 +243,25 @@ def begin_work(
     if normalized_kind not in {"change", "diagnose", "review", "research", "planning", "ops"}:
         raise ValueError("kind must be change, diagnose, review, research, planning or ops")
     normalized_coverage = str(observability_coverage or "lifecycle_only").strip()
-    if normalized_coverage not in {"full_host_hooks", "lifecycle_only", "control_plane_only", "inferred_repository_delta", "unavailable"}:
+    if normalized_coverage not in {
+        "full_host_hooks",
+        "lifecycle_only",
+        "control_plane_only",
+        "inferred_repository_delta",
+        "unavailable",
+    }:
         raise ValueError("unsupported observability_coverage")
-    sequence = int(
-        db.scalar(select(func.coalesce(func.max(WorkItem.sequence), 0)).where(WorkItem.project_id == project.id))
-        or 0
-    ) + 1
+    sequence = (
+        int(
+            db.scalar(
+                select(func.coalesce(func.max(WorkItem.sequence), 0)).where(
+                    WorkItem.project_id == project.id
+                )
+            )
+            or 0
+        )
+        + 1
+    )
     now = utcnow()
     work = WorkItem(
         project_id=project.id,
@@ -312,7 +340,9 @@ def checkpoint_work(
     if run is not None:
         run.heartbeat_at = now
         if summary:
-            run.last_meaningful_action = _text(summary, field="summary", max_chars=WORK_ACTION_MAX_CHARS)
+            run.last_meaningful_action = _text(
+                summary, field="summary", max_chars=WORK_ACTION_MAX_CHARS
+            )
     db.flush()
     return work, run
 
@@ -340,7 +370,9 @@ def finish_work(
         raise RuntimeError(f"work item {work_key(work)} is already terminal: {work.status}")
     now = utcnow()
     work.status = terminal
-    work.result_summary = _text(summary, field="summary", max_chars=WORK_SUMMARY_MAX_CHARS, required=True)
+    work.result_summary = _text(
+        summary, field="summary", max_chars=WORK_SUMMARY_MAX_CHARS, required=True
+    )
     if reviewed_paths is not None:
         work.reviewed_paths = _paths(reviewed_paths, field="reviewed_paths")
     if changed_paths is not None:
@@ -355,7 +387,11 @@ def finish_work(
     work.updated_at = now
     work.last_milestone_at = now
     work.completed_at = now
-    runs = list(db.scalars(select(AgentRun).where(AgentRun.work_id == work.id, AgentRun.status == "active")).all())
+    runs = list(
+        db.scalars(
+            select(AgentRun).where(AgentRun.work_id == work.id, AgentRun.status == "active")
+        ).all()
+    )
     run_status = "completed" if terminal == "completed" else terminal
     for run in runs:
         run.status = run_status
@@ -366,12 +402,16 @@ def finish_work(
     return work, runs
 
 
-def list_work(db: Session, project: Project, *, active_only: bool = False, limit: int = WORK_RECENT_LIMIT) -> list[dict[str, Any]]:
+def list_work(
+    db: Session, project: Project, *, active_only: bool = False, limit: int = WORK_RECENT_LIMIT
+) -> list[dict[str, Any]]:
     stmt = select(WorkItem).where(WorkItem.project_id == project.id)
     if active_only:
         stmt = stmt.where(WorkItem.status.in_(("active", "blocked")))
     rows = db.scalars(
-        stmt.order_by(WorkItem.updated_at.desc(), WorkItem.sequence.desc()).limit(max(1, min(limit, 50)))
+        stmt.order_by(WorkItem.updated_at.desc(), WorkItem.sequence.desc()).limit(
+            max(1, min(limit, 50))
+        )
     ).all()
     return [work_to_dict(db, row) for row in rows]
 

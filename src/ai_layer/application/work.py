@@ -10,12 +10,23 @@ from ai_layer.core.service import get_project
 from ai_layer.db.session import session_scope
 from ai_layer.domain.security import SYSTEM_ACTOR
 from ai_layer.observability.work_events import append_contextual_event
-from ai_layer.work.service import begin_work, checkpoint_work, finish_work, list_work, run_to_dict, work_to_dict
+from ai_layer.work.service import (
+    begin_work,
+    checkpoint_work,
+    finish_work,
+    list_work,
+    run_to_dict,
+    work_to_dict,
+)
 
 
 def _command_context() -> tuple[Any, str]:
     current = current_operation()
-    return (current.actor, current.correlation_id) if current is not None else (SYSTEM_ACTOR, uuid4().hex)
+    return (
+        (current.actor, current.correlation_id)
+        if current is not None
+        else (SYSTEM_ACTOR, uuid4().hex)
+    )
 
 
 def _command_id(value: str | None) -> str:
@@ -195,32 +206,104 @@ def _finish(
         )
 
 
-def complete(project_root: str | Path, *, work_key: str, summary: str, idempotency_key: str | None = None, **kwargs: Any) -> dict:
-    return _finish(project_root, command_name="work_complete", event_type="WorkCompleted", status="completed", work_key=work_key, summary=summary, idempotency_key=idempotency_key, **kwargs)
+def complete(
+    project_root: str | Path,
+    *,
+    work_key: str,
+    summary: str,
+    idempotency_key: str | None = None,
+    **kwargs: Any,
+) -> dict:
+    return _finish(
+        project_root,
+        command_name="work_complete",
+        event_type="WorkCompleted",
+        status="completed",
+        work_key=work_key,
+        summary=summary,
+        idempotency_key=idempotency_key,
+        **kwargs,
+    )
 
 
-def fail(project_root: str | Path, *, work_key: str, summary: str, idempotency_key: str | None = None, **kwargs: Any) -> dict:
-    return _finish(project_root, command_name="work_fail", event_type="WorkFailed", status="failed", work_key=work_key, summary=summary, idempotency_key=idempotency_key, **kwargs)
+def fail(
+    project_root: str | Path,
+    *,
+    work_key: str,
+    summary: str,
+    idempotency_key: str | None = None,
+    **kwargs: Any,
+) -> dict:
+    return _finish(
+        project_root,
+        command_name="work_fail",
+        event_type="WorkFailed",
+        status="failed",
+        work_key=work_key,
+        summary=summary,
+        idempotency_key=idempotency_key,
+        **kwargs,
+    )
 
 
-def interrupt(project_root: str | Path, *, work_key: str, summary: str, idempotency_key: str | None = None, **kwargs: Any) -> dict:
-    return _finish(project_root, command_name="work_interrupt", event_type="WorkInterrupted", status="interrupted", work_key=work_key, summary=summary, idempotency_key=idempotency_key, **kwargs)
+def interrupt(
+    project_root: str | Path,
+    *,
+    work_key: str,
+    summary: str,
+    idempotency_key: str | None = None,
+    **kwargs: Any,
+) -> dict:
+    return _finish(
+        project_root,
+        command_name="work_interrupt",
+        event_type="WorkInterrupted",
+        status="interrupted",
+        work_key=work_key,
+        summary=summary,
+        idempotency_key=idempotency_key,
+        **kwargs,
+    )
 
 
-def abandon(project_root: str | Path, *, work_key: str, summary: str, idempotency_key: str | None = None, **kwargs: Any) -> dict:
-    return _finish(project_root, command_name="work_abandon", event_type="WorkAbandoned", status="abandoned", work_key=work_key, summary=summary, idempotency_key=idempotency_key, **kwargs)
+def abandon(
+    project_root: str | Path,
+    *,
+    work_key: str,
+    summary: str,
+    idempotency_key: str | None = None,
+    **kwargs: Any,
+) -> dict:
+    return _finish(
+        project_root,
+        command_name="work_abandon",
+        event_type="WorkAbandoned",
+        status="abandoned",
+        work_key=work_key,
+        summary=summary,
+        idempotency_key=idempotency_key,
+        **kwargs,
+    )
 
 
 def state(project_root: str | Path, *, limit: int = 8) -> dict:
     with session_scope() as db:
         project = get_project(db, project_root)
         active = list_work(db, project, active_only=True, limit=50)
-        recent = [item for item in list_work(db, project, active_only=False, limit=limit) if item["status"] not in {"active", "blocked"}]
+        recent = [
+            item
+            for item in list_work(db, project, active_only=False, limit=limit)
+            if item["status"] not in {"active", "blocked"}
+        ]
         return {
             "active": active,
             "recent": recent[: max(1, min(limit, 20))],
             "live": [item for item in active if item.get("live")],
-            "attention": [item for item in active if item.get("status") == "blocked" or item.get("map_pending")],
+            "attention": [
+                item
+                for item in active
+                if item.get("status") == "blocked" or item.get("map_pending")
+            ],
             "observability_contract": (
                 "WorkItems are durable user-work records. live=true requires a non-stale observed AgentRun; "
                 "managed Tasks and MCP bridges alone never prove that native work is active."

@@ -73,9 +73,7 @@ def enrich_overview(payload: dict) -> dict:
         runtime_state, project_state = _truthful_state(project, work)
         bridges = list(project.get("agents") or [])
         active_bridges += sum(
-            1
-            for item in bridges
-            if item.get("activity_state") in {"ACTIVE", "WORKING"}
+            1 for item in bridges if item.get("activity_state") in {"ACTIVE", "WORKING"}
         )
         active_work += len(work.get("live") or [])
         blocked_work += sum(

@@ -193,6 +193,8 @@ def test_audit_check_cli_treats_duplicate_context_as_tool_economy_warning(
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "home"))
     get_settings.cache_clear()
     register_project(tmp_path, "audit-cli-economy", "audit-cli-economy")
+    with mcp_audit(tmp_path, "project_status", arg_keys=[]):
+        pass
     with mcp_audit(tmp_path, "memory_context", arg_keys=["task"]):
         pass
     with mcp_audit(tmp_path, "memory_context", arg_keys=["task"]):

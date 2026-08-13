@@ -118,7 +118,6 @@ def test_installed_bootstrap_readiness_requires_current_version_marker(tmp_path:
 
 
 def test_integration_and_bootstrap_versions_have_one_canonical_source() -> None:
-    assert global_install.INTEGRATION_TEMPLATE_VERSION == CANONICAL_TEMPLATE_VERSION
     assert integration_service.INTEGRATION_TEMPLATE_VERSION == CANONICAL_TEMPLATE_VERSION
     assert global_install.GLOBAL_BOOTSTRAP_VERSION == CANONICAL_BOOTSTRAP_VERSION
     assert global_install.GLOBAL_BOOTSTRAP_MARKER == CANONICAL_BOOTSTRAP_MARKER

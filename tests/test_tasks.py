@@ -1375,7 +1375,9 @@ def test_task_create_accepts_unknown_dirty_git_worktree_as_captured_baseline(tmp
         assert nav["state"] == "idle_with_preexisting_changes"
         assert nav["next_action"]["action"] == "host_native"
         assert nav["preexisting_changes"]["paths"] == ["app.py"]
-        assert "Do not stash/reset/restore/commit" in nav["next_action"]["message"]
+        message = nav["next_action"]["message"].casefold()
+        assert "stash/reset/restore/commit" in message
+        assert "merely to satisfy ai layer" in message
 
         created = tasks.create_task(
             db,

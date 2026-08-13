@@ -8,7 +8,8 @@ from ai_layer.application.tasks import _idle_managed_task_payload
 from ai_layer.domain.agent_contract import agent_runtime_contract
 from ai_layer.domain.orchestrator import mcp_bootstrap_instructions, native_bootstrap_markdown
 from ai_layer.domain.static_policy import static_policy_markdown
-from ai_layer.integrations import global_install, service as integration_service
+from ai_layer.integrations import global_install
+from ai_layer.integrations import service as integration_service
 from ai_layer.integrations.global_install import GLOBAL_BOOTSTRAP_MARKER, GLOBAL_BOOTSTRAP_VERSION
 from ai_layer.integrations.status import _bootstrap_file_status, _bootstrap_version_current
 from ai_layer.integrations.versioning import (
@@ -120,7 +121,6 @@ def test_integration_and_bootstrap_versions_have_one_canonical_source() -> None:
     assert global_install.INTEGRATION_TEMPLATE_VERSION == CANONICAL_TEMPLATE_VERSION
     assert integration_service.INTEGRATION_TEMPLATE_VERSION == CANONICAL_TEMPLATE_VERSION
     assert global_install.GLOBAL_BOOTSTRAP_VERSION == CANONICAL_BOOTSTRAP_VERSION
-    assert integration_service.GLOBAL_BOOTSTRAP_VERSION == CANONICAL_BOOTSTRAP_VERSION
     assert global_install.GLOBAL_BOOTSTRAP_MARKER == CANONICAL_BOOTSTRAP_MARKER
 
     for relative in (

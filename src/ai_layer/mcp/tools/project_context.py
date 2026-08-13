@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from ai_layer.application.transport import application_scope as session_scope
-from ai_layer.application.transport import memory_context as build_memory_context
 from ai_layer.application.transport import knowledge_search as search_knowledge
+from ai_layer.application.transport import memory_context as build_memory_context
 from ai_layer.application.transport import project_info as get_project_info
 from ai_layer.application.transport import project_map_reconcile as reconcile_project_map
 from ai_layer.application.transport import project_search as search_project

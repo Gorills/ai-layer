@@ -45,15 +45,14 @@ from ai_layer.integrations.status import (
 from ai_layer.integrations.status import (
     integration_status as _integration_status,
 )
+from ai_layer.integrations.versioning import (
+    GLOBAL_BOOTSTRAP_MARKER,
+    INTEGRATION_TEMPLATE_VERSION,
+)
 from ai_layer.skills.native import (
     remove_legacy_project_bridge,
     remove_project_native_skills,
     sync_project_native_skills,
-)
-from ai_layer.integrations.versioning import (
-    GLOBAL_BOOTSTRAP_MARKER,
-    GLOBAL_BOOTSTRAP_VERSION,
-    INTEGRATION_TEMPLATE_VERSION,
 )
 
 LEGACY_PROJECT_RULE_PATHS = (

@@ -42,15 +42,18 @@ def _truthful_state(project: dict, work: dict) -> tuple[str, str]:
     live = list(work.get("live") or [])
     active = list(work.get("active") or [])
     blocked = [item for item in active if item.get("status") == "blocked"]
+    stale_active = [item for item in active if item.get("status") == "active"] if not live else []
     managed_task = project.get("task") or {}
     human_attention = bool(managed_task.get("human_attention_required"))
     if blocked:
         runtime_state = "blocked"
     elif live:
         runtime_state = "active"
+    elif stale_active:
+        runtime_state = "stale"
     else:
         runtime_state = "idle"
-    if blocked or human_attention:
+    if blocked or human_attention or stale_active:
         project_state = "attention"
     elif live:
         project_state = "working"

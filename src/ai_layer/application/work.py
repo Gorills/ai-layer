@@ -295,6 +295,25 @@ def abandon(
     )
 
 
+def _attention_work(active: list[dict], recent: list[dict]) -> list[dict]:
+    items: list[dict] = []
+    seen: set[str] = set()
+    for item in [
+        *[row for row in active if row.get("status") == "blocked" or not row.get("live")],
+        *[
+            row
+            for row in recent
+            if (row.get("map_disposition") or {}).get("status") in {"pending", "deferred"}
+        ],
+    ]:
+        key = str(item.get("id") or item.get("key") or "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        items.append(item)
+    return items
+
+
 def state(project_root: str | Path, *, limit: int = 8) -> dict:
     with session_scope() as db:
         project = get_project(db, project_root)
@@ -308,14 +327,7 @@ def state(project_root: str | Path, *, limit: int = 8) -> dict:
             "active": active,
             "recent": recent[: max(1, min(limit, 20))],
             "live": [item for item in active if item.get("live")],
-            "attention": [
-                *[item for item in active if item.get("status") == "blocked"],
-                *[
-                    item
-                    for item in recent
-                    if (item.get("map_disposition") or {}).get("status") in {"pending", "deferred"}
-                ],
-            ],
+            "attention": _attention_work(active, recent),
             "observability_contract": (
                 "WorkItems are durable user-work records. live=true requires a non-stale observed AgentRun; "
                 "managed Tasks and MCP bridges alone never prove that native work is active."

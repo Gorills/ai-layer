@@ -77,6 +77,16 @@ def _epic_state(project_root: str | Path) -> dict:
     }
 
 
+def _ordinary_work_focus(ordinary_work: dict) -> dict | None:
+    live = list(ordinary_work.get("live") or [])
+    if live:
+        return live[0]
+    for item in ordinary_work.get("active") or []:
+        if not item.get("live"):
+            return item
+    return None
+
+
 def _continuation(
     active_task: dict | None,
     active_work: dict | None,
@@ -95,15 +105,22 @@ def _continuation(
             ),
         }
     if active_work:
+        if active_work.get("live"):
+            instruction = (
+                "This project has live ordinary Work. Resume it through host-native execution and keep the "
+                "same WorkItem; checkpoint only at a meaningful milestone or blocker."
+            )
+        else:
+            instruction = (
+                "This project has stale ordinary Work. Resume or terminate that WorkItem; "
+                "do not start a new WorkItem."
+            )
         return {
             "kind": "work",
             "key": active_work.get("key"),
             "goal": active_work.get("goal"),
             "navigator": None,
-            "instruction": (
-                "This project has live ordinary Work. Resume it through host-native execution and keep the "
-                "same WorkItem; checkpoint only at a meaningful milestone or blocker."
-            ),
+            "instruction": instruction,
         }
     if active_epic:
         return {
@@ -130,7 +147,7 @@ def project_status(project_root: str | Path) -> dict:
     active_epic = epic_state.get("active")
     ordinary_work = work_uc.state(root, limit=8)
     live_work = list(ordinary_work.get("live") or [])
-    active_work = live_work[0] if live_work else None
+    active_work = _ordinary_work_focus(ordinary_work)
     repository = repository_runtime_status(root)
     policy = project_policy_snapshot(root)
 

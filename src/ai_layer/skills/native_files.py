@@ -7,11 +7,24 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from ai_layer.core.paths import project_mode
+from ai_layer.core.paths import project_local_path, project_mode
 from ai_layer.skills.native_descriptor import native_descriptor_name
+
+GLOBAL_NATIVE_ROOT_PARTS: dict[str, tuple[str, ...]] = {
+    "cursor_codex": (".agents", "skills"),
+    "claude": (".claude", "skills"),
+    "antigravity": (".gemini", "config", "skills"),
+}
+PROJECT_NATIVE_ROOT_PARTS: tuple[tuple[str, ...], ...] = (
+    (".agents", "skills"),
+    (".claude", "skills"),
+)
 
 
 def atomic_write_native(path: Path, text: str) -> None:
+    if path.is_symlink() or path.parent.is_symlink():
+        refused = path if path.is_symlink() else path.parent
+        raise RuntimeError(f"Refusing AI Layer path redirected by symlink: {refused}")
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and path.read_text(encoding="utf-8") == text:
         return
@@ -47,13 +60,22 @@ def descriptor_owned(path: Path) -> bool:
 
 
 def sync_native_root(
-    root: Path, desired: dict[str, str], *, scope: str, project_key: str = "-"
+    anchor: Path,
+    *relative: str,
+    desired: dict[str, str],
+    scope: str,
+    project_key: str = "-",
 ) -> dict:
+    if not relative:
+        raise ValueError("native skill root relative path is required")
+    root = project_local_path(anchor, *relative)
     root.mkdir(parents=True, exist_ok=True)
+    if root.is_symlink():
+        raise RuntimeError(f"Refusing AI Layer path redirected by symlink: {root}")
     written: list[str] = []
     removed: list[str] = []
     for name, content in desired.items():
-        target = root / name / "SKILL.md"
+        target = project_local_path(root, name, "SKILL.md")
         if target.exists() and not descriptor_owned(target):
             raise RuntimeError(
                 f"Native skill ownership conflict: {target} already exists and is not AI Layer-owned."
@@ -74,11 +96,7 @@ def sync_native_root(
 
 def global_native_roots(home: Path | None = None) -> dict[str, Path]:
     home = (home or Path.home()).expanduser()
-    return {
-        "cursor_codex": home / ".agents" / "skills",
-        "claude": home / ".claude" / "skills",
-        "antigravity": home / ".gemini" / "config" / "skills",
-    }
+    return {name: home.joinpath(*parts) for name, parts in GLOBAL_NATIVE_ROOT_PARTS.items()}
 
 
 def remove_legacy_project_bridge(project_root: str | Path) -> list[str]:
@@ -157,7 +175,11 @@ def assert_native_targets_available(
     home: Path | None = None,
 ) -> None:
     if scope == "global":
-        names = [(path, slug) for path in global_native_roots(home).values()]
+        home_root = (home or Path.home()).expanduser()
+        names = [
+            (project_local_path(home_root, *parts), slug)
+            for parts in GLOBAL_NATIVE_ROOT_PARTS.values()
+        ]
     elif scope == "project":
         if project_root is None:
             raise ValueError("project_root is required for project native skill preflight")
@@ -165,18 +187,20 @@ def assert_native_targets_available(
         mode = project_mode(root)
         external = mode in {"external", "strict-private"}
         name = native_descriptor_name(slug, project_root=root, external_scope=external)
-        names = (
-            [(path, name) for path in global_native_roots(home).values()]
-            if external
-            else [
-                (root / ".agents" / "skills", name),
-                (root / ".claude" / "skills", name),
+        if external:
+            home_root = (home or Path.home()).expanduser()
+            names = [
+                (project_local_path(home_root, *parts), name)
+                for parts in GLOBAL_NATIVE_ROOT_PARTS.values()
             ]
-        )
+        else:
+            names = [
+                (project_local_path(root, *parts), name) for parts in PROJECT_NATIVE_ROOT_PARTS
+            ]
     else:
         raise ValueError(f"Unsupported skill scope: {scope}")
     for base, name in names:
-        target = base / name / "SKILL.md"
+        target = project_local_path(base, name, "SKILL.md")
         if target.exists() and not descriptor_owned(target):
             raise RuntimeError(
                 f"Native skill ownership conflict: {target} already exists and is not AI Layer-owned."

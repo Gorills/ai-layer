@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
+import pytest
 import yaml
 
 from ai_layer.core.config import get_settings
@@ -14,6 +16,7 @@ from ai_layer.skills.native import (
     sync_project_native_skills,
     validate_native_catalog,
 )
+from ai_layer.skills.native_files import sync_native_root
 from ai_layer.skills.service import load_skill, skill_section_content
 
 
@@ -234,3 +237,136 @@ def test_upgrade_skips_legacy_invalid_custom_skill_without_blocking_native_catal
         assert (home / ".agents" / "skills" / "ai-layer-workflow" / "SKILL.md").is_file()
     finally:
         get_settings.cache_clear()
+
+
+def _owned_native_skill(canonical: str, *, scope: str = "global", project: str = "-") -> str:
+    return (
+        f"<!-- AI-LAYER NATIVE SKILL v2 scope={scope} project={project} canonical={canonical} -->\n"
+        f"# {canonical}\n"
+    )
+
+
+def test_sync_native_root_refuses_symlinked_root(tmp_path: Path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    skills = tmp_path / "skills"
+    skills.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(RuntimeError, match="symlink"):
+        sync_native_root(
+            tmp_path, "skills", desired={"demo": _owned_native_skill("demo")}, scope="global"
+        )
+
+    assert list(outside.rglob("*")) == []
+    assert not (outside / "demo" / "SKILL.md").exists()
+
+
+def test_sync_native_root_refuses_symlinked_parent(tmp_path: Path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / ".claude").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(RuntimeError, match="symlink"):
+        sync_native_root(
+            tmp_path,
+            ".claude",
+            "skills",
+            desired={"demo": _owned_native_skill("demo")},
+            scope="global",
+        )
+
+    assert list(outside.rglob("*")) == []
+    assert not (outside / "skills").exists()
+
+
+def test_project_native_sync_refuses_symlinked_host_root(tmp_path: Path, monkeypatch):
+    home = tmp_path / "home"
+    project = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    home.mkdir()
+    project.mkdir()
+    outside.mkdir()
+    skills = project / ".claude" / "skills"
+    skills.parent.mkdir()
+    skills.symlink_to(outside, target_is_directory=True)
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    monkeypatch.setenv("HOME", str(home))
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="symlink"):
+            sync_project_native_skills(project, home=home)
+        assert list(outside.rglob("*")) == []
+    finally:
+        get_settings.cache_clear()
+
+
+def test_global_native_sync_refuses_symlinked_parent(tmp_path: Path, monkeypatch):
+    home = tmp_path / "user"
+    outside = tmp_path / "outside"
+    home.mkdir()
+    outside.mkdir()
+    (home / ".agents").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("HOME", str(home))
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="symlink"):
+            sync_global_native_skills(home=home)
+        assert list(outside.rglob("*")) == []
+        assert not (outside / "skills").exists()
+    finally:
+        get_settings.cache_clear()
+
+
+def test_sync_native_root_writes_owned_skill_and_removes_stale(tmp_path: Path):
+    keep = _owned_native_skill("keep")
+    stale = _owned_native_skill("stale")
+    result = sync_native_root(
+        tmp_path, "skills", desired={"keep": keep, "stale": stale}, scope="global"
+    )
+    keep_path = tmp_path / "skills" / "keep" / "SKILL.md"
+    stale_dir = tmp_path / "skills" / "stale"
+    assert keep_path.is_file()
+    assert not keep_path.is_symlink()
+    assert keep_path.read_text(encoding="utf-8") == keep
+    assert stale_dir.is_dir()
+    assert not (tmp_path / "skills" / "keep" / "scripts").exists()
+    assert result["written"]
+
+    result = sync_native_root(tmp_path, "skills", desired={"keep": keep}, scope="global")
+    assert keep_path.is_file()
+    assert not stale_dir.exists()
+    assert result["removed"]
+
+
+def test_sync_native_root_refuses_symlinked_skill_directory(tmp_path: Path):
+    outside = tmp_path / "outside"
+    skills = tmp_path / "skills"
+    outside.mkdir()
+    skills.mkdir()
+    (skills / "demo").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(RuntimeError, match="symlink"):
+        sync_native_root(
+            tmp_path, "skills", desired={"demo": _owned_native_skill("demo")}, scope="global"
+        )
+
+    assert list(outside.rglob("*")) == []
+    assert not (outside / "SKILL.md").exists()
+
+
+def test_sync_native_root_refuses_unowned_skill_md(tmp_path: Path):
+    target = tmp_path / "skills" / "django" / "SKILL.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("# user-owned skill\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="ownership conflict"):
+        sync_native_root(
+            tmp_path,
+            "skills",
+            desired={"django": _owned_native_skill("django")},
+            scope="global",
+        )
+
+    assert target.read_text(encoding="utf-8") == "# user-owned skill\n"
+    assert list(target.parent.iterdir()) == [target]

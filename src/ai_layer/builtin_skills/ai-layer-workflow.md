@@ -5,6 +5,7 @@ kind: core
 keywords:
 - ai layer
 - project_status
+- work_begin
 - project_search
 - project_map_reconcile
 - knowledge_search
@@ -23,15 +24,16 @@ entry_sections:
 
 ## Apply when
 
-Apply this skill when working in a project registered with AI Layer and the work can benefit from reusable project state, code-location breadcrumbs, durable engineering memory, Task/Epic continuation, review evidence, or observability.
+Apply this skill when working in a project registered with AI Layer and the work can benefit from reusable project state, code-location breadcrumbs, durable engineering memory, WorkItem/Task/Epic continuation, review evidence, or observability.
 
-The skill is relevant at the beginning of a project-related request because the first useful question is normally not “which workflow stage may I enter?” but “what durable state already exists, and where is the relevant code likely to be?”. Start with `project_status(project_root=<workspace root>)`. That call is intentionally cheap: it restores project identity, Git/worktree summary, active managed Task, executing Epic, continuation focus, and Project Map freshness without running Task/Epic navigators or rescanning the repository.
+The skill is relevant at the beginning of a project-related request because the first useful question is normally not “which workflow stage may I enter?” but “what durable state already exists, and where is the relevant code likely to be?”. Start with `project_status(project_root=<workspace root>)`. That call is intentionally cheap: it restores project identity, Git/worktree summary, live ordinary Work, active managed Task, executing Epic, continuation focus, and Project Map freshness without running Task/Epic navigators or rescanning the repository.
 
 Use this skill especially for these situations:
 
 - the user says “continue”, “carry on”, “finish this”, or otherwise refers to work that may have started in another chat or agent session;
+- a new substantive ordinary request should be recorded as one WorkItem even when no managed Task is created;
 - the relevant implementation location is not known and broad repository discovery would otherwise be required;
-- a project has durable Knowledge, Decisions, Tasks, Findings, or Epics that can prevent repeated investigation;
+- a project has durable Knowledge, Decisions, WorkItems, Tasks, Findings, or Epics that can prevent repeated investigation;
 - a risky change benefits from independent review, durable findings, verification evidence, or a strict managed Task workflow;
 - a large outcome benefits from an Epic specification, approval, linked Tasks, integration state, and reconciliation;
 - the agent needs to recover safely after context loss without treating chat history as durable truth.
@@ -47,7 +49,8 @@ The persistent value supplied by AI Layer is different:
 - Project Map preserves cheap navigation breadcrumbs about where code lives;
 - Project Knowledge preserves reviewed semantic facts, invariants, constraints, integration knowledge, and fragile-area understanding;
 - Decisions preserve consequential architectural rationale;
-- Tasks and Epics preserve durable work state across chats and agents;
+- WorkItems record ordinary host-native work across chats;
+- Tasks and Epics preserve optional strict managed work state;
 - verification and review facilities preserve evidence when stronger guarantees are useful;
 - native Skills preserve reusable professional guidance while leaving relevance selection to the host;
 - Runtime Events and Dashboard projections make the work observable to the user.
@@ -56,17 +59,17 @@ Current repository source is the final authority for implementation behavior. Pr
 
 Project Map has two ownership layers. The scanner owns structural facts such as paths, languages, symbols, imports, routes, hashes, and other deterministic metadata. Agents may write only bounded semantic navigation enrichment through `project_map_reconcile`; they must never replace scanner-owned structure or store source bodies. Semantic enrichment is tied to the source hash it was learned from and becomes stale automatically when current source diverges.
 
-For registered-project work, `project_status` is the first AI Layer state call. Its `work.current_focus` is the durable continuation anchor. After status, the normal default is host-native execution unless an already-active managed Task/Epic or an explicit user/agent choice requires a managed lifecycle.
+For registered-project work, `project_status` is the first AI Layer state call. Its `work.current_focus` is the durable continuation anchor for live Work, a managed Task, or an Epic. Ordinary substantive work is one WorkItem: `work_begin` plus one terminal call; `work_checkpoint` only for a meaningful milestone or blocker. After status, the normal default is host-native execution unless an already-active managed Task/Epic or an explicit user/agent choice requires a managed lifecycle.
 
 ## Decision rules
 
 Use the smallest control-plane path that materially helps the task.
 
-**If the user says “continue” or equivalent:** call `project_status`. If `work.current_focus` is an active managed Task, resume that exact Task through `task_next`. Otherwise, if the focus is an executing Epic, resume it through `epic_next`. If there is no managed focus, do not invent one from old prose; handle the user’s request as new work.
+**If the user says “continue” or equivalent:** call `project_status` and follow `work.current_focus` / `work.continuation` exactly. If `kind` is `task`, resume that Task through `task_next`. If `kind` is `work`, resume that same WorkItem through host-native execution. If `kind` is `epic`, resume through `epic_next`. If focus is none, treat the request as new work and call `work_begin` when it is substantive. Do not invent a Task or Epic from old prose.
 
 **If the exact relevant file or symbol is already known:** call `project_status`, then inspect that current source directly with native tools. `project_search` is unnecessary ceremony unless evidence shows the stated location is incomplete or wrong.
 
-**If the code location is unknown:** call `project_search(query=<actual user goal>)` before broad `grep`, `find`, whole-repository search, or opening many files. Start with the strongest returned paths/symbols and related tests. Widen native exploration only when those candidates do not explain the behavior. Send the real query as written; Russian, English, and mixed code/domain terminology are all valid. Do not spend a separate model step translating a Russian query to English before search.
+**If the code location is unknown:** call `project_search` before broad `grep`, `find`, whole-repository search, or opening many files. For non-English natural-language goals, make the primary query concise English and code-centric; never use raw user prose as the only query. Preserve exact paths, symbols, routes, config/env keys, error strings, tables and fields verbatim. Use at most one original-language or mixed `query_variants` entry when domain aliases or weak first-pass coverage justify widening. Start with the strongest returned paths/symbols and related tests. Widen native exploration only when those candidates do not explain the behavior.
 
 **If real work established better navigation knowledge:** after verification, call `project_map_reconcile` for only the paths actually inspected, understood, changed, or proven misleading. Do not scan unrelated areas merely to enrich the map. If no useful navigation fact was learned, do not manufacture enrichment.
 
@@ -74,7 +77,7 @@ Use the smallest control-plane path that materially helps the task.
 
 **If an architectural choice may already have rationale:** use `decision_search` before redesigning APIs, persistence, provider boundaries, migrations, concurrency behavior, authentication/authorization, or other consequential choices with plausible alternatives.
 
-**If ordinary native execution is sufficient:** do not create a Task merely to authorize editing. Implement and verify through the host runtime. Durable recording is valuable only when the work/state will matter later.
+**If ordinary native execution is sufficient:** do not create a Task merely to authorize editing. Represent a substantive request as one WorkItem: call `work_begin` when the work starts and one terminal call (`work_complete`, `work_fail`, `work_interrupt`, or `work_abandon`) when it ends. Use `work_checkpoint` only for a meaningful milestone or blocker, not every tool or file action. Short work should normally use only `work_begin` plus one terminal. Implement and verify through the host runtime. A managed Task is optional assurance, not the ordinary-work record.
 
 **If stronger guarantees are worth their coordination cost:** create/select a managed Task. Examples include security-sensitive code, payments, migrations, high-risk persistence changes, concurrency fixes, complicated cross-module refactors, or work where independent review and durable findings are explicitly desired.
 
@@ -85,14 +88,15 @@ Use the smallest control-plane path that materially helps the task.
 The default workflow is deliberately short:
 
 1. Call `project_status(project_root=<canonical workspace root>)` once at the beginning of registered-project work.
-2. Read the durable continuation state, worktree summary, and Project Map freshness.
-3. When the location is known, inspect current source directly. When it is unknown, call `project_search` with the user’s real goal before broad discovery.
-4. Use `knowledge_search` and `decision_search` only when their durable information can materially affect the implementation or investigation.
-5. Let the host choose relevant native Agent Skills through its own progressive disclosure mechanism. Do not preload an unrelated skill bundle.
-6. Use host-native reads, edits, shell commands, tests, code search, and subagents to do the engineering work.
-7. Verify the smallest sufficient surface first, widening tests/checks when risk or evidence requires it.
-8. If the work materially improved understanding of where a behavior lives, reconcile only that semantic Project Map delta. Otherwise skip it.
-9. Persist durable state through its supported owner only: Decisions when consequential rationale matters; managed Task/Epic state through their live workflows; Project Knowledge authoring/publishing only through its review-gated managed flow. Ordinary native work may read Knowledge but must not claim direct VERIFIED publication.
+2. Read `work.current_focus`, `work.continuation`, the worktree summary, and Project Map freshness. If the user is continuing, resume the exact focus `kind` (`task`, `work`, or `epic`).
+3. For a new substantive request call `work_begin` once. Short work should normally use only `work_begin` plus one terminal Work call (`work_complete`, `work_fail`, `work_interrupt`, or `work_abandon`). Use `work_checkpoint` only at a meaningful milestone or blocker.
+4. When the location is known, inspect current source directly. When it is unknown, call `project_search` before broad discovery: English code-centric primary query for non-English goals, exact identifiers verbatim, at most one original-language or mixed variant.
+5. Use `knowledge_search` and `decision_search` only when their durable information can materially affect the implementation or investigation.
+6. Let the host choose relevant native Agent Skills through its own progressive disclosure mechanism. Do not preload an unrelated skill bundle.
+7. Use host-native reads, edits, shell commands, tests, code search, and subagents to do the engineering work.
+8. Verify the smallest sufficient surface first, widening tests/checks when risk or evidence requires it.
+9. If the work materially improved understanding of where a behavior lives, reconcile only that semantic Project Map delta. Otherwise skip it.
+10. Persist durable state through its supported owner only: close the WorkItem with one terminal call; record Decisions when consequential rationale matters; managed Task/Epic state through their live workflows; Project Knowledge authoring/publishing only through its review-gated managed flow. Ordinary native work may read Knowledge but must not claim direct VERIFIED publication.
 
 For an active managed Task, switch from the default native workflow into that Task’s live contract. `task_next` becomes authoritative for the managed lifecycle. STANDARD normally uses IMPLEMENT → REVIEW and, when review finds actionable defects, FIX → REVIEW. DISCOVERY_FIRST begins with a read-only evidence-gathering stage. ANALYSIS_ONLY can complete without mutation. MICRO may permit bounded inline implementation when the live Task contract grants that exception.
 
@@ -116,7 +120,8 @@ Prefer durable evidence over narrative reconstruction, and prefer current source
 
 At startup inspect the parts of `project_status` that matter to the request:
 
-- `work.current_focus` and `work.continuation` for cross-chat continuation;
+- `work.current_focus` and `work.continuation` for cross-chat continuation of live Work, a managed Task, or an Epic;
+- live ordinary WorkItem identity when `current_focus.kind` is `work`;
 - active Task stage/findings when a managed Task is in progress;
 - executing/open Epic state when an Epic may own the outcome;
 - Git branch/HEAD and dirty-worktree summary so user-owned changes are not accidentally overwritten;
@@ -134,7 +139,7 @@ For completion claims inspect actual command/check results. A reported test, rev
 
 ### Targeted discovery pattern
 
-User asks for a behavior change but gives no file. Call `project_status`, then `project_search` using the behavior/problem statement exactly as naturally expressed. Open the top few current-source candidates and relevant tests. Follow actual imports/calls from there. This should replace repeated whole-repository orientation on established projects.
+User asks for a behavior change but gives no file. Call `project_status`, then `project_search`. For a non-English request, derive one concise English code-centric primary query; keep exact identifiers verbatim; add at most one original-language or mixed `query_variants` entry if aliases would help. Open the top few current-source candidates and relevant tests. Follow actual imports/calls from there. This should replace repeated whole-repository orientation on established projects.
 
 ### Known-location pattern
 
@@ -142,11 +147,11 @@ User says “change `src/payments/service.py::create_payment`”. Call `project_
 
 ### Multilingual navigation pattern
 
-A user may ask “где повторно создаётся заказ после ошибки iiko” while source identifiers are `RetryOrderProcessor` and `create_order`. Call `project_search` with the original query. Semantic embeddings and stored domain terms can bridge languages; exact identifiers remain English/code-native. When the task establishes a useful user-to-code alias such as “повторная отправка заказа” → retry-order subsystem, record that alias in `domain_terms`, while keeping canonical responsibilities concise English.
+A user may ask “где повторно создаётся заказ после ошибки iiko” while source identifiers are `RetryOrderProcessor` and `create_order`. Call `project_search` with a concise English code-centric primary query such as `RetryOrderProcessor create_order iiko retry after error`, preserving those identifiers verbatim. Optionally pass one original-language or mixed `query_variants` entry such as `повторно создаётся заказ iiko` when domain aliases may help. Exact identifiers remain English/code-native. When the task establishes a useful user-to-code alias such as “повторная отправка заказа” → retry-order subsystem, record that alias in `domain_terms`, while keeping canonical responsibilities concise English.
 
 ### Continuation pattern
 
-User says “continue”. Do not infer from chat fragments. `project_status.work.current_focus` determines whether there is a Task or Epic to resume. Call its navigator once and follow the durable next action. If there is no managed focus, say nothing was active and proceed from the current user request.
+User says “continue”. Do not infer from chat fragments. `project_status.work.current_focus` / `work.continuation` name the live focus. Dispatch on `kind`: `task` → `task_next`; `work` → same WorkItem via host-native execution; `epic` → `epic_next`. If focus is none, start new work with `work_begin` when the request is substantive.
 
 ### Durable-knowledge pattern
 
@@ -188,7 +193,7 @@ Never claim “tests pass”, “migration works”, “review passed”, or “
 
 **Project Map unavailable or stale:** fall back to targeted native source search. Treat stale breadcrumbs as hints only. Do not wait indefinitely for scanner freshness and do not quote stored metadata as current code truth.
 
-**Search returns weak/irrelevant matches:** widen query wording, use exact domain identifiers discovered from the first source, or fall back to host-native search. Project Map is an optimization, not a requirement to trust bad retrieval. When work discovers the correct location, reconcile that semantic breadcrumb instead of adding a separate learning pipeline.
+**Search returns weak/irrelevant matches:** retry with English code-centric terms, then one bounded native exact-token search. Use exact domain identifiers discovered from the first source. Project Map is an optimization, not a requirement to trust bad retrieval. When work discovers the correct location, reconcile that semantic breadcrumb instead of adding a separate learning pipeline.
 
 **Project Map reconciliation rejected:** inspect the current structural map/source. Do not bypass validation or write the database directly. Common reasons are nonexistent paths, stale/unknown symbols, non-test paths supplied as tests, oversized content, or canonical semantic prose written in a non-English language. Put useful non-English search vocabulary in `domain_terms`.
 
@@ -218,9 +223,9 @@ Escalate to the user when a managed remediation cap is reached, requirements mat
 
 ## Project intelligence and durable memory
 
-Project Map, Knowledge, Decisions, Tasks, and Epics intentionally solve different problems and should remain separate.
+Project Map, Knowledge, Decisions, WorkItems, Tasks, and Epics intentionally solve different problems and should remain separate.
 
-Project Map answers **where to inspect** and has two layers: deterministic scanner-owned structure plus bounded agent-authored semantic breadcrumbs learned during real work. Knowledge answers **what durable reviewed facts matter** and can be sparse. Decisions answer **why a consequential choice was made**. Tasks/Epics answer **what work is active and what durable lifecycle state exists**.
+Project Map answers **where to inspect** and has two layers: deterministic scanner-owned structure plus bounded agent-authored semantic breadcrumbs learned during real work. Knowledge answers **what durable reviewed facts matter** and can be sparse. Decisions answer **why a consequential choice was made**. WorkItems answer **what ordinary host-native work is active**. Tasks/Epics answer **what optional strict managed lifecycle state exists**.
 
 Do not collapse these into one giant startup payload. A large mandatory `memory_context` recreates the same token overhead Project Intelligence is meant to avoid. Retrieve status first, then only the specific type of context required by the task.
 
@@ -236,7 +241,7 @@ Project Intelligence calls should remain bounded and auditable so future A/B eva
 
 ## Completion criteria
 
-Ordinary host-native work is complete when the requested engineering outcome is implemented, relevant current source has been inspected, and proportionate verification has actually passed. A managed Task is not required merely to legitimize completion. If meaningful navigation knowledge was learned during substantial work, reconcile that bounded Project Map delta before handoff; trivial work may skip it.
+Ordinary host-native work is complete when the requested engineering outcome is implemented, relevant current source has been inspected, proportionate verification has actually passed, and the WorkItem is closed with one terminal Work call. A managed Task is not required merely to legitimize completion. If meaningful navigation knowledge was learned during substantial work, reconcile that bounded Project Map delta before handoff; trivial work may skip it.
 
 Project Intelligence use is successful when it reduced or correctly avoided repository discovery without causing the agent to trust stale metadata over current source. Durable Knowledge/Decisions should be recorded only when they will plausibly save future investigation or preserve an important constraint/rationale.
 

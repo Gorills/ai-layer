@@ -33,9 +33,7 @@ MAX_STABLE_SCAN_ATTEMPTS = 3
 
 
 def _memory_dir(project: Project) -> Path:
-    path = project_state_path(project.root_path, "memory")
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return project_state_path(project.root_path, "memory")
 
 
 def _atomic_write_json(path: Path, payload: dict, *, sort_keys: bool = False) -> None:
@@ -53,7 +51,6 @@ def _atomic_write_json(path: Path, payload: dict, *, sort_keys: bool = False) ->
 
 
 def load_file_state(project: Project) -> dict[str, dict[str, int]]:
-    _memory_dir(project)
     path = project_state_path(project.root_path, "memory", STATE_FILE)
     if not path.exists():
         return {}
@@ -65,7 +62,6 @@ def load_file_state(project: Project) -> dict[str, dict[str, int]]:
 
 
 def load_scan_metadata(project: Project) -> dict:
-    _memory_dir(project)
     path = project_state_path(project.root_path, "memory", SCAN_FILE)
     if not path.exists():
         return {}
@@ -278,7 +274,6 @@ def ensure_memory_fresh(db: Session, project: Project) -> dict:
     re-embeds only durable decisions and curated Project Knowledge, never current-source chunks.
     """
     root = Path(project.root_path)
-    _memory_dir(project)
     state_path = project_state_path(project.root_path, "memory", STATE_FILE)
     state_exists = state_path.exists()
     fast_fresh, _, metadata = _fast_probe_fresh(project, state_exists=state_exists)

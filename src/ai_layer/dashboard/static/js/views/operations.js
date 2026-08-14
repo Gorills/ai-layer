@@ -171,6 +171,13 @@ function readinessLabel(value) {
   return value ? "Готов" : "Проблема";
 }
 
+function providerStatusLabel(provider) {
+  const status = provider?.status || (provider?.ready ? "ready" : "degraded");
+  if (status === "ready") return "Готов";
+  if (status === "not_installed") return "Не установлен";
+  return "Деградирован";
+}
+
 function providerDiagnostics(diag) {
   const selected = diag?.project || null;
   const providers = selected?.providers?.length ? selected.providers : (diag?.global?.providers || []);
@@ -183,7 +190,7 @@ function providerDiagnostics(diag) {
       `skills ${readinessLabel(provider.native_skills_ready)}`,
     ];
     if (provider.runtime_acceptance_required) details.push("нужен runtime acceptance");
-    return infoRow(provider.name, provider.ready ? "Готов" : "Внимание", details.join(" · "));
+    return infoRow(provider.name, providerStatusLabel(provider), details.join(" · "));
   }).join("")}</div>
   ${selected ? `<div class="panel-footer"><span class="muted">${escapeHtml(title)} · template v${escapeHtml(selected.template_version ?? "—")} · MCP executable ${selected.mcp_executable_ready ? "готов" : "не готов"}</span>${stateBadge(selected.ready ? "healthy" : "warning")}</div>` : `<div class="panel-footer"><span class="muted">${escapeHtml(title)}</span>${stateBadge(diag?.global?.ready ? "healthy" : "warning")}</div>`}`;
 }

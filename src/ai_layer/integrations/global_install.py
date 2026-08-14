@@ -235,6 +235,51 @@ def _install_claude_user_mcp(server: dict) -> dict:
     }
 
 
+def claude_user_mcp_status() -> dict:
+    """Read-only Claude user-scope MCP presence. Missing CLI is not an install failure."""
+    executable = shutil.which("claude")
+    if not executable:
+        return {
+            "cli_available": False,
+            "installed": False,
+            "owned": False,
+            "reason": "claude executable not found",
+        }
+    try:
+        probe = subprocess.run(
+            [executable, "mcp", "get", "ai-layer"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {
+            "cli_available": True,
+            "installed": False,
+            "owned": False,
+            "executable": executable,
+            "reason": type(exc).__name__,
+        }
+    combined = (probe.stdout or "") + "\n" + (probe.stderr or "")
+    if probe.returncode != 0:
+        return {
+            "cli_available": True,
+            "installed": False,
+            "owned": False,
+            "executable": executable,
+            "reason": "missing-or-unreadable",
+        }
+    owned = _claude_mcp_is_owned_output(combined)
+    return {
+        "cli_available": True,
+        "installed": True,
+        "owned": owned,
+        "executable": executable,
+        "reason": None if owned else "ownership-conflict",
+    }
+
+
 def install_global_integrations() -> dict:
     """Install user-level MCP registrations that do not need per-project paths.
 

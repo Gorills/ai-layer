@@ -12,7 +12,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from ai_layer.db.models import Project, RuntimeEvent
 from ai_layer.db.session import session_scope
 from ai_layer.db.work_models import WORK_ASSURANCE, AgentRun, RuntimeEventContext, WorkItem
-from ai_layer.observability.work_events import safe_event_payload
+from ai_layer.observability.work_events import MILESTONE_EVENT_TYPES, safe_event_payload
 from ai_layer.projections.dashboard_activity_cursor import (
     activity_filter_fingerprint,
     decode_activity_cursor,
@@ -25,28 +25,6 @@ from ai_layer.projections.dashboard_common import project_key, project_options, 
 ACTIVITY_LIMIT_MAX = 100
 ACTIVITY_MODES = frozenset({"milestones", "all"})
 ACTIVITY_IMPORTANCE = frozenset({"low", "normal", "high"})
-MILESTONE_EVENT_TYPES = frozenset(
-    {
-        "ApprovalRequested",
-        "ApprovalResolved",
-        "FindingOpened",
-        "FindingVerified",
-        "KnowledgePublished",
-        "ProjectMapReconciled",
-        "StageCompleted",
-        "TaskBlocked",
-        "TaskCompleted",
-        "TaskCreated",
-        "TaskResumed",
-        "VerificationCompleted",
-        "WorkAbandoned",
-        "WorkCheckpointed",
-        "WorkCompleted",
-        "WorkFailed",
-        "WorkInterrupted",
-        "WorkStarted",
-    }
-)
 
 
 def _text(

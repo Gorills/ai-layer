@@ -10,7 +10,7 @@ from ai_layer.core.service import get_project
 from ai_layer.db.epic_models import Epic, EpicAudit, EpicPlanItem, EpicSpecVersion
 from ai_layer.db.models import Project, Task
 from ai_layer.epics.contracts import epic_key, plan_item_key, spec_quality
-from ai_layer.observability.domain_events import append_event
+from ai_layer.observability.work_events import append_contextual_event
 from ai_layer.workspace.repository import capture_repository_state
 
 DOC_PATH_NAMES = {
@@ -87,13 +87,15 @@ def append_epic_event(
     event_type: str,
     payload: dict,
 ) -> None:
-    append_event(
+    append_contextual_event(
         db,
         event_type=event_type,
         project=project,
         aggregate_type="epic",
         aggregate_id=str(epic.id),
         payload={"key": epic_key(epic.sequence), **payload},
+        epic_id=epic.id,
+        importance="high",
     )
 
 

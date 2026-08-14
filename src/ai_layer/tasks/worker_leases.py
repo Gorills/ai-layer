@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ai_layer.core.filelock import directory_lock
 from ai_layer.db.models import Project, Task, TaskStage, utcnow
-from ai_layer.observability.domain_events import append_event
+from ai_layer.observability.work_events import append_task_event
 from ai_layer.tasks.concurrency import active_stage_for_update, bump_task_version, lock_project
 from ai_layer.tasks.constants import (
     DEFAULT_WORKER_LEASE_SECONDS,
@@ -81,8 +81,9 @@ def heartbeat_worker(
         start_worker_lease(stage, lease_seconds=lease_seconds)
         bump_task_version(task)
         task.updated_at = utcnow()
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="AgentHeartbeat",
             project=project,
             aggregate_type="task_stage",
@@ -118,16 +119,18 @@ def _block_missing_recovery_state(
     )
     bump_task_version(task)
     task.updated_at = utcnow()
-    append_event(
+    append_task_event(
         db,
+        task=task,
         event_type="StageInvalidated",
         project=project,
         aggregate_type="task_stage",
         aggregate_id=str(stage.id),
         payload={"kind": stage.kind, "outcome": stage.outcome, "worker_id": stage.worker_id},
     )
-    append_event(
+    append_task_event(
         db,
+        task=task,
         event_type="TaskBlocked",
         project=project,
         aggregate_type="task",
@@ -162,8 +165,9 @@ def _recover_worker_stage(
     stage.repository_digest_before = str(start_state.get("digest") or "")
     stage.repository_digest_after = str(current_state.get("digest") or "")
     stage.completed_at = utcnow()
-    append_event(
+    append_task_event(
         db,
+        task=task,
         event_type="AgentFailed",
         project=project,
         aggregate_type="task_stage",
@@ -174,8 +178,9 @@ def _recover_worker_stage(
             "repository_changes": drift.get("total", 0),
         },
     )
-    append_event(
+    append_task_event(
         db,
+        task=task,
         event_type="StageInvalidated",
         project=project,
         aggregate_type="task_stage",
@@ -189,8 +194,9 @@ def _recover_worker_stage(
             "AI Layer will not attribute or rebind them automatically. Restore the stage-start state "
             "and resume, or cancel and use task_adopt if the changes should be retained."
         )
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="TaskBlocked",
             project=project,
             aggregate_type="task",
@@ -290,8 +296,9 @@ def reap_stale_worker_leases(db: Session, *, now: datetime | None = None) -> dic
             ):
                 skipped += 1
                 continue
-            append_event(
+            append_task_event(
                 db,
+                task=task,
                 event_type="AgentLeaseExpired",
                 project=project,
                 aggregate_type="task_stage",

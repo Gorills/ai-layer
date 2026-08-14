@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -13,7 +13,7 @@ from ai_layer.db.epic_models import Epic
 from ai_layer.db.models import Project, RuntimeEvent, Task
 from ai_layer.db.session import session_scope
 from ai_layer.db.work_models import WORK_STATUSES, AgentRun, RuntimeEventContext, WorkItem
-from ai_layer.observability.work_events import safe_event_payload
+from ai_layer.observability.work_events import MILESTONE_EVENT_TYPES, safe_event_payload
 from ai_layer.projections.dashboard_common import (
     entry_for_key,
     page_info,
@@ -25,6 +25,24 @@ from ai_layer.work.service import work_to_dict
 
 WORK_FILTER_STATUSES = frozenset(WORK_STATUSES)
 WORK_TIMELINE_LIMIT = 200
+
+
+def _work_timeline_condition(work: WorkItem) -> ColumnElement[bool]:
+    own_events = and_(
+        RuntimeEventContext.work_id == work.id,
+        RuntimeEventContext.task_id.is_(None),
+        RuntimeEventContext.epic_id.is_(None),
+    )
+    milestone = or_(
+        RuntimeEvent.event_type.in_(MILESTONE_EVENT_TYPES),
+        RuntimeEventContext.importance == "high",
+    )
+    linked: list[ColumnElement[bool]] = [RuntimeEventContext.work_id == work.id]
+    if work.linked_task_id is not None:
+        linked.append(RuntimeEventContext.task_id == work.linked_task_id)
+    if work.linked_epic_id is not None:
+        linked.append(RuntimeEventContext.epic_id == work.linked_epic_id)
+    return or_(own_events, and_(or_(*linked), milestone))
 
 
 def _project_scope(
@@ -188,11 +206,13 @@ def work_detail_payload(project_key_value: str, work_key: str) -> dict | None:
                 }
             },
         )[0]
+        condition = _work_timeline_condition(work)
         timeline_total = int(
             db.scalar(
                 select(func.count())
-                .select_from(RuntimeEventContext)
-                .where(RuntimeEventContext.work_id == work.id)
+                .select_from(RuntimeEvent)
+                .join(RuntimeEventContext, RuntimeEventContext.event_id == RuntimeEvent.id)
+                .where(condition)
             )
             or 0
         )
@@ -200,7 +220,7 @@ def work_detail_payload(project_key_value: str, work_key: str) -> dict | None:
             db.execute(
                 select(RuntimeEvent, RuntimeEventContext)
                 .join(RuntimeEventContext, RuntimeEventContext.event_id == RuntimeEvent.id)
-                .where(RuntimeEventContext.work_id == work.id)
+                .where(condition)
                 .order_by(RuntimeEvent.created_at.desc(), RuntimeEvent.id.desc())
                 .limit(WORK_TIMELINE_LIMIT)
             ).all()

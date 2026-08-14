@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ai_layer.core.redaction import redact_secrets
 from ai_layer.db.models import Project, RuntimeEvent
 from ai_layer.db.work_models import AgentRun, RuntimeEventContext, WorkItem
-from ai_layer.observability.domain_events import append_event
+from ai_layer.observability.domain_events import EVENT_TYPES, append_event
 
 SAFE_EVENT_FIELDS = frozenset(
     {
@@ -37,6 +38,28 @@ SAFE_EVENT_TEXT_LIMITS = {
     "error_type": 128,
     "map_status": 32,
 }
+MILESTONE_EVENT_TYPES = frozenset(
+    {
+        "ApprovalRequested",
+        "ApprovalResolved",
+        "FindingOpened",
+        "FindingVerified",
+        "KnowledgePublished",
+        "ProjectMapReconciled",
+        "StageCompleted",
+        "TaskBlocked",
+        "TaskCompleted",
+        "TaskCreated",
+        "TaskResumed",
+        "VerificationCompleted",
+        "WorkAbandoned",
+        "WorkCheckpointed",
+        "WorkCompleted",
+        "WorkFailed",
+        "WorkInterrupted",
+        "WorkStarted",
+    }
+) | frozenset(name for name in EVENT_TYPES if name.startswith("Epic"))
 
 
 def _safe_payload(raw: dict[str, Any]) -> dict[str, Any]:
@@ -63,6 +86,28 @@ def _safe_payload(raw: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _linked_work_id(db: Session, *, task_id=None, epic_id=None):
+    clauses = []
+    if task_id is not None:
+        clauses.append(WorkItem.linked_task_id == task_id)
+    if epic_id is not None:
+        clauses.append(WorkItem.linked_epic_id == epic_id)
+    if not clauses:
+        return None
+    return db.scalar(
+        select(WorkItem.id)
+        .where(or_(*clauses))
+        .order_by(WorkItem.updated_at.desc(), WorkItem.id.desc())
+        .limit(1)
+    )
+
+
+def _milestone_importance(event_type: str, importance: str | None) -> str:
+    if importance:
+        return str(importance)[:16]
+    return "high" if event_type in MILESTONE_EVENT_TYPES else "normal"
+
+
 def append_contextual_event(
     db: Session,
     *,
@@ -77,6 +122,7 @@ def append_contextual_event(
     run_id=None,
     task_id=None,
     epic_id=None,
+    project_id=None,
     host: str = "",
     client: str = "",
     session_id: str = "",
@@ -89,15 +135,19 @@ def append_contextual_event(
         db,
         event_type=event_type,
         project=project,
+        project_id=project_id,
         aggregate_type=aggregate_type,
         aggregate_id=aggregate_id,
         payload=payload,
     )
     db.flush()
+    resolved_work_id = work.id if work is not None else work_id
+    if resolved_work_id is None:
+        resolved_work_id = _linked_work_id(db, task_id=task_id, epic_id=epic_id)
     db.add(
         RuntimeEventContext(
             event_id=row.id,
-            work_id=work.id if work is not None else work_id,
+            work_id=resolved_work_id,
             run_id=run.id if run is not None else run_id,
             task_id=task_id,
             epic_id=epic_id,
@@ -111,6 +161,32 @@ def append_contextual_event(
         )
     )
     return row
+
+
+def append_task_event(
+    db: Session,
+    *,
+    event_type: str,
+    task,
+    project: Project | None = None,
+    payload: dict[str, Any] | None = None,
+    aggregate_type: str = "task",
+    aggregate_id: str | None = None,
+    project_id=None,
+    importance: str | None = None,
+) -> RuntimeEvent:
+    resolved_task_id = task.id
+    return append_contextual_event(
+        db,
+        event_type=event_type,
+        project=project,
+        project_id=project_id if project_id is not None else task.project_id,
+        aggregate_type=aggregate_type,
+        aggregate_id=aggregate_id or str(resolved_task_id),
+        payload=payload,
+        task_id=resolved_task_id,
+        importance=_milestone_importance(event_type, importance),
+    )
 
 
 def safe_event_payload(

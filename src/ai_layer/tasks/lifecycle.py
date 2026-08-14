@@ -11,7 +11,7 @@ from ai_layer.core.filelock import directory_lock
 from ai_layer.db.models import Project, Task, TaskStage, utcnow
 from ai_layer.domain.orchestrator import orchestrator_stage_instruction
 from ai_layer.memory.knowledge_store import abandon_task_drafts
-from ai_layer.observability.domain_events import append_event
+from ai_layer.observability.work_events import append_task_event
 from ai_layer.tasks.concurrency import assert_expected_version, bump_task_version, lock_project
 from ai_layer.tasks.constants import MAX_TASK_GOAL_CHARS, OPEN_TASK_STATUSES, READ_ONLY_STAGES
 from ai_layer.tasks.contracts import _bounded_text, _bounded_text_list, _classify_task
@@ -159,8 +159,9 @@ def create_task(
         stage = _create_stage(
             db, task, kind=first_kind, state=baseline, start_snapshot_id=baseline_snapshot.id
         )
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="TaskCreated",
             project=project,
             aggregate_type="task",
@@ -172,8 +173,9 @@ def create_task(
                 "baseline_mode": "captured_worktree",
             },
         )
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="TaskClassified",
             project=project,
             aggregate_type="task",
@@ -287,8 +289,9 @@ def adopt_task(
             review_round=1,
             start_snapshot_id=baseline_snapshot.id,
         )
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="TaskAdopted",
             project=project,
             aggregate_type="task",
@@ -369,16 +372,18 @@ def delegate_current_stage(
         stage.telemetry = dict(telemetry or {})
         bump_task_version(task)
         task.updated_at = utcnow()
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="StageDelegated",
             project=project,
             aggregate_type="task_stage",
             aggregate_id=str(stage.id),
             payload={"task_id": str(task.id), "worker_id": worker, "kind": stage.kind},
         )
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="AgentAssigned",
             project=project,
             aggregate_type="task_stage",
@@ -454,8 +459,9 @@ def resume_task(db: Session, project: Project, *, expected_version: int | None =
             )
             bump_task_version(task)
             task.updated_at = utcnow()
-            append_event(
+            append_task_event(
                 db,
+                task=task,
                 event_type="TaskResumed",
                 project=project,
                 aggregate_type="task",
@@ -502,8 +508,9 @@ def resume_task(db: Session, project: Project, *, expected_version: int | None =
         )
         bump_task_version(task)
         task.updated_at = utcnow()
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="TaskResumed",
             project=project,
             aggregate_type="task",

@@ -52,6 +52,6 @@ The root `AGENTS.md` points to the canonical ADR directory `DECISIONS/`. ADR 002
 
 ## Release validation status
 
-Release candidate **0.14.0** targets Alembic schema `0017_work_spine` and must not be promoted until the exact committed wheel, release manifest and governance baseline are aligned and the canonical quality + PostgreSQL/pgvector gates are green on the final clean head.
+Release candidate **0.14.0** targets Alembic schema `0018_command_project_scope` and must not be promoted until the exact committed wheel, release manifest and governance baseline are aligned and the canonical quality + PostgreSQL/pgvector gates are green on the final clean head.
 
 After merge, supported-host field acceptance should exercise `project_status`, Work lifecycle/continuation, multilingual Project Map search, optional managed Task/Epic flows, durable activity/Dashboard visibility and native skills on real projects.

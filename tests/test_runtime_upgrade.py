@@ -416,3 +416,13 @@ def test_dirty_task_baseline_migration_adds_preexisting_provenance_without_conte
     assert "sa.JSON()" in text
     assert "repository_snapshots" not in text
     assert "LargeBinary" not in text
+
+
+def test_command_receipt_scope_migration_replaces_global_command_id_uniqueness():
+    migration = Path(__file__).parents[1] / "alembic" / "versions" / "0018_command_project_scope.py"
+    text = migration.read_text(encoding="utf-8")
+    assert 'revision = "0018_command_project_scope"' in text
+    assert 'down_revision = "0017_work_spine"' in text
+    assert 'op.drop_constraint("uq_command_receipts_command_id"' in text
+    assert '"uq_command_receipts_project_command"' in text
+    assert '["project_id", "command_id"]' in text

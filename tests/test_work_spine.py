@@ -133,7 +133,11 @@ def test_runtime_event_presenter_never_exposes_unapproved_payload_fields():
 
 
 def test_project_policy_snapshot_is_bounded_versioned_and_hashed(monkeypatch):
-    monkeypatch.setattr(project_policy_module, "dynamic_policy", lambda _root: "project rule")
+    monkeypatch.setattr(
+        project_policy_module,
+        "dynamic_policy_parts",
+        lambda _root, read_only=False: [("project", "project rule")],
+    )
     payload = project_policy_module.project_policy_snapshot("/tmp/project")
     assert payload["version"] == 1
     assert payload["text"] == "project rule"

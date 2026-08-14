@@ -141,7 +141,7 @@ def test_release_facing_state_tracks_current_runtime_contract() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
     assert manifest["version"] == __version__
-    assert manifest["migration_compatibility"]["target_schema"] == "0017_work_spine"
+    assert manifest["migration_compatibility"]["target_schema"] == "0018_command_project_scope"
     assert current_state.startswith(f"# Current State — v{__version__} ")
     assert f"Release candidate **{__version__}** targets" in current_state
     assert "versioned live runtime contract" in current_state

@@ -231,6 +231,6 @@ That is the boundary the project should preserve as it grows.
 
 For actual product behavior, source code, migrations and executable tests take precedence over prose documentation. Documentation that disagrees with executable behavior is a defect.
 
-The point-in-time [independent audit of v0.14.0](AUDIT.md) records confirmed
+The point-in-time [independent audit of v0.14.0](docs/AUDIT.md) records confirmed
 release blockers and their reproduction evidence. Future agents must verify
 each finding against current source before treating it as open or resolved.

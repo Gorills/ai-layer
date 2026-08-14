@@ -78,21 +78,22 @@ def ensure_global_policy(force: bool = False) -> Path:
     return path
 
 
-def dynamic_policy(project_root: str | Path, *, read_only: bool = False) -> str:
-    """Return only policy not already delivered by the always-on native bootstrap.
+def render_dynamic_policy_parts(parts: list[tuple[str, str]]) -> str:
+    return "\n\n".join(text.strip() for _, text in parts if text.strip())
 
-    Bundled defaults are intentionally omitted from dynamic Project Intelligence/compatibility
-    payloads. A user-modified global policy, repository-specific rules, and strict-private
-    constraints remain dynamic authoritative inputs.
-    """
+
+def dynamic_policy_parts(
+    project_root: str | Path, *, read_only: bool = False
+) -> list[tuple[str, str]]:
+    """Ordered dynamic policy fragments: custom global, project, privacy, read-only."""
     global_path = ensure_global_policy()
-    parts: list[str] = []
+    parts: list[tuple[str, str]] = []
     try:
         global_text = global_path.read_text("utf-8")
     except OSError:
         global_text = DEFAULT_POLICY
     if _sha(global_text) != _sha(DEFAULT_POLICY):
-        parts.append("# Custom Global Policy\n\n" + global_text.strip())
+        parts.append(("global", "# Custom Global Policy\n\n" + global_text.strip()))
 
     project_path = project_state_path(project_root, "rules.md")
     if project_path.exists():
@@ -102,20 +103,36 @@ def dynamic_policy(project_root: str | Path, *, read_only: bool = False) -> str:
             project_text = ""
         placeholder = "# Project-specific rules\n\nAdd only rules that are specific to this repository. Global engineering policy is loaded separately."
         if project_text and project_text != placeholder:
-            parts.append("# Project Rules\n\n" + project_text)
+            parts.append(("project", "# Project Rules\n\n" + project_text))
 
     if project_provenance(project_root) == "forbid":
         parts.append(
-            """# Strict Private Repository Policy
+            (
+                "privacy",
+                """# Strict Private Repository Policy
 
 - Do not create AI Layer artifacts or AI-development provenance inside the repository.
-- Never bypass the privacy guard or rewrite user Git state merely to satisfy AI Layer."""
+- Never bypass the privacy guard or rewrite user Git state merely to satisfy AI Layer.""",
+            )
         )
     if read_only:
         parts.append(
-            """# Read-only stage
+            (
+                "readonly",
+                """# Read-only stage
 
 - Do not modify repository files or execute commands that can mutate repository state.
-- Inspection and verification must remain read-only."""
+- Inspection and verification must remain read-only.""",
+            )
         )
-    return "\n\n".join(part.strip() for part in parts if part.strip())
+    return parts
+
+
+def dynamic_policy(project_root: str | Path, *, read_only: bool = False) -> str:
+    """Return only policy not already delivered by the always-on native bootstrap.
+
+    Bundled defaults are intentionally omitted from dynamic Project Intelligence/compatibility
+    payloads. A user-modified global policy, repository-specific rules, and strict-private
+    constraints remain dynamic authoritative inputs.
+    """
+    return render_dynamic_policy_parts(dynamic_policy_parts(project_root, read_only=read_only))

@@ -5,6 +5,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from ai_layer.application.security import decide
+from ai_layer.core.redaction import redact_secret_argv
 from ai_layer.core.request_context import current_operation
 from ai_layer.core.service import get_project
 from ai_layer.db.models import Task
@@ -14,6 +15,7 @@ from ai_layer.domain.security import LOCAL_TRUSTED_ACTOR
 from ai_layer.domain.verification import VerificationRequest
 from ai_layer.observability.domain_events import append_event
 from ai_layer.tasks.views import _active_stage
+from ai_layer.verification.present import verification_status
 from ai_layer.verification.runner import persist_verification
 
 
@@ -63,7 +65,7 @@ def run_stage_verification(
             project=project,
             aggregate_type="task_stage",
             aggregate_id=str(stage.id),
-            payload={"command": list(request.command), "cwd": request.cwd},
+            payload={"command": redact_secret_argv(request.command), "cwd": request.cwd},
         )
         db.commit()
         if executor is None:
@@ -98,6 +100,8 @@ def run_stage_verification(
             "task_id": str(task.id),
             "assurance": result.assurance.value,
             "ok": result.passed,
+            "name": Path(result.command[0]).name if result.command else "verification",
+            "status": verification_status(exit_code=result.exit_code, timed_out=result.timed_out),
             "command": list(result.command),
             "cwd": result.cwd,
             "started_at": result.started_at.isoformat(),

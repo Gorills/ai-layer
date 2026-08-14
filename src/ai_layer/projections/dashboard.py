@@ -17,6 +17,7 @@ from ai_layer.observability.domain_events import read_structured_events
 from ai_layer.observability.events import aggregate_events, parse_ts
 from ai_layer.observability.snapshot import observability_snapshot
 from ai_layer.skills.native import native_catalog_files
+from ai_layer.verification.present import public_verification_row
 
 _NATIVE_CATALOG_COUNT_TTL_SECONDS = 30.0
 _NATIVE_CATALOG_COUNT_CACHE: dict[str, tuple[float, dict[str, int]]] = {}
@@ -279,19 +280,13 @@ def _durable_read_models(root: Path, task_state: dict, agents: list[dict]) -> di
                     .limit(50)
                 ).all()
                 verifications = [
-                    {
-                        "id": str(row.id),
-                        "task_id": str(row.task_id) if row.task_id else None,
-                        "stage_id": str(row.stage_id) if row.stage_id else None,
-                        "assurance": row.assurance,
-                        "command": list(row.command or []),
-                        "started_at": row.started_at.isoformat(),
-                        "completed_at": row.completed_at.isoformat(),
-                        "exit_code": row.exit_code,
-                        "timed_out": bool(row.timed_out),
-                        "output_summary": row.output_summary,
-                        "evidence_ref": row.evidence_ref,
-                    }
+                    public_verification_row(
+                        row,
+                        extra={
+                            "task_id": str(row.task_id) if row.task_id else None,
+                            "stage_id": str(row.stage_id) if row.stage_id else None,
+                        },
+                    )
                     for row in rows
                 ]
                 events = read_structured_events(db, project=project, limit=80)

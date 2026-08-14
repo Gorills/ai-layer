@@ -31,7 +31,7 @@
     "src/ai_layer/privacy/service.py": "f1b5e9d8aa0f9a97261aa4d33f3581a775b68b97a346674eff89e36dd399a94c",
     "src/ai_layer/tasks/constants.py": "e0f19c86e3983f183c970753b1a53d362276d25b14acfdb4f1209c98e063c345",
     "src/ai_layer/tasks/stage_validation.py": "437379659b1a8d147df3d581339b47bdc581ccbb1f2468b029dd37e1fbc151dc",
-    "src/ai_layer/tasks/transitions.py": "3d34249e0dc58415d55c22165ca293ba8df924b0599e2a84c8af5e0d9884f18b",
+    "src/ai_layer/tasks/transitions.py": "ea05e9e9a3ce15b6af5f0392e8a5339e62d219e787eca01d3839b6c8a1909963",
     "src/ai_layer/verification/runner.py": "4c2d58f21db2907bdbf210e3f4fc21101e7b28a6478e0d25b37bd5578a981bfe",
     "tests/test_development_governance.py": "5d43e007db90a7b5e251843f155137d7659bed81a26bd9b3b48e3e51f010da2c"
   },

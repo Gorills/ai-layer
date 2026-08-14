@@ -34,6 +34,13 @@ def _command_id(value: str | None) -> str:
     return rendered or uuid4().hex
 
 
+def _bound_result(project: Any, payload: dict) -> dict:
+    return {
+        **payload,
+        "project_root": str(Path(project.root_path).expanduser().resolve()),
+    }
+
+
 def begin(project_root: str | Path, *, idempotency_key: str | None = None, **kwargs: Any) -> dict:
     actor, correlation_id = _command_context()
     with session_scope() as db:
@@ -73,7 +80,9 @@ def begin(project_root: str | Path, *, idempotency_key: str | None = None, **kwa
                 model=run.model,
                 payload={"status": run.status},
             )
-            return {"work": work_to_dict(db, work), "root_run": run_to_dict(run)}
+            return _bound_result(
+                project, {"work": work_to_dict(db, work), "root_run": run_to_dict(run)}
+            )
 
         return execute_idempotent(
             db,
@@ -116,7 +125,7 @@ def checkpoint(
                 model=run.model if run else "",
                 payload={"status": work.status, "summary": work.result_summary},
             )
-            return {"work": work_to_dict(db, work)}
+            return _bound_result(project, {"work": work_to_dict(db, work)})
 
         return execute_idempotent(
             db,
@@ -192,7 +201,7 @@ def _finish(
                     model=run.model,
                     payload={"status": run.status},
                 )
-            return {"work": work_to_dict(db, work)}
+            return _bound_result(project, {"work": work_to_dict(db, work)})
 
         return execute_idempotent(
             db,

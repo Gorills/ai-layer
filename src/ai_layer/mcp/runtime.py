@@ -218,8 +218,17 @@ def _project(db, root: str):
 
 
 def _scoped(result: dict, root: str) -> dict:
+    requested = str(Path(root).expanduser().resolve())
     payload = dict(result)
-    payload["project_root"] = str(Path(root).expanduser().resolve())
+    if isinstance(payload.get("work"), dict):
+        existing = payload.get("project_root")
+        if existing not in (None, ""):
+            owned = str(Path(str(existing)).expanduser().resolve())
+            if owned != requested:
+                raise RuntimeError(
+                    "WORK_PROJECT_MISMATCH: replayed work belongs to a different project"
+                )
+    payload["project_root"] = requested
     task = payload.get("task")
     if isinstance(task, dict):
         task = dict(task)

@@ -348,3 +348,128 @@ def test_idempotent_command_retry_returns_original_result_without_second_mutatio
             )
     finally:
         db.close()
+
+
+def test_idempotent_command_same_key_does_not_replay_another_project(tmp_path: Path) -> None:
+    db, project_a, _ = _db_project(tmp_path)
+    actor = Actor("user:7", "user", frozenset({Capability.TASK_CREATE}), authenticated=True)
+    other_root = tmp_path / "other"
+    other_root.mkdir()
+    project_b = Project(
+        name="other",
+        root_path=str(other_root),
+        languages={},
+        dependencies={},
+        architecture_summary="",
+    )
+    db.add(project_b)
+    db.commit()
+    calls = {"count": 0}
+
+    def handler() -> dict:
+        calls["count"] += 1
+        return {"created": calls["count"]}
+
+    try:
+        first = execute_idempotent(
+            db,
+            command_id="shared-key",
+            command_name="work_begin",
+            request={"goal": "same"},
+            actor=actor,
+            correlation_id="corr-a",
+            project_id=project_a.id,
+            handler=handler,
+        )
+        db.commit()
+        second = execute_idempotent(
+            db,
+            command_id="shared-key",
+            command_name="work_begin",
+            request={"goal": "same"},
+            actor=actor,
+            correlation_id="corr-b",
+            project_id=project_b.id,
+            handler=handler,
+        )
+        db.commit()
+        assert first == {"created": 1}
+        assert second == {"created": 2}
+        assert calls["count"] == 2
+        assert db.scalar(select(func.count()).select_from(CommandReceipt)) == 2
+        other_a = execute_idempotent(
+            db,
+            command_id="alt-key",
+            command_name="work_begin",
+            request={"goal": "alpha"},
+            actor=actor,
+            correlation_id="corr-alt-a",
+            project_id=project_a.id,
+            handler=handler,
+        )
+        other_b = execute_idempotent(
+            db,
+            command_id="alt-key",
+            command_name="work_begin",
+            request={"goal": "beta"},
+            actor=actor,
+            correlation_id="corr-alt-b",
+            project_id=project_b.id,
+            handler=handler,
+        )
+        db.commit()
+        assert other_a == {"created": 3}
+        assert other_b == {"created": 4}
+        with pytest.raises(RuntimeError, match="IDEMPOTENCY_KEY_REUSED"):
+            execute_idempotent(
+                db,
+                command_id="shared-key",
+                command_name="work_begin",
+                request={"goal": "changed"},
+                actor=actor,
+                correlation_id="corr-reuse",
+                project_id=project_a.id,
+                handler=handler,
+            )
+    finally:
+        db.close()
+
+
+def test_idempotent_command_replays_pre_project_hash_receipts(tmp_path: Path) -> None:
+    from ai_layer.application.commands import _legacy_request_hash
+
+    db, project, _ = _db_project(tmp_path)
+    actor = Actor("user:7", "user", frozenset({Capability.TASK_CREATE}), authenticated=True)
+    request = {"goal": "legacy"}
+    db.add(
+        CommandReceipt(
+            project_id=project.id,
+            command_id="legacy-key",
+            command_name="work_begin",
+            request_hash=_legacy_request_hash("work_begin", request),
+            status="completed",
+            result={"work": {"id": "kept"}},
+        )
+    )
+    db.commit()
+    calls = {"count": 0}
+
+    def handler() -> dict:
+        calls["count"] += 1
+        return {"work": {"id": "new"}}
+
+    try:
+        replayed = execute_idempotent(
+            db,
+            command_id="legacy-key",
+            command_name="work_begin",
+            request=request,
+            actor=actor,
+            correlation_id="corr-legacy",
+            project_id=project.id,
+            handler=handler,
+        )
+        assert replayed == {"work": {"id": "kept"}}
+        assert calls["count"] == 0
+    finally:
+        db.close()

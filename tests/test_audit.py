@@ -1,10 +1,21 @@
 from pathlib import Path
 
 from ai_layer.audit.service import audit_path, check_latest_flow, mcp_audit, read_audit
+from ai_layer.core.config import get_settings
 from ai_layer.core.registry import register_project
 
 
-def test_mcp_audit_records_call_without_argument_values(tmp_path: Path):
+def _isolate_home(monkeypatch, tmp_path: Path) -> Path:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    get_settings.cache_clear()
+    return home
+
+
+def test_mcp_audit_records_call_without_argument_values(monkeypatch, tmp_path: Path):
+    _isolate_home(monkeypatch, tmp_path)
     project = tmp_path / "project"
     project.mkdir()
     register_project(project, "audit-test", project.name)
@@ -22,7 +33,8 @@ def test_mcp_audit_records_call_without_argument_values(tmp_path: Path):
     assert ".ai-layer/audit/mcp.jsonl" in audit_path(project).as_posix()
 
 
-def test_mcp_audit_records_error_type_and_reraises(tmp_path: Path):
+def test_mcp_audit_records_error_type_and_reraises(monkeypatch, tmp_path: Path):
+    _isolate_home(monkeypatch, tmp_path)
     project = tmp_path / "project"
     project.mkdir()
     register_project(project, "audit-error", project.name)
@@ -38,7 +50,8 @@ def test_mcp_audit_records_error_type_and_reraises(tmp_path: Path):
     assert "sensitive details" not in raw
 
 
-def test_audit_check_requires_completion_save(tmp_path: Path):
+def test_audit_check_requires_completion_save(monkeypatch, tmp_path: Path):
+    _isolate_home(monkeypatch, tmp_path)
     project = tmp_path / "project"
     project.mkdir()
     register_project(project, "audit-test", project.name)
@@ -57,7 +70,10 @@ def test_audit_check_requires_completion_save(tmp_path: Path):
     assert passed["tools"] == ["project_status", "knowledge_search", "session_save"]
 
 
-def test_audit_check_marks_legacy_memory_context_start_as_compatibility_only(tmp_path: Path):
+def test_audit_check_marks_legacy_memory_context_start_as_compatibility_only(
+    monkeypatch, tmp_path: Path
+):
+    _isolate_home(monkeypatch, tmp_path)
     project = tmp_path / "legacy-flow"
     project.mkdir()
     register_project(project, "audit-legacy", project.name)
@@ -82,7 +98,8 @@ def test_audit_check_marks_legacy_memory_context_start_as_compatibility_only(tmp
     ]
 
 
-def test_audit_check_detects_duplicate_memory_context_in_same_flow(tmp_path: Path):
+def test_audit_check_detects_duplicate_memory_context_in_same_flow(monkeypatch, tmp_path: Path):
+    _isolate_home(monkeypatch, tmp_path)
     project = tmp_path / "project"
     project.mkdir()
     register_project(project, "audit-test", project.name)
@@ -111,11 +128,12 @@ def test_audit_check_detects_duplicate_memory_context_in_same_flow(tmp_path: Pat
     ]
 
 
-def test_audit_event_identifies_server_version_and_pid(tmp_path: Path):
+def test_audit_event_identifies_server_version_and_pid(monkeypatch, tmp_path: Path):
     import os
 
     from ai_layer import __version__
 
+    _isolate_home(monkeypatch, tmp_path)
     register_project(tmp_path, "audit-version", tmp_path.name)
     with mcp_audit(tmp_path, "memory_context", arg_keys=["task"]):
         pass
@@ -124,7 +142,10 @@ def test_audit_event_identifies_server_version_and_pid(tmp_path: Path):
     assert event["pid"] == os.getpid()
 
 
-def test_audit_check_fails_when_tool_error_occurs_inside_completed_flow(tmp_path: Path):
+def test_audit_check_fails_when_tool_error_occurs_inside_completed_flow(
+    monkeypatch, tmp_path: Path
+):
+    _isolate_home(monkeypatch, tmp_path)
     project = tmp_path / "project-error"
     project.mkdir()
     register_project(project, "audit-test", project.name)
@@ -159,7 +180,10 @@ def test_unregistered_global_bootstrap_attempt_does_not_create_state_or_swallow_
     assert not audit_path(project).exists()
 
 
-def test_audit_check_accepts_completed_managed_task_with_automatic_handoff(tmp_path: Path):
+def test_audit_check_accepts_completed_managed_task_with_automatic_handoff(
+    monkeypatch, tmp_path: Path
+):
+    _isolate_home(monkeypatch, tmp_path)
     project = tmp_path / "managed-task"
     project.mkdir()
     register_project(project, "audit-managed", project.name)
@@ -195,6 +219,7 @@ def test_audit_check_accepts_completed_managed_task_with_automatic_handoff(tmp_p
 def test_audit_log_rotates_and_reads_bounded_recent_history(monkeypatch, tmp_path: Path):
     import ai_layer.audit.service as audit
 
+    _isolate_home(monkeypatch, tmp_path)
     project = tmp_path / "rotate"
     project.mkdir()
     register_project(project, "audit-rotate", project.name)
@@ -215,7 +240,8 @@ def test_audit_log_rotates_and_reads_bounded_recent_history(monkeypatch, tmp_pat
     assert recent[-1]["tool"] == "tool_11"
 
 
-def test_audit_check_accepts_stage_specific_terminal_completion(tmp_path: Path):
+def test_audit_check_accepts_stage_specific_terminal_completion(monkeypatch, tmp_path: Path):
+    _isolate_home(monkeypatch, tmp_path)
     project = tmp_path / "managed-task-specific"
     project.mkdir()
     register_project(project, "audit-managed-specific", project.name)

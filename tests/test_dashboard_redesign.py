@@ -296,6 +296,7 @@ def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
     assert "неограниченная история" not in epic_js
     assert "IDE-интеграции" in operations_js
     for label in (
+        "Работа",
         "Задачи",
         "Эпики",
         "Скиллы",

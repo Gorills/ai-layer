@@ -173,6 +173,7 @@
 .dashboard-main, .dashboard-side { display: grid; min-width: 0; gap: 18px; }
 .grid-2 { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .8fr); gap: 18px; }
 .overview-layout { margin-top: 18px; }
+.portfolio-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-bottom: 18px; }
 
 .page-toolbar {
   display: flex;
@@ -205,7 +206,7 @@
 
 @media (max-width: 1180px) {
   :root { --sidebar-width: 214px; }
-  .dashboard-grid, .grid-2 { grid-template-columns: 1fr; }
+  .dashboard-grid, .grid-2, .portfolio-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 820px) {

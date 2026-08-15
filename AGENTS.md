@@ -41,12 +41,12 @@ If ambient AI Layer output conflicts with this checkout, ignore the ambient outp
 
 ## Mandatory completion handoff
 
-Every final response after completed repository work must include both of these user-visible sections:
+Every final response after completed repository work must help the human continue without reconstructing context.
 
-1. **What next** — name the next concrete recommended repository action, or state explicitly that no required work remains. Do not imply that commit, push, publication, deployment or external review happened unless it actually did.
-2. **Prompt for the next chat** — provide a ready-to-copy, self-contained prompt that tells a fresh agent what outcome to pursue next, where to recover current source/worktree context, which constraints matter and which verification evidence already exists. The prompt must tell the next agent to inspect current source and Git state rather than trust the handoff as code truth.
+1. **What next** — always present. Name the next concrete recommended repository action, or state explicitly that no required work remains. Do not imply that commit, push, publication, deployment or external review happened unless it actually did.
+2. **Prompt for the next chat** — required whenever substantive work leaves real next steps, continuation is expected, or a fresh chat is the natural way to proceed (the usual case for non-trivial repository work). Provide a ready-to-copy, self-contained prompt that tells a fresh agent what outcome to pursue, where to recover current source/worktree context, which constraints matter and which verification evidence already exists. The prompt must tell the next agent to inspect current source and Git state rather than trust the handoff as code truth.
 
-Do not omit this handoff because the implementation is complete, the next action is optional or the current context feels sufficient. If no follow-up is required, provide a prompt for an optional final audit, publication step or the user's next chosen objective without inventing unfinished work.
+Do not skip the next-chat prompt because the current slice feels complete, the next action is optional, or the handoff would make the response longer. When no follow-up or continuation is appropriate, say so in **What next**; offering an optional audit, publication or next-objective prompt is allowed but not required. Never invent unfinished work to justify a prompt.
 
 ## Governance-sensitive changes
 

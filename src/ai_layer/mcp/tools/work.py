@@ -3,19 +3,36 @@ from __future__ import annotations
 from ai_layer.application import work as work_uc
 from ai_layer.audit.service import mcp_audit
 from ai_layer.mcp.runtime import _scoped, _text, core_tool, project_root_for_tool
+from ai_layer.mcp.tool_schema import (
+    IdempotencyKey,
+    ProjectPathList,
+    WorkCheckList,
+    WorkClientText,
+    WorkGoalText,
+    WorkHostText,
+    WorkKeyText,
+    WorkKind,
+    WorkLinkKey,
+    WorkMapDispositionInput,
+    WorkRepositoryDeltaInput,
+    WorkSessionText,
+    WorkSummaryOptional,
+    WorkSummaryText,
+    wire_value,
+)
 
 
 def work_begin(
-    goal: str,
-    kind: str = "change",
-    host: str = "unknown",
-    client: str = "unknown",
-    session_id: str = "",
-    turn_id: str = "",
-    model: str = "",
-    linked_task_key: str | None = None,
-    linked_epic_key: str | None = None,
-    idempotency_key: str | None = None,
+    goal: WorkGoalText,
+    kind: WorkKind = "change",
+    host: WorkHostText = "unknown",
+    client: WorkClientText = "unknown",
+    session_id: WorkSessionText = "",
+    turn_id: WorkSessionText = "",
+    model: WorkSessionText = "",
+    linked_task_key: WorkLinkKey | None = None,
+    linked_epic_key: WorkLinkKey | None = None,
+    idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
     """WHEN: begin one substantive user request performed through normal host-native execution. One WorkItem records what happened; a managed Task remains optional assurance. For short work pair this with work_complete and skip checkpoints. Reuse idempotency_key when retrying the same host event."""
@@ -56,19 +73,23 @@ def work_begin(
 
 
 def work_checkpoint(
-    work_key: str,
-    summary: str = "",
-    reviewed_paths: list[str] | None = None,
-    changed_paths: list[str] | None = None,
-    checks: list[dict] | None = None,
-    repository_delta: dict | None = None,
+    work_key: WorkKeyText,
+    summary: WorkSummaryOptional = "",
+    reviewed_paths: ProjectPathList | None = None,
+    changed_paths: ProjectPathList | None = None,
+    checks: WorkCheckList | None = None,
+    repository_delta: WorkRepositoryDeltaInput | None = None,
     blocked: bool | None = None,
-    idempotency_key: str | None = None,
+    linked_task_key: WorkLinkKey | None = None,
+    linked_epic_key: WorkLinkKey | None = None,
+    idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: a long work phase reaches a meaningful milestone or blocker. Do not checkpoint every file/tool action. checks use bounded name/status/summary metadata, never raw output. repository_delta accepts only revision IDs, changed_files/insertions/deletions counts, dirty, and assurance. Reuse idempotency_key for delivery retries."""
+    """WHEN: a long work phase reaches a meaningful milestone or blocker. Do not checkpoint every file/tool action. checks use bounded name/status/summary metadata, never raw output. repository_delta accepts only revision IDs, changed_files/insertions/deletions counts, dirty, and assurance. Optional linked_task_key / linked_epic_key may attach a project-scoped Task or Epic after begin. Reuse idempotency_key for delivery retries."""
     root = project_root_for_tool(project_root, tool="work_checkpoint")
     work_key = _text(work_key, tool="work_checkpoint", field="work_key")
+    task_key = (linked_task_key or "").strip() or None
+    epic_key = (linked_epic_key or "").strip() or None
     with mcp_audit(
         root,
         "work_checkpoint",
@@ -80,6 +101,8 @@ def work_checkpoint(
             "checks",
             "repository_delta",
             "blocked",
+            "linked_task_key",
+            "linked_epic_key",
             "idempotency_key",
             "project_root",
         ],
@@ -90,9 +113,11 @@ def work_checkpoint(
             summary=summary,
             reviewed_paths=reviewed_paths,
             changed_paths=changed_paths,
-            checks=checks,
-            repository_delta=repository_delta,
+            checks=wire_value(checks),
+            repository_delta=wire_value(repository_delta),
             blocked=blocked,
+            linked_task_key=task_key,
+            linked_epic_key=epic_key,
             idempotency_key=(idempotency_key or "").strip() or None,
         )
         audit["metrics"] = {"work_key": work_key, "blocked": blocked}
@@ -136,9 +161,9 @@ def _terminal(
             summary=summary,
             reviewed_paths=reviewed_paths,
             changed_paths=changed_paths,
-            checks=checks,
-            repository_delta=repository_delta,
-            map_disposition=map_disposition,
+            checks=wire_value(checks),
+            repository_delta=wire_value(repository_delta),
+            map_disposition=wire_value(map_disposition),
             idempotency_key=(idempotency_key or "").strip() or None,
         )
         work = result.get("work") or {}
@@ -151,14 +176,14 @@ def _terminal(
 
 
 def work_complete(
-    work_key: str,
-    summary: str,
-    reviewed_paths: list[str] | None = None,
-    changed_paths: list[str] | None = None,
-    checks: list[dict] | None = None,
-    repository_delta: dict | None = None,
-    map_disposition: dict | None = None,
-    idempotency_key: str | None = None,
+    work_key: WorkKeyText,
+    summary: WorkSummaryText,
+    reviewed_paths: ProjectPathList | None = None,
+    changed_paths: ProjectPathList | None = None,
+    checks: WorkCheckList | None = None,
+    repository_delta: WorkRepositoryDeltaInput | None = None,
+    map_disposition: WorkMapDispositionInput | None = None,
+    idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
     """WHEN: substantive work reached a terminal successful result. Report only observed paths and bounded check/delta metadata; never raw commands, output, or source. A reconciled Map disposition must include the checked scope and event_id returned by project_map_reconcile; otherwise use checked_no_change, not_applicable, deferred, or pending."""
@@ -177,14 +202,14 @@ def work_complete(
 
 
 def work_fail(
-    work_key: str,
-    summary: str,
-    reviewed_paths: list[str] | None = None,
-    changed_paths: list[str] | None = None,
-    checks: list[dict] | None = None,
-    repository_delta: dict | None = None,
-    map_disposition: dict | None = None,
-    idempotency_key: str | None = None,
+    work_key: WorkKeyText,
+    summary: WorkSummaryText,
+    reviewed_paths: ProjectPathList | None = None,
+    changed_paths: ProjectPathList | None = None,
+    checks: WorkCheckList | None = None,
+    repository_delta: WorkRepositoryDeltaInput | None = None,
+    map_disposition: WorkMapDispositionInput | None = None,
+    idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
     """WHEN: work terminated unsuccessfully rather than merely hitting a temporary blocker."""
@@ -203,14 +228,14 @@ def work_fail(
 
 
 def work_interrupt(
-    work_key: str,
-    summary: str,
-    reviewed_paths: list[str] | None = None,
-    changed_paths: list[str] | None = None,
-    checks: list[dict] | None = None,
-    repository_delta: dict | None = None,
-    map_disposition: dict | None = None,
-    idempotency_key: str | None = None,
+    work_key: WorkKeyText,
+    summary: WorkSummaryText,
+    reviewed_paths: ProjectPathList | None = None,
+    changed_paths: ProjectPathList | None = None,
+    checks: WorkCheckList | None = None,
+    repository_delta: WorkRepositoryDeltaInput | None = None,
+    map_disposition: WorkMapDispositionInput | None = None,
+    idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
     """WHEN: work stops with useful continuation state and may be resumed by a later WorkItem or host session."""
@@ -229,14 +254,14 @@ def work_interrupt(
 
 
 def work_abandon(
-    work_key: str,
-    summary: str,
-    reviewed_paths: list[str] | None = None,
-    changed_paths: list[str] | None = None,
-    checks: list[dict] | None = None,
-    repository_delta: dict | None = None,
-    map_disposition: dict | None = None,
-    idempotency_key: str | None = None,
+    work_key: WorkKeyText,
+    summary: WorkSummaryText,
+    reviewed_paths: ProjectPathList | None = None,
+    changed_paths: ProjectPathList | None = None,
+    checks: WorkCheckList | None = None,
+    repository_delta: WorkRepositoryDeltaInput | None = None,
+    map_disposition: WorkMapDispositionInput | None = None,
+    idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
     """WHEN: user/host intentionally abandons the WorkItem and it must no longer appear active."""

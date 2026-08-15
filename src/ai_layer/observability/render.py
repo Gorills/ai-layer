@@ -87,7 +87,7 @@ def render_monitor(snapshot: dict, *, recent_limit: int = 12) -> str:
     ]
 
     if processes:
-        lines.append("AGENTS / MCP")
+        lines.append("MCP bridges")
         for proc in processes:
             client = str(proc.get("client") or "unknown")
             state = str(proc.get("activity_state") or "IDLE")
@@ -102,7 +102,7 @@ def render_monitor(snapshot: dict, *, recent_limit: int = 12) -> str:
                 f" · {root_label}{detail}{idle_text}"
             )
     else:
-        lines.extend(["AGENTS / MCP", "  No running AI Layer MCP processes detected."])
+        lines.extend(["MCP bridges", "  No running MCP bridges detected."])
 
     for project in projects:
         lines.extend(

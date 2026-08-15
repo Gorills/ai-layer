@@ -1,6 +1,10 @@
 # Epics v1 — supported-host acceptance
 
-This checklist is the promotion/field-validation contract for `0.12.1`. It does not replace canonical CI and must be executed on a supported Linux x86_64 / CPython 3.12 host against the installed release.
+> **Superseded.** Historical `0.12.1` field checklist; not current operator or agent procedure.
+> It still describes `memory_context`-first startup, which runtime contract v2 replaced.
+> Current promotion/field validation is `release/release-manifest.json` `validation` plus `CURRENT_STATE.md`.
+
+This checklist is the historical promotion/field-validation contract for `0.12.1`. It does not replace canonical CI and must not be followed as current procedure.
 
 ## Install and runtime
 

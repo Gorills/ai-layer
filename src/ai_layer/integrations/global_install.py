@@ -9,6 +9,7 @@ from pathlib import Path
 from ai_layer import __version__
 from ai_layer.agents.policy import install_cursor_profiles, remove_cursor_profiles
 from ai_layer.core.config import get_settings
+from ai_layer.core.paths import project_local_path
 from ai_layer.integrations.config_files import (
     MCP_OWNER_KEY,
     MCP_OWNER_VALUE,
@@ -27,18 +28,50 @@ from ai_layer.integrations.config_files import (
 from ai_layer.integrations.config_files import (
     _merge_codex_config as _merge_codex_config_file,
 )
+from ai_layer.integrations.install_journal import (
+    INSTALL_OPERATION,
+    INSTALL_PHASES,
+    REMOVE_OPERATION,
+    REMOVE_PHASES,
+    begin_journal,
+    complete_journal,
+    fail_journal,
+    journal_is_complete,
+    record_phase,
+)
 from ai_layer.integrations.runtime_config import _global_bootstrap_workflow, _mcp_command, _server
 from ai_layer.integrations.status import _json_ai_layer_server
 from ai_layer.integrations.versioning import (
     GLOBAL_BOOTSTRAP_MARKER,
     GLOBAL_BOOTSTRAP_VERSION,
 )
-from ai_layer.skills.native import remove_global_native_skills, sync_global_native_skills
+from ai_layer.skills.native import (
+    assert_native_targets_available,
+    remove_global_native_skills,
+    sync_global_native_skills,
+)
+from ai_layer.skills.native_files import GLOBAL_NATIVE_ROOT_PARTS
+from ai_layer.skills.service import list_skills
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
+def _home_path(home: Path, *parts: str) -> Path:
+    return project_local_path(home, *parts)
+
+
+def _skip_symlink_home_path(home: Path, *parts: str) -> Path | None:
+    try:
+        return project_local_path(home, *parts)
+    except RuntimeError as exc:
+        if "symlink" not in str(exc).casefold():
+            raise
+        return None
+
+
 def _cursor_plugin_owned(root: Path) -> bool:
+    if root.is_symlink():
+        return False
     manifest_path = root / ".cursor-plugin" / "plugin.json"
     if not root.exists():
         return True
@@ -54,17 +87,63 @@ def _cursor_plugin_owned(root: Path) -> bool:
     )
 
 
+def _is_install_temp(path: Path) -> bool:
+    return (
+        path.is_file()
+        and not path.is_symlink()
+        and (path.name.startswith(".plugin.json.") or path.name.startswith(".ai-layer.mdc."))
+    )
+
+
+def _plugin_tree_reclaimable(root: Path) -> bool:
+    if not root.exists():
+        return True
+    if root.is_symlink() or not root.is_dir():
+        return False
+    try:
+        children = list(root.iterdir())
+    except OSError:
+        return False
+    allowed = {".cursor-plugin", "rules"}
+    for child in children:
+        if _is_install_temp(child):
+            continue
+        if child.name not in allowed or child.is_symlink() or not child.is_dir():
+            return False
+        try:
+            nested = list(child.iterdir())
+        except OSError:
+            return False
+        for item in nested:
+            if _is_install_temp(item):
+                continue
+            if item.is_symlink() or not item.is_file() or item.stat().st_size > 0:
+                return False
+    return True
+
+
+def _cleanup_plugin_install_temps(root: Path) -> None:
+    if not root.is_dir() or root.is_symlink():
+        return
+    for path in (root, *root.rglob("*")):
+        if _is_install_temp(path):
+            path.unlink(missing_ok=True)
+
+
 def _assert_cursor_plugin_safe(root: Path) -> None:
-    if root.exists() and not _cursor_plugin_owned(root):
+    if root.is_symlink():
+        raise RuntimeError(f"Refusing AI Layer path redirected by symlink: {root}")
+    if root.exists() and not _cursor_plugin_owned(root) and not _plugin_tree_reclaimable(root):
         raise RuntimeError(
             f"Integration ownership conflict: Cursor plugin directory {root} already exists and "
             "is not recognizably AI Layer-owned. It was left untouched."
         )
 
 
-def _write_cursor_global_plugin(workflow: str) -> Path:
-    root = Path.home() / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
+def _write_cursor_global_plugin(workflow: str, home: Path) -> Path:
+    root = _home_path(home, ".cursor", "plugins", "local", "ai-layer-bootstrap")
     _assert_cursor_plugin_safe(root)
+    _cleanup_plugin_install_temps(root)
     manifest = {
         "name": "ai-layer-bootstrap",
         "displayName": "AI Layer Bootstrap",
@@ -76,25 +155,38 @@ def _write_cursor_global_plugin(workflow: str) -> Path:
         "rules": "./rules/",
     }
     _atomic_write_text(
-        root / ".cursor-plugin" / "plugin.json", json.dumps(manifest, indent=2) + "\n"
+        _home_path(
+            home,
+            ".cursor",
+            "plugins",
+            "local",
+            "ai-layer-bootstrap",
+            ".cursor-plugin",
+            "plugin.json",
+        ),
+        json.dumps(manifest, indent=2) + "\n",
     )
     # No description: Cursor versions before 3.6 had a bug where a described alwaysApply plugin
     # rule could be downgraded to requestable. Keep this intentionally minimal.
     rule = "---\nalwaysApply: true\n---\n\n" + workflow
-    _atomic_write_text(root / "rules" / "ai-layer.mdc", rule)
+    _atomic_write_text(
+        _home_path(
+            home, ".cursor", "plugins", "local", "ai-layer-bootstrap", "rules", "ai-layer.mdc"
+        ),
+        rule,
+    )
     return root
 
 
-def _install_global_bootstrap_files() -> dict:
+def _install_global_bootstrap_files(home: Path) -> dict:
     workflow = GLOBAL_BOOTSTRAP_MARKER + "\n" + _global_bootstrap_workflow()
-    home = Path.home()
-    codex = home / ".codex" / "AGENTS.md"
-    claude = home / ".claude" / "CLAUDE.md"
-    gemini = home / ".gemini" / "GEMINI.md"
+    codex = _home_path(home, ".codex", "AGENTS.md")
+    claude = _home_path(home, ".claude", "CLAUDE.md")
+    gemini = _home_path(home, ".gemini", "GEMINI.md")
     _upsert_managed_markdown(codex, workflow)
     _upsert_managed_markdown(claude, workflow)
     _upsert_managed_markdown(gemini, workflow)
-    cursor_plugin = _write_cursor_global_plugin(workflow)
+    cursor_plugin = _write_cursor_global_plugin(workflow, home)
     return {
         "version": GLOBAL_BOOTSTRAP_VERSION,
         "codex": str(codex),
@@ -280,37 +372,55 @@ def claude_user_mcp_status() -> dict:
     }
 
 
-def install_global_integrations() -> dict:
-    """Install user-level MCP registrations that do not need per-project paths.
-
-    These configs use the stable absolute launcher path so GUI applications do not depend on
-    the shell PATH inherited by the desktop process.
-    """
-    home = Path.home()
-    cursor_server = _server(client="cursor")
-    antigravity_server = _server(client="antigravity")
-    codex_server = _server(client="codex")
-    claude_server = _server(client="claude-code")
-    cursor = home / ".cursor" / "mcp.json"
-    antigravity = home / ".gemini" / "config" / "mcp_config.json"
-    codex = home / ".codex" / "config.toml"
-    _assert_json_mcp_merge_safe(cursor, cursor_server)
-    _assert_json_mcp_merge_safe(antigravity, antigravity_server)
-    _assert_codex_merge_safe(codex)
-    _assert_claude_user_mcp_safe()
-    _assert_cursor_plugin_safe(home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap")
-    _merge_mcp_json(cursor, cursor_server, backup=True)
-    _merge_mcp_json(antigravity, antigravity_server, backup=True)
-    _merge_codex_config(codex, command=codex_server["command"], client="codex", backup=True)
-    claude_user_mcp = _install_claude_user_mcp(claude_server)
-    bootstrap = _install_global_bootstrap_files()
-    cursor_agents = install_cursor_profiles(home)
-    native_skills = sync_global_native_skills(home=home)
+def _install_targets(home: Path) -> dict[str, Path]:
     return {
-        "cursor": str(cursor),
-        "antigravity": str(antigravity),
-        "codex": str(codex),
-        "mcp_command": cursor_server["command"],
+        "cursor": _home_path(home, ".cursor", "mcp.json"),
+        "antigravity": _home_path(home, ".gemini", "config", "mcp_config.json"),
+        "codex": _home_path(home, ".codex", "config.toml"),
+        "cursor_plugin": _home_path(home, ".cursor", "plugins", "local", "ai-layer-bootstrap"),
+        "cursor_agents": _home_path(home, ".cursor", "agents"),
+    }
+
+
+def _preflight_global_install(home: Path, targets: dict[str, Path], servers: dict) -> None:
+    _assert_json_mcp_merge_safe(targets["cursor"], servers["cursor"])
+    _assert_json_mcp_merge_safe(targets["antigravity"], servers["antigravity"])
+    _assert_codex_merge_safe(targets["codex"])
+    _assert_claude_user_mcp_safe()
+    _assert_cursor_plugin_safe(targets["cursor_plugin"])
+    _home_path(home, ".codex", "AGENTS.md")
+    _home_path(home, ".claude", "CLAUDE.md")
+    _home_path(home, ".gemini", "GEMINI.md")
+    _home_path(home, ".cursor", "agents")
+    for parts in GLOBAL_NATIVE_ROOT_PARTS.values():
+        _home_path(home, *parts)
+    for skill in list_skills():
+        slug = str(skill.get("slug") or "")
+        if skill.get("scope") == "global" and slug:
+            assert_native_targets_available(slug, scope="global", home=home)
+
+
+def _apply_install_phases(home: Path, targets: dict[str, Path], servers: dict) -> dict:
+    _merge_mcp_json(targets["cursor"], servers["cursor"], backup=True)
+    record_phase("mcp_cursor")
+    _merge_mcp_json(targets["antigravity"], servers["antigravity"], backup=True)
+    record_phase("mcp_antigravity")
+    _merge_codex_config(
+        targets["codex"], command=servers["codex"]["command"], client="codex", backup=True
+    )
+    record_phase("mcp_codex")
+    claude_user_mcp = _install_claude_user_mcp(servers["claude"])
+    degraded = None
+    if not claude_user_mcp.get("installed"):
+        degraded = str(claude_user_mcp.get("reason") or claude_user_mcp.get("error") or "degraded")
+    record_phase("mcp_claude", degraded=degraded)
+    bootstrap = _install_global_bootstrap_files(home)
+    record_phase("bootstrap")
+    cursor_agents = install_cursor_profiles(home)
+    record_phase("cursor_profiles")
+    native_skills = sync_global_native_skills(home=home)
+    record_phase("native_skills")
+    return {
         "claude_code": claude_user_mcp,
         "bootstrap": bootstrap,
         "cursor_agent_profiles": cursor_agents,
@@ -318,14 +428,55 @@ def install_global_integrations() -> dict:
     }
 
 
-def _remove_cursor_global_plugin() -> dict:
-    root = Path.home() / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
-    if not root.exists():
+def install_global_integrations() -> dict:
+    """Install user-level MCP registrations that do not need per-project paths.
+
+    These configs use the stable absolute launcher path so GUI applications do not depend on
+    the shell PATH inherited by the desktop process.
+    """
+    home = Path.home().expanduser().resolve()
+    servers = {
+        "cursor": _server(client="cursor"),
+        "antigravity": _server(client="antigravity"),
+        "codex": _server(client="codex"),
+        "claude": _server(client="claude-code"),
+    }
+    targets = _install_targets(home)
+    _preflight_global_install(home, targets, servers)
+    begin_journal(INSTALL_OPERATION, phases=INSTALL_PHASES)
+    try:
+        record_phase("preflight")
+        applied = _apply_install_phases(home, targets, servers)
+        journal = complete_journal()
+    except Exception as exc:
+        try:
+            fail_journal(str(exc))
+        except Exception:
+            pass
+        raise
+    return {
+        "ok": journal_is_complete(journal, operation=INSTALL_OPERATION),
+        "cursor": str(targets["cursor"]),
+        "antigravity": str(targets["antigravity"]),
+        "codex": str(targets["codex"]),
+        "mcp_command": servers["cursor"]["command"],
+        "journal": journal,
+        **applied,
+    }
+
+
+def _remove_cursor_global_plugin(home: Path) -> dict:
+    path = str(home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap")
+    safe = _skip_symlink_home_path(home, ".cursor", "plugins", "local", "ai-layer-bootstrap")
+    if safe is None:
+        return {"removed": False, "reason": "symlink", "path": path}
+    if not safe.exists():
         return {"removed": False, "reason": "missing"}
-    if not _cursor_plugin_owned(root):
-        return {"removed": False, "reason": "ownership-conflict", "path": str(root)}
-    shutil.rmtree(root)
-    return {"removed": True, "path": str(root)}
+    if safe.is_symlink() or not _cursor_plugin_owned(safe):
+        reason = "symlink" if safe.is_symlink() else "ownership-conflict"
+        return {"removed": False, "reason": reason, "path": str(safe)}
+    shutil.rmtree(safe)
+    return {"removed": True, "path": str(safe)}
 
 
 def _remove_claude_user_mcp() -> dict:
@@ -367,30 +518,62 @@ def _remove_claude_user_mcp() -> dict:
     }
 
 
+def _owned_json_server(path: Path | None) -> bool:
+    if path is None:
+        return False
+    return _server_is_owned(_json_ai_layer_server(path))
+
+
+def _remove_managed_path(path: Path | None, remover) -> None:
+    if path is not None:
+        remover(path)
+
+
 def remove_global_integrations() -> dict:
     """Remove only globally installed material that carries AI Layer ownership evidence."""
-    home = Path.home()
-    cursor = home / ".cursor" / "mcp.json"
-    antigravity = home / ".gemini" / "config" / "mcp_config.json"
-    codex = home / ".codex" / "config.toml"
+    home = Path.home().expanduser().resolve()
+    cursor = _skip_symlink_home_path(home, ".cursor", "mcp.json")
+    antigravity = _skip_symlink_home_path(home, ".gemini", "config", "mcp_config.json")
+    codex = _skip_symlink_home_path(home, ".codex", "config.toml")
     before = {
-        "cursor_owned": _server_is_owned(_json_ai_layer_server(cursor)),
-        "antigravity_owned": _server_is_owned(_json_ai_layer_server(antigravity)),
-        "codex_owned": codex.exists() and TOML_START in codex.read_text(encoding="utf-8"),
+        "cursor_owned": _owned_json_server(cursor),
+        "antigravity_owned": _owned_json_server(antigravity),
+        "codex_owned": bool(
+            codex is not None and codex.exists() and TOML_START in codex.read_text(encoding="utf-8")
+        ),
     }
-    _remove_json_mcp(cursor)
-    _remove_json_mcp(antigravity)
-    _remove_codex_mcp(codex)
-    for path in [
-        home / ".codex" / "AGENTS.md",
-        home / ".claude" / "CLAUDE.md",
-        home / ".gemini" / "GEMINI.md",
-    ]:
-        _remove_managed_markdown(path)
+    begin_journal(REMOVE_OPERATION, phases=REMOVE_PHASES)
+    try:
+        _remove_managed_path(cursor, _remove_json_mcp)
+        record_phase("mcp_cursor")
+        _remove_managed_path(antigravity, _remove_json_mcp)
+        record_phase("mcp_antigravity")
+        _remove_managed_path(codex, _remove_codex_mcp)
+        record_phase("mcp_codex")
+        for parts in ((".codex", "AGENTS.md"), (".claude", "CLAUDE.md"), (".gemini", "GEMINI.md")):
+            _remove_managed_path(_skip_symlink_home_path(home, *parts), _remove_managed_markdown)
+        record_phase("bootstrap")
+        plugin = _remove_cursor_global_plugin(home)
+        record_phase("cursor_plugin")
+        profiles = remove_cursor_profiles(home)
+        record_phase("cursor_profiles")
+        native_skills = remove_global_native_skills(home=home)
+        record_phase("native_skills")
+        claude_code = _remove_claude_user_mcp()
+        record_phase("mcp_claude")
+        journal = complete_journal()
+    except Exception as exc:
+        try:
+            fail_journal(str(exc))
+        except Exception:
+            pass
+        raise
     return {
+        "ok": journal_is_complete(journal, operation=REMOVE_OPERATION),
         "removed": before,
-        "cursor_plugin": _remove_cursor_global_plugin(),
-        "cursor_agent_profiles": remove_cursor_profiles(home),
-        "native_skills": remove_global_native_skills(home=home),
-        "claude_code": _remove_claude_user_mcp(),
+        "cursor_plugin": plugin,
+        "cursor_agent_profiles": profiles,
+        "native_skills": native_skills,
+        "claude_code": claude_code,
+        "journal": journal,
     }

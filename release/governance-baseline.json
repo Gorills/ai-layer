@@ -5,9 +5,9 @@
     ".githooks/pre-commit": "b7148819202f5e6cc854e173654471b2e36ad584a209d2ba9bddcbffcfba024a",
     ".githooks/pre-push": "d752fee76207d1dcb426ad61323b1c74825699e29884b376d7979fbc905f80ba",
     ".github/workflows/quality.yml": "3d772e62e476a14525b78adae48874a132025c708bb2b426bd40ce88634f62d9",
-    "AGENTS.md": "ce9a0e603a020b00405ad19d24d680f5b72958a955d19f413359af1540c9594e",
+    "AGENTS.md": "69a6ee759cccc684dbaf9381d9543f81832ec9e51fbd516bf4360fa1a6eac49c",
     "GEMINI.md": "fa730a757108e56790a9d6528837e6facd2a48e4c11923a5a8e9cc66ffb35a11",
-    "MAINTAINER_INSTRUCTIONS.md": "2d0abbd78179462b2d6c2183d1086d4cb99cf486bb7f0487ff39f37455fe9c8c",
+    "MAINTAINER_INSTRUCTIONS.md": "8fe4e5ae2fe9b43d5b74e041bc9bfec003fde54c975d484368b089d9890c0516",
     "Makefile": "88d57bfe28ecc1a4e1b4b81769f33a65eff3ad14779e5db3af415eaa191bf099",
     "QUALITY_GATES.md": "b0965fcb81c39971c2cf94e311c93f9c7b74e4dcb1748abebaad138d2a02b4b5",
     "docker-compose.yml": "c831c9d0921447c5658dea291dfc6a2c85d5e9b7619ba61b8d6798c702996512",
@@ -33,7 +33,7 @@
     "src/ai_layer/tasks/stage_validation.py": "437379659b1a8d147df3d581339b47bdc581ccbb1f2468b029dd37e1fbc151dc",
     "src/ai_layer/tasks/transitions.py": "ea05e9e9a3ce15b6af5f0392e8a5339e62d219e787eca01d3839b6c8a1909963",
     "src/ai_layer/verification/runner.py": "4c2d58f21db2907bdbf210e3f4fc21101e7b28a6478e0d25b37bd5578a981bfe",
-    "tests/test_development_governance.py": "5d43e007db90a7b5e251843f155137d7659bed81a26bd9b3b48e3e51f010da2c"
+    "tests/test_development_governance.py": "ba69923829a3940c7ef671cb06af8718b3196f1b84e7314dd4fef552e6c4f4fb"
   },
   "schema": 1
 }

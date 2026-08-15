@@ -14,6 +14,10 @@ const STATE_LABELS = {
   pending: "В ОЧЕРЕДИ",
   completed: "ГОТОВО",
   cancelled: "ОТМЕНЕНО",
+  failed: "ОШИБКА",
+  stale: "УСТАРЕЛО",
+  interrupted: "ПРЕРВАНО",
+  abandoned: "БРОШЕНО",
   draft: "ЧЕРНОВИК",
   approved: "СОГЛАСОВАНО",
   phase0: "PHASE 0",
@@ -60,7 +64,7 @@ export function timeline(items, showProject = false) {
 }
 
 export function agentsList(agents) {
-  if (!agents?.length) return `<div class="empty">Подключённых агентов нет</div>`;
+  if (!agents?.length) return `<div class="empty">Нет MCP bridges</div>`;
   return `<div class="agent-list">${agents.map((agent) => `
     <div class="agent">
       <div class="agent-main">

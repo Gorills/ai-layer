@@ -70,9 +70,10 @@ def test_completed_work_requires_next_action_and_next_chat_prompt() -> None:
     assert "**What next**" in agents
     assert "**Prompt for the next chat**" in agents
     assert "inspect current source and Git state" in agents
-    assert "Do not omit this handoff" in agents
+    assert "Do not skip the next-chat prompt" in agents
+    assert "real next steps" in agents
     assert "End every completed-work response" in maintainer
-    assert "If nothing remains required, say so explicitly" in maintainer
+    assert "do not skip it merely because the current slice is done" in maintainer
     assert (ROOT / "DECISIONS" / "0023-mandatory-agent-completion-handoff.md").is_file()
 
 

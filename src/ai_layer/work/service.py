@@ -185,6 +185,24 @@ def _epic_id(db: Session, project: Project, key: str | None):
     return epic.id
 
 
+def _apply_checkpoint_links(
+    db: Session,
+    project: Project,
+    work: WorkItem,
+    *,
+    linked_task_key: str | None,
+    linked_epic_key: str | None,
+) -> None:
+    task_key = str(linked_task_key or "").strip() or None
+    epic_key = str(linked_epic_key or "").strip() or None
+    task_id = _task_id(db, project, task_key)
+    epic_id = _epic_id(db, project, epic_key)
+    if task_key:
+        work.linked_task_id = task_id
+    if epic_key:
+        work.linked_epic_id = epic_id
+
+
 def begin_work(
     db: Session,
     project: Project,
@@ -271,6 +289,8 @@ def checkpoint_work(
     checks: list[dict] | None = None,
     repository_delta: dict | None = None,
     blocked: bool | None = None,
+    linked_task_key: str | None = None,
+    linked_epic_key: str | None = None,
 ) -> tuple[WorkItem, AgentRun | None]:
     work = _work_for_key(db, project, work_key_value, lock=True)
     if work.status not in {"active", "blocked"}:
@@ -290,6 +310,13 @@ def checkpoint_work(
         work.repository_delta = normalize_repository_delta(repository_delta)
     if blocked is not None:
         work.status = "blocked" if blocked else "active"
+    _apply_checkpoint_links(
+        db,
+        project,
+        work,
+        linked_task_key=linked_task_key,
+        linked_epic_key=linked_epic_key,
+    )
     work.updated_at = now
     work.last_milestone_at = now
     run = db.scalar(

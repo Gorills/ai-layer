@@ -10,12 +10,12 @@ Repository work often spans multiple chats. A technically correct completion mes
 
 ## Decision
 
-Every final response after completed repository work must contain two explicit user-visible sections:
+Every final response after completed repository work must help the human continue without reconstructing context:
 
-1. **What next** states the next concrete recommended action, or explicitly says that no required work remains.
-2. **Prompt for the next chat** supplies a ready-to-copy, self-contained prompt for a fresh agent. It names the intended outcome, relevant current context and constraints, known verification evidence, and requires inspection of current source and Git state before making code-truth claims or edits.
+1. **What next** is always present and states the next concrete recommended action, or explicitly says that no required work remains.
+2. **Prompt for the next chat** is required whenever substantive work leaves real next steps, continuation is expected, or a fresh chat is the natural way to proceed. It supplies a ready-to-copy, self-contained prompt for a fresh agent: intended outcome, relevant current context and constraints, known verification evidence, and a requirement to inspect current source and Git state before making code-truth claims or edits.
 
-The handoff must remain truthful. It may not imply that a commit, push, publication, deployment or review occurred when it did not. When no required follow-up exists, the response still provides an optional audit, publication or next-objective prompt rather than inventing incomplete work.
+The handoff must remain truthful. It may not imply that a commit, push, publication, deployment or review occurred when it did not. Agents must not skip the next-chat prompt merely because the current slice feels complete or the next action is optional. When no follow-up or continuation is appropriate, **What next** says so explicitly; an optional audit, publication or next-objective prompt is allowed but not required, and incomplete work must not be invented to justify a prompt.
 
 ## Consequences
 

@@ -10,6 +10,12 @@ from ai_layer.application.transport import project_status as get_project_status
 from ai_layer.audit.service import mcp_audit
 from ai_layer.mcp.context import bind_project_root
 from ai_layer.mcp.runtime import _project, _scoped, _text, core_tool, project_root_for_tool
+from ai_layer.mcp.tool_schema import (
+    MemoryContextLimit,
+    QueryVariantList,
+    SearchLimit,
+    SearchQueryText,
+)
 
 
 def project_status(project_root: str | None = None) -> dict:
@@ -45,10 +51,10 @@ def project_status(project_root: str | None = None) -> dict:
 
 
 def project_search(
-    query: str,
+    query: SearchQueryText,
     project_root: str | None = None,
-    limit: int = 8,
-    query_variants: list[str] | None = None,
+    limit: SearchLimit = 8,
+    query_variants: QueryVariantList | None = None,
 ) -> dict:
     """WHEN: code location is unknown. PRIMARY QUERY CONTRACT: for non-English natural-language intent, send concise English code-centric retrieval terms and preserve exact code identifiers verbatim. Optionally pass at most one original-language/mixed query_variants entry to widen domain aliases. Returns Project Map breadcrumbs only; open current source before claims/edits."""
     root = project_root_for_tool(project_root, tool="project_search")
@@ -138,9 +144,9 @@ def project_info(project_root: str | None = None) -> dict:
 
 
 def knowledge_search(
-    query: str,
+    query: SearchQueryText,
     project_root: str | None = None,
-    limit: int = 8,
+    limit: SearchLimit = 8,
 ) -> list[dict]:
     """WHEN: you need reviewed project facts, invariants or fragile-area knowledge. Searches curated VERIFIED Project Knowledge only; current source remains authoritative."""
     root = project_root_for_tool(project_root, tool="knowledge_search")
@@ -159,9 +165,9 @@ def knowledge_search(
 
 
 def memory_search(
-    query: str,
+    query: SearchQueryText,
     project_root: str | None = None,
-    limit: int = 8,
+    limit: SearchLimit = 8,
 ) -> list[dict]:
     """Backward-compatible alias for knowledge_search. Prefer knowledge_search for reviewed semantic project facts."""
     root = project_root_for_tool(project_root, tool="memory_search")
@@ -187,7 +193,7 @@ def memory_context(
     task: str | None = None,
     query: str | None = None,
     project_root: str | None = None,
-    limit: int = 4,
+    limit: MemoryContextLimit = 4,
 ) -> dict:
     """Legacy compatibility helper. Without task/query it serves project_status; otherwise it returns a compact knowledge brief. Prefer focused Project Intelligence tools."""
     root = project_root_for_tool(project_root, tool="memory_context")

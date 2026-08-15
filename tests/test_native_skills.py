@@ -16,6 +16,10 @@ from ai_layer.skills.native import (
     sync_project_native_skills,
     validate_native_catalog,
 )
+from ai_layer.skills.native_descriptor import (
+    NATIVE_PACKAGE_RESOURCE_NOTICE,
+    native_package_resource_notice,
+)
 from ai_layer.skills.native_files import sync_native_root
 from ai_layer.skills.service import load_skill, skill_section_content
 
@@ -138,6 +142,8 @@ def test_project_skill_materializes_full_content_once_in_standard_workspace(tmp_
         assert target.is_file()
         target_text = target.read_text(encoding="utf-8")
         assert "Preserve the existing order pipeline" in target_text
+        assert NATIVE_PACKAGE_RESOURCE_NOTICE not in target_text
+        assert "skill_get" not in target_text
         assert not (project / ".cursor" / "skills" / "ai-layer" / "SKILL.md").exists()
         assert not (project / ".claude" / "skills" / "ai-layer" / "SKILL.md").exists()
 
@@ -370,3 +376,157 @@ def test_sync_native_root_refuses_unowned_skill_md(tmp_path: Path):
 
     assert target.read_text(encoding="utf-8") == "# user-owned skill\n"
     assert list(target.parent.iterdir()) == [target]
+
+
+def _install_packaged_search_skill(tmp_path: Path) -> dict:
+    import zipfile
+
+    from ai_layer.skills.manager import import_skills, install_import
+
+    archive = tmp_path / "packaged-skill.zip"
+    skill = """---
+name: ui-ux-pro-max
+description: UI/UX interface design systems, dashboard layouts, typography, color selection, accessibility and component guidance.
+---
+# UI/UX Pro Max
+
+## When to Apply
+
+Use for dashboard and interface design.
+
+## Running search
+
+Run scripts/search.py against package data.
+"""
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("repo/.claude/skills/ui-ux-pro-max/SKILL.md", skill)
+        zf.writestr("repo/.claude/skills/ui-ux-pro-max/scripts/search.py", "print('search')\n")
+        zf.writestr("repo/.claude/skills/ui-ux-pro-max/references/guide.md", "# guide\n")
+        zf.writestr("repo/.claude/skills/ui-ux-pro-max/assets/note.txt", "note\n")
+    preview = import_skills(str(archive), scope="global", source_member="ui-ux-pro-max/SKILL.md")[0]
+    return install_import(preview["import_id"], approve=True)
+
+
+def test_native_render_omits_package_notice_without_store_root():
+    skill = {
+        "slug": "django",
+        "meta": {
+            "description": (
+                "Django models, ORM queries, transactions, migrations, request "
+                "boundaries and production-safe application structure."
+            )
+        },
+        "content": "# Django\n\n## Core contract\n\nKeep request boundaries explicit.\n",
+    }
+    native = render_native_skill(skill)
+    assert native_package_resource_notice(skill) == ""
+    assert NATIVE_PACKAGE_RESOURCE_NOTICE not in native
+    assert "skill_get" not in native
+
+
+def test_native_render_injects_package_store_notice_without_copying_root():
+    package_root = "/machine/skill-packages/global/ui-ux-pro-max"
+    skill = {
+        "slug": "ui-ux-pro-max",
+        "meta": {
+            "description": (
+                "UI/UX interface design systems, dashboard layouts, typography, "
+                "color selection, accessibility and component guidance."
+            )
+        },
+        "content": "# UI/UX\n\n## Running search\n\nRun scripts/search.py against package data.\n",
+        "package": {"root": package_root, "relative_resource_dirs": ["scripts"]},
+    }
+    native = render_native_skill(skill)
+    assert native_package_resource_notice(skill) == NATIVE_PACKAGE_RESOURCE_NOTICE
+    assert NATIVE_PACKAGE_RESOURCE_NOTICE in native
+    assert "Run scripts/search.py against package data." in native
+    assert package_root not in native
+    assert set(_frontmatter(native)) == {"name", "description"}
+
+
+def test_native_render_omits_package_notice_without_resource_dirs():
+    skill = {
+        "slug": "ui-ux-pro-max",
+        "meta": {
+            "description": (
+                "UI/UX interface design systems, dashboard layouts, typography, "
+                "color selection, accessibility and component guidance."
+            )
+        },
+        "content": "# UI/UX\n\n## Core contract\n\nKeep guidance in this file.\n",
+        "package": {
+            "root": "/machine/skill-packages/global/ui-ux-pro-max",
+            "relative_resource_dirs": [],
+        },
+    }
+    native = render_native_skill(skill)
+    assert native_package_resource_notice(skill) == ""
+    assert NATIVE_PACKAGE_RESOURCE_NOTICE not in native
+    assert "skill_get" not in native
+
+
+def test_packaged_skill_native_sync_resolves_resources_from_store(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    user = tmp_path / "user"
+    home.mkdir()
+    user.mkdir()
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    monkeypatch.setenv("HOME", str(user))
+    get_settings.cache_clear()
+    try:
+        installed = _install_packaged_search_skill(tmp_path)
+        package_root = Path(installed["package_root"])
+        loaded = load_skill("ui-ux-pro-max")
+        assert loaded is not None
+        assert loaded["package"]["root"] == str(package_root)
+        assert loaded["package"]["contract"] in NATIVE_PACKAGE_RESOURCE_NOTICE
+        assert loaded["package"]["relative_resource_dirs"] == ["scripts", "references", "assets"]
+        assert (package_root / "scripts" / "search.py").is_file()
+        assert (package_root / "references" / "guide.md").is_file()
+        assert (package_root / "assets" / "note.txt").is_file()
+
+        native_dir = user / ".agents" / "skills" / "ui-ux-pro-max"
+        native_skill = native_dir / "SKILL.md"
+        assert native_skill.is_file()
+        assert not native_skill.is_symlink()
+        assert sorted(path.name for path in native_dir.iterdir()) == ["SKILL.md"]
+        assert not (native_dir / "scripts").exists()
+        assert not (native_dir / "references").exists()
+        assert not (native_dir / "assets").exists()
+
+        text = native_skill.read_text(encoding="utf-8")
+        meta = _frontmatter(text)
+        assert set(meta) == {"name", "description"}
+        assert NATIVE_PACKAGE_RESOURCE_NOTICE in text
+        assert "Run scripts/search.py against package data." in text
+        assert str(package_root) not in text
+        assert (user / ".claude" / "skills" / "ui-ux-pro-max" / "SKILL.md").read_text(
+            encoding="utf-8"
+        ) == text
+        assert not (user / ".claude" / "skills" / "ui-ux-pro-max" / "scripts").exists()
+    finally:
+        get_settings.cache_clear()
+
+
+def test_packaged_skill_native_sync_refuses_unowned_skill_md(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    user = tmp_path / "user"
+    home.mkdir()
+    user.mkdir()
+    target = user / ".agents" / "skills" / "ui-ux-pro-max" / "SKILL.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("# user-owned skill\n", encoding="utf-8")
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    monkeypatch.setenv("HOME", str(user))
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="ownership conflict"):
+            _install_packaged_search_skill(tmp_path)
+        assert target.read_text(encoding="utf-8") == "# user-owned skill\n"
+        assert list(target.parent.iterdir()) == [target]
+        assert not (target.parent / "scripts").exists()
+        assert not (target.parent / "references").exists()
+        assert not (target.parent / "assets").exists()
+    finally:
+        get_settings.cache_clear()

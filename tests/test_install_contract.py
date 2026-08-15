@@ -103,6 +103,9 @@ def test_uninstaller_purge_requires_recognizable_state_and_preserves_unknown_con
     (state / "install.json").write_text(
         '{"version":"0.8.0","runtime_home":"/tmp/example"}\n', encoding="utf-8"
     )
+    (state / "install-journal.json").write_text(
+        '{"schema":1,"operation":"global-install","status":"in_progress"}\n', encoding="utf-8"
+    )
     (state / "runtime").mkdir()
     (state / "runtime" / "alembic.ini").write_text("owned\n", encoding="utf-8")
     (state / "runtime" / "docker-compose.yml").write_text("owned\n", encoding="utf-8")
@@ -116,6 +119,7 @@ def test_uninstaller_purge_requires_recognizable_state_and_preserves_unknown_con
     assert purged.returncode == 0, purged.stderr
     assert unknown.read_text(encoding="utf-8") == "keep\n"
     assert not (state / "install.json").exists()
+    assert not (state / "install-journal.json").exists()
     assert not (state / "runtime").exists()
 
 

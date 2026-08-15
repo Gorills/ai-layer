@@ -154,8 +154,13 @@ def remove_project_native_skills(project_root: str | Path, *, home: Path | None 
 
 
 def remove_global_native_skills(*, home: Path | None = None) -> dict:
+    home_root = (home or Path.home()).expanduser().resolve()
     removed: list[str] = []
-    for location in global_native_roots(home).values():
+    for parts in GLOBAL_NATIVE_ROOT_PARTS.values():
+        try:
+            location = project_local_path(home_root, *parts)
+        except RuntimeError:
+            continue
         if not location.is_dir() or location.is_symlink():
             continue
         for child in list(location.iterdir()):

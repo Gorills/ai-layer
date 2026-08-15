@@ -38,6 +38,9 @@ def _write_private_backup(path: Path, content: str) -> None:
 
 
 def _atomic_write_text(path: Path, content: str, *, backup: bool = False) -> None:
+    if path.is_symlink() or path.parent.is_symlink():
+        refused = path if path.is_symlink() else path.parent
+        raise RuntimeError(f"Refusing AI Layer path redirected by symlink: {refused}")
     path.parent.mkdir(parents=True, exist_ok=True)
     old = path.read_text(encoding="utf-8") if path.exists() else None
     backup_path = path.with_name(path.name + ".ai-layer.bak") if backup else None
@@ -110,6 +113,9 @@ def _server_matches_legacy(existing: dict, desired: dict) -> bool:
 
 
 def _assert_json_mcp_merge_safe(path: Path, server: dict) -> None:
+    if path.is_symlink() or path.parent.is_symlink():
+        refused = path if path.is_symlink() else path.parent
+        raise RuntimeError(f"Refusing AI Layer path redirected by symlink: {refused}")
     if not path.exists():
         return
     try:
@@ -161,6 +167,9 @@ def _write_owned_text(path: Path, content: str) -> None:
 
 
 def _assert_codex_merge_safe(path: Path) -> None:
+    if path.is_symlink() or path.parent.is_symlink():
+        refused = path if path.is_symlink() else path.parent
+        raise RuntimeError(f"Refusing AI Layer path redirected by symlink: {refused}")
     if not path.exists():
         return
     current = path.read_text(encoding="utf-8")

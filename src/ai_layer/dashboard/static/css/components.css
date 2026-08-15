@@ -79,9 +79,9 @@ tr:last-child td { border-bottom: 0; }
 .badge::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
 .badge.active::before, .badge.working::before, .badge.running::before, .badge.phase0::before, .badge.planning::before { background: var(--blue); }
 .badge.healthy::before, .badge.completed::before, .badge.approved::before { background: var(--green); }
-.badge.error::before, .badge.invalid::before { background: var(--red); }
-.badge.warning::before, .badge.blocked::before, .badge.attention::before, .badge.final_review::before { background: var(--yellow); }
-.badge.idle::before, .badge.cancelled::before, .badge.none::before, .badge.pending::before, .badge.draft::before, .badge.archived::before { background: #707782; }
+.badge.error::before, .badge.invalid::before, .badge.failed::before { background: var(--red); }
+.badge.warning::before, .badge.blocked::before, .badge.attention::before, .badge.final_review::before, .badge.stale::before { background: var(--yellow); }
+.badge.idle::before, .badge.cancelled::before, .badge.none::before, .badge.pending::before, .badge.draft::before, .badge.archived::before, .badge.interrupted::before, .badge.abandoned::before { background: #707782; }
 
 .notice, .alert { margin-bottom: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-muted); color: var(--text-soft); font-size: 11.5px; }
 .notice.warning { border-color: rgba(216,170,98,.22); background: var(--yellow-soft); color: #dec595; }

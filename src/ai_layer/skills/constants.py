@@ -27,6 +27,11 @@ ALLOWED_PACKAGE_SUFFIXES = {
     ".tmpl",
 }
 ALLOWED_PACKAGE_NAMES = {"license", "license.md", "notice", "notice.md"}
+PACKAGE_RESOURCE_DIR_NAMES = ("scripts", "references", "assets", "data")
+PACKAGE_STORE_CONTRACT = (
+    "Resolve skill-relative references/data/scripts against this package root. "
+    "Package assets stay outside the repository and are not autoloaded into model context."
+)
 SAFE_SOURCE_TYPES = {
     "local-file",
     "local-directory",

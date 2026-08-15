@@ -11,6 +11,7 @@ import yaml
 
 from ai_layer.core.config import get_settings
 from ai_layer.skills.common import builtin_skill_dir
+from ai_layer.skills.constants import PACKAGE_RESOURCE_DIR_NAMES, PACKAGE_STORE_CONTRACT
 from ai_layer.skills.registry import (
     disabled_global_skill_slugs,
     find_skill_record,
@@ -193,6 +194,21 @@ def parse_skill(path: Path) -> dict:
     return _parse_skill_text(slug=path.stem, text=path.read_text("utf-8"), path=str(path))
 
 
+def relative_package_resource_dirs(package_root: str | Path) -> list[str]:
+    """Return packaged resource directories present beside the store SKILL.md."""
+    root = Path(package_root)
+    if root.is_symlink() or not root.is_dir():
+        return []
+    found: list[str] = []
+    for name in PACKAGE_RESOURCE_DIR_NAMES:
+        child = root / name
+        if child.is_symlink():
+            continue
+        if child.is_file() or (child.is_dir() and any(child.iterdir())):
+            found.append(name)
+    return found
+
+
 def _with_scope(skill: dict, scope: str, record: dict | None = None) -> dict:
     item = dict(skill)
     item["scope"] = scope
@@ -204,10 +220,8 @@ def _with_scope(skill: dict, scope: str, record: dict | None = None) -> dict:
                 "files": int(record.get("package_files") or 0),
                 "bytes": int(record.get("package_bytes") or 0),
                 "sha256": record.get("package_sha256"),
-                "contract": (
-                    "Resolve skill-relative references/data/scripts against this package root. "
-                    "Package assets stay outside the repository and are not autoloaded into model context."
-                ),
+                "contract": PACKAGE_STORE_CONTRACT,
+                "relative_resource_dirs": relative_package_resource_dirs(package_root),
             }
     return item
 

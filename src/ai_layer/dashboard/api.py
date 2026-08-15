@@ -7,7 +7,7 @@ from ai_layer.dashboard.error_contracts import (
     DASHBOARD_NOT_FOUND_RESPONSES,
     DASHBOARD_QUERY_RESPONSES,
 )
-from ai_layer.dashboard.work_contracts import WorkDetailRead, WorkListRead
+from ai_layer.dashboard.work_contracts import WorkDetailRead, WorkListRead, WorkStatus
 from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
 from ai_layer.projections.dashboard import overview_payload, project_payload
 from ai_layer.projections.dashboard_intelligence import project_intelligence_summary
@@ -76,7 +76,7 @@ def dashboard_overview():
 @router.get("/work", response_model=WorkListRead, responses=DASHBOARD_QUERY_RESPONSES)
 def dashboard_work_items(
     project_key: str | None = None,
-    status: str | None = None,
+    status: WorkStatus | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=50),
 ):

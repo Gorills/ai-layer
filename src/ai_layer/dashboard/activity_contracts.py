@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ai_layer.dashboard.event_contracts import SafeEventPayload
+from ai_layer.dashboard.work_contracts import WorkAssurance, WorkProjectOptionRead
+
+ActivityMode = Literal["milestones", "all"]
+ActivityImportance = Literal["low", "normal", "high"]
 
 
 class ActivityItemRead(BaseModel):
@@ -28,8 +32,8 @@ class ActivityItemRead(BaseModel):
     turn_id: str
     model: str
     retention_class: str
-    importance: str
-    assurance: str
+    importance: ActivityImportance
+    assurance: WorkAssurance
     payload: SafeEventPayload
     occurred_at: str
     operation: str
@@ -40,7 +44,7 @@ class ActivityItemRead(BaseModel):
 
 class ActivityFiltersRead(BaseModel):
     project_key: str | None
-    mode: str
+    mode: ActivityMode
     occurred_after: str | None
     occurred_before: str | None
     work_id: str | None
@@ -49,18 +53,18 @@ class ActivityFiltersRead(BaseModel):
     actor_id: str | None
     event_type: str | None
     status: str | None
-    importance: str | None
-    assurance: str | None
+    importance: ActivityImportance | None
+    assurance: WorkAssurance | None
 
 
 class ActivityRead(BaseModel):
-    contract_version: int = Field(2, frozen=True)
+    contract_version: Literal[2]
     generated_at: str
     items: list[ActivityItemRead]
     next_cursor: str | None
     has_more: bool
     limit: int
-    projects: list[dict[str, Any]]
+    projects: list[WorkProjectOptionRead]
     filters: ActivityFiltersRead
     ordering: list[str]
     retention: str

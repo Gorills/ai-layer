@@ -6,6 +6,7 @@ import { renderOverview } from "./views/overview.js";
 import { renderProject } from "./views/project.js";
 import { renderActivity, renderMonitoring, renderTaskDetail, renderTasks } from "./views/operations.js";
 import { renderKnowledge, renderKnowledgeDetail, renderRules, renderSkillDetail, renderSkills } from "./views/reference.js";
+import { renderWorkDetail, renderWorkList } from "./views/work.js";
 
 const app = document.querySelector("#app");
 const projectScope = document.querySelector("#project-scope");
@@ -20,7 +21,7 @@ const refreshButton = document.querySelector("#refresh-button");
 const ACTIVE_POLL_MS = 3000;
 const IDLE_POLL_MS = 12000;
 const VOLATILE_RENDER_FIELDS = new Set(["generated_at", "uptime_seconds", "idle_seconds"]);
-const FILTERABLE_ROOTS = new Set(["tasks", "epics", "skills", "rules", "knowledge", "monitoring", "activity"]);
+const FILTERABLE_ROOTS = new Set(["work", "tasks", "epics", "skills", "rules", "knowledge", "monitoring", "activity"]);
 
 let overviewCache = null;
 let timer = null;
@@ -58,9 +59,10 @@ function route() {
   if (parts[0] === "project" && parts[1]) return { kind: "project", key: decodeURIComponent(parts[1]), ...common };
   if (parts[0] === "epic" && parts[1] && parts[2]) return { kind: "epic", projectKey: decodeURIComponent(parts[1]), epicKey: decodeURIComponent(parts[2]), ...common };
   if (parts[0] === "task" && parts[1] && parts[2]) return { kind: "task", projectKey: decodeURIComponent(parts[1]), taskKey: decodeURIComponent(parts[2]), ...common };
+  if (parts[0] === "work" && parts[1] && parts[2]) return { kind: "work-item", projectKey: decodeURIComponent(parts[1]), workKey: decodeURIComponent(parts[2]), ...common };
   if (parts[0] === "skill" && parts[1]) return { kind: "skill", slug: decodeURIComponent(parts[1]), ...common };
   if (parts[0] === "knowledge-card" && parts[1] && parts[2]) return { kind: "knowledge-card", projectKey: decodeURIComponent(parts[1]), knowledgeId: decodeURIComponent(parts[2]), ...common };
-  if (["tasks", "epics", "skills", "rules", "knowledge", "monitoring", "activity"].includes(parts[0])) return { kind: parts[0], ...common };
+  if (["work", "tasks", "epics", "skills", "rules", "knowledge", "monitoring", "activity"].includes(parts[0])) return { kind: parts[0], ...common };
   return { kind: "overview", ...common };
 }
 
@@ -77,6 +79,7 @@ function setConnection(ok, label) {
 }
 
 function rootRoute(kind) {
+  if (["work-item", "work"].includes(kind)) return "work";
   if (["task", "tasks"].includes(kind)) return "tasks";
   if (["epic", "epics"].includes(kind)) return "epics";
   if (["skill", "skills"].includes(kind)) return "skills";
@@ -87,7 +90,7 @@ function rootRoute(kind) {
 
 function projectForRoute(current) {
   if (current.kind === "project") return current.key;
-  if (["epic", "task", "knowledge-card"].includes(current.kind)) return current.projectKey;
+  if (["epic", "task", "knowledge-card", "work-item"].includes(current.kind)) return current.projectKey;
   return current.project || null;
 }
 
@@ -138,7 +141,7 @@ function bindDynamicControls() {
 
 function overviewIsLive(data) {
   const summary = data?.summary || {};
-  return Number(summary.active_tasks || 0) > 0 || Number(summary.active_agents || 0) > 0;
+  return Number(summary.active_work || 0) > 0 || Number(summary.active_tasks || 0) > 0 || Number(summary.active_agents || 0) > 0;
 }
 
 function projectIsLive(data) {
@@ -173,7 +176,23 @@ async function load() {
     renderNav(overviewCache);
 
     let generatedAt = overviewCache.generated_at;
-    if (current.kind === "project") {
+    if (current.kind === "work") {
+      const data = await api.work({ project_key: current.project, status: current.status, page: current.page, page_size: 10 });
+      renderChanged(current, data, () => {
+        setPage("Работа", "WorkItems — обычная пользовательская работа, отдельно от Managed Task");
+        app.innerHTML = renderWorkList(data, current);
+      });
+      generatedAt = data.generated_at || overviewCache.generated_at;
+      nextPollMs = (data.items || []).some((item) => item.live) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+    } else if (current.kind === "work-item") {
+      const data = await api.workDetail(current.projectKey, current.workKey);
+      renderChanged(current, data, () => {
+        setPage(`${data.work?.key || "Work"} · ${data.work?.goal || ""}`, "Жизненный цикл, runs, checks и Project Map disposition");
+        app.innerHTML = renderWorkDetail(data);
+      });
+      generatedAt = data.work?.updated_at;
+      nextPollMs = data.work?.live ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+    } else if (current.kind === "project") {
       const data = await api.project(current.key);
       renderChanged(current, data, () => {
         setPage(data.project?.name || "Проект", "Workflow, runtime, memory и наблюдаемые сигналы");

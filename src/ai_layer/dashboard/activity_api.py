@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ai_layer.dashboard.activity_contracts import ActivityRead
+from ai_layer.dashboard.activity_contracts import ActivityImportance, ActivityMode, ActivityRead
 from ai_layer.dashboard.error_contracts import DASHBOARD_QUERY_RESPONSES
+from ai_layer.dashboard.work_contracts import WorkAssurance
 from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
 from ai_layer.projections.dashboard_activity import activity_payload
 
@@ -32,17 +34,17 @@ def _query_error(exc: ValueError, project_key: str | None) -> HTTPException:
 )
 def dashboard_activity(
     project_key: str | None = None,
-    mode: str = "milestones",
+    mode: ActivityMode = "milestones",
     occurred_after: datetime | None = None,
     occurred_before: datetime | None = None,
     work_id: UUID | None = None,
     task_id: UUID | None = None,
     epic_id: UUID | None = None,
-    actor_id: str | None = None,
-    event_type: str | None = None,
-    status: str | None = None,
-    importance: str | None = None,
-    assurance: str | None = None,
+    actor_id: Annotated[str | None, Query(max_length=128)] = None,
+    event_type: Annotated[str | None, Query(max_length=96)] = None,
+    status: Annotated[str | None, Query(max_length=32)] = None,
+    importance: ActivityImportance | None = None,
+    assurance: WorkAssurance | None = None,
     cursor: str | None = None,
     limit: int = Query(25, ge=1, le=100),
 ):

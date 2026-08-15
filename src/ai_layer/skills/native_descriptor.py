@@ -4,10 +4,20 @@ import hashlib
 import re
 from pathlib import Path
 
+from ai_layer.skills.constants import PACKAGE_STORE_CONTRACT
 from ai_layer.skills.service import skill_sections
 
 NATIVE_DESCRIPTOR_VERSION = 2
 NATIVE_MARKER = "<!-- AI-LAYER NATIVE SKILL v2"
+NATIVE_PACKAGE_RESOURCE_NOTICE = (
+    "## Packaged resources\n\n"
+    "This native SKILL.md is activation text only. Packaged `scripts/`, `references/`, "
+    "`assets/`, and `data/` stay in the AI Layer package store and are not copied beside "
+    "this file.\n\n"
+    f"{PACKAGE_STORE_CONTRACT}\n\n"
+    "Call `skill_get` for `package.root` and resolve skill-relative resource paths there. "
+    "Do not assume `./scripts`, `./references`, or `./assets` exist in this host skill directory."
+)
 GENERIC_DESCRIPTION_RE = re.compile(
     r"^(useful|helpful|general|generic|software development|coding|development)(\b|[ .:-])",
     re.IGNORECASE,
@@ -97,6 +107,17 @@ def validate_native_catalog(skills: list[dict]) -> dict:
     }
 
 
+def native_package_resource_notice(skill: dict) -> str:
+    """Return native-publication guidance when packaged resources are store-resolved."""
+    package = skill.get("package")
+    if not isinstance(package, dict) or not str(package.get("root") or "").strip():
+        return ""
+    dirs = package.get("relative_resource_dirs")
+    if not isinstance(dirs, list) or not any(str(item).strip() for item in dirs):
+        return ""
+    return NATIVE_PACKAGE_RESOURCE_NOTICE
+
+
 def render_native_skill(
     skill: dict,
     *,
@@ -107,7 +128,9 @@ def render_native_skill(
 
     The host still owns relevance selection from name/description metadata. Once selected,
     however, the model receives the actual professional guidance instead of a pointer that
-    requires a second routing decision through ``skill_get``.
+    requires a second routing decision through ``skill_get``. Packaged ``scripts/``,
+    ``references/`` and ``assets/`` stay in the package store; native publication does not
+    copy them beside this file.
     """
     slug = str(skill["slug"])
     meta = skill.get("meta") or {}
@@ -138,13 +161,15 @@ def render_native_skill(
             f"{description} Activate only for the registered project at {canonical_root}."
         )
 
+    notice = native_package_resource_notice(skill)
+    body = f"{notice}\n\n{content}" if notice else content
     return f"""---
 name: {name}
 description: {_yaml_scalar(host_description)}
 ---
 
 {marker}
-{content}
+{body}
 """
 
 

@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 from ai_layer.core.config import get_settings
+from ai_layer.core.paths import project_local_path
 from ai_layer.domain.agents import AgentRequirement
 
 POLICY_SCHEMA = 1
@@ -296,9 +297,34 @@ def _profile_text(*, tier: str, readonly: bool, model: str) -> str:
     )
 
 
+def _atomic_write_profile(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_name, path)
+    finally:
+        Path(temp_name).unlink(missing_ok=True)
+
+
+def _cursor_profile_reclaimable(existing: str) -> bool:
+    if OWNED_MARKER in existing or not existing.strip():
+        return True
+    lines = existing.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return False
+    if not any(line.startswith("name: ai-layer-") for line in lines[1:]):
+        return False
+    return not any(line.strip() == "---" for line in lines[1:])
+
+
 def install_cursor_profiles(home: Path | None = None) -> dict:
     ensure_policy_file()
-    base = (home or Path.home()) / ".cursor" / "agents"
+    home_root = (home or Path.home()).expanduser().resolve()
+    base = project_local_path(home_root, ".cursor", "agents")
     base.mkdir(parents=True, exist_ok=True)
     policy = load_policy()
     written: list[str] = []
@@ -307,25 +333,30 @@ def install_cursor_profiles(home: Path | None = None) -> dict:
         model = str((policy.get("cursor_models") or {}).get(tier) or "inherit")
         for readonly in (True, False):
             name = agent_profile(tier=tier, readonly=readonly)
-            path = base / f"{name}.md"
+            path = project_local_path(home_root, ".cursor", "agents", f"{name}.md")
             if path.exists():
                 existing = path.read_text(encoding="utf-8", errors="replace")
-                if OWNED_MARKER not in existing:
+                if not _cursor_profile_reclaimable(existing):
                     skipped.append(str(path))
                     continue
-            path.write_text(
-                _profile_text(tier=tier, readonly=readonly, model=model), encoding="utf-8"
-            )
+            _atomic_write_profile(path, _profile_text(tier=tier, readonly=readonly, model=model))
             written.append(str(path))
     return {"written": written, "skipped_unmanaged": skipped, "restart_may_be_required": True}
 
 
 def remove_cursor_profiles(home: Path | None = None) -> dict:
-    base = (home or Path.home()) / ".cursor" / "agents"
+    home_root = (home or Path.home()).expanduser().resolve()
+    base = home_root / ".cursor" / "agents"
     removed: list[str] = []
-    if not base.exists():
+    if base.is_symlink() or not base.exists():
+        return {"removed": removed}
+    try:
+        project_local_path(home_root, ".cursor", "agents")
+    except RuntimeError:
         return {"removed": removed}
     for path in base.glob("ai-layer-*-*.md"):
+        if path.is_symlink():
+            continue
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:

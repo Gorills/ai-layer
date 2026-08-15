@@ -128,12 +128,12 @@ def _terminal(
     operation: str,
     work_key: str,
     summary: str,
-    reviewed_paths: list[str] | None,
-    changed_paths: list[str] | None,
-    checks: list[dict] | None,
-    repository_delta: dict | None,
-    map_disposition: dict | None,
-    idempotency_key: str | None,
+    reviewed_paths: ProjectPathList | None,
+    changed_paths: ProjectPathList | None,
+    checks: WorkCheckList | None,
+    repository_delta: WorkRepositoryDeltaInput | None,
+    map_disposition: WorkMapDispositionInput | None,
+    idempotency_key: IdempotencyKey | None,
     project_root: str | None,
 ) -> dict:
     root = project_root_for_tool(project_root, tool=operation)

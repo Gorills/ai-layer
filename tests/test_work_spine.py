@@ -29,12 +29,24 @@ def test_agent_contract_separates_work_from_managed_assurance_and_defines_search
     assert contract["version"] == 3
     assert contract["delivery"]["envelopes"] == ["ordinary", "managed_next", "worker"]
     assert contract["work"]["begin"] == "work_begin"
+    assert contract["work"]["idle_next"] == "work_begin"
+    assert contract["work"]["kinds"] == [
+        "change",
+        "diagnose",
+        "review",
+        "research",
+        "planning",
+        "ops",
+    ]
+    assert "tiny one-shot" in contract["work"]["unmaterialized"]
     assert contract["work"]["managed_task_relation"].startswith("ManagedTask is optional assurance")
     assert contract["search"]["max_queries"] == 2
     assert "English code-centric" in contract["search"]["primary"]
     assert "Preserve exact paths" in contract["search"]["identifiers"]
     bootstrap = native_bootstrap_markdown()
     assert "work_begin" in bootstrap
+    assert "`work.continuation.kind` is `none`" in bootstrap
+    assert "call `work_begin` before other tools" in bootstrap
     assert "Managed Task is optional assurance" in bootstrap
     assert "English code-centric primary query" in bootstrap
     assert "query_variants" in bootstrap

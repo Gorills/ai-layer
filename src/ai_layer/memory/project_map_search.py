@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from ai_layer.db.models import Project
 from ai_layer.db.navigation_models import ProjectNavigationSemantic
 from ai_layer.memory.embeddings import get_embedder
+from ai_layer.memory.navigation import _compact_search_why
 from ai_layer.memory.project_map_semantics import (
     MIN_SEMANTIC_SEARCH_SCORE,
     _navigation_rows,
@@ -101,7 +102,7 @@ def search_semantic_map(
                 "path": row.path,
                 "language": structural.language,
                 "score": round(score, 4),
-                "why": reasons,
+                "why": _compact_search_why(reasons),
                 "semantic": {
                     "purpose": row.purpose,
                     "responsibilities": list(row.responsibilities or []),
@@ -152,8 +153,8 @@ def merge_project_search(
         )
         current["score"] = round(combined, 4)
         current["semantic"] = semantic.get("semantic")
-        current["why"] = list(
-            dict.fromkeys([*(current.get("why") or []), *(semantic.get("why") or [])])
+        current["why"] = _compact_search_why(
+            [*(current.get("why") or []), *(semantic.get("why") or [])]
         )
     ranked = sorted(
         by_path.values(), key=lambda item: (-float(item.get("score") or 0.0), str(item["path"]))

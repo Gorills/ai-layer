@@ -1,8 +1,11 @@
+import inspect
+
 from ai_layer.core.mcp_runtime import (
     FAST_TOOLS,
     REPLAY_SAFE_TOOLS,
     timeout_for_tool,
 )
+from ai_layer.mcp.tools.epics import epic_next
 
 EPIC_MUTATIONS = {
     "epic_create",
@@ -35,6 +38,11 @@ def test_epic_reads_are_fast_and_replay_safe() -> None:
     assert timeout_for_tool("epic_spec_get") == 10.0
     assert timeout_for_tool("epic_audit_prepare") == 15.0
     assert timeout_for_tool("epic_intervening_review_prepare") == 20.0
+
+
+def test_epic_next_epic_key_is_optional() -> None:
+    parameter = inspect.signature(epic_next).parameters["epic_key"]
+    assert parameter.default is None
 
 
 def test_epic_mutations_are_never_replayed_after_ambiguous_delivery() -> None:

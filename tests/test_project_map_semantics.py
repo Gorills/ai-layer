@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from ai_layer.db.navigation_models import ProjectNavigation
-from ai_layer.memory.navigation import _semantic_scores
+from ai_layer.memory.navigation import _related_tests, _semantic_scores
 from ai_layer.memory.project_map_search import merge_project_search
 from ai_layer.memory.project_map_semantics import _normalize_entry
 
@@ -129,3 +129,80 @@ def test_project_search_merge_can_promote_semantic_only_breadcrumbs():
     assert "language_contract" not in result
     assert "query_contract" not in result
     assert "source_contract" not in result
+
+
+def test_related_tests_are_path_adjacent_not_token_overlap() -> None:
+    rows = [
+        SimpleNamespace(path="src/orders/retry.py"),
+        SimpleNamespace(path="tests/orders/test_retry.py"),
+        SimpleNamespace(path="tests/test_retry.py"),
+        SimpleNamespace(path="tests/test_unrelated.py"),
+        SimpleNamespace(path="tests/iiko/test_client.py"),
+    ]
+    hits = [{"path": "src/orders/retry.py", "symbols": [{"name": "process"}]}]
+    assert _related_tests(rows, hits) == [
+        "tests/orders/test_retry.py",
+        "tests/test_retry.py",
+    ]
+
+
+def test_related_tests_match_spec_and_test_stems() -> None:
+    rows = [
+        SimpleNamespace(path="src/foo.ts"),
+        SimpleNamespace(path="tests/foo.spec.ts"),
+        SimpleNamespace(path="tests/foo.test.ts"),
+        SimpleNamespace(path="__tests__/foo.test.ts"),
+        SimpleNamespace(path="tests/bar.spec.ts"),
+        SimpleNamespace(path="tests/unrelated.spec.ts"),
+        SimpleNamespace(path="tests/orders/other.spec.ts"),
+    ]
+    hits = [{"path": "src/foo.ts"}]
+    assert _related_tests(rows, hits) == [
+        "__tests__/foo.test.ts",
+        "tests/foo.spec.ts",
+        "tests/foo.test.ts",
+    ]
+
+
+def test_project_search_why_is_capped_to_two_short_reasons() -> None:
+    structural = {
+        "matches": [
+            {
+                "path": "src/orders/retry.py",
+                "score": 0.31,
+                "why": [
+                    "matching symbol names",
+                    "path/purpose/import match",
+                    "semantic navigation metadata match",
+                ],
+                "symbols": [],
+            }
+        ],
+        "related_tests": [],
+        "search_mode": "hybrid_metadata",
+    }
+    semantic = [
+        {
+            "path": "src/orders/retry.py",
+            "language": "python",
+            "score": 0.82,
+            "why": [
+                "semantic domain terms match",
+                "semantic important symbols match",
+                "semantic responsibility/purpose match",
+                "multilingual semantic enrichment match",
+                "semantic enrichment is stale; verify current source",
+            ],
+            "semantic": {
+                "purpose": "Retries failed iiko orders.",
+                "related_tests": ["tests/orders/test_retry.py"],
+                "freshness": "stale",
+            },
+        }
+    ]
+    result = merge_project_search(structural, semantic, limit=8)
+    why = result["matches"][0]["why"]
+    assert 1 <= len(why) <= 2
+    assert "semantic enrichment is stale; verify current source" in why
+    assert all(len(item) < 80 for item in why)
+    assert result["related_tests"] == ["tests/orders/test_retry.py"]

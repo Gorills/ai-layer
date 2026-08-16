@@ -28,7 +28,7 @@ from ai_layer.application.epic_review import (
 from ai_layer.domain.agent_contract import ENVELOPE_MANAGED_NEXT, with_envelope
 
 
-def next_action(project_root: str | Path, *, key: str) -> dict:
+def next_action(project_root: str | Path, *, key: str | None = None) -> dict:
     """Return authoritative live Epic navigation without reprinting the runtime contract."""
     return with_envelope(dict(_next_action(project_root, key=key)), ENVELOPE_MANAGED_NEXT)
 

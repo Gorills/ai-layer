@@ -10,6 +10,7 @@ from ai_layer.db.session import session_scope
 from ai_layer.domain.agent_contract import (
     ENVELOPE_ORDINARY,
     PROJECT_SEARCH_MAX_QUERIES,
+    idle_ordinary_work_next_action,
     with_envelope,
 )
 from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES, EPIC_OPEN_STATUSES
@@ -135,8 +136,13 @@ def _continuation(
         }
     return {
         "kind": "none",
-        "navigator": None,
-        "instruction": "No live work is currently observed; handle the user's new request natively.",
+        "navigator": "work_begin",
+        "next_action": idle_ordinary_work_next_action(),
+        "instruction": (
+            "No live Work. For a new substantive request — including diagnose, review, "
+            "research, and multi-step investigation — call work_begin before other tools, "
+            "then execute host-natively. Tiny one-shot Q&A may stay unmaterialized."
+        ),
     }
 
 
@@ -156,6 +162,16 @@ def _compact_map_index(map_state: dict, freshness: dict) -> dict:
             "changed_paths": list(freshness.get("changed_paths") or [])[:20],
         },
     }
+
+
+def _mcp_work_attention(items: list[dict]) -> list[dict]:
+    """MCP work_attention includes only items that change agent behavior."""
+    return [
+        item
+        for item in items
+        if item.get("status") == "blocked"
+        or (item.get("status") == "active" and not item.get("live"))
+    ]
 
 
 def _focus_payload(
@@ -237,7 +253,7 @@ def project_status(project_root: str | Path) -> dict:
                 "active_work": list(ordinary_work.get("active") or []),
                 "live_work": live_work,
                 "recent_work": list(ordinary_work.get("recent") or []),
-                "work_attention": list(ordinary_work.get("attention") or []),
+                "work_attention": _mcp_work_attention(list(ordinary_work.get("attention") or [])),
                 "active_task": active_task,
                 "active_epic": active_epic,
                 "current_focus": focus_payload,

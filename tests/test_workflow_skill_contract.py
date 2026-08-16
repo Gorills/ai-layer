@@ -52,6 +52,8 @@ def test_workflow_skill_continue_follows_status_focus_including_ordinary_work() 
     assert "same WorkItem" in decision_rules
     assert "`task_next`" in decision_rules
     assert "`epic_next`" in decision_rules
+    assert "If `continuation.kind` is `none`" in decision_rules
+    assert "before other tools" in decision_rules
     assert "If there is no managed focus" not in skill
     assert "whether there is a Task or Epic to resume" not in skill
     assert "Dispatch on `kind`" in continuation

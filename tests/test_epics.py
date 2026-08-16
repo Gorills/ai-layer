@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID
 
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -423,6 +424,92 @@ def test_final_epic_gate_requires_docs_and_reviewed_project_knowledge(
         assert db.scalars(
             select(EpicPlanItem).where(EpicPlanItem.epic_id == UUID(archived["id"]))
         ).all()
+    finally:
+        db.close()
+        get_settings.cache_clear()
+
+
+def test_list_and_next_omit_audit_bodies_while_get_keeps_them(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db, _, root = _db_project(tmp_path, monkeypatch)
+    try:
+        created = epics.create(root, title="Compact list", spec_markdown=RUSSIAN_SPEC)
+        epics.record_audit(
+            root,
+            key=created["key"],
+            summary="Architecture audit",
+            findings=[{"severity": "medium", "problem": "Clarify recovery"}],
+        )
+        listed = epics.list_for_project(root)
+        assert listed[0]["key"] == created["key"]
+        assert "audits" not in listed[0]
+        assert listed[0]["audit_state"]["status"] == "current"
+        assert listed[0]["audit_state"]["current_spec_audit_count"] == 1
+
+        fetched = epics.get(root, key=created["key"])
+        assert len(fetched["audits"]) == 1
+        assert fetched["audits"][0]["summary"] == "Architecture audit"
+        assert fetched["audits"][0]["findings"][0]["problem"] == "Clarify recovery"
+
+        navigation = epics.next_action(root, key=created["key"])
+        assert "audits" not in navigation["epic"]
+        assert navigation["epic"]["audit_state"]["status"] == "current"
+        assert navigation["envelope"] == "managed_next"
+    finally:
+        db.close()
+        get_settings.cache_clear()
+
+
+def test_epic_next_without_key_resolves_or_idles_and_refuses_to_guess(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db, _, root = _db_project(tmp_path, monkeypatch)
+    try:
+        idle = epics.next_action(root)
+        assert idle["active"] is False
+        assert idle["state"] == "no_active_epic"
+        assert idle["envelope"] == "managed_next"
+        assert idle["next_action"]["action"] == "host_native"
+        assert idle["next_action"]["tool"] is None
+        assert "epic" not in idle
+        assert "agent_contract" not in idle
+        assert "latest" not in idle
+
+        first = epics.create(root, title="First open", spec_markdown=RUSSIAN_SPEC)
+        resolved = epics.next_action(root)
+        assert resolved["epic"]["key"] == first["key"]
+        assert "audits" not in resolved["epic"]
+
+        second = epics.create(root, title="Second open", spec_markdown=RUSSIAN_SPEC)
+        with pytest.raises(ValueError, match="multiple open Epics") as exc:
+            epics.next_action(root)
+        message = str(exc.value)
+        assert first["key"] in message
+        assert second["key"] in message
+        assert "do not guess" in message
+
+        explicit = epics.next_action(root, key=first["key"])
+        assert explicit["epic"]["key"] == first["key"]
+
+        first_row = db.scalar(select(Epic).where(Epic.sequence == 1))
+        assert first_row is not None
+        first_row.status = "running"
+        db.flush()
+        executing = epics.next_action(root)
+        assert executing["epic"]["key"] == first["key"]
+
+        second_row = db.scalar(select(Epic).where(Epic.sequence == 2))
+        assert second_row is not None
+        second_row.status = "blocked"
+        db.flush()
+        with pytest.raises(ValueError, match="multiple executing Epics") as executing_exc:
+            epics.next_action(root)
+        executing_message = str(executing_exc.value)
+        assert first["key"] in executing_message
+        assert second["key"] in executing_message
     finally:
         db.close()
         get_settings.cache_clear()

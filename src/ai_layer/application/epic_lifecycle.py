@@ -66,7 +66,10 @@ def list_for_project(
         if not include_archived:
             stmt = stmt.where(Epic.status != "archived")
         rows = db.scalars(stmt.order_by(Epic.sequence.desc())).all()
-        return [epic_payload(db, row, include_spec=False, include_history=False) for row in rows]
+        return [
+            epic_payload(db, row, include_spec=False, include_history=False, include_audits=False)
+            for row in rows
+        ]
 
 
 def get(

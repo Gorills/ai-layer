@@ -154,6 +154,39 @@ def test_project_status_does_not_start_new_work_while_stale_active_exists(
             "key": key,
             "goal": "Resume or terminate this item",
         }
+        assert continuation.get("navigator") is None
+        assert "next_action" not in continuation
+
+
+def test_project_status_idle_continuation_points_to_work_begin(monkeypatch, tmp_path: Path) -> None:
+    _stub_status_reads(monkeypatch)
+    monkeypatch.setattr(
+        pi.task_uc,
+        "read_state",
+        lambda *_args, **_kwargs: {"current": None, "source": "db"},
+    )
+    with _bound_work_db(tmp_path) as root:
+        status = pi.project_status(root)
+        continuation = status["work"]["continuation"]
+        instruction = continuation["instruction"].casefold()
+        next_action = continuation["next_action"]
+        assert status["envelope"] == "ordinary"
+        assert "next_action" not in status
+        assert "agent_contract" not in status
+        assert "guidance" not in status
+        assert continuation["kind"] == "none"
+        assert continuation["navigator"] == "work_begin"
+        assert next_action["action"] == "begin_ordinary_work"
+        assert next_action["tool"] == "work_begin"
+        assert next_action["required"] == ["goal"]
+        assert "research" in next_action["kind"]
+        assert "diagnose" in next_action["kind"]
+        assert "tiny one-shot" in next_action["skip_when"].casefold()
+        assert "work_begin" in instruction
+        assert "research" in instruction
+        assert "natively" in instruction
+        assert status["work"]["current_focus"] is None
+        assert status["active"] is False
 
 
 def test_project_status_omits_idle_latest_task_and_procedure_payloads(
@@ -193,6 +226,29 @@ def test_project_status_omits_idle_latest_task_and_procedure_payloads(
         assert "refresh_job" not in status["index"]["freshness"]
         assert "contract" not in status["index"]["project_map"]
         assert "language_policy" not in status["index"]["project_map"]
+
+
+def test_completed_map_pending_stays_on_dashboard_not_mcp_attention(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _stub_status_reads(monkeypatch)
+    with _bound_work_db(tmp_path) as root:
+        started = work_uc.begin(root, goal="Land the change", kind="change")
+        key = started["work"]["key"]
+        work_uc.complete(root, work_key=key, summary="Done without map reconcile")
+        dashboard = work_uc.state(root)
+        assert any(
+            item["key"] == key
+            and item["status"] == "completed"
+            and (item.get("map_disposition") or {}).get("status") == "pending"
+            for item in dashboard["attention"]
+        )
+        status = pi.project_status(root)
+        assert all(item["key"] != key for item in status["work"]["work_attention"])
+        overview = enrich_overview(
+            {"projects": [{"root": str(root), "task": {}, "agents": []}], "summary": {}}
+        )
+        assert any(item["key"] == key for item in overview["projects"][0]["work"]["attention"])
 
 
 def test_dashboard_is_not_healthy_because_the_run_went_stale(monkeypatch) -> None:

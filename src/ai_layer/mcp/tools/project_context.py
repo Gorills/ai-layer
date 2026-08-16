@@ -8,6 +8,7 @@ from ai_layer.application.transport import project_map_reconcile as reconcile_pr
 from ai_layer.application.transport import project_search as search_project
 from ai_layer.application.transport import project_status as get_project_status
 from ai_layer.audit.service import mcp_audit
+from ai_layer.domain.agent_contract import ENVELOPE_ORDINARY, with_envelope
 from ai_layer.mcp.context import bind_project_root
 from ai_layer.mcp.runtime import _project, _scoped, _text, core_tool, project_root_for_tool
 from ai_layer.mcp.tool_schema import (
@@ -147,7 +148,7 @@ def knowledge_search(
     query: SearchQueryText,
     project_root: str | None = None,
     limit: SearchLimit = 8,
-) -> list[dict]:
+) -> dict:
     """WHEN: you need reviewed project facts, invariants or fragile-area knowledge. Searches curated VERIFIED Project Knowledge only; current source remains authoritative."""
     root = project_root_for_tool(project_root, tool="knowledge_search")
     query = _text(query, tool="knowledge_search", field="query")
@@ -161,14 +162,14 @@ def knowledge_search(
             project = _project(db, root)
             result = search_knowledge(db, project, query, bounded_limit)
             audit["metrics"] = {"hits": len(result), "limit": bounded_limit}
-            return result
+            return _scoped(with_envelope({"items": result}, ENVELOPE_ORDINARY), root)
 
 
 def memory_search(
     query: SearchQueryText,
     project_root: str | None = None,
     limit: SearchLimit = 8,
-) -> list[dict]:
+) -> dict:
     """Backward-compatible alias for knowledge_search. Prefer knowledge_search for reviewed semantic project facts."""
     root = project_root_for_tool(project_root, tool="memory_search")
     query = _text(query, tool="memory_search", field="query")
@@ -186,7 +187,7 @@ def memory_search(
                 "limit": bounded_limit,
                 "alias": "knowledge_search",
             }
-            return result
+            return _scoped(with_envelope({"items": result}, ENVELOPE_ORDINARY), root)
 
 
 def memory_context(

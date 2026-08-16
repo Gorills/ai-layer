@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ai_layer.db.models import Task, TaskStage
+from ai_layer.domain.agent_contract import ENVELOPE_WORKER
 from ai_layer.tasks.contracts import _stage_agent_policy
 from ai_layer.tasks.state_store import task_key
 
@@ -270,3 +271,43 @@ def build_delegation_contract(
         contract.update(_implementation_payload(inline_micro=inline_micro))
     contract["completion_contract"] = completion_contract
     return contract
+
+
+_WORKER_JOB_KEYS = (
+    "task",
+    "stage_id",
+    "stage",
+    "role",
+    "goal",
+    "acceptance_criteria",
+    "constraints",
+    "repository_mode",
+    "execution_mode",
+    "context_policy",
+    "requirements",
+    "findings_to_verify",
+    "open_findings",
+    "review_round",
+    "fix_round",
+    "completion_contract",
+    "provenance_notice",
+    "project_knowledge_review",
+    "discovery_result",
+    "agent_policy",
+    "workflow",
+    "risk",
+)
+
+
+def worker_job_packet(contract: dict | None) -> dict:
+    """MCP-facing worker envelope: job fields only, no orchestrator protocol essays."""
+    source = dict(contract or {})
+    packet: dict[str, object] = {"envelope": ENVELOPE_WORKER}
+    for key in _WORKER_JOB_KEYS:
+        if key not in source:
+            continue
+        value = source[key]
+        if value is None:
+            continue
+        packet[key] = value
+    return packet

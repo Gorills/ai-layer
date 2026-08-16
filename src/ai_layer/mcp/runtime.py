@@ -260,7 +260,10 @@ def _compact_open_transition(db, project, result: dict) -> dict:
     if result.get("status") not in {"active", "blocked"}:
         return result
     current = db_current_task(db, project, include_history=False)
-    compact = dict(current.get("task") or result)
+    if current.get("envelope"):
+        compact = dict(current)
+    else:
+        compact = dict(current.get("task") or result)
     for key in (
         "input_normalizations",
         "effective_review_verdict",

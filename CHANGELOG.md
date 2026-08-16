@@ -2,6 +2,7 @@
 
 ## 0.14.0 — Durable Work spine and truthful observability
 
+- Delivered MCP response envelopes as runtime contract v3: ordinary tools return data without procedure essays; `task_next`/`epic_next` attach live `next_action` as `managed_next` without reprinting bootstrap; delegated workers receive a slim job packet without orchestrator essays. Search/knowledge omit static query/language/source reprints and evidence hashes; the tool catalog stays unfiltered. ADR 0025.
 - Added first-class `WorkItem` and `AgentRun` lifecycle for ordinary host-native user work while keeping managed Tasks/Epics as optional stricter assurance. Multiple WorkItems may coexist per project; the managed Task single-open constraint does not leak into ordinary work.
 - Added idempotent `work_begin`, milestone `work_checkpoint`, and terminal Work MCP commands backed by the existing `CommandReceipt`/advisory-lock boundary.
 - Added additive schema `0017_work_spine` with durable Work/AgentRun records, Work-provenanced semantic Project Map rows, and `runtime_event_context` correlation for Work/Run/Task/Epic and host/session/model identity.

@@ -25,14 +25,12 @@ from ai_layer.application.epic_review import (
     prepare_spec_audit,
     record_intervening_review,
 )
-from ai_layer.domain.agent_contract import agent_runtime_contract
+from ai_layer.domain.agent_contract import ENVELOPE_MANAGED_NEXT, with_envelope
 
 
 def next_action(project_root: str | Path, *, key: str) -> dict:
-    """Return authoritative live Epic navigation plus the current agent-runtime contract."""
-    result = dict(_next_action(project_root, key=key))
-    result["agent_contract"] = agent_runtime_contract()
-    return result
+    """Return authoritative live Epic navigation without reprinting the runtime contract."""
+    return with_envelope(dict(_next_action(project_root, key=key)), ENVELOPE_MANAGED_NEXT)
 
 
 __all__ = [

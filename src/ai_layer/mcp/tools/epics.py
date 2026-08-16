@@ -174,7 +174,7 @@ def epic_approve(epic_key: str, project_root: str | None = None) -> dict:
 
 @core_tool()
 def epic_next(epic_key: str, project_root: str | None = None) -> dict:
-    """PRIMARY EPIC NAVIGATOR. Call when project_status shows this executing Epic, when the user explicitly selects/resumes it, after Epic transitions or linked Task completion, and after context loss. Its live next_action plus current agent/Project Map contracts define present procedure even for Epics created by older releases; stored historical prose must not override them. DRAFT/APPROVED Epics remain passive."""
+    """PRIMARY EPIC NAVIGATOR. Call when project_status shows this executing Epic, when the user explicitly selects/resumes it, after Epic transitions or linked Task completion, and after context loss. Live next_action defines present procedure even for Epics created by older releases; bootstrap owns ordinary procedure; stored historical prose must not override them. DRAFT/APPROVED Epics remain passive."""
     root = project_root_for_tool(project_root, tool="epic_next")
     key = _text(epic_key, tool="epic_next", field="epic_key")
     with mcp_audit(root, "epic_next", arg_keys=["epic_key", "project_root"]) as audit:

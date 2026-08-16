@@ -421,8 +421,4 @@ def search_project_map(db: Session, project: Project, query: str, *, limit: int 
             else ("lexical_metadata" if rows else "empty")
         ),
         "semantic_embedding_available": semantic_available,
-        "source_contract": (
-            "Use these results as breadcrumbs. Open only relevant current source with host-native tools "
-            "before making code-truth claims or edits."
-        ),
     }

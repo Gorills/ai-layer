@@ -2,8 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
-AGENT_RUNTIME_CONTRACT_VERSION = 2
+AGENT_RUNTIME_CONTRACT_VERSION = 3
 PROJECT_SEARCH_MAX_QUERIES = 2
+ENVELOPE_ORDINARY = "ordinary"
+ENVELOPE_MANAGED_NEXT = "managed_next"
+ENVELOPE_WORKER = "worker"
+
+
+def with_envelope(payload: dict[str, Any], envelope: str) -> dict[str, Any]:
+    """Declare the MCP role envelope without attaching procedure essays."""
+    result = dict(payload)
+    result["envelope"] = envelope
+    if envelope == ENVELOPE_MANAGED_NEXT:
+        result["runtime_contract_version"] = AGENT_RUNTIME_CONTRACT_VERSION
+    return result
 
 
 def agent_runtime_contract() -> dict[str, Any]:
@@ -11,13 +23,27 @@ def agent_runtime_contract() -> dict[str, Any]:
 
     Stored Task/Epic prose and historical documentation can outlive the runtime that created them.
     This contract is therefore emitted dynamically and defines current procedure; current repository
-    source remains authoritative for code truth.
+    source remains authoritative for code truth. MCP payloads declare an envelope and do not reprint
+    this body on ordinary or managed-next calls.
     """
     return {
         "version": AGENT_RUNTIME_CONTRACT_VERSION,
         "architecture": "project_intelligence_control_plane",
         "execution_owner": "host-native agent runtime",
         "source_of_truth": "current repository source via host-native tools",
+        "delivery": {
+            "envelopes": [ENVELOPE_ORDINARY, ENVELOPE_MANAGED_NEXT, ENVELOPE_WORKER],
+            "rule": (
+                "Bootstrap owns ordinary procedure once; MCP initialize is the fallback. "
+                "Payloads declare envelope and do not reprint this contract."
+            ),
+            "ordinary": "Data only for status/search/knowledge/work. No procedure essays.",
+            "managed_next": (
+                "Live next_action plus current stage facts. Full agent_contract is not attached."
+            ),
+            "worker": "Delegated subagent job packet only; never includes orchestrator_contract.",
+            "catalog": "MCP tool catalog remains unfiltered.",
+        },
         "startup": {
             "tool": "project_status",
             "rule": "Use as the first AI Layer state call for registered-project work.",
@@ -110,6 +136,7 @@ def agent_runtime_bootstrap_line() -> str:
         "Project Map hits are breadcrumbs, so verify current source. Read reviewed facts with `knowledge_search` "
         "and decisions with `decision_search`. Normal execution remains host-native. When a managed Task/Epic "
         "is active/selected, `task_next` or `epic_next` is the live strict procedure and overrides older stored "
-        "workflow prose. `memory_context` is legacy compatibility only and `memory_search` aliases "
+        "workflow prose. MCP payloads declare envelope ordinary|managed_next|worker and do not reprint this "
+        "procedure. `memory_context` is legacy compatibility only and `memory_search` aliases "
         "`knowledge_search`."
     )

@@ -167,6 +167,8 @@ def test_installer_success_gate_checks_machine_only_not_all_registered_projects(
     ]
     assert "doctor --machine-only" in gate_section
     assert "doctor --all-projects" not in gate_section
+    assert "summarize_upgrade_failure" in script
+    assert "Upgrade failed (compact summary)" in script
 
 
 def test_alembic_revision_ids_fit_default_version_table_column():

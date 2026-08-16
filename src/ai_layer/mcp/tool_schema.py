@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -97,13 +97,3 @@ class WorkMapDispositionInput(BaseModel):
 
 
 WorkCheckList = Annotated[list[WorkCheckInput], Field(max_length=40)]
-
-
-def wire_value(value: Any) -> Any:
-    """Accept MCP-validated models or direct Python dict/list payloads."""
-    dump = getattr(value, "model_dump", None)
-    if callable(dump):
-        return dump(exclude_none=True)
-    if isinstance(value, list):
-        return [wire_value(item) for item in value]
-    return value

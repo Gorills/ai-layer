@@ -11,6 +11,7 @@ from ai_layer.core.config import get_settings
 from ai_layer.core.paths import project_config_path, project_local_path, project_mode
 from ai_layer.core.registry import (
     get_registered_project,
+    is_ephemeral_project_root,
     list_registered_projects,
     unregister_project,
 )
@@ -287,8 +288,37 @@ def repair_project(root: str | Path, *, sync: bool = True) -> dict:
     return result
 
 
+def prune_non_durable_registrations() -> dict:
+    """Forget ephemeral test roots and missing registrations before machine repair."""
+    from ai_layer.application.projects import remove_project
+
+    pruned: list[dict] = []
+    for item in list(list_registered_projects()):
+        raw = str(item.get("root") or "").strip()
+        if not raw:
+            continue
+        resolved = Path(raw).expanduser().resolve()
+        if is_ephemeral_project_root(resolved):
+            reason = "ephemeral-test-root"
+        elif not resolved.exists():
+            reason = "missing-root"
+        else:
+            continue
+        try:
+            result = remove_project(resolved)
+        except Exception as exc:
+            result = {
+                "removed": False,
+                "registry": unregister_project(resolved),
+                "warning": str(exc),
+            }
+        pruned.append({"root": str(resolved), "reason": reason, **result})
+    return {"count": len(pruned), "items": pruned}
+
+
 def repair_registered_projects(*, sync: bool = True) -> dict:
     """Repair all safe machine/project drift and return only unresolved user-owned blockers."""
+    pruned = prune_non_durable_registrations()
     nested: list[dict] = []
     nested_errors: list[dict] = []
     blocked_nested_roots: set[str] = set()
@@ -327,6 +357,7 @@ def repair_registered_projects(*, sync: bool = True) -> dict:
     )
     return {
         "ok": not unresolved,
+        "pruned_registrations": pruned,
         "nested_detached": len(nested),
         "nested": nested,
         "projects_checked": len(projects),

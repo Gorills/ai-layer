@@ -55,7 +55,17 @@ DEFAULT_SKILL_CATALOG: dict[str, dict[str, str]] = {
         "revision": "abb7f2fd5a083fa1ff55c326a963ff0d95c33f99",
         "license": "MIT",
         "purpose": "Extended searchable UI/UX design intelligence for weak-model design work.",
+        "native_routing_description": (
+            "UI/UX design systems, dashboard layout, typography, color, accessibility, "
+            "and component guidance for interface work."
+        ),
     },
+}
+
+NATIVE_ROUTING_DESCRIPTION_OVERRIDES: dict[str, str] = {
+    slug: str(spec.get("native_routing_description") or "").strip()
+    for slug, spec in DEFAULT_SKILL_CATALOG.items()
+    if str(spec.get("native_routing_description") or "").strip()
 }
 
 HIGH_RISK_PATTERNS: tuple[tuple[str, str], ...] = (

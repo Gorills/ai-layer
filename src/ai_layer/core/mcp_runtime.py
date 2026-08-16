@@ -12,6 +12,7 @@ from typing import Any
 
 from ai_layer import __version__
 from ai_layer.core.config import get_settings
+from ai_layer.core.jsonutil import wire_value
 from ai_layer.domain.errors import ErrorCategory, ErrorCode, StructuredError
 
 CORE_HOST = "127.0.0.1"
@@ -320,7 +321,7 @@ def _rpc_request(
     correlation_id: str | None = None,
 ) -> Any:
     token = ensure_core_token()
-    body = json.dumps({"arguments": arguments}, ensure_ascii=False).encode("utf-8")
+    body = json.dumps({"arguments": wire_value(arguments)}, ensure_ascii=False).encode("utf-8")
     headers = {
         "Content-Type": "application/json",
         CORE_TOKEN_HEADER: token,

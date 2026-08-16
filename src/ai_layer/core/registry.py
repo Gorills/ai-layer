@@ -16,6 +16,26 @@ PROJECT_MODES = {"standard", "external", "strict-private"}
 PROVENANCE_POLICIES = {"allow", "forbid"}
 
 
+def is_ephemeral_project_root(root: str | Path) -> bool:
+    """Return True for machine-local test scratch paths that must not own durable registry state."""
+    path = Path(root).expanduser().resolve()
+    parts = path.parts
+    if len(parts) == 3 and parts[0] == os.sep and parts[1] == "tmp":
+        name = parts[2]
+        if name.startswith(("work-spine-", "work-scope-", "project-map-")):
+            return True
+    if (
+        len(parts) == 5
+        and parts[0] == os.sep
+        and parts[1] == "tmp"
+        and parts[2].startswith("pytest-of-")
+        and parts[3].startswith("pytest-")
+        and parts[4].startswith("test_")
+    ):
+        return True
+    return False
+
+
 class RegistryCorruptError(RuntimeError):
     """Machine project registry exists but cannot be trusted safely."""
 

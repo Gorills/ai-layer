@@ -4,7 +4,7 @@ import hashlib
 import re
 from pathlib import Path
 
-from ai_layer.skills.constants import PACKAGE_STORE_CONTRACT
+from ai_layer.skills.constants import NATIVE_ROUTING_DESCRIPTION_OVERRIDES, PACKAGE_STORE_CONTRACT
 from ai_layer.skills.service import skill_sections
 
 NATIVE_DESCRIPTOR_VERSION = 2
@@ -38,6 +38,13 @@ def native_descriptor_name(
     key = hashlib.sha256(root.encode("utf-8")).hexdigest()[:10]
     base = f"ai-layer-{key}-{slug}"
     return base[:64].rstrip("-")
+
+
+def native_routing_description(slug: str, meta: dict | None) -> str:
+    override = NATIVE_ROUTING_DESCRIPTION_OVERRIDES.get(slug)
+    if override:
+        return override
+    return " ".join(str((meta or {}).get("description") or "").split())
 
 
 def validate_routing_description(slug: str, description: str) -> list[str]:
@@ -93,7 +100,7 @@ def validate_native_catalog(skills: list[dict]) -> dict:
             issues.append({"slug": slug, "problem": "duplicate or empty canonical slug"})
             continue
         names.add(slug)
-        description = str((skill.get("meta") or {}).get("description") or "")
+        description = native_routing_description(slug, skill.get("meta") or {})
         for problem in validate_routing_description(slug, description):
             issues.append({"slug": slug, "problem": problem})
         sections = skill_sections(skill)
@@ -134,7 +141,7 @@ def render_native_skill(
     """
     slug = str(skill["slug"])
     meta = skill.get("meta") or {}
-    description = " ".join(str(meta.get("description") or "").split())
+    description = native_routing_description(slug, meta)
     problems = validate_routing_description(slug, description)
     if problems:
         raise ValueError(f"Skill `{slug}` is not safe to publish to native hosts: {problems}")

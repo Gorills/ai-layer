@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ai_layer.application import work as work_uc
 from ai_layer.audit.service import mcp_audit
+from ai_layer.core.jsonutil import wire_value
 from ai_layer.mcp.runtime import _scoped, _text, core_tool, project_root_for_tool
 from ai_layer.mcp.tool_schema import (
     IdempotencyKey,
@@ -18,7 +19,6 @@ from ai_layer.mcp.tool_schema import (
     WorkSessionText,
     WorkSummaryOptional,
     WorkSummaryText,
-    wire_value,
 )
 
 

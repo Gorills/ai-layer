@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -199,3 +200,45 @@ def test_repair_refuses_nested_symlink_inside_ai_state(tmp_path: Path, monkeypat
         )
     finally:
         get_settings.cache_clear()
+
+
+def test_repair_prunes_ephemeral_and_missing_registrations(tmp_path: Path, monkeypatch):
+    import uuid
+
+    home = tmp_path / "home"
+    healthy = Path(f"/tmp/ai-layer-repair-healthy-{uuid.uuid4().hex}")
+    ephemeral = Path(f"/tmp/pytest-of-gorills/pytest-9/test_repair_prunes_{uuid.uuid4().hex}")
+    missing = tmp_path / "missing-project"
+    home.mkdir()
+    healthy.mkdir()
+    ephemeral.mkdir(parents=True)
+    (healthy / ".ai-layer").mkdir()
+    (healthy / ".ai-layer" / "project.yaml").write_text(
+        "version: 2\nproject_id: healthy\nname: healthy\nroot: "
+        + str(healthy.resolve())
+        + "\nmode: standard\nprovenance: allow\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    get_settings.cache_clear()
+    try:
+        register_project(healthy, "healthy", "healthy")
+        register_project(ephemeral, "ephemeral", "ephemeral")
+        register_project(missing, "missing", "missing")
+
+        result = repair_registered_projects(sync=False)
+
+        assert result["pruned_registrations"]["count"] == 2
+        assert get_registered_project(healthy) is not None
+        assert get_registered_project(ephemeral) is None
+        assert get_registered_project(missing) is None
+        assert result["ok"] is True
+        assert result["projects_healthy"] == 1
+    finally:
+        get_settings.cache_clear()
+        if ephemeral.exists():
+            ephemeral.rmdir()
+        if ephemeral.parent.exists() and not any(ephemeral.parent.iterdir()):
+            ephemeral.parent.rmdir()
+        if healthy.exists():
+            shutil.rmtree(healthy, ignore_errors=True)

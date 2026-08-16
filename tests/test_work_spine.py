@@ -215,6 +215,27 @@ def test_work_evidence_accepts_only_bounded_safe_metadata():
         map_disposition(
             {"status": "reconciled", "scope": ["src/app.py"], "event_id": "not-an-event"}
         )
+    assert map_disposition(
+        {
+            "status": "reconciled",
+            "scope_paths": ["src/app.py"],
+            "event_id": "00000000-0000-4000-8000-000000000001",
+        }
+    ) == {
+        "status": "reconciled",
+        "scope": ["src/app.py"],
+        "reason": "",
+        "event_id": "00000000-0000-4000-8000-000000000001",
+    }
+    with pytest.raises(ValueError, match="must match"):
+        map_disposition(
+            {
+                "status": "reconciled",
+                "scope": ["src/app.py"],
+                "scope_paths": ["src/other.py"],
+                "event_id": "00000000-0000-4000-8000-000000000001",
+            }
+        )
 
 
 def test_reconciled_work_disposition_requires_matching_durable_event():
@@ -277,11 +298,14 @@ def test_reconciled_work_disposition_requires_matching_durable_event():
             summary="Done token=secret-value",
             map_disposition={
                 "status": "reconciled",
-                "scope": ["src/app.py"],
+                "scope_paths": ["src/app.py"],
                 "event_id": str(event.id),
             },
         )
         assert completed.result_summary == "Done token=<redacted>"
+        assert completed.map_disposition["status"] == "reconciled"
+        assert completed.map_disposition["scope"] == ["src/app.py"]
+        assert completed.map_disposition["event_id"] == str(event.id)
 
 
 def test_project_map_provenance_keys_are_mutually_exclusive_before_database_access():
@@ -296,3 +320,45 @@ def test_project_map_provenance_keys_are_mutually_exclusive_before_database_acce
             source_work_key="W-0001",
             no_changes_reason="Existing map is accurate.",
         )
+
+
+def test_work_linked_reconcile_persists_disposition_and_finish_keeps_omitted_value():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine, expire_on_commit=False) as db:
+        project = Project(
+            name="Work map persist",
+            root_path="/tmp/work-map-persist",
+            languages={"python": 1},
+            dependencies={},
+            architecture_summary="",
+        )
+        db.add(project)
+        db.flush()
+        work, _run = begin_work(db, project, goal="Keep map closure in sync")
+        result = reconcile_project_map(
+            db,
+            project,
+            entries=None,
+            remove_paths=None,
+            scope_paths=["src/app.py"],
+            source_task_key=None,
+            no_changes_reason="Existing map is accurate.",
+            source_work_key="W-0001",
+        )
+        assert result["map_disposition"]["status"] == "reconciled"
+        assert result["map_disposition"]["event_id"] == result["event_id"]
+        assert result["map_disposition"]["scope"] == ["src/app.py"]
+        assert work.map_disposition == result["map_disposition"]
+
+        completed, _runs = finish_work(
+            db,
+            project,
+            work_key_value="W-0001",
+            status="completed",
+            summary="Done without repeating map_disposition",
+        )
+        assert completed.map_disposition["status"] == "reconciled"
+        assert completed.map_disposition["event_id"] == result["event_id"]
+        assert completed.map_disposition["scope"] == ["src/app.py"]
+        assert completed.map_disposition["status"] != "pending"

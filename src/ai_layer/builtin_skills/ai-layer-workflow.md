@@ -1,6 +1,6 @@
 ---
 slug: ai-layer-workflow
-description: AI Layer operating model for Project Intelligence, continuation, host-native execution, optional managed Tasks/Epics, review, recovery and durable project knowledge/history.
+description: Managed Tasks/Epics, independent review, recovery and Project Map closure. Do not load for ordinary host-native work; that procedure is in the always-on bootstrap.
 kind: core
 keywords:
 - ai layer
@@ -24,21 +24,18 @@ entry_sections:
 
 ## Apply when
 
-Apply this skill when working in a project registered with AI Layer and the work can benefit from reusable project state, code-location breadcrumbs, durable engineering memory, WorkItem/Task/Epic continuation, review evidence, or observability.
+Load this skill for managed Task or Epic procedure, independent review/findings/verification, recovery into managed work, or Project Map/Knowledge closure that the always-on bootstrap does not cover.
 
-The skill is relevant at the beginning of a project-related request because the first useful question is normally not “which workflow stage may I enter?” but “what durable state already exists, and where is the relevant code likely to be?”. Start with `project_status(project_root=<workspace root>)`. That call is intentionally cheap: it restores project identity, Git/worktree summary, live ordinary Work, active managed Task, executing Epic, continuation focus, and Project Map freshness without running Task/Epic navigators or rescanning the repository.
+Do not load it at the start of every registered-project chat. Ordinary procedure — `project_status`, WorkItem begin/terminal, host-native execution, and English-first `project_search` — stays in the native bootstrap. MCP initialize instructions are the fallback when that bootstrap is missing.
 
-Use this skill especially for these situations:
+Use this skill especially when:
 
-- the user says “continue”, “carry on”, “finish this”, or otherwise refers to work that may have started in another chat or agent session;
-- a new substantive ordinary request should be recorded as one WorkItem even when no managed Task is created;
-- the relevant implementation location is not known and broad repository discovery would otherwise be required;
-- a project has durable Knowledge, Decisions, WorkItems, Tasks, Findings, or Epics that can prevent repeated investigation;
-- a risky change benefits from independent review, durable findings, verification evidence, or a strict managed Task workflow;
-- a large outcome benefits from an Epic specification, approval, linked Tasks, integration state, and reconciliation;
-- the agent needs to recover safely after context loss without treating chat history as durable truth.
+- `project_status` focus is a managed Task or Epic, or the user explicitly chooses strict assurance;
+- independent review, durable findings, verification evidence, or delegated STANDARD/FIX workers are required;
+- an Epic specification, approval, linked Tasks, drift, or closure evidence is in play;
+- the agent must recover managed Task/Epic state after context loss without inventing the next stage from chat history.
 
-Do not use AI Layer mechanically when it cannot reduce uncertainty or preserve useful state. If the user already gives an exact current file or symbol, after `project_status` inspect that source directly. Do not insert `project_search`, `knowledge_search`, or Task creation merely so the control plane appears in the trace.
+Do not use this skill merely because the project is registered with AI Layer, and do not treat it as a second copy of the always-on bootstrap.
 
 ## Core contract
 
@@ -106,7 +103,7 @@ For an executing Epic, `epic_next` determines the durable next action. An Epic m
 
 ## Project Map writing contract
 
-`project_map_reconcile` writes navigation memory, not architectural truth. Record only information established from current source actually inspected during the work.
+`project_map_reconcile` writes navigation memory, not architectural truth. Record only information established from current source actually inspected during the work. Pass `source_work_key` for ordinary Work closure or `source_task_key` for managed/Epic closure, never both.
 
 Canonical semantic fields such as `purpose`, `responsibilities`, and `navigation_hints` are concise English. Preserve class, function, method, route, component, file, and other source identifiers exactly as they appear in the repository; never translate or normalize code identifiers. `domain_terms` may contain English, Russian, or other natural-language aliases when those terms are materially useful because they occur in user requests, project vocabulary, issue wording, product terminology, or the real investigation. Do not generate exhaustive translations or synonym lists merely to make the index look multilingual.
 

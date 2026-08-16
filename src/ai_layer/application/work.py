@@ -314,13 +314,13 @@ def _attention_work(active: list[dict], recent: list[dict]) -> list[dict]:
     return items
 
 
-def state(project_root: str | Path, *, limit: int = 8) -> dict:
+def state(project_root: str | Path, *, limit: int = 8, compact: bool = False) -> dict:
     with session_scope() as db:
         project = get_project(db, project_root)
-        active = list_work(db, project, active_only=True, limit=50)
+        active = list_work(db, project, active_only=True, limit=50, compact=compact)
         recent = [
             item
-            for item in list_work(db, project, active_only=False, limit=limit)
+            for item in list_work(db, project, active_only=False, limit=limit, compact=compact)
             if item["status"] not in {"active", "blocked"}
         ]
         return {

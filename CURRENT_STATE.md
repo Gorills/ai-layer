@@ -14,15 +14,16 @@ A WorkItem can record goal, kind, lifecycle status, reviewed/changed paths, repo
 
 ## Project Intelligence startup contract
 
-`project_status` remains the mandatory first AI Layer state call for registered-project work. In v0.14.0 it additionally returns:
+`project_status` remains the mandatory first AI Layer state call for registered-project work. It returns a cheap state snapshot:
 
-- bounded effective `project_policy` with contract version, SHA-256, character count and truncation flag;
-- active/live/recent ordinary WorkItems and attention signals;
-- existing managed Task/Epic state;
-- repository runtime state;
-- structural + semantic Project Map freshness.
+- current focus and continuation (live Work, active managed Task, or executing Epic);
+- bounded effective `project_policy` with contract version, SHA-256, character count and truncation flag, with project/privacy rules preserved if the 12k bound truncates a long custom global prefix;
+- git/worktree summary;
+- compact live/attention/recent Work rows without AgentRun arrays;
+- compact active Task/Epic;
+- Project Map freshness (status, stale/missing counts, changed paths).
 
-Short ordinary work should normally use `work_begin` plus exactly one terminal Work call. `work_checkpoint` is reserved for meaningful milestones or blockers, not every file/tool action. Existing managed Task/Epic flows remain available when strict assurance is explicitly useful.
+It does not re-send the runtime procedure, Project Map capability essay, idle `latest_task`, or open Epic lists. Native bootstrap owns ordinary procedure; MCP initialize instructions are the compact fallback when that bootstrap is missing. Short ordinary work should normally use `work_begin` plus exactly one terminal Work call. `work_checkpoint` is reserved for meaningful milestones or blockers, not every file/tool action. Existing managed Task/Epic flows remain available when strict assurance is explicitly useful.
 
 ## Project Map and search
 
@@ -32,7 +33,7 @@ For unknown code locations, `project_search` uses a bounded search contract. For
 
 Semantic Project Map enrichment remains canonical-English for purpose/responsibilities/navigation hints, preserves exact code identifiers, and may store useful multilingual aliases in `domain_terms`.
 
-`project_map_reconcile(source_work_key=...)` binds inspected semantic scope directly to ordinary Work provenance and returns the durable `ProjectMapReconciled` event identifier. A terminal WorkItem may report `reconciled` only with both a non-empty checked scope and that event identifier; honest no-change/not-applicable/deferred dispositions remain available.
+`project_map_reconcile(source_work_key=...)` binds inspected semantic scope directly to ordinary Work provenance, persists `Work.map_disposition` as `reconciled` with that event identifier and checked scope, and returns the ready disposition. A later terminal Work call may omit `map_disposition` to keep that persisted value; an explicit `reconciled` report still requires non-empty checked scope plus the event identifier, and may use `scope_paths` as an alias for `scope`. Honest no-change/not-applicable/deferred dispositions remain available.
 
 ## Durable observability
 

@@ -63,7 +63,8 @@ def test_global_native_skills_publish_to_supported_host_roots(tmp_path, monkeypa
         workflow_text = workflow_native.read_text(encoding="utf-8")
         workflow_meta = _frontmatter(workflow_text)
         assert workflow_meta["name"] == "ai-layer-workflow"
-        assert "managed Tasks/Epics" in workflow_meta["description"]
+        assert "Managed Tasks/Epics" in workflow_meta["description"]
+        assert "always-on bootstrap" in workflow_meta["description"]
         assert "## Workflow" in workflow_text
         assert "## Project intelligence and durable memory" in workflow_text
     finally:

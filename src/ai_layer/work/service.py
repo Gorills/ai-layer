@@ -43,6 +43,41 @@ def work_key(work: WorkItem) -> str:
     return f"W-{int(work.sequence):04d}"
 
 
+def _agent_runs_for_work(
+    db: Session, work: WorkItem, preloaded_runs: list[AgentRun] | None = None
+) -> list[AgentRun]:
+    if preloaded_runs is not None:
+        return list(preloaded_runs)
+    return list(
+        db.scalars(
+            select(AgentRun)
+            .where(AgentRun.work_id == work.id)
+            .order_by(AgentRun.started_at, AgentRun.id)
+        ).all()
+    )
+
+
+def _work_is_live(work: WorkItem, runs: list[AgentRun], *, now: datetime | None = None) -> bool:
+    if work.status not in {"active", "blocked"}:
+        return False
+    return any(run.status == "active" and not _run_stale(run, now=now) for run in runs)
+
+
+def _compact_work_row(work: WorkItem, *, live: bool) -> dict[str, Any]:
+    disposition = dict(work.map_disposition or {}) or {"status": "pending"}
+    return {
+        "id": str(work.id),
+        "key": work_key(work),
+        "goal": redact_secrets(work.goal),
+        "kind": work.kind,
+        "status": work.status,
+        "live": live,
+        "map_disposition": {"status": disposition.get("status", "pending")},
+        "map_pending": disposition.get("status") == "pending",
+        "updated_at": work.updated_at.isoformat(),
+    }
+
+
 def _run_stale(run: AgentRun, *, now: datetime | None = None) -> bool:
     if run.status != "active":
         return False
@@ -81,22 +116,14 @@ def work_to_dict(
     work: WorkItem,
     *,
     include_runs: bool = True,
+    compact: bool = False,
     preloaded_runs: list[AgentRun] | None = None,
 ) -> dict[str, Any]:
-    runs: list[dict] = []
-    live = False
-    if include_runs:
-        rows = preloaded_runs
-        if rows is None:
-            rows = list(
-                db.scalars(
-                    select(AgentRun)
-                    .where(AgentRun.work_id == work.id)
-                    .order_by(AgentRun.started_at, AgentRun.id)
-                ).all()
-            )
-        runs = [run_to_dict(row) for row in rows]
-        live = any(item["status"] == "active" and not item["stale"] for item in runs)
+    rows = _agent_runs_for_work(db, work, preloaded_runs)
+    live = _work_is_live(work, rows)
+    if compact:
+        return _compact_work_row(work, live=live)
+    runs = [run_to_dict(row) for row in rows] if include_runs else []
     disposition = dict(work.map_disposition or {}) or {"status": "pending"}
     return {
         "id": str(work.id),
@@ -104,7 +131,7 @@ def work_to_dict(
         "goal": redact_secrets(work.goal),
         "kind": work.kind,
         "status": work.status,
-        "live": live and work.status in {"active", "blocked"},
+        "live": live,
         "result_summary": redact_secrets(work.result_summary),
         "reviewed_paths": list(work.reviewed_paths or []),
         "changed_paths": list(work.changed_paths or []),
@@ -371,28 +398,30 @@ def finish_work(
     normalized_repository_delta = (
         normalize_repository_delta(repository_delta) if repository_delta is not None else None
     )
-    disposition = normalize_map_disposition(map_disposition)
-    if disposition["status"] == "reconciled":
-        event_id = UUID(str(disposition["event_id"]))
-        event = db.scalar(
-            select(RuntimeEvent)
-            .join(RuntimeEventContext, RuntimeEventContext.event_id == RuntimeEvent.id)
-            .where(
-                RuntimeEvent.id == event_id,
-                RuntimeEvent.project_id == project.id,
-                RuntimeEvent.event_type == "ProjectMapReconciled",
-                RuntimeEventContext.work_id == work.id,
+    if map_disposition is not None:
+        disposition = normalize_map_disposition(map_disposition)
+        if disposition["status"] == "reconciled":
+            event_id = UUID(str(disposition["event_id"]))
+            event = db.scalar(
+                select(RuntimeEvent)
+                .join(RuntimeEventContext, RuntimeEventContext.event_id == RuntimeEvent.id)
+                .where(
+                    RuntimeEvent.id == event_id,
+                    RuntimeEvent.project_id == project.id,
+                    RuntimeEvent.event_type == "ProjectMapReconciled",
+                    RuntimeEventContext.work_id == work.id,
+                )
             )
-        )
-        if event is None:
-            raise ValueError(
-                "reconciled map_disposition.event_id must identify a ProjectMapReconciled "
-                "event for this Work item"
-            )
-        if list((event.payload or {}).get("scope_paths") or []) != disposition["scope"]:
-            raise ValueError(
-                "reconciled map_disposition.scope must match the ProjectMapReconciled event scope"
-            )
+            if event is None:
+                raise ValueError(
+                    "reconciled map_disposition.event_id must identify a ProjectMapReconciled "
+                    "event for this Work item"
+                )
+            if list((event.payload or {}).get("scope_paths") or []) != disposition["scope"]:
+                raise ValueError(
+                    "reconciled map_disposition.scope must match the ProjectMapReconciled event scope"
+                )
+        work.map_disposition = disposition
     now = utcnow()
     work.status = terminal
     work.result_summary = normalized_summary
@@ -404,7 +433,6 @@ def finish_work(
         work.checks = normalized_checks
     if normalized_repository_delta is not None:
         work.repository_delta = normalized_repository_delta
-    work.map_disposition = disposition
     work.updated_at = now
     work.last_milestone_at = now
     work.completed_at = now
@@ -424,7 +452,12 @@ def finish_work(
 
 
 def list_work(
-    db: Session, project: Project, *, active_only: bool = False, limit: int = WORK_RECENT_LIMIT
+    db: Session,
+    project: Project,
+    *,
+    active_only: bool = False,
+    limit: int = WORK_RECENT_LIMIT,
+    compact: bool = False,
 ) -> list[dict[str, Any]]:
     stmt = select(WorkItem).where(WorkItem.project_id == project.id)
     if active_only:
@@ -434,7 +467,7 @@ def list_work(
             max(1, min(limit, 50))
         )
     ).all()
-    return [work_to_dict(db, row) for row in rows]
+    return [work_to_dict(db, row, compact=compact) for row in rows]
 
 
 def get_work(db: Session, project: Project, key: str) -> dict[str, Any]:

@@ -89,4 +89,18 @@ def test_workflow_skill_is_not_a_copy_of_always_on_bootstrap() -> None:
     assert skill != bootstrap
     assert "`work_begin`" in bootstrap
     assert "English code-centric" in bootstrap
-    assert "Mandatory project-intelligence startup" in bootstrap
+    assert "## AI Layer control-plane boundary" in bootstrap
+    assert "Mandatory project-intelligence startup" not in bootstrap
+    assert agent_runtime_bootstrap_line() not in bootstrap
+    writing = _section(skill, "Project Map writing contract")
+    assert "`source_work_key`" in writing
+    assert "`source_task_key`" in writing
+    assert "never both" in writing
+
+
+def test_workflow_skill_apply_when_does_not_auto_load_for_ordinary_chats() -> None:
+    apply_when = _section(_skill_text(), "Apply when")
+    assert "beginning of a project-related request" not in apply_when
+    assert "Do not load it at the start of every registered-project chat" in apply_when
+    assert "always-on bootstrap" in apply_when
+    assert "ordinary procedure" in apply_when.casefold()

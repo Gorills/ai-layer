@@ -6,7 +6,7 @@ from pathlib import PurePosixPath
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_layer.db.models import Project, Task
+from ai_layer.db.models import Project, Task, utcnow
 from ai_layer.db.navigation_models import ProjectNavigation, ProjectNavigationSemantic
 from ai_layer.db.work_models import WorkItem
 from ai_layer.memory.embeddings import get_embedder
@@ -167,24 +167,41 @@ def _task_for_key(db: Session, project: Project, task_key: str | None) -> tuple[
     return task, f"T-{int(task.sequence):04d}"
 
 
-def _work_for_key(db: Session, project: Project, work_key: str | None) -> WorkItem | None:
+def _work_for_key(
+    db: Session, project: Project, work_key: str | None, *, lock: bool = False
+) -> WorkItem | None:
     rendered = str(work_key or "").strip().upper()
     if not rendered:
         return None
     match = _WORK_KEY_RE.fullmatch(rendered)
     if not match:
         raise ValueError("project_map_reconcile: `source_work_key` must look like W-0001")
-    work = db.scalar(
-        select(WorkItem).where(
-            WorkItem.project_id == project.id,
-            WorkItem.sequence == int(match.group(1)),
-        )
+    stmt = select(WorkItem).where(
+        WorkItem.project_id == project.id,
+        WorkItem.sequence == int(match.group(1)),
     )
+    if lock:
+        stmt = stmt.with_for_update()
+    work = db.scalar(stmt)
     if work is None:
         raise ValueError(
             f"project_map_reconcile: work item `{rendered}` does not exist in this project"
         )
     return work
+
+
+def _persist_work_map_disposition(
+    work: WorkItem, *, event_id: str, scope: list[str], reason: str
+) -> dict:
+    disposition = {
+        "status": "reconciled",
+        "scope": list(scope),
+        "reason": reason,
+        "event_id": event_id,
+    }
+    work.map_disposition = disposition
+    work.updated_at = utcnow()
+    return disposition
 
 
 def _navigation_rows(db: Session, project: Project) -> dict[str, ProjectNavigation]:
@@ -436,7 +453,7 @@ def reconcile_project_map(
             "project_map_reconcile: provide semantic entries/removals or a factual `no_changes_reason`"
         )
     task, task_source_ref = _task_for_key(db, project, source_task_key)
-    work = _work_for_key(db, project, source_work_key)
+    work = _work_for_key(db, project, source_work_key, lock=True)
     source_ref = (
         task_source_ref if task is not None else f"W-{int(work.sequence):04d}" if work else "agent"
     )
@@ -461,7 +478,7 @@ def reconcile_project_map(
         no_changes_reason=reason,
     )
     db.flush()
-    return {
+    result = {
         "ok": True,
         "source_ref": source_ref,
         "event_id": str(event.id),
@@ -474,6 +491,15 @@ def reconcile_project_map(
             "source identifiers stay exact; multilingual user/domain aliases belong in domain_terms."
         ),
     }
+    if work is not None:
+        result["map_disposition"] = _persist_work_map_disposition(
+            work,
+            event_id=str(event.id),
+            scope=scope,
+            reason=reason,
+        )
+        db.flush()
+    return result
 
 
 def semantic_map_status(db: Session, project: Project) -> dict:

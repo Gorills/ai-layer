@@ -19,7 +19,7 @@ from ai_layer.mcp.tool_schema import (
 
 
 def project_status(project_root: str | None = None) -> dict:
-    """WHEN: first state call for registered-project work. Returns Work/Task/Epic/Git/index/effective-policy state without scanning source."""
+    """WHEN: first state call for registered-project work. Returns focus, continuation, Git, dynamic policy and map freshness. Procedure lives in native bootstrap; MCP initialize instructions are the fallback."""
     root = project_root_for_tool(project_root, tool="project_status")
     with mcp_audit(
         root,
@@ -97,7 +97,7 @@ def project_map_reconcile(
     no_changes_reason: str | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: after meaningful real work established better navigation facts. Reconcile only inspected/affected paths. Canonical purpose/responsibilities/hints must be concise English; keep code identifiers exact and put useful Russian/other aliases in domain_terms. Pass source_work_key for ordinary Work closure or source_task_key for managed/Epic closure, never both."""
+    """WHEN: after meaningful real work established better navigation facts. Reconcile only inspected/affected paths. Canonical purpose/responsibilities/hints must be concise English; keep code identifiers exact and put useful Russian/other aliases in domain_terms. Pass source_work_key for ordinary Work closure or source_task_key for managed/Epic closure, never both. A work-linked call persists Work.map_disposition as reconciled with event_id and checked scope and returns that ready disposition."""
     root = project_root_for_tool(project_root, tool="project_map_reconcile")
     with mcp_audit(
         root,

@@ -190,6 +190,17 @@ def test_mcp_work_and_task_schemas_reject_invalid_enums_and_overlong_text():
             "map_disposition": {"status": "pending"},
         }
     )
+    work_complete.fn_metadata.validate_arguments(
+        {
+            "work_key": "W-0001",
+            "summary": "done",
+            "map_disposition": {
+                "status": "reconciled",
+                "scope_paths": ["src/app.py"],
+                "event_id": "00000000-0000-4000-8000-000000000001",
+            },
+        }
+    )
     task_create = _mcp_tool("task_create")
     try:
         task_create.fn_metadata.validate_arguments({"goal": "managed work", "workflow": "ad-hoc"})

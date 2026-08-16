@@ -123,6 +123,11 @@ def test_fresh_work_stays_live_and_out_of_attention(monkeypatch, tmp_path: Path)
         assert continuation["key"] == key
         assert "live ordinary work" in continuation["instruction"].casefold()
         assert "stale" not in continuation["instruction"].casefold()
+        live_row = next(item for item in work["live_work"] if item["key"] == key)
+        assert "runs" not in live_row
+        assert "guidance" not in status
+        assert "agent_contract" not in status
+        assert "latest_task" not in work
 
 
 def test_project_status_does_not_start_new_work_while_stale_active_exists(
@@ -149,6 +154,44 @@ def test_project_status_does_not_start_new_work_while_stale_active_exists(
             "key": key,
             "goal": "Resume or terminate this item",
         }
+
+
+def test_project_status_omits_idle_latest_task_and_procedure_payloads(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _stub_status_reads(monkeypatch)
+    monkeypatch.setattr(
+        pi.task_uc,
+        "read_state",
+        lambda *_args, **_kwargs: {
+            "current": None,
+            "latest": {
+                "id": "closed-task",
+                "key": "T-0009",
+                "goal": "Closed managed work",
+                "status": "completed",
+                "workflow_profile": "STANDARD",
+                "risk_level": "normal",
+                "updated_at": "2026-01-01T00:00:00+00:00",
+                "active_stage": None,
+                "next_action": None,
+                "open_findings": 0,
+            },
+            "source": "db",
+        },
+    )
+    with _bound_work_db(tmp_path) as root:
+        status = pi.project_status(root)
+        work = status["work"]
+        assert "latest_task" not in work
+        assert "open_epics" not in work
+        assert "observability_contract" not in work
+        assert "guidance" not in status
+        assert "agent_contract" not in status
+        assert "languages" not in status["project"]
+        assert "refresh_job" not in status["index"]["freshness"]
+        assert "contract" not in status["index"]["project_map"]
+        assert "language_policy" not in status["index"]["project_map"]
 
 
 def test_dashboard_is_not_healthy_because_the_run_went_stale(monkeypatch) -> None:

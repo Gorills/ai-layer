@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from ai_layer import __version__
 from ai_layer.application import epics as epic_app
 from ai_layer.application.tasks import _idle_managed_task_payload
-from ai_layer.domain.agent_contract import agent_runtime_contract
+from ai_layer.domain.agent_contract import agent_runtime_bootstrap_line, agent_runtime_contract
 from ai_layer.domain.orchestrator import mcp_bootstrap_instructions, native_bootstrap_markdown
 from ai_layer.domain.static_policy import static_policy_markdown
 from ai_layer.integrations import global_install
@@ -62,6 +62,44 @@ def test_bootstrap_and_static_policy_do_not_restore_legacy_permission_layer() ->
     assert "create a task before implementation" not in text
     assert "edit repository before task_create" not in text
     assert "load only the relevant skill section" not in text
+
+
+def test_native_bootstrap_contains_one_procedure_copy() -> None:
+    bootstrap = native_bootstrap_markdown()
+    fallback = mcp_bootstrap_instructions()
+    contract_line = agent_runtime_contract()
+    assert bootstrap.count("## AI Layer control-plane boundary") == 1
+    assert bootstrap.count("## Mandatory engineering discipline") == 1
+    assert "Mandatory project-intelligence startup" not in bootstrap
+    assert "1. The first AI Layer project-state call MUST be" not in bootstrap
+    assert agent_runtime_bootstrap_line() not in bootstrap
+    assert "`source_work_key`" in bootstrap
+    assert "`source_task_key`" in bootstrap
+    assert "never both" in bootstrap
+    assert agent_runtime_bootstrap_line() in fallback
+    assert fallback.startswith("If native AI Layer bootstrap is not already in context:")
+    assert contract_line["startup"]["tool"] == "project_status"
+
+
+def test_mcp_catalog_keeps_task_and_epic_tools_without_host_filtering() -> None:
+    from ai_layer.mcp.runtime import TOOL_HANDLERS
+    from ai_layer.mcp.server import mcp
+
+    names = set(TOOL_HANDLERS)
+    for required in (
+        "epic_create",
+        "epic_next",
+        "task_create",
+        "task_next",
+        "work_begin",
+        "project_status",
+    ):
+        assert required in names
+        assert mcp._tool_manager.get_tool(required) is not None
+    runtime = (ROOT / "src/ai_layer/mcp/runtime.py").read_text(encoding="utf-8")
+    assert "tool_search" not in runtime
+    assert "filtered_catalog" not in runtime
+    assert "cursor tool search" not in runtime.casefold()
 
 
 def test_idle_managed_task_contract_is_native_first_and_task_create_is_optional() -> None:

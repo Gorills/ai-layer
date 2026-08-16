@@ -7,8 +7,7 @@ from ai_layer.application import tasks as task_uc
 from ai_layer.application import work as work_uc
 from ai_layer.core.service import get_project
 from ai_layer.db.session import session_scope
-from ai_layer.domain.agent_contract import PROJECT_SEARCH_MAX_QUERIES, agent_runtime_contract
-from ai_layer.domain.project_map import project_map_capability_contract
+from ai_layer.domain.agent_contract import PROJECT_SEARCH_MAX_QUERIES
 from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES, EPIC_OPEN_STATUSES
 from ai_layer.memory.navigation import project_map_status, search_project_map
 from ai_layer.memory.project_map_search import merge_project_search, search_semantic_map
@@ -137,15 +136,56 @@ def _continuation(
     }
 
 
+def _compact_map_index(map_state: dict, freshness: dict) -> dict:
+    return {
+        "project_map": {
+            "navigation_files": int(map_state.get("navigation_files") or 0),
+            "symbol_count": int(map_state.get("symbol_count") or 0),
+            "semantic_current": int(map_state.get("semantic_current") or 0),
+            "semantic_stale": int(map_state.get("semantic_stale") or 0),
+            "semantic_missing": int(map_state.get("semantic_missing") or 0),
+        },
+        "freshness": {
+            "status": freshness.get("status"),
+            "snapshot_available": freshness.get("snapshot_available"),
+            "background_refresh": freshness.get("background_refresh"),
+            "changed_paths": list(freshness.get("changed_paths") or [])[:20],
+        },
+    }
+
+
+def _focus_payload(
+    active_task: dict | None, active_work: dict | None, active_epic: dict | None
+) -> dict | None:
+    if active_task:
+        return {
+            "kind": "task",
+            "key": active_task.get("key"),
+            "goal": active_task.get("goal"),
+        }
+    if active_work:
+        return {
+            "kind": "work",
+            "key": active_work.get("key"),
+            "goal": active_work.get("goal"),
+        }
+    if active_epic:
+        return {
+            "kind": "epic",
+            "key": active_epic.get("key"),
+            "title": active_epic.get("title"),
+        }
+    return None
+
+
 def project_status(project_root: str | Path) -> dict:
     """Return cheap durable work state, effective policy and Project Map freshness."""
     root = Path(project_root).expanduser().resolve()
     task_state = task_uc.read_state(root, include_history=False)
     active_task = _compact_task(task_state.get("current"))
-    latest_task = _compact_task(task_state.get("latest"))
     epic_state = _epic_state(root)
     active_epic = epic_state.get("active")
-    ordinary_work = work_uc.state(root, limit=8)
+    ordinary_work = work_uc.state(root, limit=8, compact=True)
     live_work = list(ordinary_work.get("live") or [])
     active_work = _ordinary_work_focus(ordinary_work)
     repository = repository_runtime_status(root)
@@ -157,36 +197,12 @@ def project_status(project_root: str | Path) -> dict:
         map_state = project_map_status(db, project)
         map_state.update(semantic_map_status(db, project))
         project_payload = {
-            "id": str(project.id),
             "name": project.name,
             "root_path": project.root_path,
-            "languages": dict(project.languages or {}),
         }
 
-    focus = active_task or active_work or active_epic
-    if active_task:
-        focus_payload = {
-            "kind": "task",
-            "key": active_task.get("key"),
-            "goal": active_task.get("goal"),
-        }
-    elif active_work:
-        focus_payload = {
-            "kind": "work",
-            "key": active_work.get("key"),
-            "goal": active_work.get("goal"),
-        }
-    elif active_epic:
-        focus_payload = {
-            "kind": "epic",
-            "key": active_epic.get("key"),
-            "title": active_epic.get("title"),
-        }
-    else:
-        focus_payload = None
-
+    focus_payload = _focus_payload(active_task, active_work, active_epic)
     return {
-        "agent_contract": agent_runtime_contract(),
         "project": project_payload,
         "project_policy": policy,
         "repository": repository,
@@ -196,50 +212,13 @@ def project_status(project_root: str | Path) -> dict:
             "recent_work": list(ordinary_work.get("recent") or []),
             "work_attention": list(ordinary_work.get("attention") or []),
             "active_task": active_task,
-            "latest_task": latest_task if active_task is None else None,
             "active_epic": active_epic,
-            "open_epics": epic_state.get("open") or [],
             "current_focus": focus_payload,
             "continuation": _continuation(active_task, active_work, active_epic),
             "state_source": task_state.get("source"),
-            "observability_contract": ordinary_work.get("observability_contract"),
         },
-        "index": {
-            "project_map": map_state,
-            "freshness": {
-                "status": freshness.get("status"),
-                "snapshot_available": freshness.get("snapshot_available"),
-                "background_refresh": freshness.get("background_refresh"),
-                "refresh_job": freshness.get("refresh_job"),
-                "changed_paths": list(freshness.get("changed_paths") or [])[:20],
-                "read_contract": freshness.get("read_contract"),
-            },
-        },
-        "guidance": {
-            "source_of_truth": "current repository source via host-native tools",
-            "project_policy": (
-                "Apply project_status.project_policy before implementation; use its version/hash to detect drift."
-            ),
-            "ordinary_work": (
-                "Substantive host-native requests use WorkItem lifecycle. Managed Task is optional assurance, "
-                "not the ordinary-work identity."
-            ),
-            "unknown_code_location": (
-                "Call project_search before broad repository grep/search. For non-English goals, use a concise "
-                "English code-centric primary query, preserve exact identifiers, and use at most one original "
-                "or mixed widening variant."
-            ),
-            "known_code_location": (
-                "If the user already supplied a precise file/symbol, open it directly after this status call; "
-                "project_search is unnecessary ceremony."
-            ),
-            "execution_owner": "host-native agent runtime",
-            "managed_workflow": (
-                "Use task_next/epic_next only when resuming or explicitly choosing a managed Task/Epic flow."
-            ),
-            "project_map": project_map_capability_contract(),
-        },
-        "active": bool(focus),
+        "index": _compact_map_index(map_state, freshness),
+        "active": bool(focus_payload),
     }
 
 

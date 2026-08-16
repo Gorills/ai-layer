@@ -91,6 +91,7 @@ class WorkMapDispositionInput(BaseModel):
 
     status: WorkMapStatus
     scope: ProjectPathList = Field(default_factory=list)
+    scope_paths: ProjectPathList | None = None
     reason: Annotated[str, Field(max_length=500)] = ""
     event_id: Annotated[str, Field(max_length=64)] | None = None
 

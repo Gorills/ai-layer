@@ -112,6 +112,10 @@ def test_semantic_reconciliation_is_task_provenanced_searchable_and_becomes_stal
         assert event.payload["scope_paths"] == ["src/orders/retry.py"]
         context = db.get(RuntimeEventContext, event.id)
         assert context is not None and context.work_id == work.id
+        assert result["map_disposition"]["status"] == "reconciled"
+        assert result["map_disposition"]["event_id"] == str(event.id)
+        assert result["map_disposition"]["scope"] == ["src/orders/retry.py"]
+        assert work.map_disposition == result["map_disposition"]
         semantic = db.scalar(
             select(ProjectNavigationSemantic).where(
                 ProjectNavigationSemantic.project_id == project.id,

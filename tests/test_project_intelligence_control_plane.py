@@ -67,7 +67,7 @@ def test_bootstrap_uses_status_and_project_map_without_disabling_native_executio
     assert "project_map_reconcile" in bootstrap
     assert "knowledge_search" in bootstrap
     assert "host-native" in bootstrap
-    assert "native reads, edits, shell, tests, code search and subagents are allowed" in bootstrap
+    assert "Native read/edit/search/shell/test/subagent capabilities remain available" in bootstrap
     assert "first project-related tool call MUST be `memory_context" not in bootstrap
     assert "The top-level chat is the orchestrator, not an implementation worker" not in bootstrap
 

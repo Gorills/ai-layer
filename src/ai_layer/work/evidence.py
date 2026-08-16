@@ -11,7 +11,7 @@ WORK_CHECK_LIMIT = 40
 WORK_ASSURANCE_VALUES = frozenset(WORK_ASSURANCE)
 WORK_CHECK_STATUSES = frozenset({"passed", "failed", "skipped", "blocked", "not_run"})
 WORK_CHECK_FIELDS = frozenset({"name", "status", "summary"})
-MAP_DISPOSITION_FIELDS = frozenset({"status", "scope", "reason", "event_id"})
+MAP_DISPOSITION_FIELDS = frozenset({"status", "scope", "scope_paths", "reason", "event_id"})
 REPOSITORY_DELTA_FIELDS = frozenset(
     {
         "base_revision",
@@ -141,6 +141,22 @@ def repository_delta(value: object) -> dict[str, object]:
     return result
 
 
+def _disposition_scope(value: dict) -> list[str]:
+    raw_scope = value.get("scope")
+    raw_alias = value.get("scope_paths")
+    has_scope = raw_scope not in (None, [])
+    has_alias = raw_alias not in (None, [])
+    if has_scope and has_alias:
+        scope = project_paths(raw_scope, field="map_disposition.scope")
+        alias = project_paths(raw_alias, field="map_disposition.scope_paths")
+        if scope != alias:
+            raise ValueError("map_disposition.scope and map_disposition.scope_paths must match")
+        return scope
+    if has_alias:
+        return project_paths(raw_alias, field="map_disposition.scope")
+    return project_paths(raw_scope or [], field="map_disposition.scope")
+
+
 def map_disposition(value: object) -> dict:
     if value is None:
         return {"status": "pending"}
@@ -157,7 +173,7 @@ def map_disposition(value: object) -> dict:
         raise ValueError(
             "map_disposition.status must be reconciled, checked_no_change, not_applicable, deferred or pending"
         )
-    scope = project_paths(value.get("scope") or [], field="map_disposition.scope")
+    scope = _disposition_scope(value)
     reason = safe_metadata_text(value.get("reason"), field="map_disposition.reason", max_chars=500)
     event_id = normalized_text(
         value.get("event_id"), field="map_disposition.event_id", max_chars=64

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ai_layer.application import work as work_uc
 from ai_layer.audit.service import mcp_audit
+from ai_layer.core.jsonutil import wire_value
 from ai_layer.mcp.runtime import _scoped, _text, core_tool, project_root_for_tool
 from ai_layer.mcp.tool_schema import (
     IdempotencyKey,
@@ -18,7 +19,6 @@ from ai_layer.mcp.tool_schema import (
     WorkSessionText,
     WorkSummaryOptional,
     WorkSummaryText,
-    wire_value,
 )
 
 
@@ -35,7 +35,7 @@ def work_begin(
     idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: begin one substantive user request performed through normal host-native execution. One WorkItem records what happened; a managed Task remains optional assurance. For short work pair this with work_complete and skip checkpoints. Reuse idempotency_key when retrying the same host event."""
+    """WHEN: begin one substantive user request (change, diagnose, review, research, planning, or ops), including investigation that should fill Project Map. Call after project_status when continuation.next_action.tool is work_begin. One WorkItem records what happened; a managed Task remains optional assurance. For short work pair this with work_complete and skip checkpoints. Reuse idempotency_key when retrying the same host event."""
     root = project_root_for_tool(project_root, tool="work_begin")
     goal = _text(goal, tool="work_begin", field="goal")
     with mcp_audit(

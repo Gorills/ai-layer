@@ -26,6 +26,7 @@ from ai_layer.db.epic_models import Epic, EpicPlanItem
 from ai_layer.db.models import Project, RuntimeEvent, Task, utcnow
 from ai_layer.db.session import session_scope
 from ai_layer.domain.project_map import project_map_capability_contract
+from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES, EPIC_OPEN_STATUSES, epic_key
 from ai_layer.tasks.constants import OPEN_TASK_STATUSES
 from ai_layer.tasks.views import task_to_dict
 
@@ -466,14 +467,69 @@ def _navigation_action(db: Session, project: Project, epic: Epic) -> dict:
     return {"action": "none", "message": f"Epic status is {epic.status}"}
 
 
-def next_action(project_root: str | Path, *, key: str) -> dict:
+def _idle_epic_payload() -> dict:
+    return {
+        "active": False,
+        "state": "no_active_epic",
+        "next_action": {
+            "action": "host_native",
+            "tool": None,
+            "message": (
+                "No executing Epic is selected. Continue ordinary work through the host-native "
+                "agent runtime; pass epic_key to resume a specific Epic."
+            ),
+        },
+    }
+
+
+def _ambiguous_epic_next_error(rows: list[Epic], *, executing: bool) -> ValueError:
+    keys = ", ".join(epic_key(row.sequence) for row in rows)
+    if executing:
+        message = (
+            f"epic_next requires epic_key because multiple executing Epics are open: {keys}. "
+            "Pass the exact epic_key; do not guess."
+        )
+    else:
+        message = (
+            f"epic_next requires epic_key because multiple open Epics exist and none is executing: "
+            f"{keys}. Pass the exact epic_key; do not guess."
+        )
+    return ValueError(message)
+
+
+def _resolve_epic_for_next(db: Session, project: Project, key: str | None) -> Epic | None:
+    if key:
+        return epic_for_update(db, project, key)
+    rows = list(
+        db.scalars(
+            select(Epic).where(Epic.project_id == project.id).order_by(Epic.sequence.asc())
+        ).all()
+    )
+    executing = [row for row in rows if row.status in EPIC_EXECUTION_STATUSES]
+    if len(executing) > 1:
+        raise _ambiguous_epic_next_error(executing, executing=True)
+    if len(executing) == 1:
+        return epic_for_update(db, project, epic_key(executing[0].sequence))
+    open_rows = [row for row in rows if row.status in EPIC_OPEN_STATUSES]
+    if len(open_rows) > 1:
+        raise _ambiguous_epic_next_error(open_rows, executing=False)
+    if len(open_rows) == 1:
+        return epic_for_update(db, project, epic_key(open_rows[0].sequence))
+    return None
+
+
+def next_action(project_root: str | Path, *, key: str | None = None) -> dict:
     with session_scope() as db:
         project = project_for_root(db, project_root)
-        epic = epic_for_update(db, project, key)
+        epic = _resolve_epic_for_next(db, project, key)
+        if epic is None:
+            return _idle_epic_payload()
         action = _navigation_action(db, project, epic)
         db.flush()
         payload = {
-            "epic": epic_payload(db, epic, include_spec=False, include_history=False),
+            "epic": epic_payload(
+                db, epic, include_spec=False, include_history=False, include_audits=False
+            ),
             "next_action": dict(action),
         }
         if action.get("tool") == "project_map_reconcile":

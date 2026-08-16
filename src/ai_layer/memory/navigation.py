@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 import re
-from pathlib import Path
+from pathlib import PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,6 +14,9 @@ from ai_layer.memory.embeddings import get_embedder
 MAX_SYMBOLS_PER_FILE = 80
 MAX_NAVIGATION_TEXT_CHARS = 6000
 MIN_PROJECT_SEARCH_SCORE = 0.10
+MAX_SEARCH_WHY = 2
+_SRC_ROOTS = frozenset({"src", "lib"})
+_TEST_ROOTS = frozenset({"test", "tests"})
 _TOKEN_RE = re.compile(r"[A-Za-zА-Яа-я0-9]+")
 _CAMEL_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _ROUTE_METHODS = {
@@ -308,24 +311,94 @@ def _lexical_score(row: ProjectNavigation, query_tokens: set[str]) -> tuple[floa
     return score, matched_symbols[:8]
 
 
+def _compact_search_why(reasons: list[str], *, limit: int = MAX_SEARCH_WHY) -> list[str]:
+    cleaned: list[str] = []
+    stale: str | None = None
+    for raw in reasons:
+        text = " ".join(str(raw or "").split())
+        if not text:
+            continue
+        if "stale" in text.casefold():
+            stale = text
+            continue
+        if text not in cleaned:
+            cleaned.append(text)
+    keep = max(1, int(limit))
+    selected = cleaned[: keep - (1 if stale else 0)]
+    if stale:
+        selected.append(stale)
+    return selected[:keep]
+
+
+def _posix_path(path: str) -> PurePosixPath:
+    return PurePosixPath(str(path).replace("\\", "/"))
+
+
+def _is_test_navigation_path(path: str) -> bool:
+    posix = _posix_path(path)
+    name = posix.name.casefold()
+    parts = {part.casefold() for part in posix.parts}
+    return (
+        bool(parts & _TEST_ROOTS)
+        or name.startswith("test_")
+        or name.endswith("_test.py")
+        or ".test." in name
+        or ".spec." in name
+    )
+
+
+def _dir_parts(path: str, *, roots: frozenset[str]) -> tuple[str, ...]:
+    parent = tuple(
+        part.casefold() for part in _posix_path(path).parent.parts if part not in {".", ""}
+    )
+    if parent and parent[0] in roots:
+        return parent[1:]
+    return parent
+
+
+def _module_stem(path: str) -> str:
+    name = _posix_path(path).stem.casefold()
+    if name.startswith("test_"):
+        name = name[5:]
+    if name.endswith("_test"):
+        name = name[:-5]
+    if name.endswith(".spec"):
+        name = name[:-5]
+    if name.endswith(".test"):
+        name = name[:-5]
+    return name
+
+
+def _path_adjacent_score(hit_path: str, test_path: str) -> int:
+    hit_stem = _module_stem(hit_path)
+    test_stem = _module_stem(test_path)
+    if not hit_stem or not test_stem:
+        return 0
+    hit_dir = _dir_parts(hit_path, roots=_SRC_ROOTS)
+    test_dir = _dir_parts(test_path, roots=_TEST_ROOTS)
+    score = 0
+    if hit_stem == test_stem:
+        score += 5
+    if hit_dir and hit_dir == test_dir:
+        score += 4
+    elif hit_dir and test_dir and hit_dir[-1] in test_dir:
+        score += 2
+    if _posix_path(hit_path).parent.as_posix() == _posix_path(test_path).parent.as_posix():
+        score += 3
+    return score
+
+
 def _related_tests(rows: list[ProjectNavigation], hits: list[dict], *, limit: int = 8) -> list[str]:
-    interest: set[str] = set()
-    for hit in hits[:4]:
-        interest |= _tokens(hit.get("path"))
-        for symbol in hit.get("symbols") or []:
-            interest |= _tokens(symbol.get("name"))
+    hit_paths = [str(item.get("path") or "") for item in hits[:4] if item.get("path")]
     scored: list[tuple[int, str]] = []
     for row in rows:
-        name = Path(row.path).name.casefold()
-        is_test = (
-            "test" in Path(row.path).parts
-            or name.startswith("test_")
-            or ".test." in name
-            or ".spec." in name
-        )
-        overlap = len(interest & _tokens(row.path)) if is_test else 0
-        if overlap:
-            scored.append((overlap, row.path))
+        path = row.path
+        if not _is_test_navigation_path(path):
+            continue
+        score = max((_path_adjacent_score(hit, path) for hit in hit_paths), default=0)
+        if score <= 0:
+            continue
+        scored.append((score, path))
     scored.sort(key=lambda item: (-item[0], item[1]))
     return [path for _, path in scored[:limit]]
 
@@ -405,7 +478,7 @@ def search_project_map(db: Session, project: Project, query: str, *, limit: int 
                 "imports": list(row.imports or [])[:10],
                 "risk_flags": list(row.risk_flags or [])[:8],
                 "score": round(score, 4),
-                "why": reasons or ["nearest Project Map match"],
+                "why": _compact_search_why(reasons or ["nearest Project Map match"]),
             }
         )
     ranked.sort(key=lambda item: (-float(item["score"]), str(item["path"])))

@@ -173,17 +173,21 @@ def epic_approve(epic_key: str, project_root: str | None = None) -> dict:
 
 
 @core_tool()
-def epic_next(epic_key: str, project_root: str | None = None) -> dict:
-    """PRIMARY EPIC NAVIGATOR. Call when project_status shows this executing Epic, when the user explicitly selects/resumes it, after Epic transitions or linked Task completion, and after context loss. Live next_action defines present procedure even for Epics created by older releases; bootstrap owns ordinary procedure; stored historical prose must not override them. DRAFT/APPROVED Epics remain passive."""
+def epic_next(epic_key: str | None = None, project_root: str | None = None) -> dict:
+    """PRIMARY EPIC NAVIGATOR. Prefer an explicit epic_key. If omitted, resume the executing Epic or the single open Epic; if several open DRAFT/APPROVED Epics exist and none is executing, pass epic_key. Idle returns compact host_native. Call when project_status shows this executing Epic, when the user explicitly selects/resumes it, after Epic transitions or linked Task completion, and after context loss. Live next_action defines present procedure even for Epics created by older releases; bootstrap owns ordinary procedure; stored historical prose must not override them. DRAFT/APPROVED Epics remain passive."""
     root = project_root_for_tool(project_root, tool="epic_next")
-    key = _text(epic_key, tool="epic_next", field="epic_key")
-    with mcp_audit(root, "epic_next", arg_keys=["epic_key", "project_root"]) as audit:
+    key = (epic_key or "").strip() or None
+    arg_keys = ["project_root"]
+    if key:
+        arg_keys.insert(0, "epic_key")
+    with mcp_audit(root, "epic_next", arg_keys=arg_keys) as audit:
         result = app_epics.next_action(root, key=key)
         action = result.get("next_action") or {}
         audit["metrics"] = {
-            "epic": key,
+            "epic": key or ((result.get("epic") or {}).get("key")),
             "action": action.get("action"),
             "tool": action.get("tool"),
+            "active": result.get("active"),
         }
         return _with_root(result, root)
 

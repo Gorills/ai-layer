@@ -289,3 +289,16 @@ def test_registry_invalid_utf8_fails_closed(tmp_path: Path, monkeypatch):
             project_mode(project)
     finally:
         get_settings.cache_clear()
+
+
+def test_is_ephemeral_project_root_detects_pytest_and_gate_scratch_paths():
+    from ai_layer.core.registry import is_ephemeral_project_root
+
+    assert is_ephemeral_project_root(
+        "/tmp/pytest-of-gorills/pytest-1/test_init_commits_project_iden0"
+    )
+    assert not is_ephemeral_project_root(
+        "/tmp/pytest-of-gorills/pytest-1/test_init_commits_project_iden0/nested-project"
+    )
+    assert is_ephemeral_project_root("/tmp/work-spine-deadbeef")
+    assert not is_ephemeral_project_root("/home/gorills/projects/trener")

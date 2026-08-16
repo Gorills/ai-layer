@@ -17,6 +17,7 @@ A WorkItem can record goal, kind, lifecycle status, reviewed/changed paths, repo
 `project_status` remains the mandatory first AI Layer state call for registered-project work. It returns a cheap ordinary envelope (data, not procedure):
 
 - current focus and continuation (live Work, active managed Task, or executing Epic);
+- idle ordinary continuation names `work_begin` as `next_action.tool` (with kinds and a tiny-Q&A `skip_when`) without reprinting the runtime procedure;
 - bounded effective `project_policy` with contract version, SHA-256, character count and truncation flag, with project/privacy rules preserved if the 12k bound truncates a long custom global prefix;
 - git/worktree summary;
 - compact live/attention/recent Work rows without AgentRun arrays;

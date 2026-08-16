@@ -280,8 +280,42 @@ if [[ $UPGRADE_STATUS -eq 0 && $SKIP_DB -eq 0 ]]; then
 fi
 
 if [[ $UPGRADE_STATUS -ne 0 ]]; then
-  [[ -n "$UPGRADE_OUTPUT" ]] && printf '%s\n' "$UPGRADE_OUTPUT" >&2
-  [[ -n "$MACHINE_DOCTOR_OUTPUT" ]] && printf '%s\n' "$MACHINE_DOCTOR_OUTPUT" >&2
+  summarize_upgrade_failure() {
+    "$PYTHON_BIN" -c '
+import json, sys
+raw = sys.stdin.read().strip()
+if not raw:
+    raise SystemExit(0)
+try:
+    data = json.loads(raw)
+except Exception:
+    print(raw)
+    raise SystemExit(0)
+print("==> Upgrade failed (compact summary):")
+for key in ("version", "machine_upgrade_ok", "database_pipeline_ok", "project_pipeline_ok"):
+    if key in data:
+        print(f"  {key}: {data[key]}")
+gi = data.get("global_integrations") or {}
+for phase, reason in sorted((gi.get("optional_degraded") or {}).items()):
+    print(f"  optional_degraded/{phase}: {reason}")
+ns = (gi.get("native_skills") or {}).get("validation") or {}
+for issue in ns.get("issues") or []:
+    print(f"  native_skills/{issue.get('slug')}: {issue.get('problem')}")
+repair = data.get("project_repair") or {}
+pruned = repair.get("pruned_registrations") or {}
+for item in pruned.get("items") or []:
+    print(f"  pruned/{item.get('reason')}: {item.get('root')}")
+for item in repair.get("unresolved") or []:
+    root = item.get("root")
+    manual = item.get("manual") or [item.get("error")]
+    print(f"  project/{root}:")
+    for note in manual:
+        if note:
+            print(f"    - {note}")
+'
+  }
+  [[ -n "$UPGRADE_OUTPUT" ]] && printf '%s' "$UPGRADE_OUTPUT" | summarize_upgrade_failure >&2
+  [[ -n "$MACHINE_DOCTOR_OUTPUT" ]] && printf '%s' "$MACHINE_DOCTOR_OUTPUT" | summarize_upgrade_failure >&2
   echo "ERROR: machine bootstrap/doctor did not complete." >&2
   # Do not roll the executable backward after `ai-layer upgrade` has run. The upgrade may already
   # have committed a forward-only Alembic migration, and pairing that newer schema with the old
@@ -305,8 +339,11 @@ repair = data.get("project_repair") or {}
 if repair.get("skipped"):
     print("==> Registered project repair skipped: " + str(repair.get("reason", "disabled")))
 else:
-    print("==> Registered projects: checked={0}, healthy={1}, nested-detached={2}".format(
-        repair.get("projects_checked", 0), repair.get("projects_healthy", 0), repair.get("nested_detached", 0)
+    print("==> Registered projects: checked={0}, healthy={1}, nested-detached={2}, pruned={3}".format(
+        repair.get("projects_checked", 0),
+        repair.get("projects_healthy", 0),
+        repair.get("nested_detached", 0),
+        (repair.get("pruned_registrations") or {}).get("count", 0),
     ))
 '
 fi

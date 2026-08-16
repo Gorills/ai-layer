@@ -20,6 +20,7 @@ def _run(argv: list[str], *, database_url: str) -> dict:
     env = os.environ.copy()
     env["AI_LAYER_DATABASE_URL"] = database_url
     env["AI_LAYER_TEST_POSTGRES_URL"] = database_url
+    env["AI_LAYER_HOME"] = f"/tmp/ai-layer-pytest-gate-{uuid4().hex}"
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     proc = subprocess.run(argv, cwd=ROOT, env=env, text=True, capture_output=True)
     return {

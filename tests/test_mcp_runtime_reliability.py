@@ -278,6 +278,129 @@ def test_internal_core_rpc_requires_token_and_dispatches(monkeypatch):
     assert seen["correlation_id"] == "bridge-correlation"
 
 
+def test_nested_work_models_are_not_natively_json_serializable():
+    import json
+
+    import pytest
+
+    from ai_layer.mcp.tool_schema import WorkMapDispositionInput
+
+    with pytest.raises(TypeError, match="WorkMapDispositionInput"):
+        json.dumps(
+            {
+                "arguments": {
+                    "map_disposition": WorkMapDispositionInput(status="pending"),
+                }
+            }
+        )
+
+
+def test_call_core_tool_serializes_nested_pydantic_work_arguments(monkeypatch):
+    import json
+
+    from ai_layer.core import background_service, mcp_runtime
+    from ai_layer.mcp.tool_schema import (
+        WorkCheckInput,
+        WorkMapDispositionInput,
+        WorkRepositoryDeltaInput,
+    )
+
+    captured: dict = {}
+    monkeypatch.setattr(background_service, "probe_service", lambda timeout=0.25: {"running": True})
+    monkeypatch.setattr(mcp_runtime, "ensure_core_token", lambda: "token")
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps({"ok": True, "result": {"status": "completed"}}).encode("utf-8")
+
+    def fake_urlopen(request, timeout=None):
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return Response()
+
+    monkeypatch.setattr(mcp_runtime.urllib.request, "urlopen", fake_urlopen)
+
+    result = mcp_runtime.call_core_tool(
+        "work_complete",
+        {
+            "work_key": "W-0001",
+            "summary": "done",
+            "checks": [WorkCheckInput(name="pytest", status="passed")],
+            "repository_delta": WorkRepositoryDeltaInput(changed_files=2, dirty=True),
+            "map_disposition": WorkMapDispositionInput(
+                status="checked_no_change",
+                reason="no semantic map change",
+            ),
+        },
+    )
+
+    assert result == {"status": "completed"}
+    arguments = captured["body"]["arguments"]
+    assert arguments["map_disposition"] == {
+        "status": "checked_no_change",
+        "scope": [],
+        "reason": "no semantic map change",
+    }
+    assert arguments["checks"] == [{"name": "pytest", "status": "passed", "summary": ""}]
+    assert arguments["repository_delta"] == {"changed_files": 2, "dirty": True}
+
+
+def test_bridge_work_complete_wires_nested_models_before_core_rpc(monkeypatch):
+    import json
+
+    from ai_layer.core import background_service, mcp_runtime
+    from ai_layer.mcp import runtime as mcp_server_runtime
+    from ai_layer.mcp import server
+    from ai_layer.mcp.tool_schema import (
+        WorkCheckInput,
+        WorkMapDispositionInput,
+        WorkRepositoryDeltaInput,
+    )
+
+    monkeypatch.setenv("AI_LAYER_MCP_BRIDGE", "1")
+    monkeypatch.setattr(mcp_server_runtime, "begin_bridge_activity", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mcp_server_runtime, "end_bridge_activity", lambda *args, **kwargs: None)
+    monkeypatch.setattr(background_service, "probe_service", lambda timeout=0.25: {"running": True})
+    monkeypatch.setattr(mcp_runtime, "ensure_core_token", lambda: "token")
+    captured: dict = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps({"ok": True, "result": {"ok": True}}).encode("utf-8")
+
+    def fake_urlopen(request, timeout=None):
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return Response()
+
+    monkeypatch.setattr(mcp_runtime.urllib.request, "urlopen", fake_urlopen)
+
+    result = server.work_complete(
+        work_key="W-0001",
+        summary="done",
+        checks=[WorkCheckInput(name="pytest", status="passed")],
+        repository_delta=WorkRepositoryDeltaInput(dirty=True),
+        map_disposition=WorkMapDispositionInput(status="pending"),
+        project_root="/tmp/example",
+    )
+
+    assert result == {"ok": True}
+    arguments = captured["body"]["arguments"]
+    assert arguments["map_disposition"]["status"] == "pending"
+    assert arguments["checks"][0]["name"] == "pytest"
+    assert arguments["repository_delta"]["dirty"] is True
+
+
 def test_create_app_initializes_streamable_http_before_session_manager(monkeypatch):
     """MCP SDK 2.x session_manager is lazy and raises before streamable_http_app()."""
     from fastapi import FastAPI

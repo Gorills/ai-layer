@@ -87,15 +87,22 @@ def test_init_commits_project_identity_before_publishing_filesystem_metadata(
 
 
 def test_init_refuses_symlinked_ai_layer_state_directory(tmp_path: Path):
+    import shutil
+
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
 
     from ai_layer.core import service
     from ai_layer.db.base import Base
 
-    outside = tmp_path.parent / "outside-ai-layer-state"
+    outside = tmp_path / "outside-ai-layer-state"
+    ai_layer = tmp_path / ".ai-layer"
+    if outside.exists():
+        shutil.rmtree(outside)
+    if ai_layer.is_symlink() or ai_layer.exists():
+        ai_layer.unlink() if ai_layer.is_symlink() else shutil.rmtree(ai_layer)
     outside.mkdir()
-    (tmp_path / ".ai-layer").symlink_to(outside, target_is_directory=True)
+    ai_layer.symlink_to(outside, target_is_directory=True)
 
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)

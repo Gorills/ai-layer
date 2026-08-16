@@ -7,6 +7,8 @@ PROJECT_SEARCH_MAX_QUERIES = 2
 ENVELOPE_ORDINARY = "ordinary"
 ENVELOPE_MANAGED_NEXT = "managed_next"
 ENVELOPE_WORKER = "worker"
+WORK_ITEM_KINDS = ("change", "diagnose", "review", "research", "planning", "ops")
+WORK_UNMATERIALIZED = "tiny one-shot Q&A with no durable continuation or portfolio value"
 
 
 def with_envelope(payload: dict[str, Any], envelope: str) -> dict[str, Any]:
@@ -51,6 +53,9 @@ def agent_runtime_contract() -> dict[str, Any]:
         "work": {
             "ordinary": "WorkItem records substantive user work; host-native execution remains the owner.",
             "begin": "work_begin",
+            "idle_next": "work_begin",
+            "kinds": list(WORK_ITEM_KINDS),
+            "unmaterialized": WORK_UNMATERIALIZED,
             "checkpoint": "work_checkpoint only for meaningful milestones/blockers",
             "terminal": ["work_complete", "work_fail", "work_interrupt", "work_abandon"],
             "short_work_budget": "Normally work_begin + one terminal call; do not checkpoint every action.",
@@ -125,11 +130,23 @@ def agent_runtime_contract() -> dict[str, Any]:
     }
 
 
+def idle_ordinary_work_next_action() -> dict[str, Any]:
+    """Compact next tool for idle `project_status` continuation; not a procedure essay."""
+    return {
+        "action": "begin_ordinary_work",
+        "tool": "work_begin",
+        "required": ["goal"],
+        "kind": list(WORK_ITEM_KINDS),
+        "skip_when": WORK_UNMATERIALIZED,
+    }
+
+
 def agent_runtime_bootstrap_line() -> str:
     return (
         f"AI Layer runtime contract v{AGENT_RUNTIME_CONTRACT_VERSION}: use `project_status` as the first "
-        "registered-project state call and apply its `project_policy`. Record substantive ordinary work with "
-        "`work_begin` and one terminal Work call; use `work_checkpoint` only for meaningful milestones or "
+        "registered-project state call and apply its `project_policy`. When continuation.kind is none, "
+        "call `work_begin` before other tools for substantive ordinary work and close with one terminal "
+        "Work call; use `work_checkpoint` only for meaningful milestones or "
         "blockers. A managed Task is optional assurance, not the ordinary-work record. If code location is "
         "unknown, use `project_search`; for non-English goals make the primary retrieval query concise English "
         "and code-centric while preserving exact identifiers, with at most one original/mixed widening variant. "

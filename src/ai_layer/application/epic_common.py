@@ -169,6 +169,7 @@ def epic_payload(
     *,
     include_spec: bool,
     include_history: bool,
+    include_audits: bool = True,
 ) -> dict:
     spec = current_spec(db, epic)
     audits = list(
@@ -206,11 +207,12 @@ def epic_payload(
         "approved_at": epic.approved_at.isoformat() if epic.approved_at else None,
         "completed_at": epic.completed_at.isoformat() if epic.completed_at else None,
         "archived_at": epic.archived_at.isoformat() if epic.archived_at else None,
-        "audits": [
-            audit_payload(item, current_spec_version=epic.current_spec_version) for item in audits
-        ],
         "plan": [plan_payload(db, item) for item in plan],
     }
+    if include_audits:
+        payload["audits"] = [
+            audit_payload(item, current_spec_version=epic.current_spec_version) for item in audits
+        ]
     if include_spec:
         payload["spec"] = {
             "version": spec.version,

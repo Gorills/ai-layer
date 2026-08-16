@@ -91,6 +91,10 @@ def test_native_bootstrap_contains_one_procedure_copy() -> None:
     assert agent_runtime_bootstrap_line() in fallback
     assert fallback.startswith("If native AI Layer bootstrap is not already in context:")
     assert contract_line["startup"]["tool"] == "project_status"
+    assert contract_line["work"]["idle_next"] == "work_begin"
+    assert "`work.continuation.kind` is `none`" in bootstrap
+    assert "call `work_begin` before other tools" in bootstrap
+    assert "When continuation.kind is none" in agent_runtime_bootstrap_line()
 
 
 def test_mcp_catalog_keeps_task_and_epic_tools_without_host_filtering() -> None:
@@ -125,6 +129,26 @@ def test_idle_managed_task_contract_is_native_first_and_task_create_is_optional(
     assert action["managed_option"]["tool"] == "task_create"
     assert action["managed_option"]["required"] == ["goal"]
     assert "agent_contract" not in result
+    assert "latest" not in result
+
+
+def test_idle_epic_next_is_compact_host_native_without_key(monkeypatch) -> None:
+    monkeypatch.setattr(
+        epic_app,
+        "_next_action",
+        lambda *args, **kwargs: {
+            "active": False,
+            "state": "no_active_epic",
+            "next_action": {"action": "host_native", "tool": None},
+        },
+    )
+    result = epic_app.next_action("/tmp/project")
+    assert result["active"] is False
+    assert result["envelope"] == ENVELOPE_MANAGED_NEXT
+    assert result["runtime_contract_version"] == 3
+    assert result["next_action"]["action"] == "host_native"
+    assert "agent_contract" not in result
+    assert "epic" not in result
     assert "latest" not in result
 
 

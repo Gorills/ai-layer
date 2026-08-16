@@ -3,13 +3,21 @@ from __future__ import annotations
 from ai_layer.application import knowledge as knowledge_uc
 from ai_layer.audit.service import mcp_audit
 from ai_layer.mcp.runtime import _list, _scoped, _text, core_tool, project_root_for_tool
+from ai_layer.mcp.tool_schema import (
+    KnowledgeCategory,
+    KnowledgeKeyText,
+    KnowledgeListLimit,
+    KnowledgeStatus,
+    KnowledgeSummaryText,
+    KnowledgeTitleText,
+)
 
 
 def knowledge_list(
-    status: str = "VERIFIED",
+    status: KnowledgeStatus = "VERIFIED",
     source_task_id: str | None = None,
     project_root: str | None = None,
-    limit: int = 50,
+    limit: KnowledgeListLimit = 50,
 ) -> list[dict]:
     """Read curated Project Knowledge by lifecycle status; reviewers use DRAFT + source_task_id."""
     root = project_root_for_tool(project_root, tool="knowledge_list")
@@ -29,10 +37,10 @@ def knowledge_list(
 
 def knowledge_draft_upsert(
     worker_id: str,
-    key: str,
-    category: str,
-    title: str,
-    summary: str,
+    key: KnowledgeKeyText,
+    category: KnowledgeCategory,
+    title: KnowledgeTitleText,
+    summary: KnowledgeSummaryText,
     evidence_paths: list[str] | str,
     claims: list[str] | str | None = None,
     constraints: list[str] | str | None = None,

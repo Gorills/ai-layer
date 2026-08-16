@@ -67,7 +67,7 @@ def test_bootstrap_uses_status_and_project_map_without_disabling_native_executio
     assert "project_map_reconcile" in bootstrap
     assert "knowledge_search" in bootstrap
     assert "host-native" in bootstrap
-    assert "native reads, edits, shell, tests, code search and subagents are allowed" in bootstrap
+    assert "Native read/edit/search/shell/test/subagent capabilities remain available" in bootstrap
     assert "first project-related tool call MUST be `memory_context" not in bootstrap
     assert "The top-level chat is the orchestrator, not an implementation worker" not in bootstrap
 
@@ -80,6 +80,7 @@ def test_project_map_contract_is_dynamic_and_explicit_for_old_workflows():
     assert contract["update"]["required"] == ["scope_paths", "source_task_key"]
     assert "domain_terms" in contract["update"]["entry_fields"]
     assert "no_changes_reason" in contract["update"]["optional"]
+    assert "source_work_key" in contract["update"]["optional"]
 
 
 def test_application_memory_context_compacts_legacy_composite_payload():

@@ -10,6 +10,13 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from ai_layer.core.config import get_settings
+from ai_layer.core.redaction import (
+    bound_text,
+    redact_secret_argv,
+    redact_secret_env,
+    redact_text_with_secrets,
+    secret_values_from_argv,
+)
 from ai_layer.db.models import Project, TaskStage, VerificationRun
 from ai_layer.domain.verification import (
     VerificationAssurance,
@@ -17,7 +24,8 @@ from ai_layer.domain.verification import (
     VerificationResult,
 )
 
-MAX_OUTPUT_CHARS = 16_000
+MAX_STORED_OUTPUT_CHARS = 2_000
+_TRUNCATION_MARKER = "\n...[verification output truncated]...\n"
 SAFE_ENV_KEYS = {
     "CI",
     "LANG",
@@ -57,14 +65,11 @@ def _environment(overrides: dict[str, str] | None) -> tuple[dict[str, str], dict
     return env, recorded
 
 
-def _summary(stdout: str, stderr: str) -> str:
+def _summary(stdout: str, stderr: str, extra_secrets: list[str]) -> str:
+    stdout = redact_text_with_secrets(stdout, extra_secrets)
+    stderr = redact_text_with_secrets(stderr, extra_secrets)
     text = "\n".join(part for part in (stdout.strip(), stderr.strip()) if part).strip()
-    if len(text) <= MAX_OUTPUT_CHARS:
-        return text
-    marker = "\n...[verification output truncated]...\n"
-    available = MAX_OUTPUT_CHARS - len(marker)
-    head = available * 2 // 3
-    return text[:head] + marker + text[-(available - head) :]
+    return bound_text(text, MAX_STORED_OUTPUT_CHARS, marker=_TRUNCATION_MARKER)
 
 
 def _write_evidence(project_id: str, payload: dict) -> str:
@@ -121,16 +126,19 @@ def _execute_verification(
         stderr = f"{type(exc).__name__}: {exc}"
     completed = datetime.now(UTC)
     run_id = str(uuid.uuid4())
-    summary = _summary(stdout, stderr)
+    extra_secrets = secret_values_from_argv(request.command)
+    summary = _summary(stdout, stderr, extra_secrets)
+    safe_command = redact_secret_argv(request.command)
+    safe_env = redact_secret_env(recorded_env)
     payload = {
         "schema": 1,
         "id": run_id,
         "security_boundary": "trusted-local-process-not-sandboxed",
         "required_capability": request.required_capability.value,
         "assurance": VerificationAssurance.AI_LAYER_VERIFIED.value,
-        "command": list(request.command),
+        "command": safe_command,
         "cwd": str(cwd),
-        "environment": recorded_env,
+        "environment": safe_env,
         "started_at": started.isoformat(),
         "completed_at": completed.isoformat(),
         "exit_code": exit_code,
@@ -140,7 +148,7 @@ def _execute_verification(
     evidence_ref = _write_evidence(str(project_id), payload)
     result = VerificationResult(
         assurance=VerificationAssurance.AI_LAYER_VERIFIED,
-        command=request.command,
+        command=tuple(safe_command),
         cwd=str(cwd),
         started_at=started,
         completed_at=completed,
@@ -148,7 +156,7 @@ def _execute_verification(
         timed_out=timed_out,
         output_summary=summary,
         evidence_ref=evidence_ref,
-        environment=recorded_env,
+        environment=safe_env,
     )
     return result, {**payload, "evidence_ref": evidence_ref}
 

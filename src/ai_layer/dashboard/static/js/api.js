@@ -17,6 +17,8 @@ async function request(path, params = null) {
 
 export const api = {
   overview: () => request("/overview"),
+  work: (params = {}) => request("/work", params),
+  workDetail: (projectKey, workKey) => request(`/work/${encodeURIComponent(projectKey)}/${encodeURIComponent(workKey)}`),
   tasks: (params = {}) => request("/tasks", params),
   task: (projectKey, taskKey) => request(`/tasks/${encodeURIComponent(projectKey)}/${encodeURIComponent(taskKey)}`),
   epics: (params = {}) => request("/epics", params),

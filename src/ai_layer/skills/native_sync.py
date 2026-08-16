@@ -10,7 +10,12 @@ from ai_layer.skills.native_descriptor import (
     render_native_skill,
     validate_native_catalog,
 )
-from ai_layer.skills.native_files import global_native_roots, sync_native_root
+from ai_layer.skills.native_files import (
+    GLOBAL_NATIVE_ROOT_PARTS,
+    PROJECT_NATIVE_ROOT_PARTS,
+    global_native_roots,
+    sync_native_root,
+)
 from ai_layer.skills.service import list_skills
 
 
@@ -59,8 +64,12 @@ def _publishable_catalog(
 def sync_global_native_skills(*, home: Path | None = None) -> dict:
     skills = [skill for skill in list_skills() if skill.get("scope") == "global"]
     desired, validation = _publishable_catalog(skills)
+    home_root = (home or Path.home()).expanduser()
     roots = global_native_roots(home)
-    synced = {host: sync_native_root(path, desired, scope="global") for host, path in roots.items()}
+    synced = {
+        host: sync_native_root(home_root, *parts, desired=desired, scope="global")
+        for host, parts in GLOBAL_NATIVE_ROOT_PARTS.items()
+    }
     return {
         "descriptor_version": NATIVE_DESCRIPTOR_VERSION,
         "routing_owner": "host-native",
@@ -103,10 +112,12 @@ def sync_project_native_skills(project_root: str | Path, *, home: Path | None = 
     project_key = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:10]
     if mode in {"external", "strict-private"}:
         desired, validation = _project_skill_descriptors(root, external_scope=True)
-        roots = global_native_roots(home)
+        home_root = (home or Path.home()).expanduser()
         results = {
-            host: sync_native_root(path, desired, scope="project", project_key=project_key)
-            for host, path in roots.items()
+            host: sync_native_root(
+                home_root, *parts, desired=desired, scope="project", project_key=project_key
+            )
+            for host, parts in GLOBAL_NATIVE_ROOT_PARTS.items()
         }
         return {
             "mode": mode,
@@ -118,10 +129,13 @@ def sync_project_native_skills(project_root: str | Path, *, home: Path | None = 
             "sync": results,
         }
     desired, validation = _project_skill_descriptors(root, external_scope=False)
-    shared_target = root / ".agents" / "skills"
-    claude_target = root / ".claude" / "skills"
-    shared_sync = sync_native_root(shared_target, desired, scope="project", project_key=project_key)
-    claude_sync = sync_native_root(claude_target, desired, scope="project", project_key=project_key)
+    agents_parts, claude_parts = PROJECT_NATIVE_ROOT_PARTS
+    shared_sync = sync_native_root(
+        root, *agents_parts, desired=desired, scope="project", project_key=project_key
+    )
+    claude_sync = sync_native_root(
+        root, *claude_parts, desired=desired, scope="project", project_key=project_key
+    )
     return {
         "mode": mode,
         "repository_writes": bool(desired),

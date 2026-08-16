@@ -64,7 +64,7 @@ def test_dashboard_web_and_overview_api(monkeypatch, tmp_path: Path):
     assert "Текущее состояние локального AI workspace" in page.text
 
 
-def test_dashboard_uses_durable_task_state(monkeypatch, tmp_path: Path):
+def test_dashboard_keeps_durable_task_state_distinct_from_live_work(monkeypatch, tmp_path: Path):
     _home(monkeypatch, tmp_path)
     project = tmp_path / "project"
     project.mkdir()
@@ -103,7 +103,8 @@ def test_dashboard_uses_durable_task_state(monkeypatch, tmp_path: Path):
     data = client.get("/api/v1/dashboard/overview").json()
     assert data["summary"]["active_tasks"] == 1
     card = data["projects"][0]
-    assert card["runtime_state"] == "active"
+    assert card["runtime_state"] == "idle"
+    assert card["project_state"] == "healthy"
     assert card["task"]["key"] == "T-0042"
     assert card["task"]["active_stage"]["kind"] == "review"
     assert "open_task_flows" not in card
@@ -346,7 +347,7 @@ def test_dashboard_surfaces_human_attention_separately_from_generic_blocker(
     data = client.get("/api/v1/dashboard/overview").json()
     assert data["summary"]["attention_tasks"] == 1
     card = data["projects"][0]
-    assert card["runtime_state"] == "blocked"
+    assert card["runtime_state"] == "idle"
     assert card["project_state"] == "attention"
     assert card["task"]["human_attention_required"] is True
     assert card["task"]["finding_summary"]["pending_verification"] == 1

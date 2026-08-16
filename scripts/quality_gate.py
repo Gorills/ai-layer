@@ -32,6 +32,10 @@ def _run(name: str, argv: list[str], *, required_tool: str | None = None) -> dic
         # Contributor/release tests must not inherit arbitrary globally installed pytest plugins.
         # Project-owned plugins must be declared and loaded explicitly instead.
         env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+        # PostgreSQL-marked contracts belong to postgres_gate.py, which creates and migrates
+        # isolated databases. Preflight supplies its PostgreSQL URL to the parent Make process;
+        # do not let the general suite race ahead against the still-unmigrated service database.
+        env.pop("AI_LAYER_TEST_POSTGRES_URL", None)
     proc = subprocess.run(argv, cwd=ROOT, text=True, capture_output=True, env=env)
     output = (proc.stdout + ("\n" if proc.stdout and proc.stderr else "") + proc.stderr).strip()
     return {

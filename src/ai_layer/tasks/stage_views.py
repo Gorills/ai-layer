@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from ai_layer.db.models import TaskStage, VerificationRun
 from ai_layer.tasks.contracts import _stage_agent_policy
 from ai_layer.tasks.micro_runtime import is_inline_micro_stage
+from ai_layer.verification.present import public_verification_row
 
 
 def _stage_label(stage: TaskStage) -> str:
@@ -99,22 +100,7 @@ def _verification_payloads(db: Session, stage: TaskStage) -> list[dict]:
         .where(VerificationRun.stage_id == stage.id)
         .order_by(VerificationRun.created_at)
     ).all()
-    return [
-        {
-            "id": str(row.id),
-            "assurance": row.assurance,
-            "command": list(row.command or []),
-            "cwd": row.cwd,
-            "started_at": row.started_at.isoformat(),
-            "completed_at": row.completed_at.isoformat(),
-            "exit_code": row.exit_code,
-            "timed_out": bool(row.timed_out),
-            "passed": (not row.timed_out and row.exit_code == 0),
-            "output_summary": row.output_summary,
-            "evidence_ref": row.evidence_ref,
-        }
-        for row in rows
-    ]
+    return [public_verification_row(row, extra={"cwd": row.cwd}) for row in rows]
 
 
 def _stage_payload_with_verification(db: Session, stage: TaskStage) -> dict:

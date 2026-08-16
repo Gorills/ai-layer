@@ -342,7 +342,7 @@ def init(
             "mode": project_mode(root),
             "provenance": project_provenance(root),
             "integration_template_version": INTEGRATION_TEMPLATE_VERSION,
-            "workflow": "AI Layer MCP is mandatory for registered-project engineering tasks.",
+            "workflow": "AI Layer supplies Project Intelligence and durable work state; execution remains host-native.",
             "repository_footprint": repository_footprint(root)
             if project_mode(root) in {"external", "strict-private"}
             else None,

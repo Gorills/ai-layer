@@ -50,8 +50,19 @@ def project_status(_scope: ApplicationScope, project: ProjectRef) -> dict:
     return intelligence_uc.project_status(project.root_path)
 
 
-def project_search(_scope: ApplicationScope, project: ProjectRef, query: str, limit: int) -> dict:
-    return intelligence_uc.project_search(project.root_path, query, limit)
+def project_search(
+    _scope: ApplicationScope,
+    project: ProjectRef,
+    query: str,
+    limit: int,
+    query_variants: list[str] | None = None,
+) -> dict:
+    return intelligence_uc.project_search(
+        project.root_path,
+        query,
+        limit,
+        query_variants=query_variants,
+    )
 
 
 def project_map_reconcile(
@@ -62,6 +73,7 @@ def project_map_reconcile(
     remove_paths: list[str] | None = None,
     scope_paths: list[str] | None = None,
     source_task_key: str | None = None,
+    source_work_key: str | None = None,
     no_changes_reason: str | None = None,
 ) -> dict:
     return intelligence_uc.project_map_reconcile(
@@ -70,6 +82,7 @@ def project_map_reconcile(
         remove_paths=remove_paths,
         scope_paths=scope_paths,
         source_task_key=source_task_key,
+        source_work_key=source_work_key,
         no_changes_reason=no_changes_reason,
     )
 
@@ -171,7 +184,11 @@ def list_sessions(_scope: ApplicationScope, project: ProjectRef, limit: int) -> 
     return sessions_uc.list_project_sessions(project.root_path, limit)
 
 
-def restore_session(_scope: ApplicationScope, project: ProjectRef, session_id: str) -> dict | None:
+def restore_session(
+    _scope: ApplicationScope,
+    project: ProjectRef,
+    session_id: str,
+) -> dict | None:
     return sessions_uc.restore_project_session(project.root_path, session_id)
 
 

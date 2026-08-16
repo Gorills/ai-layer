@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ai_layer.core.filelock import directory_lock
 from ai_layer.db.models import Project, ReviewFinding, Task, TaskStage, utcnow
-from ai_layer.observability.domain_events import append_event
+from ai_layer.observability.work_events import append_task_event
 from ai_layer.tasks.concurrency import assert_expected_version, bump_task_version
 from ai_layer.tasks.constants import (
     MAX_STAGE_CHECK_CHARS,
@@ -100,8 +100,9 @@ def _block_stage(
     task.blocked_reason = reason
     bump_task_version(task)
     task.updated_at = utcnow()
-    append_event(
+    append_task_event(
         db,
+        task=task,
         event_type="StageInvalidated",
         project=project,
         aggregate_type="task_stage",
@@ -113,8 +114,9 @@ def _block_stage(
             "reason": reason[:1000],
         },
     )
-    append_event(
+    append_task_event(
         db,
+        task=task,
         event_type="TaskBlocked",
         project=project,
         aggregate_type="task",
@@ -238,8 +240,9 @@ def _finalize_completion(
 ) -> dict:
     bump_task_version(task)
     task.updated_at = utcnow()
-    append_event(
+    append_task_event(
         db,
+        task=task,
         event_type="StageCompleted",
         project=project,
         aggregate_type="task_stage",
@@ -252,8 +255,9 @@ def _finalize_completion(
         },
     )
     if task.status == "blocked":
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="TaskBlocked",
             project=project,
             aggregate_type="task",
@@ -261,8 +265,9 @@ def _finalize_completion(
             payload={"stage_id": str(stage.id), "reason": task.blocked_reason[:1000]},
         )
     elif task.status == "completed":
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="TaskCompleted",
             project=project,
             aggregate_type="task",

@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import inspect
 import os
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -19,9 +20,10 @@ from ai_layer.core.mcp_runtime import (
     start_runtime_warmup,
     tool_runtime_class,
 )
-from ai_layer.core.request_context import tool_execution_context
+from ai_layer.core.request_context import operation_context, tool_execution_context
 from ai_layer.domain.errors import normalize_error
 from ai_layer.domain.orchestrator import mcp_bootstrap_instructions
+from ai_layer.domain.security import Actor
 from ai_layer.mcp.context import bind_project_root, resolve_project_root
 
 MCP_INSTRUCTIONS = mcp_bootstrap_instructions()
@@ -61,27 +63,52 @@ def _telemetry_project_root(func, name: str, args, kwargs) -> str | None:
         return None
 
 
+def _record_terminal_safely(
+    *,
+    name: str,
+    project_root: str | None,
+    started: float,
+    result: object = None,
+    error: BaseException | None = None,
+) -> None:
+    try:
+        from ai_layer.observability.operation_events import record_mcp_terminal
+
+        record_mcp_terminal(
+            tool=name,
+            project_root=project_root,
+            duration_ms=(time.monotonic() - started) * 1000.0,
+            result=result,
+            error=error,
+        )
+    except Exception:
+        # Durable observability is best effort and must never change tool semantics.
+        pass
+
+
 def _execute_local_tool(func, name: str, args, kwargs):
     tool_class = tool_runtime_class(name)
+    project_root = _telemetry_project_root(func, name, args, kwargs)
+    started = time.monotonic()
     with tool_execution_context(name, tool_class):
-        if tool_class == "context" and (
-            os.getenv("AI_LAYER_SERVICE_MODE") == "background"
-            or os.getenv("AI_LAYER_MCP_BRIDGE") == "1"
-        ):
-            # Warmup belongs to process/service startup, never to the request's latency budget.
-            start_runtime_warmup()
-            state = runtime_state()
-            if state.get("embeddings") != "warm":
-                if state.get("status") == "degraded":
-                    raise RuntimeError(
-                        "AI_LAYER_CORE_DEGRADED: persistent runtime warmup failed: "
-                        + str(state.get("warm_error") or "unknown warmup error")
-                    )
-                raise RuntimeError(
-                    "AI_LAYER_EMBEDDINGS_WARMING: embedding runtime is not ready yet; retry shortly. "
-                    "The persistent core warms it outside the interactive request path."
-                )
         try:
+            if tool_class == "context" and (
+                os.getenv("AI_LAYER_SERVICE_MODE") == "background"
+                or os.getenv("AI_LAYER_MCP_BRIDGE") == "1"
+            ):
+                # Warmup belongs to process/service startup, never to the request's latency budget.
+                start_runtime_warmup()
+                state = runtime_state()
+                if state.get("embeddings") != "warm":
+                    if state.get("status") == "degraded":
+                        raise RuntimeError(
+                            "AI_LAYER_CORE_DEGRADED: persistent runtime warmup failed: "
+                            + str(state.get("warm_error") or "unknown warmup error")
+                        )
+                    raise RuntimeError(
+                        "AI_LAYER_EMBEDDINGS_WARMING: embedding runtime is not ready yet; retry shortly. "
+                        "The persistent core warms it outside the interactive request path."
+                    )
             result = func(*args, **kwargs)
             try:
                 from ai_layer.observability.context_trace import record_tool_delivery
@@ -93,14 +120,20 @@ def _execute_local_tool(func, name: str, args, kwargs):
                     kwargs,
                     result,
                     mcp_instructions=MCP_INSTRUCTIONS,
-                    mcp_tool_catalog=_configured_tool_catalog()
-                    if name == "memory_context"
-                    else None,
-                    resolved_project_root=_telemetry_project_root(func, name, args, kwargs),
+                    mcp_tool_catalog=(
+                        _configured_tool_catalog() if name == "memory_context" else None
+                    ),
+                    resolved_project_root=project_root,
                 )
             except Exception:
                 # Context telemetry is diagnostic only and must never make an MCP tool fail.
                 pass
+            _record_terminal_safely(
+                name=name,
+                project_root=project_root,
+                started=started,
+                result=result,
+            )
             return result
         except Exception as exc:
             try:
@@ -112,10 +145,16 @@ def _execute_local_tool(func, name: str, args, kwargs):
                     args,
                     kwargs,
                     exc,
-                    resolved_project_root=_telemetry_project_root(func, name, args, kwargs),
+                    resolved_project_root=project_root,
                 )
             except Exception:
                 pass
+            _record_terminal_safely(
+                name=name,
+                project_root=project_root,
+                started=started,
+                error=exc,
+            )
             raise normalize_error(exc) from exc
 
 
@@ -139,7 +178,7 @@ def core_tool():
             begin_bridge_activity(name, correlation_id, TOOL_TIMEOUTS[tool_runtime_class(name)])
             try:
                 try:
-                    return call_core_tool(name, arguments)
+                    return call_core_tool(name, arguments, correlation_id=correlation_id)
                 except CoreServiceUnavailable:
                     # Availability fallback for headless/non-systemd environments. This remains bounded:
                     # direct execution uses interactive DB deadlines and never runs a full freshness scan.
@@ -152,13 +191,20 @@ def core_tool():
     return decorate
 
 
-def execute_core_tool(name: str, arguments: dict):
+def execute_core_tool(name: str, arguments: dict, *, correlation_id: str | None = None):
     func = TOOL_HANDLERS.get(name)
     if func is None:
         raise ValueError(f"Unknown AI Layer MCP tool: {name}")
     if not isinstance(arguments, dict):
         raise ValueError("MCP tool arguments must be an object")
-    return _execute_local_tool(func, name, (), arguments)
+    actor = Actor(
+        actor_id="local:mcp",
+        kind="local",
+        capabilities=frozenset({"*"}),
+        authenticated=True,
+    )
+    with operation_context(actor=actor, interface="mcp", correlation_id=correlation_id):
+        return _execute_local_tool(func, name, (), arguments)
 
 
 def project_root_for_tool(project_root: str | None, *, tool: str) -> str:
@@ -172,8 +218,17 @@ def _project(db, root: str):
 
 
 def _scoped(result: dict, root: str) -> dict:
+    requested = str(Path(root).expanduser().resolve())
     payload = dict(result)
-    payload["project_root"] = str(Path(root).expanduser().resolve())
+    if isinstance(payload.get("work"), dict):
+        existing = payload.get("project_root")
+        if existing not in (None, ""):
+            owned = str(Path(str(existing)).expanduser().resolve())
+            if owned != requested:
+                raise RuntimeError(
+                    "WORK_PROJECT_MISMATCH: replayed work belongs to a different project"
+                )
+    payload["project_root"] = requested
     task = payload.get("task")
     if isinstance(task, dict):
         task = dict(task)

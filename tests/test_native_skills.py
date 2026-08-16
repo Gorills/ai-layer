@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
+import pytest
 import yaml
 
 from ai_layer.core.config import get_settings
@@ -14,6 +16,11 @@ from ai_layer.skills.native import (
     sync_project_native_skills,
     validate_native_catalog,
 )
+from ai_layer.skills.native_descriptor import (
+    NATIVE_PACKAGE_RESOURCE_NOTICE,
+    native_package_resource_notice,
+)
+from ai_layer.skills.native_files import sync_native_root
 from ai_layer.skills.service import load_skill, skill_section_content
 
 
@@ -56,7 +63,8 @@ def test_global_native_skills_publish_to_supported_host_roots(tmp_path, monkeypa
         workflow_text = workflow_native.read_text(encoding="utf-8")
         workflow_meta = _frontmatter(workflow_text)
         assert workflow_meta["name"] == "ai-layer-workflow"
-        assert "managed Tasks/Epics" in workflow_meta["description"]
+        assert "Managed Tasks/Epics" in workflow_meta["description"]
+        assert "always-on bootstrap" in workflow_meta["description"]
         assert "## Workflow" in workflow_text
         assert "## Project intelligence and durable memory" in workflow_text
     finally:
@@ -135,6 +143,8 @@ def test_project_skill_materializes_full_content_once_in_standard_workspace(tmp_
         assert target.is_file()
         target_text = target.read_text(encoding="utf-8")
         assert "Preserve the existing order pipeline" in target_text
+        assert NATIVE_PACKAGE_RESOURCE_NOTICE not in target_text
+        assert "skill_get" not in target_text
         assert not (project / ".cursor" / "skills" / "ai-layer" / "SKILL.md").exists()
         assert not (project / ".claude" / "skills" / "ai-layer" / "SKILL.md").exists()
 
@@ -232,5 +242,292 @@ def test_upgrade_skips_legacy_invalid_custom_skill_without_blocking_native_catal
         assert not (home / ".agents" / "skills" / "legacy-custom" / "SKILL.md").exists()
         assert (home / ".agents" / "skills" / "django" / "SKILL.md").is_file()
         assert (home / ".agents" / "skills" / "ai-layer-workflow" / "SKILL.md").is_file()
+    finally:
+        get_settings.cache_clear()
+
+
+def _owned_native_skill(canonical: str, *, scope: str = "global", project: str = "-") -> str:
+    return (
+        f"<!-- AI-LAYER NATIVE SKILL v2 scope={scope} project={project} canonical={canonical} -->\n"
+        f"# {canonical}\n"
+    )
+
+
+def test_sync_native_root_refuses_symlinked_root(tmp_path: Path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    skills = tmp_path / "skills"
+    skills.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(RuntimeError, match="symlink"):
+        sync_native_root(
+            tmp_path, "skills", desired={"demo": _owned_native_skill("demo")}, scope="global"
+        )
+
+    assert list(outside.rglob("*")) == []
+    assert not (outside / "demo" / "SKILL.md").exists()
+
+
+def test_sync_native_root_refuses_symlinked_parent(tmp_path: Path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / ".claude").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(RuntimeError, match="symlink"):
+        sync_native_root(
+            tmp_path,
+            ".claude",
+            "skills",
+            desired={"demo": _owned_native_skill("demo")},
+            scope="global",
+        )
+
+    assert list(outside.rglob("*")) == []
+    assert not (outside / "skills").exists()
+
+
+def test_project_native_sync_refuses_symlinked_host_root(tmp_path: Path, monkeypatch):
+    home = tmp_path / "home"
+    project = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    home.mkdir()
+    project.mkdir()
+    outside.mkdir()
+    skills = project / ".claude" / "skills"
+    skills.parent.mkdir()
+    skills.symlink_to(outside, target_is_directory=True)
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    monkeypatch.setenv("HOME", str(home))
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="symlink"):
+            sync_project_native_skills(project, home=home)
+        assert list(outside.rglob("*")) == []
+    finally:
+        get_settings.cache_clear()
+
+
+def test_global_native_sync_refuses_symlinked_parent(tmp_path: Path, monkeypatch):
+    home = tmp_path / "user"
+    outside = tmp_path / "outside"
+    home.mkdir()
+    outside.mkdir()
+    (home / ".agents").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("HOME", str(home))
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="symlink"):
+            sync_global_native_skills(home=home)
+        assert list(outside.rglob("*")) == []
+        assert not (outside / "skills").exists()
+    finally:
+        get_settings.cache_clear()
+
+
+def test_sync_native_root_writes_owned_skill_and_removes_stale(tmp_path: Path):
+    keep = _owned_native_skill("keep")
+    stale = _owned_native_skill("stale")
+    result = sync_native_root(
+        tmp_path, "skills", desired={"keep": keep, "stale": stale}, scope="global"
+    )
+    keep_path = tmp_path / "skills" / "keep" / "SKILL.md"
+    stale_dir = tmp_path / "skills" / "stale"
+    assert keep_path.is_file()
+    assert not keep_path.is_symlink()
+    assert keep_path.read_text(encoding="utf-8") == keep
+    assert stale_dir.is_dir()
+    assert not (tmp_path / "skills" / "keep" / "scripts").exists()
+    assert result["written"]
+
+    result = sync_native_root(tmp_path, "skills", desired={"keep": keep}, scope="global")
+    assert keep_path.is_file()
+    assert not stale_dir.exists()
+    assert result["removed"]
+
+
+def test_sync_native_root_refuses_symlinked_skill_directory(tmp_path: Path):
+    outside = tmp_path / "outside"
+    skills = tmp_path / "skills"
+    outside.mkdir()
+    skills.mkdir()
+    (skills / "demo").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(RuntimeError, match="symlink"):
+        sync_native_root(
+            tmp_path, "skills", desired={"demo": _owned_native_skill("demo")}, scope="global"
+        )
+
+    assert list(outside.rglob("*")) == []
+    assert not (outside / "SKILL.md").exists()
+
+
+def test_sync_native_root_refuses_unowned_skill_md(tmp_path: Path):
+    target = tmp_path / "skills" / "django" / "SKILL.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("# user-owned skill\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="ownership conflict"):
+        sync_native_root(
+            tmp_path,
+            "skills",
+            desired={"django": _owned_native_skill("django")},
+            scope="global",
+        )
+
+    assert target.read_text(encoding="utf-8") == "# user-owned skill\n"
+    assert list(target.parent.iterdir()) == [target]
+
+
+def _install_packaged_search_skill(tmp_path: Path) -> dict:
+    import zipfile
+
+    from ai_layer.skills.manager import import_skills, install_import
+
+    archive = tmp_path / "packaged-skill.zip"
+    skill = """---
+name: ui-ux-pro-max
+description: UI/UX interface design systems, dashboard layouts, typography, color selection, accessibility and component guidance.
+---
+# UI/UX Pro Max
+
+## When to Apply
+
+Use for dashboard and interface design.
+
+## Running search
+
+Run scripts/search.py against package data.
+"""
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("repo/.claude/skills/ui-ux-pro-max/SKILL.md", skill)
+        zf.writestr("repo/.claude/skills/ui-ux-pro-max/scripts/search.py", "print('search')\n")
+        zf.writestr("repo/.claude/skills/ui-ux-pro-max/references/guide.md", "# guide\n")
+        zf.writestr("repo/.claude/skills/ui-ux-pro-max/assets/note.txt", "note\n")
+    preview = import_skills(str(archive), scope="global", source_member="ui-ux-pro-max/SKILL.md")[0]
+    return install_import(preview["import_id"], approve=True)
+
+
+def test_native_render_omits_package_notice_without_store_root():
+    skill = {
+        "slug": "django",
+        "meta": {
+            "description": (
+                "Django models, ORM queries, transactions, migrations, request "
+                "boundaries and production-safe application structure."
+            )
+        },
+        "content": "# Django\n\n## Core contract\n\nKeep request boundaries explicit.\n",
+    }
+    native = render_native_skill(skill)
+    assert native_package_resource_notice(skill) == ""
+    assert NATIVE_PACKAGE_RESOURCE_NOTICE not in native
+    assert "skill_get" not in native
+
+
+def test_native_render_injects_package_store_notice_without_copying_root():
+    package_root = "/machine/skill-packages/global/ui-ux-pro-max"
+    skill = {
+        "slug": "ui-ux-pro-max",
+        "meta": {
+            "description": (
+                "UI/UX interface design systems, dashboard layouts, typography, "
+                "color selection, accessibility and component guidance."
+            )
+        },
+        "content": "# UI/UX\n\n## Running search\n\nRun scripts/search.py against package data.\n",
+        "package": {"root": package_root, "relative_resource_dirs": ["scripts"]},
+    }
+    native = render_native_skill(skill)
+    assert native_package_resource_notice(skill) == NATIVE_PACKAGE_RESOURCE_NOTICE
+    assert NATIVE_PACKAGE_RESOURCE_NOTICE in native
+    assert "Run scripts/search.py against package data." in native
+    assert package_root not in native
+    assert set(_frontmatter(native)) == {"name", "description"}
+
+
+def test_native_render_omits_package_notice_without_resource_dirs():
+    skill = {
+        "slug": "ui-ux-pro-max",
+        "meta": {
+            "description": (
+                "UI/UX interface design systems, dashboard layouts, typography, "
+                "color selection, accessibility and component guidance."
+            )
+        },
+        "content": "# UI/UX\n\n## Core contract\n\nKeep guidance in this file.\n",
+        "package": {
+            "root": "/machine/skill-packages/global/ui-ux-pro-max",
+            "relative_resource_dirs": [],
+        },
+    }
+    native = render_native_skill(skill)
+    assert native_package_resource_notice(skill) == ""
+    assert NATIVE_PACKAGE_RESOURCE_NOTICE not in native
+    assert "skill_get" not in native
+
+
+def test_packaged_skill_native_sync_resolves_resources_from_store(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    user = tmp_path / "user"
+    home.mkdir()
+    user.mkdir()
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    monkeypatch.setenv("HOME", str(user))
+    get_settings.cache_clear()
+    try:
+        installed = _install_packaged_search_skill(tmp_path)
+        package_root = Path(installed["package_root"])
+        loaded = load_skill("ui-ux-pro-max")
+        assert loaded is not None
+        assert loaded["package"]["root"] == str(package_root)
+        assert loaded["package"]["contract"] in NATIVE_PACKAGE_RESOURCE_NOTICE
+        assert loaded["package"]["relative_resource_dirs"] == ["scripts", "references", "assets"]
+        assert (package_root / "scripts" / "search.py").is_file()
+        assert (package_root / "references" / "guide.md").is_file()
+        assert (package_root / "assets" / "note.txt").is_file()
+
+        native_dir = user / ".agents" / "skills" / "ui-ux-pro-max"
+        native_skill = native_dir / "SKILL.md"
+        assert native_skill.is_file()
+        assert not native_skill.is_symlink()
+        assert sorted(path.name for path in native_dir.iterdir()) == ["SKILL.md"]
+        assert not (native_dir / "scripts").exists()
+        assert not (native_dir / "references").exists()
+        assert not (native_dir / "assets").exists()
+
+        text = native_skill.read_text(encoding="utf-8")
+        meta = _frontmatter(text)
+        assert set(meta) == {"name", "description"}
+        assert NATIVE_PACKAGE_RESOURCE_NOTICE in text
+        assert "Run scripts/search.py against package data." in text
+        assert str(package_root) not in text
+        assert (user / ".claude" / "skills" / "ui-ux-pro-max" / "SKILL.md").read_text(
+            encoding="utf-8"
+        ) == text
+        assert not (user / ".claude" / "skills" / "ui-ux-pro-max" / "scripts").exists()
+    finally:
+        get_settings.cache_clear()
+
+
+def test_packaged_skill_native_sync_refuses_unowned_skill_md(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    user = tmp_path / "user"
+    home.mkdir()
+    user.mkdir()
+    target = user / ".agents" / "skills" / "ui-ux-pro-max" / "SKILL.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("# user-owned skill\n", encoding="utf-8")
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    monkeypatch.setenv("HOME", str(user))
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="ownership conflict"):
+            _install_packaged_search_skill(tmp_path)
+        assert target.read_text(encoding="utf-8") == "# user-owned skill\n"
+        assert list(target.parent.iterdir()) == [target]
+        assert not (target.parent / "scripts").exists()
+        assert not (target.parent / "references").exists()
+        assert not (target.parent / "assets").exists()
     finally:
         get_settings.cache_clear()

@@ -71,6 +71,14 @@ from ai_layer.mcp.tools.tasks import (
     task_stage_delegate,
     verification_run,
 )
+from ai_layer.mcp.tools.work import (
+    work_abandon,
+    work_begin,
+    work_checkpoint,
+    work_complete,
+    work_fail,
+    work_interrupt,
+)
 from ai_layer.mcp.tools.worker_control import task_worker_disconnected, task_worker_heartbeat
 
 
@@ -93,6 +101,12 @@ __all__ = [
     "knowledge_search",
     "memory_search",
     "memory_context",
+    "work_begin",
+    "work_checkpoint",
+    "work_complete",
+    "work_fail",
+    "work_interrupt",
+    "work_abandon",
     "epic_create",
     "epic_list",
     "epic_get",

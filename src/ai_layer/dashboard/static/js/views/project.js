@@ -66,6 +66,7 @@ function skillsPanel(skillState, projectKey) {
 
 function projectLinks(projectKey) {
   return `<div class="project-actions">
+    <a href="${hashUrl("work", { project: projectKey })}">Работа</a>
     <a href="${hashUrl("tasks", { project: projectKey })}">Задачи</a>
     <a href="${hashUrl("epics", { project: projectKey })}">Эпики</a>
     <a href="${hashUrl("skills", { project: projectKey })}">Скиллы</a>
@@ -139,7 +140,7 @@ export function renderProject(data) {
         </section>
         ${skillsPanel(data.skill_state, project.key)}
         <section class="panel">
-          <div class="panel-header"><div><div class="panel-title">Подключённые агенты</div><div class="panel-hint">Живые MCP процессы этого проекта</div></div><span class="muted">${escapeHtml((project.agents || []).length)} сейчас</span></div>
+          <div class="panel-header"><div><div class="panel-title">MCP bridges</div><div class="panel-hint">Живые MCP процессы этого проекта</div></div><span class="muted">${escapeHtml((project.agents || []).length)} сейчас</span></div>
           ${agentsList(project.agents || [])}
         </section>
       </div>

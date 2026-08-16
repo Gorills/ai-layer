@@ -1,5 +1,8 @@
 # Independent Skill Architecture & Context Economy Redesign — Final Report
 
+> **Superseded.** Historical 0.10.3 architecture report; not current operator or agent procedure.
+> Current native-skill behavior is defined by `src/ai_layer/skills/` and `CURRENT_STATE.md`.
+
 **Project:** Local AI Development Layer  
 **Implemented version:** 0.10.3  
 **Audit input:** the supplied 0.10.2 source archive only  

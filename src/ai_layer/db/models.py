@@ -345,7 +345,7 @@ class EventConsumerCheckpoint(Base):
 class CommandReceipt(Base):
     __tablename__ = "command_receipts"
     __table_args__ = (
-        UniqueConstraint("command_id", name="uq_command_receipts_command_id"),
+        UniqueConstraint("project_id", "command_id", name="uq_command_receipts_project_command"),
         CheckConstraint(
             "status IN ('started', 'completed', 'failed')", name="ck_command_receipts_status"
         ),

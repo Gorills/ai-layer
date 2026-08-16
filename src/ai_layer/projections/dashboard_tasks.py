@@ -16,6 +16,7 @@ from ai_layer.projections.dashboard_common import (
     selected_entries,
 )
 from ai_layer.tasks.views import task_to_dict
+from ai_layer.verification.present import public_verification_row
 
 _TASK_STATUSES = {"active", "blocked", "completed", "cancelled"}
 
@@ -126,18 +127,10 @@ def task_detail_payload(project_key_value: str, task_key: str) -> dict | None:
             },
             "task": task_to_dict(db, task, include_history=True),
             "verification": [
-                {
-                    "id": str(row.id),
-                    "stage_id": str(row.stage_id) if row.stage_id else None,
-                    "assurance": row.assurance,
-                    "command": list(row.command or []),
-                    "started_at": row.started_at.isoformat(),
-                    "completed_at": row.completed_at.isoformat(),
-                    "exit_code": row.exit_code,
-                    "timed_out": bool(row.timed_out),
-                    "output_summary": row.output_summary,
-                    "evidence_ref": row.evidence_ref,
-                }
+                public_verification_row(
+                    row,
+                    extra={"stage_id": str(row.stage_id) if row.stage_id else None},
+                )
                 for row in rows
             ],
         }

@@ -8,10 +8,11 @@ from ai_layer.application.transport import save_session as app_save_session
 from ai_layer.application.transport import task_current as db_current_task
 from ai_layer.audit.service import mcp_audit
 from ai_layer.mcp.runtime import _list, _project, _scoped, _text, core_tool, project_root_for_tool
+from ai_layer.mcp.tool_schema import SearchLimit, SearchQueryText, SessionListLimit
 from ai_layer.privacy.service import privacy_check
 
 
-def session_list(project_root: str | None = None, limit: int = 20) -> list[dict]:
+def session_list(project_root: str | None = None, limit: SessionListLimit = 20) -> list[dict]:
     """WHEN: explicit historical WorkSession inspection/debugging only. INPUT: optional project_root and limit. Normal continuation starts with project_status; use session_restore only when unmanaged narrative handoff context is specifically needed."""
     root = project_root_for_tool(project_root, tool="session_list")
     with mcp_audit(root, "session_list", arg_keys=["project_root", "limit"]):
@@ -105,7 +106,9 @@ def session_save(
             return _scoped(item, root)
 
 
-def decision_search(query: str, project_root: str | None = None, limit: int = 8) -> list[dict]:
+def decision_search(
+    query: SearchQueryText, project_root: str | None = None, limit: SearchLimit = 8
+) -> list[dict]:
     """WHEN: REQUIRED before choosing/designing/replacing/introducing/materially changing a consequential architecture/provider/API/migration/auth/security/concurrency/persistence approach among plausible alternatives when prior rationale may matter. INPUT: query, optional project_root/limit. Searches durable Decision/session rationale only; current source belongs to host-native tools and reviewed project facts/invariants belong to knowledge_search."""
     root = project_root_for_tool(project_root, tool="decision_search")
     query = _text(query, tool="decision_search", field="query")

@@ -3,6 +3,7 @@ from __future__ import annotations
 from ai_layer.application.transport import application_scope as session_scope
 from ai_layer.audit.service import mcp_audit
 from ai_layer.mcp.runtime import _list, _project, _text, core_tool, project_root_for_tool
+from ai_layer.mcp.tool_schema import SearchQueryText, SkillScope, SkillSearchLimit
 from ai_layer.skills.manager import (
     create_project_skill,
     default_skill_catalog,
@@ -48,7 +49,9 @@ def skill_list(project_root: str | None = None) -> list[dict]:
         return result
 
 
-def skill_search(query: str, project_root: str | None = None, limit: int = 12) -> list[dict]:
+def skill_search(
+    query: SearchQueryText, project_root: str | None = None, limit: SkillSearchLimit = 12
+) -> list[dict]:
     """WHEN: explicit installed-skill discovery because a concrete expertise gap exists and the slug is unknown. INPUT: query and optional project_root. Searches local/global/project skill metadata only; it never downloads Internet skills."""
     root = project_root_for_tool(project_root, tool="skill_search")
     query = _text(query, tool="skill_search", field="query")
@@ -162,7 +165,7 @@ def skill_project_create(
 def skill_import(
     source: str | None = None,
     content: str | None = None,
-    scope: str = "project",
+    scope: SkillScope = "project",
     project_root: str | None = None,
     slug: str | None = None,
     description: str | None = None,
@@ -259,7 +262,7 @@ def skill_install(
 
 def skill_update(
     slug: str,
-    scope: str = "project",
+    scope: SkillScope = "project",
     project_root: str | None = None,
     allow_high_risk: bool = False,
 ) -> dict:
@@ -285,7 +288,7 @@ def skill_update(
 def skill_set_enabled(
     slug: str,
     enabled: bool,
-    scope: str = "project",
+    scope: SkillScope = "project",
     project_root: str | None = None,
 ) -> dict:
     """WHEN: the USER explicitly enables/disables a registry-managed custom skill. INPUT: slug, enabled, scope. Does not delete the skill."""
@@ -307,7 +310,7 @@ def skill_set_enabled(
         return {**result, "available_now": True, "project_root": root}
 
 
-def skill_remove(slug: str, scope: str = "project", project_root: str | None = None) -> dict:
+def skill_remove(slug: str, scope: SkillScope = "project", project_root: str | None = None) -> dict:
     """WHEN: the USER explicitly removes a registry-managed custom skill. INPUT: slug and scope. Built-in/unmanaged skill files are never deleted by this tool."""
     root = project_root_for_tool(project_root, tool="skill_remove")
     slug = _text(slug, tool="skill_remove", field="slug")

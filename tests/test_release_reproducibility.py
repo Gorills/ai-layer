@@ -134,6 +134,7 @@ def test_application_wheel_builder_is_deterministic():
 def test_canonical_pytest_stage_is_hermetic_from_global_plugins(monkeypatch):
     gate = _load_script("quality_gate.py")
     captured: dict = {}
+    monkeypatch.setenv("AI_LAYER_TEST_POSTGRES_URL", "postgresql://must-not-leak-to-quality")
 
     class Result:
         returncode = 0
@@ -150,6 +151,7 @@ def test_canonical_pytest_stage_is_hermetic_from_global_plugins(monkeypatch):
 
     assert result["ok"] is True
     assert captured["env"]["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
+    assert "AI_LAYER_TEST_POSTGRES_URL" not in captured["env"]
 
 
 def test_release_gate_passes_for_archive_artifacts():

@@ -130,7 +130,8 @@ if [[ $PURGE -eq 1 ]]; then
       exit 1
     fi
     rm -f \
-      "$STATE_HOME/config.yaml" "$STATE_HOME/install.json" "$STATE_HOME/projects.json" \
+      "$STATE_HOME/config.yaml" "$STATE_HOME/install.json" "$STATE_HOME/install-journal.json" \
+      "$STATE_HOME/projects.json" \
       "$STATE_HOME/projects.json.lock" "$STATE_HOME/skill-registry.json" "$STATE_HOME/.skill-registry.lock" \
       "$STATE_HOME/agent-policy.json"
     rm -rf \

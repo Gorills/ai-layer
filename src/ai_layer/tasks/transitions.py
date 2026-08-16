@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ai_layer.db.models import Project, ReviewFinding, RuntimeEvent, Task, TaskStage, utcnow
 from ai_layer.memory.knowledge_store import has_task_drafts, publish_task_drafts
-from ai_layer.observability.domain_events import append_event
+from ai_layer.observability.work_events import append_task_event
 from ai_layer.privacy.service import privacy_check
 from ai_layer.sessions.service import save_session
 from ai_layer.tasks.concurrency import bump_task_version
@@ -118,8 +118,9 @@ def _complete_task(
             f"Published {knowledge_publication['published']} reviewed Project Knowledge card(s); "
             f"superseded {knowledge_publication['superseded']} older verified version(s)."
         )
-        append_event(
+        append_task_event(
             db,
+            task=task,
             event_type="KnowledgePublished",
             project=project,
             aggregate_type="task",
@@ -254,7 +255,7 @@ def _advance_review(
     task.review_round = max(task.review_round, stage.review_round)
     if verdict == "changes_required":
         if pending_to_verify:
-            _apply_verification_results(db, stage, pending_to_verify, verification_map)
+            _apply_verification_results(db, task, stage, pending_to_verify, verification_map)
         finding_stats = _add_findings(db, task, stage, findings)
         if any(finding_stats.values()):
             input_normalizations.append(
@@ -275,7 +276,7 @@ def _advance_review(
         return _create_stage(db, task, kind="fix", state=current_state, fix_round=task.fix_round)
 
     if pending_to_verify:
-        _apply_verification_results(db, stage, pending_to_verify, verification_map)
+        _apply_verification_results(db, task, stage, pending_to_verify, verification_map)
     db.flush()
     if _open_findings(db, task):
         raise RuntimeError("Review passed while actionable findings still remain.")

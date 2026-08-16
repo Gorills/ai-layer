@@ -133,6 +133,7 @@ def create_app() -> FastAPI:
         req: ToolCallRequest,
         core_token: str | None = Header(default=None, alias=CORE_TOKEN_HEADER),
         bridge_version: str | None = Header(default=None, alias="X-AI-Layer-Bridge-Version"),
+        bridge_correlation_id: str | None = Header(default=None, alias="X-AI-Layer-Correlation-ID"),
     ):
         if not validate_core_token(core_token):
             raise _http_error(
@@ -157,7 +158,14 @@ def create_app() -> FastAPI:
                 status_code=409,
             )
         try:
-            return {"ok": True, "result": execute_core_tool(tool, req.arguments)}
+            return {
+                "ok": True,
+                "result": execute_core_tool(
+                    tool,
+                    req.arguments,
+                    correlation_id=bridge_correlation_id,
+                ),
+            }
         except Exception as exc:
             return {"ok": False, "error": normalize_error(exc).to_dict()}
 

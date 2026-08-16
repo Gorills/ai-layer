@@ -1,6 +1,6 @@
 import { age, duration, escapeHtml, time } from "../format.js";
 import { metric, stageName, stateBadge } from "../components/common.js";
-import { compactList, filterTabs, hashUrl, infoRow, pagination, projectPicker } from "../components/ui.js";
+import { compactList, cursorPagination, filterTabs, hashUrl, infoRow, pagination, projectPicker } from "../components/ui.js";
 
 function taskStage(task) {
   return task?.active_stage ? stageName(task.active_stage.kind) : task?.status === "completed" ? "Завершена" : "—";
@@ -171,6 +171,13 @@ function readinessLabel(value) {
   return value ? "Готов" : "Проблема";
 }
 
+function providerStatusLabel(provider) {
+  const status = provider?.status || (provider?.ready ? "ready" : "degraded");
+  if (status === "ready") return "Готов";
+  if (status === "not_installed") return "Не установлен";
+  return "Деградирован";
+}
+
 function providerDiagnostics(diag) {
   const selected = diag?.project || null;
   const providers = selected?.providers?.length ? selected.providers : (diag?.global?.providers || []);
@@ -183,7 +190,7 @@ function providerDiagnostics(diag) {
       `skills ${readinessLabel(provider.native_skills_ready)}`,
     ];
     if (provider.runtime_acceptance_required) details.push("нужен runtime acceptance");
-    return infoRow(provider.name, provider.ready ? "Готов" : "Внимание", details.join(" · "));
+    return infoRow(provider.name, providerStatusLabel(provider), details.join(" · "));
   }).join("")}</div>
   ${selected ? `<div class="panel-footer"><span class="muted">${escapeHtml(title)} · template v${escapeHtml(selected.template_version ?? "—")} · MCP executable ${selected.mcp_executable_ready ? "готов" : "не готов"}</span>${stateBadge(selected.ready ? "healthy" : "warning")}</div>` : `<div class="panel-footer"><span class="muted">${escapeHtml(title)}</span>${stateBadge(diag?.global?.ready ? "healthy" : "warning")}</div>`}`;
 }
@@ -247,22 +254,60 @@ export function renderMonitoring(data, route) {
 }
 
 export function renderActivity(payload, route) {
-  const project = payload.project_key || route.project || null;
-  const params = { project };
+  const filters = payload.filters || {};
+  const project = filters.project_key || route.project || null;
+  const mode = filters.mode || route.mode || "milestones";
+  const params = {
+    project,
+    mode,
+    occurred_after: filters.occurred_after,
+    occurred_before: filters.occurred_before,
+    work_id: filters.work_id,
+    task_id: filters.task_id,
+    epic_id: filters.epic_id,
+    actor_id: filters.actor_id,
+    event_type: filters.event_type,
+    status: filters.status,
+    importance: filters.importance,
+    assurance: filters.assurance,
+  };
   const items = payload.items || [];
   return `
     <div class="page-toolbar">
-      <div><div class="section-eyebrow">OBSERVABILITY</div><div class="section-heading">Техническая активность</div></div>
-      <div class="toolbar-controls">${projectPicker(payload.projects || [], project, "activity")}</div>
+      <div><div class="section-eyebrow">OBSERVABILITY</div><div class="section-heading">Durable timeline</div></div>
+      <div class="toolbar-controls">${projectPicker(payload.projects || [], project, "activity", params)}</div>
     </div>
     <section class="panel">
-      <div class="panel-header"><div><div class="panel-title">События</div><div class="panel-hint">По 10 записей на страницу. Prompt/source payload не отображается.</div></div><span class="muted">${escapeHtml(payload.pagination?.total || 0)} за окно</span></div>
+      <div class="panel-header panel-header-wrap"><div><div class="panel-title">События работы</div><div class="panel-hint">Milestones показаны по умолчанию; transport/detail доступны отдельно. Prompt/source payload не отображается.</div></div>
+        ${filterTabs([
+          { label: "Milestones", value: "milestones" },
+          { label: "Все события", value: "all" },
+        ], mode, "activity", { ...params, mode: null, cursor: null }, "mode")}
+      </div>
+      <details class="technical-details">
+        <summary><span>Фильтры журнала</span><span class="muted">actor · Work/Task/Epic · type/status/assurance · date</span></summary>
+        <form class="toolbar-controls" data-hash-form data-hash-path="activity">
+          <input type="hidden" name="project" value="${escapeHtml(project || "")}">
+          <input type="hidden" name="mode" value="${escapeHtml(mode)}">
+          <label class="filter-control"><span>Event type</span><input name="event_type" value="${escapeHtml(filters.event_type || "")}" maxlength="96"></label>
+          <label class="filter-control"><span>Status</span><input name="status" value="${escapeHtml(filters.status || "")}" maxlength="32"></label>
+          <label class="filter-control"><span>Actor</span><input name="actor_id" value="${escapeHtml(filters.actor_id || "")}" maxlength="128"></label>
+          <label class="filter-control"><span>Work UUID</span><input name="work_id" value="${escapeHtml(filters.work_id || "")}"></label>
+          <label class="filter-control"><span>Task UUID</span><input name="task_id" value="${escapeHtml(filters.task_id || "")}"></label>
+          <label class="filter-control"><span>Epic UUID</span><input name="epic_id" value="${escapeHtml(filters.epic_id || "")}"></label>
+          <label class="filter-control"><span>Importance</span><select name="importance"><option value="">Любая</option>${["high", "normal", "low"].map((value) => `<option value="${value}" ${filters.importance === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+          <label class="filter-control"><span>Assurance</span><select name="assurance"><option value="">Любая</option>${["ai_layer_observed", "host_reported", "agent_reported", "inferred_unattributed", "requested_unverified"].map((value) => `<option value="${value}" ${filters.assurance === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
+          <label class="filter-control"><span>После (UTC)</span><input type="datetime-local" name="occurred_after" value="${escapeHtml((filters.occurred_after || "").slice(0, 16))}"></label>
+          <label class="filter-control"><span>До (UTC)</span><input type="datetime-local" name="occurred_before" value="${escapeHtml((filters.occurred_before || "").slice(0, 16))}"></label>
+          <button class="page-button" type="submit">Применить</button>
+        </form>
+      </details>
       ${items.length ? `<div class="activity-list">${items.map((item) => `<div class="activity-row">
         <div class="activity-status ${escapeHtml(item.status || "")}"></div>
-        <div class="activity-time">${escapeHtml(item.ts ? time(item.ts) : "—")}</div>
-        <div class="activity-main"><div class="activity-title">${escapeHtml(item.operation || "unknown")}</div><div class="activity-meta">${escapeHtml(item.project_name || "—")} · ${escapeHtml(item.client || "unknown")} · ${escapeHtml(item.category || "unknown")}${item.error_type ? ` · ${escapeHtml(item.error_type)}` : ""}</div></div>
+        <div class="activity-time">${escapeHtml(item.occurred_at ? time(item.occurred_at) : "—")}</div>
+        <div class="activity-main"><div class="activity-title">${escapeHtml(item.operation || "unknown")}</div><div class="activity-meta">${escapeHtml(item.project_name || "—")} · ${escapeHtml(item.actor_id || "system")} · ${escapeHtml(item.assurance || "requested_unverified")} · ${escapeHtml(item.importance || "normal")}${item.error_type ? ` · ${escapeHtml(item.error_type)}` : ""}</div></div>
         <div class="activity-duration">${escapeHtml(duration(item.duration_ms))}</div>
       </div>`).join("")}</div>` : `<div class="empty">Активности нет</div>`}
-      <div class="panel-footer"><span class="muted">${escapeHtml(payload.retention || "")}</span>${pagination(payload.pagination, "activity", params)}</div>
+      <div class="panel-footer"><span class="muted">${escapeHtml(payload.retention || "")}</span>${cursorPagination(payload.next_cursor, "activity", params, route.cursor)}</div>
     </section>`;
 }

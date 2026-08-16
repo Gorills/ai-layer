@@ -13,9 +13,9 @@ from ai_layer.domain.security import Actor
 from ai_layer.observability.domain_events import append_event
 
 
-def _request_hash(command_name: str, request: dict[str, Any]) -> str:
+def _canonical_digest(payload: dict[str, Any]) -> str:
     encoded = json.dumps(
-        {"command": command_name, "request": request},
+        payload,
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,
@@ -24,12 +24,40 @@ def _request_hash(command_name: str, request: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _advisory_command_lock(db: Session, command_id: str) -> None:
+def _project_scope(project_id: object) -> str:
+    return "" if project_id is None else str(project_id)
+
+
+def _request_hash(command_name: str, request: dict[str, Any], project_id: object = None) -> str:
+    return _canonical_digest(
+        {
+            "command": command_name,
+            "project_id": _project_scope(project_id),
+            "request": request,
+        }
+    )
+
+
+def _legacy_request_hash(command_name: str, request: dict[str, Any]) -> str:
+    return _canonical_digest({"command": command_name, "request": request})
+
+
+def _advisory_command_lock(db: Session, command_id: str, project_id: object = None) -> None:
     if db.bind is None or db.bind.dialect.name != "postgresql":
         return
-    digest = hashlib.sha256(command_id.encode("utf-8")).digest()
+    material = f"{_project_scope(project_id)}\0{command_id}"
+    digest = hashlib.sha256(material.encode("utf-8")).digest()
     key = int.from_bytes(digest[:8], "big", signed=True)
     db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+
+
+def _load_receipt(db: Session, command_id: str, project_id: object) -> CommandReceipt | None:
+    conditions = [CommandReceipt.command_id == command_id]
+    if project_id is None:
+        conditions.append(CommandReceipt.project_id.is_(None))
+    else:
+        conditions.append(CommandReceipt.project_id == project_id)
+    return db.scalar(select(CommandReceipt).where(*conditions).with_for_update())
 
 
 def execute_idempotent[T: dict[str, Any]](
@@ -47,6 +75,7 @@ def execute_idempotent[T: dict[str, Any]](
 
     The caller owns commit/rollback. Therefore the mutation and completed receipt become visible
     atomically; a lost response can be retried with the same command_id without duplicating effects.
+    Lookup, request hash, uniqueness and the PostgreSQL advisory lock are project-scoped.
     """
     identifier = str(command_id).strip()
     if not identifier or len(identifier) > 128:
@@ -54,13 +83,12 @@ def execute_idempotent[T: dict[str, Any]](
     name = str(command_name).strip()
     if not name or len(name) > 128:
         raise ValueError("command_name must contain 1..128 characters")
-    request_digest = _request_hash(name, request)
-    _advisory_command_lock(db, identifier)
-    receipt = db.scalar(
-        select(CommandReceipt).where(CommandReceipt.command_id == identifier).with_for_update()
-    )
+    request_digest = _request_hash(name, request, project_id)
+    _advisory_command_lock(db, identifier, project_id)
+    receipt = _load_receipt(db, identifier, project_id)
     if receipt is not None:
-        if receipt.command_name != name or receipt.request_hash != request_digest:
+        accepted = {request_digest, _legacy_request_hash(name, request)}
+        if receipt.command_name != name or receipt.request_hash not in accepted:
             raise RuntimeError("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_COMMAND")
         if receipt.status == "completed":
             return dict(receipt.result or {})  # type: ignore[return-value]

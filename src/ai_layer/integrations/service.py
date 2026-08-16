@@ -24,6 +24,7 @@ from ai_layer.integrations.config_files import (
 from ai_layer.integrations.global_install import (
     _cursor_plugin_owned,
     _merge_codex_config,
+    claude_user_mcp_status,
 )
 from ai_layer.integrations.global_install import (
     install_global_integrations as install_global_integrations,
@@ -198,6 +199,7 @@ def _status_dependencies() -> IntegrationStatusDependencies:
         integration_template_version=INTEGRATION_TEMPLATE_VERSION,
         global_bootstrap_marker=GLOBAL_BOOTSTRAP_MARKER,
         project_integration_paths=PROJECT_INTEGRATION_PATHS,
+        claude_user_mcp_status=claude_user_mcp_status,
     )
 
 

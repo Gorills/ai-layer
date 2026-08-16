@@ -193,7 +193,7 @@ def _machine_issues(
             {
                 "severity": "warning",
                 "problem": "Cursor global bootstrap files are installed; one real-agent black-box acceptance is still a machine-level validation step, not a project error",
-                "action": "run docs/BLACK-BOX_PROJECT_INTELLIGENCE_v0.7.0_RU.md once on the supported release host",
+                "action": "run the supported-host black-box items in release/release-manifest.json validation on the supported release host",
             }
         )
     for process in machine["mcp_processes"]:

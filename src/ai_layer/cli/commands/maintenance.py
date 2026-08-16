@@ -115,6 +115,14 @@ def _sync_registered_projects() -> dict:
 def _machine_upgrade(*, force: bool, skip_db: bool, sync_projects: bool) -> dict:
     result: dict = {
         "version": __version__,
+        "install_state": write_install_state(
+            {
+                "integration_template_version": INTEGRATION_TEMPLATE_VERSION,
+                "database_ready": False,
+                "last_upgrade_ok": False,
+                "global_install": "in_progress",
+            }
+        ),
         "global_files": _install_global_files(force=force),
         "global_integrations": install_global_integrations(),
     }
@@ -169,7 +177,8 @@ def _machine_upgrade(*, force: bool, skip_db: bool, sync_projects: bool) -> dict
     project_pipeline_ok = True
     if sync_projects:
         project_pipeline_ok = bool((result.get("project_repair") or {}).get("ok"))
-    machine_upgrade_ok = bool(database_pipeline_ok and project_pipeline_ok)
+    integrations_ok = bool((result.get("global_integrations") or {}).get("ok", True))
+    machine_upgrade_ok = bool(database_pipeline_ok and project_pipeline_ok and integrations_ok)
     result["database_pipeline_ok"] = bool(database_pipeline_ok)
     result["project_pipeline_ok"] = bool(project_pipeline_ok) if sync_projects else None
     result["machine_upgrade_ok"] = machine_upgrade_ok
@@ -180,6 +189,7 @@ def _machine_upgrade(*, force: bool, skip_db: bool, sync_projects: bool) -> dict
             # This is dependency readiness, not whether the compose start command ran.
             "database_ready": bool(db_state.get("connected") and db_state.get("pgvector")),
             "last_upgrade_ok": machine_upgrade_ok,
+            "global_install": "complete" if machine_upgrade_ok else "in_progress",
         }
     )
     return result
@@ -221,7 +231,7 @@ def uninstall_integrations():
         except Exception as exc:
             projects.append({"root": str(root), "removed": False, "error": str(exc)})
     global_result = remove_global_integrations()
-    ok = all(not item.get("error") for item in projects)
+    ok = all(not item.get("error") for item in projects) and bool(global_result.get("ok", True))
     echo({"ok": ok, "global": global_result, "projects": projects})
     if not ok:
         raise typer.Exit(1)

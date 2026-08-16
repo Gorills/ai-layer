@@ -6,7 +6,16 @@ from typer.testing import CliRunner
 from ai_layer.cli.app import app
 
 
-def test_cursor_mcp_config_merge(tmp_path: Path):
+def test_cursor_mcp_config_merge(tmp_path: Path, monkeypatch):
+    import importlib
+    from types import SimpleNamespace
+
+    service_commands = importlib.import_module("ai_layer.cli.commands.service_commands")
+    monkeypatch.setattr(
+        service_commands,
+        "get_settings",
+        lambda: SimpleNamespace(stable_mcp_executable=tmp_path / "missing-ai-layer-mcp"),
+    )
     target = tmp_path / ".cursor" / "mcp.json"
     target.parent.mkdir(parents=True)
     target.write_text(json.dumps({"mcpServers": {"existing": {"command": "demo"}}}))

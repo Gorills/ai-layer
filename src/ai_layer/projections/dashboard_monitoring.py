@@ -7,6 +7,7 @@ from ai_layer.integrations.service import (
     global_integration_status,
     integration_status,
 )
+from ai_layer.integrations.status import provider_install_status
 from ai_layer.projections.dashboard_common import entry_for_key, project_options
 
 _PROVIDER_ORDER = ("cursor", "codex", "antigravity", "claude-code")
@@ -16,46 +17,56 @@ _BOOTSTRAP_KEYS = {
     "antigravity": "antigravity-gemini",
     "claude-code": "claude-code",
 }
+_CORE_PROVIDERS = {"cursor", "codex", "antigravity"}
 
 
-def _native_ready(state: dict) -> bool | None:
+def _native_ready(state: dict) -> bool:
     value = state.get("native_skills")
     if isinstance(value, dict):
         return bool(value.get("ready"))
-    if value is None:
-        return None
     return bool(value)
+
+
+def _provider_view(
+    *,
+    name: str,
+    bootstrap_ready: bool,
+    mcp_ready: object,
+    native_ready: object,
+    runtime_acceptance_required: bool = False,
+) -> dict:
+    health = provider_install_status(bootstrap_ready, mcp_ready, native_ready)
+    return {
+        "name": name,
+        "ready": health == "ready",
+        "status": health,
+        "bootstrap_ready": bool(bootstrap_ready),
+        "mcp_ready": bool(mcp_ready),
+        "native_skills_ready": bool(native_ready),
+        "runtime_acceptance_required": bool(runtime_acceptance_required),
+    }
 
 
 def _global_provider(name: str, integrations: dict, bootstrap: dict) -> dict:
     state = integrations.get(name) or {}
     bootstrap_state = bootstrap.get(_BOOTSTRAP_KEYS[name]) or {}
-    mcp_ready = state.get("mcp_ready")
-    native_ready = _native_ready(state)
-    ready = (
-        bool(state.get("ready")) if name != "claude-code" else bool(bootstrap_state.get("ready"))
+    return _provider_view(
+        name=name,
+        bootstrap_ready=bool(bootstrap_state.get("ready")),
+        mcp_ready=state.get("mcp_ready"),
+        native_ready=_native_ready(state),
+        runtime_acceptance_required=bool(bootstrap_state.get("runtime_acceptance_required")),
     )
-    return {
-        "name": name,
-        "ready": ready,
-        "bootstrap_ready": bool(bootstrap_state.get("ready")),
-        "mcp_ready": bool(mcp_ready) if mcp_ready is not None else None,
-        "native_skills_ready": native_ready,
-        "runtime_acceptance_required": bool(bootstrap_state.get("runtime_acceptance_required")),
-    }
 
 
 def _project_provider(name: str, state: dict) -> dict:
-    mcp_ready = state.get("mcp")
-    native_ready = _native_ready(state)
-    return {
-        "name": name,
-        "ready": bool(state.get("ready")),
-        "bootstrap_ready": bool(state.get("bootstrap")),
-        "mcp_ready": bool(mcp_ready) if mcp_ready is not None else None,
-        "native_skills_ready": native_ready,
-        "runtime_acceptance_required": bool(state.get("runtime_acceptance_required")),
-    }
+    return _provider_view(
+        name=name,
+        bootstrap_ready=bool(state.get("bootstrap")),
+        mcp_ready=state.get("mcp"),
+        native_ready=_native_ready(state),
+        runtime_acceptance_required=bool(state.get("runtime_acceptance_required")),
+    )
 
 
 def monitoring_payload(project_key_value: str | None = None) -> dict | None:
@@ -92,7 +103,7 @@ def monitoring_payload(project_key_value: str | None = None) -> dict | None:
 
     return {
         "global": {
-            "ready": all(item["ready"] for item in providers if item["name"] != "claude-code"),
+            "ready": all(item["ready"] for item in providers if item["name"] in _CORE_PROVIDERS),
             "providers": providers,
         },
         "project": selected,

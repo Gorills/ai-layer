@@ -7,26 +7,27 @@ Its job is not to replace Cursor, Codex, Claude Code, Antigravity or another cod
 AI Layer adds what should survive individual chats and model contexts:
 
 - **Project Intelligence** — a lightweight, reusable map of where relevant code lives;
-- **durable work state** — Tasks, stages, findings and Epics that can be resumed later;
+- **durable work state** — ordinary WorkItems/AgentRuns plus optional managed Tasks/Epics that can be resumed later;
 - **Project Knowledge and Decisions** — reviewed facts, invariants and architectural history;
 - **native Agent Skills** — authoritative engineering skills published into host-native skill systems;
 - **verification and review evidence** — optional strict workflows where extra guarantees are worth the cost;
 - **observability and dashboard projections** — a human-readable view of project/workflow/runtime state.
 
-Current package version: **0.13.3**. The source architecture described here reflects the current control-plane implementation; release promotion remains governed by the repository release gate and committed wheel/manifest.
+Current package version: **0.14.0**. The source architecture described here reflects the current control-plane implementation; release promotion remains governed by the repository release gate and committed wheel/manifest.
 
 ## Core operating model
 
 For registered-project work, the small always-on bootstrap follows this shape:
 
-1. call `project_status(project_root=<workspace root>)`;
-2. if the project already has managed work in progress, use its `current_focus` to interpret requests such as **“continue”**;
-3. if a precise file or symbol is already known, inspect current source directly with host-native tools;
-4. if the relevant code location is unknown, call `project_search(query=<actual user goal>)` before broad repository discovery;
-5. use `knowledge_search` and `decision_search` only when durable facts or prior decisions materially help the task;
-6. execute normally through the host runtime;
-7. use `task_next` / `epic_next` when resuming or explicitly choosing a managed workflow.
-8. after meaningful work, call `project_map_reconcile` only for navigation facts actually established from the inspected/affected scope; trivial work may skip it.
+1. call `project_status(project_root=<workspace root>)` and apply its bounded `project_policy`;
+2. use `work.current_focus` / `work.continuation` to resume observed ordinary Work or managed Task/Epic state;
+3. for a new substantive ordinary request call `work_begin`; short work normally needs only one terminal Work call after execution;
+4. if a precise file or symbol is already known, inspect current source directly with host-native tools;
+5. if code location is unknown, use `project_search` with a concise English code-centric primary query for non-English intent, preserving exact repository identifiers and optionally one original/mixed widening variant;
+6. use `knowledge_search` and `decision_search` only when durable facts or prior decisions materially help the task;
+7. execute normally through the host runtime;
+8. use `task_next` / `epic_next` only when resuming or explicitly choosing a managed assurance workflow;
+9. reconcile Project Map only for navigation facts actually established from inspected/affected scope.
 
 The goal is to make already-known project structure cheaper to reuse than to rediscover.
 
@@ -62,6 +63,8 @@ Project Map is a metadata-only code navigation index. The scanner keeps compact 
 Project Map never persists source bodies. Search combines semantic metadata similarity with lexical path/symbol/purpose/import matches and returns a small ranked set of places to inspect.
 
 Since 0.13.1 the map has two ownership layers. The scanner owns deterministic structural facts. Working agents may add bounded semantic breadcrumbs—concise purpose/responsibilities, useful domain terms, current important symbols and related files/tests—through `project_map_reconcile` after real source work. Canonical semantic prose is concise English, source identifiers remain exact, and `domain_terms` may preserve materially useful Russian or other user/project vocabulary.
+
+Ordinary Work can pass `source_work_key` during reconciliation. AI Layer then stores `source_work_id` provenance and returns the durable reconciliation event identifier used by the WorkItem's terminal Map disposition; managed Task provenance remains available independently.
 
 Semantic enrichment is tied to the source hash it was learned from. When source changes, the old semantic row becomes stale and is down-ranked until real work reconciles it; AI Layer does not launch a duplicate background LLM mapper.
 
@@ -161,6 +164,8 @@ The optimization target is **total cost to a verified accepted result**, not min
 The local dashboard remains a major product surface. It exposes, without terminal dumps:
 
 - project overview and health;
+- bounded durable Work list/detail read models at `/api/v1/dashboard/work` and `/api/v1/dashboard/work/{project_key}/{work_key}`;
+- a milestone-first durable RuntimeEvent timeline at `/api/v1/dashboard/activity`, with opaque keyset cursors and bounded project/date/Work/Task/Epic/actor/event/status/importance/assurance filters;
 - current Task/stage and review findings;
 - Epics;
 - Project Intelligence summary (Project Map size/symbols/freshness/current focus);
@@ -169,7 +174,7 @@ The local dashboard remains a major product surface. It exposes, without termina
 - agent/runtime activity;
 - verification and protocol telemetry.
 
-Large collections are paginated or bounded rather than rendered as unbounded technical lists.
+Large collections are cursor-paginated or otherwise bounded rather than rendered as unbounded technical lists. Transport-level events remain available through the timeline's explicit all-events mode; they are not the default human work history.
 
 ## MCP/runtime behavior
 
@@ -225,3 +230,7 @@ That is the boundary the project should preserve as it grows.
 ## Documentation authority
 
 For actual product behavior, source code, migrations and executable tests take precedence over prose documentation. Documentation that disagrees with executable behavior is a defect.
+
+The point-in-time [independent audit of v0.14.0](docs/AUDIT.md) records confirmed
+release blockers and their reproduction evidence. Future agents must verify
+each finding against current source before treating it as open or resolved.

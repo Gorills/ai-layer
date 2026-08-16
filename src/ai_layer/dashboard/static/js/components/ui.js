@@ -27,6 +27,14 @@ export function pagination(paginationData, path, params = {}) {
   </nav>`;
 }
 
+export function cursorPagination(nextCursor, path, params = {}, currentCursor = null) {
+  if (!nextCursor && !currentCursor) return "";
+  return `<nav class="pagination" aria-label="Пагинация журнала">
+    ${currentCursor ? `<button class="page-button" type="button" data-history-back>←</button>` : `<span class="page-button disabled">←</span>`}
+    ${nextCursor ? `<a class="page-button" href="${hashUrl(path, { ...params, cursor: nextCursor })}">→</a>` : `<span class="page-button disabled">→</span>`}
+  </nav>`;
+}
+
 export function projectPicker(projects, selected, path, params = {}, { allowAll = true } = {}) {
   const options = [];
   if (allowAll) {

@@ -9,7 +9,7 @@ from ai_layer.domain.agent_contract import (
 from ai_layer.domain.project_map import project_map_bootstrap_line
 from ai_layer.domain.static_policy import static_policy_markdown
 
-CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 8
+CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 9
 
 
 def critical_orchestrator_contract() -> dict[str, Any]:
@@ -22,10 +22,16 @@ def critical_orchestrator_contract() -> dict[str, Any]:
         "repository_mutation": "host_native",
         "external_mutation": "host_native_subject_to_user_permissions",
         "startup_rule": "Call project_status before beginning registered-project work.",
+        "work_rule": (
+            "Represent substantive user work with WorkItem lifecycle. Short work normally needs only "
+            "work_begin plus one terminal call; managed Tasks remain optional assurance."
+        ),
         "discovery_rule": (
-            "When the relevant code location is unknown, call project_search before broad repository discovery."
+            "When code location is unknown, use a concise English code-centric project_search query for "
+            "non-English goals, preserve exact identifiers, and use at most one original/mixed widening variant."
         ),
         "project_map_rule": project_map_bootstrap_line(),
+        "project_policy_rule": "Apply project_status.project_policy before implementation.",
         "source_truth": "Current repository source is authoritative; Project Map and Knowledge are shortcuts.",
         "skills_rule": "Use host-native Agent Skills by relevance; do not preload unrelated skills.",
         "managed_workflow_rule": (
@@ -60,53 +66,35 @@ def managed_orchestrator_contract() -> dict[str, Any]:
 def critical_orchestrator_markdown() -> str:
     return """## AI Layer control-plane boundary
 
-AI Layer provides Project Intelligence, durable work state, professional skills, verification evidence and observability. The host agent runtime remains the execution engine.
+AI Layer provides Project Intelligence, durable ordinary-work state, optional managed assurance, professional skills, verification evidence and observability. The host agent runtime remains the execution engine.
 
-- Start registered-project work with `project_status(project_root=<workspace root>)`. Use the returned `current_focus` to interpret requests such as "continue" without rediscovering prior work.
-- If the user already names a precise file or symbol, open that current source directly after status. Do not add a search ceremony that cannot improve the answer.
-- If the relevant code location is unknown, call `project_search(query=<actual goal>)` before broad repository grep/search. Treat its paths and symbols as breadcrumbs, then inspect current source with native tools.
-- Project Map is read with `project_search` and updated/reviewed with `project_map_reconcile`. If the user explicitly asks to update or check Project Map, use that capability directly after inspecting the relevant current source; do not grep repository documentation merely to discover what Project Map means. Reconcile only inspected scope, and use `no_changes_reason` when existing map semantics are already accurate.
-- Use `knowledge_search` for reviewed project facts/invariants and `decision_search` for architectural history only when they are relevant. They are not substitutes for current source.
-- Native read/edit/search/shell/test/subagent capabilities remain available. AI Layer does not grant per-edit permission and must not replace the host's own agent loop.
-- Existing managed Tasks and Epics remain durable workflows. When `project_status` reports one as the current focus, or when the user explicitly chooses managed execution, use `task_next` / `epic_next` and follow that workflow's strict contracts.
+- Start registered-project work with `project_status(project_root=<workspace root>)` before implementation or broad discovery. Apply `project_policy.text` when present; its version/hash identifies the delivered revision. Use `work.current_focus` / `work.continuation` to interpret "continue" without rediscovering prior work.
+- A substantive ordinary request is one WorkItem. Call `work_begin` when it starts and one of `work_complete`, `work_fail`, `work_interrupt`, or `work_abandon` when it ends. Use `work_checkpoint` only for a meaningful milestone or blocker. Managed Task is optional assurance, not ordinary-work identity.
+- If the user already names a precise file or symbol, open that current source directly after status.
+- If the relevant code location is unknown, call `project_search` before broad repository grep/search. For non-English natural-language intent, derive a concise English code-centric primary query and preserve exact identifiers; pass at most one original-language or mixed `query_variants` entry when it materially widens domain recall. Treat returned paths/symbols as breadcrumbs and inspect current source. If semantic search is degraded or implausible, retry with English code-centric terms, then one bounded native exact-token search. For end-to-end flows cover entrypoint/handler, core service/domain, persistence/external integration and tests before claiming the flow is complete.
+- Project Map is read with `project_search` and updated with `project_map_reconcile`. Reconcile only inspected scope. Pass `source_work_key` for ordinary Work closure or `source_task_key` for a completed managed Task/Epic, never both; if no semantic change is needed, record `no_changes_reason`.
+- Use `knowledge_search` for reviewed project facts/invariants and `decision_search` for architectural history only when relevant. They are not substitutes for current source.
+- Native read/edit/search/shell/test/subagent capabilities remain available. Prefer the smallest sufficient exploration. AI Layer does not grant per-edit permission and must not replace the host's own agent loop.
+- Existing managed Tasks and Epics remain durable strict workflows. When status reports one as the current managed focus, or the user explicitly chooses managed execution, use `task_next` / `epic_next`.
 - Never stash, reset, restore, discard or commit user changes merely to satisfy AI Layer; a dirty worktree is valid project state.
-- If AI Layer state/index retrieval fails, disclose the missing context and continue with native source inspection when safe. Never fabricate Task/Epic/Knowledge state.
+- If AI Layer state/index retrieval fails, disclose the missing context and continue with native source inspection when safe. Never fabricate Work/Task/Epic/Knowledge state.
+- Agent Skills are selected by the host natively. Do not preload unrelated skills. Use `skill_get` only when host-native activation is insufficient.
+- A control-plane call is justified only when it reduces uncertainty, preserves durable state, or supplies evidence the host would otherwise reconstruct.
+
+Current repository source is final code truth. Project Map is a navigation index; Project Knowledge is reviewed semantic memory; Decisions explain prior choices.
 """
 
 
 def native_bootstrap_markdown() -> str:
-    """Small always-on bootstrap: retrieve useful state, then let the host work natively."""
-    startup = """## Mandatory project-intelligence startup
-
-For work involving a registered project:
-
-1. The first AI Layer project-state call MUST be `project_status(project_root=<workspace root>)` before implementation or broad repository discovery.
-2. Read its `work.current_focus` and `work.continuation`. If the user says "continue" (or equivalent) and a managed Task/Epic is active, resume that exact work instead of reconstructing state from chat or rescanning the repository.
-3. If the relevant file/symbol is already known from the user or status, inspect it directly with host-native tools.
-4. If the code location is unknown, call `project_search(query=<actual user goal>, project_root=<canonical root>)` before broad grep/find/repository exploration. Open only the strongest current-source candidates first and widen only when evidence requires it.
-5. Project Map reads use `project_search`; Project Map updates/reviews use `project_map_reconcile`. When the user explicitly asks to update/check the map, inspect only the relevant current source and reconcile that checked scope. For a completed Task/Epic closure, pass its Task key as `source_task_key`; if no semantic change is needed, record `no_changes_reason` rather than inventing entries. Do not search repository docs just to learn this capability.
-6. Use `knowledge_search` for durable reviewed facts/invariants and `decision_search` for prior architectural decisions when those facts can materially affect the task. Do not call them mechanically.
-7. Execute normally through the host: native reads, edits, shell, tests, code search and subagents are allowed. Prefer the smallest sufficient exploration and the cheapest adequate execution path.
-8. Managed Tasks/Epics are durable work records plus optional strict workflows, not a universal permission layer. Call `task_next` / `epic_next` when resuming an already-managed focus or when managed/strict execution is explicitly chosen.
-9. Current repository source is final code truth. Project Map is a navigation index; Project Knowledge is reviewed semantic memory; Decisions explain prior choices. Verify relevant current source before edits or code-truth claims.
-10. Agent Skills are selected by the host natively. Do not manually preload unrelated skills. Use `skill_get` only for explicit retrieval/package details when host-native skill activation is insufficient.
-
-Token-economy objective: use AI Layer to avoid rediscovering known project structure and state, not to add ceremony. A control-plane call is justified only when it reduces uncertainty, preserves durable state, or supplies evidence the host would otherwise have to reconstruct.
-"""
-    return (
-        critical_orchestrator_markdown()
-        + "\n"
-        + agent_runtime_bootstrap_line()
-        + "\n\n"
-        + startup
-        + "\n"
-        + static_policy_markdown()
-    )
+    """Single always-on procedure copy plus the durable engineering floor."""
+    return critical_orchestrator_markdown() + "\n" + static_policy_markdown()
 
 
 def mcp_bootstrap_instructions() -> str:
     """Compact fallback when native bootstrap delivery is unavailable or drifted."""
-    return agent_runtime_bootstrap_line()
+    return (
+        "If native AI Layer bootstrap is not already in context: " + agent_runtime_bootstrap_line()
+    )
 
 
 def inline_micro_stage_instruction() -> dict[str, Any]:

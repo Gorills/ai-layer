@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ai_layer.core.redaction import redact_secrets
 from ai_layer.db.models import ReviewFinding, Task, TaskStage, utcnow
-from ai_layer.observability.domain_events import append_event
+from ai_layer.observability.work_events import append_task_event
 from ai_layer.tasks.constants import (
     MAX_EXTERNAL_ACTIONS,
     MAX_EXTERNAL_TARGET_CHARS,
@@ -262,7 +262,11 @@ def _normalize_verification_results(
 
 
 def _apply_verification_results(
-    db: Session, stage: TaskStage, pending: list[ReviewFinding], results: dict[str, dict]
+    db: Session,
+    task: Task,
+    stage: TaskStage,
+    pending: list[ReviewFinding],
+    results: dict[str, dict],
 ) -> bool:
     still_open = False
     now = utcnow()
@@ -283,10 +287,11 @@ def _apply_verification_results(
         if result["status"] == "verified":
             item.status = "verified"
             item.verified_at = now
-            append_event(
+            append_task_event(
                 db,
+                task=task,
                 event_type="FindingVerified",
-                project_id=None,
+                project_id=task.project_id,
                 aggregate_type="finding",
                 aggregate_id=str(item.id),
                 payload={"task_id": str(item.task_id), "stage_id": str(stage.id)},
@@ -346,8 +351,9 @@ def _add_findings(
             )
             db.add(prior)
             db.flush()
-            append_event(
+            append_task_event(
                 db,
+                task=task,
                 event_type="FindingOpened",
                 project_id=task.project_id,
                 aggregate_type="finding",

@@ -96,7 +96,7 @@ After Phase 0 and every accepted Epic Task, application orchestration records re
 
 The mandatory final Task is still an ordinary `STANDARD` Task. Its IMPLEMENT stage updates current project documentation and DRAFT Project Knowledge. Its independent REVIEW stage must inspect those drafts and review the whole implemented Epic against the execution specification and Definition of Done, not merely the final documentation delta. Existing Task findings and FIX -> REVIEW remediation remain authoritative. Epic completion adds two mechanical closure checks: relevant project documentation changed and the reviewed Task emitted `KnowledgePublished` with at least one published card. If either is missing, another final closure/review item is scheduled instead of archiving an incomplete Epic.
 
-See ADR `docs/DECISIONS/0016-epics-v1-lifecycle.md`.
+See ADR `DECISIONS/0016-epics-v1-lifecycle.md`.
 
 ## Security and command boundary
 

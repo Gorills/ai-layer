@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.14.0 — Durable Work spine and truthful observability
+
+- Added first-class `WorkItem` and `AgentRun` lifecycle for ordinary host-native user work while keeping managed Tasks/Epics as optional stricter assurance. Multiple WorkItems may coexist per project; the managed Task single-open constraint does not leak into ordinary work.
+- Added idempotent `work_begin`, milestone `work_checkpoint`, and terminal Work MCP commands backed by the existing `CommandReceipt`/advisory-lock boundary.
+- Added additive schema `0017_work_spine` with durable Work/AgentRun records, Work-provenanced semantic Project Map rows, and `runtime_event_context` correlation for Work/Run/Task/Epic and host/session/model identity.
+- Scoped `CommandReceipt` uniqueness, request hash, lookup and PostgreSQL advisory locks to `(project_id, command_id)` so the same Work idempotency key cannot replay another project's Work; added linear schema `0018_command_project_scope`. Existing 0017 receipts remain valid.
+- Made `RuntimeEvent` the durable human activity journal and kept JSONL/context trace diagnostic-only; stdio bridge/core execution shares one correlation identifier and common MCP execution records safe linked terminal operation evidence without copying raw prompt/source bodies.
+- Restricted durable Work evidence to bounded check and repository-delta metadata with explicit assurance; raw commands, output and source content are rejected.
+- Made Dashboard project state truthful: live ordinary work requires a non-stale AgentRun; managed Task state and MCP bridge traffic are displayed separately and no longer prove that user work is currently executing.
+- Added versioned, bounded Dashboard Work list/detail API contracts with project/status filters, deterministic ordering, batch-loaded AgentRuns, Task/Epic link keys, and a privacy-safe durable event timeline.
+- Added Dashboard Work list/detail pages and overview portfolio slices for Now (live/non-stale Work), Needs attention (blocked, stale-active, map pending/deferred), and Recently completed.
+- Replaced offset-based technical activity with Activity API v2 and a milestone-first Dashboard timeline using filter-bound keyset cursors, deterministic timestamp/UUID ordering, Work/Task/Epic/actor/date/type/status/importance/assurance filters, and explicit access to diagnostic all-event detail. New Task/Epic lifecycle events populate `RuntimeEventContext` so `task_id`/`epic_id` filters and default Epic milestones work; historical journal rows without that sidecar are left as-is and remain unfilterable by those identities.
+- Added bounded effective project policy to `project_status` with version/hash, kept project/privacy rules when a long custom global prefix forces the 12k bound, and corrected the repository bootstrap to the canonical root `DECISIONS/` ADR directory.
+- Collapsed the installed native bootstrap to one procedure copy plus the engineering floor; `project_status` now returns a state snapshot (focus, continuation, git, dynamic policy, compact Work rows, map freshness) without re-sending `agent_contract`/guidance; MCP initialize instructions remain the fallback when native bootstrap is missing; `ai-layer-workflow` no longer presents itself as always-on for every registered-project chat.
+- Bound Work-linked `project_map_reconcile(source_work_key)` to persist `Work.map_disposition` as `reconciled` with event id and checked scope, return that ready disposition, accept `scope_paths` as a `scope` alias, and keep an omitted terminal `map_disposition` instead of resetting it to `pending`.
+- Published Search Contract v2: non-English intent uses a concise English code-centric primary Project Map query, preserves exact identifiers, allows at most one original/mixed widening variant, and requires current-source verification.
+- Added unit and real PostgreSQL regression coverage for concurrent Work sequence allocation, idempotency, event correlation, Work-to-Map provenance, cursor-stable safe activity presentation and filtering, project policy, multilingual search fusion and truthful Dashboard state; the canonical PostgreSQL gate discovers every `postgres`-marked contract.
+
 ## 0.13.3 — Live agent contract and repository hygiene
 
 - Audited every agent-facing control-plane surface: native/MCP bootstrap, `project_status`, Task/Epic navigation, MCP descriptions, recovery/error guidance, skills and compatibility paths now describe the current Project Intelligence architecture consistently.

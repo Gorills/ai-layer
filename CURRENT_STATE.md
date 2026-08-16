@@ -1,57 +1,58 @@
-# Current State — v0.13.3 Live agent contract and semantic governance
+# Current State — v0.14.0 Durable Work spine and truthful observability
 
 ## Implemented source state
 
-AI Layer now uses **Project Intelligence + Durable Work State + Observability** as its primary architecture. Native coding-agent hosts remain the normal execution engine.
+AI Layer is a Project Intelligence control plane around host-native coding agents. The host remains the execution engine; AI Layer preserves durable project/work state, semantic navigation, reviewed knowledge, optional strict managed workflows, verification evidence and observability.
 
-- **Project status:** `project_status` is the cheap first state call for registered-project work. It restores Git/worktree state, current managed Task, executing/open Epic state, continuation focus and Project Map freshness without running Task/Epic navigators or scanning source.
-- **Continuation:** requests such as “continue” use durable `current_focus`. Active managed Task wins; otherwise an executing Epic is resumed; with neither, the request is treated as new native work.
-- **Project Map:** scanner schema v5 builds a dedicated metadata-only `project_navigation` index containing paths, language, compact purposes, imports, risk flags and bounded symbols/routes plus vector embeddings. Raw source bodies are not persisted.
-- **Semantic Project Map:** `project_navigation_semantics` stores bounded agent-authored navigation learned from real source work: concise responsibilities/purpose, multilingual domain aliases, current important symbols and related files/tests. Scanner-owned structural facts remain immutable to agents.
-- **Project Map reconciliation:** `project_map_reconcile` validates current paths/symbols, records Task provenance and checked scope, permits an explicit factual no-change result, and binds semantic freshness to the source content hash. A versioned capability contract is emitted by `project_status` and `epic_next`, so old Epics learn the current tool semantics dynamically; map-only final closure waits on reconciliation against the completed Task instead of spawning another final Task.
-- **Project search:** `project_search` combines semantic Project Map similarity with lexical path/symbol/purpose/import matches and returns a small ranked set of breadcrumbs and related tests. Current repository source must be opened before code-truth claims or edits.
-- **Project Knowledge:** reviewed semantic facts/invariants remain separate from Project Map. `knowledge_search` is the explicit API; `memory_search` remains a compatibility alias. Evidence changes still make affected VERIFIED cards stale.
-- **Decisions:** `decision_search` remains the durable architectural-history channel.
-- **Legacy context:** `memory_context` remains only as a compact compatibility helper. With no task/query it serves `project_status`; with a task it returns bounded knowledge hints instead of the old multi-surface payload. It never selects or advances Task/Epic workflow.
-- **Native execution:** global bootstrap no longer disables source reads, edits, shell, tests, code search or native subagents. If a precise location is known, the host inspects it directly after status; if location is unknown, Project Map is consulted before broad repository discovery.
-- **Tasks:** durable Task records, stages, findings, worker leases, provenance/adoption, review sandboxes, verification evidence, remediation caps and MICRO/STANDARD/DISCOVERY_FIRST/ANALYSIS_ONLY profiles remain implemented. `task_next` is authoritative inside an active/selected managed Task, not for every repository action.
-- **Epics:** immutable specs, audits, approval, planning, linked Tasks, drift/reconciliation, intervening review, completion/archive and Dashboard views remain implemented. `epic_next` is authoritative inside an active/selected managed Epic.
-- **Strict workflow:** independent IMPLEMENT/REVIEW/FIX boundaries and read-only REVIEW/DISCOVERY are preserved as managed-workflow guarantees rather than universal host restrictions.
-- **Skills:** Cursor, Codex, Claude Code and Antigravity receive AI Layer skills through their native skill locations. Host-native relevance/progressive disclosure owns normal activation; explicit `skill_get` remains available.
-- **Model policy:** ordinary work is host-native. Managed routing retains optional cost-tier metadata; default `economy` can request the configured cheap worker, while `balanced` and `strong` inherit the host by default. Requested model/cost effect remains explicitly unverified when host telemetry is unavailable.
-- **MCP runtime:** `project_status` is a fast replay-safe call. `project_search`, `knowledge_search`, legacy context search and decision search use the context/embedding runtime class and warm persistent core.
-- **Dashboard:** project pages preserve Tasks/stages/findings/skills/agents and now expose Project Intelligence summary: current focus, Project Map file/symbol counts and freshness.
-- **Observability:** Project Intelligence calls emit bounded audit metrics without pretending host-hidden model/token/billing information is measured truth.
-- **Privacy:** Project Map stores navigation metadata rather than raw source. External/strict-private project modes continue to keep managed state/material outside target repositories according to their existing contracts.
+The current model deliberately separates three identities:
 
-## Database and migration state
+- **WorkItem** — one substantive user-visible unit of ordinary host-native work. Multiple WorkItems may exist in one project.
+- **Managed Task / Epic** — optional stricter assurance workflows with their own state machines. The existing single-open-Task rule remains scoped to the managed Task engine and does not constrain WorkItems.
+- **RuntimeEvent / AgentRun** — durable evidence of observed activity and lifecycle; activity is never treated as the identity of the user's work.
 
-Alembic migration `0016_project_map_semantics` adds the separate semantic navigation table and HNSW cosine index on top of `0015_project_navigation`. It is additive and does not reset Project/Task/Epic/Knowledge/Decision state.
+A WorkItem can record goal, kind, lifecycle status, reviewed/changed paths, repository delta, checks, Project Map disposition, observability coverage, assurance source and optional links to a managed Task/Epic. AgentRun records observed root/subagent identity, host/client/session/turn/model, heartbeat and terminal state. Dashboard may claim ordinary work is live only when a non-stale AgentRun supports that claim; MCP bridge traffic or an open managed Task alone is insufficient.
 
-The incremental scanner deletes/rebuilds Project Map rows only for changed/reparsed source paths and reuses unchanged navigation embeddings. Scanner schema v5 triggers construction of the new map from older scanner state.
+## Project Intelligence startup contract
 
-Real PostgreSQL/pgvector hardening CI has exercised the new migration successfully during development.
+`project_status` remains the mandatory first AI Layer state call for registered-project work. It returns a cheap state snapshot:
 
-## Architectural boundary
+- current focus and continuation (live Work, active managed Task, or executing Epic);
+- bounded effective `project_policy` with contract version, SHA-256, character count and truncation flag, with project/privacy rules preserved if the 12k bound truncates a long custom global prefix;
+- git/worktree summary;
+- compact live/attention/recent Work rows without AgentRun arrays;
+- compact active Task/Epic;
+- Project Map freshness (status, stale/missing counts, changed paths).
 
-The intended execution path is:
+It does not re-send the runtime procedure, Project Map capability essay, idle `latest_task`, or open Epic lists. Native bootstrap owns ordinary procedure; MCP initialize instructions are the compact fallback when that bootstrap is missing. Short ordinary work should normally use `work_begin` plus exactly one terminal Work call. `work_checkpoint` is reserved for meaningful milestones or blockers, not every file/tool action. Existing managed Task/Epic flows remain available when strict assurance is explicitly useful.
 
-> **project_status → project_search when location is unknown → current-source verification → host-native execution → durable recording/strict workflow only where useful**
+## Project Map and search
 
-Project Map answers **where**. Project Knowledge answers **what is already understood**. Decisions answer **why**. Tasks/Epics answer **what work is active**. Source code remains final implementation truth.
+Project Map answers **where**. Project Knowledge answers **what is already understood and reviewed**. Current repository source remains final code truth.
 
-AI Layer must not rebuild a second generic agent runtime around native hosts. A new control-plane requirement should justify itself by reducing rediscovery, preserving durable state/evidence or improving measured reliability.
+For unknown code locations, `project_search` uses a bounded search contract. For non-English natural-language intent the primary query should be concise English and code-centric while exact repository identifiers remain verbatim. At most one original-language or mixed variant may widen domain aliases. End-to-end flow claims should cover the relevant entrypoint/handler, core service/domain, persistence or external integration, and tests. Project Map hits are breadcrumbs and must be verified against current source.
 
-The live runtime/tool contract is the procedural authority presented to agents. Historical Task/Epic prose and legacy compatibility names may remain for migration/history, but they must not override current `project_status`, `task_next`, `epic_next` or focused Project Intelligence tool semantics. Agent-facing quality tests protect these meanings rather than arbitrary byte counts, catalog counts or exact wording.
+Semantic Project Map enrichment remains canonical-English for purpose/responsibilities/navigation hints, preserves exact code identifiers, and may store useful multilingual aliases in `domain_terms`.
+
+`project_map_reconcile(source_work_key=...)` binds inspected semantic scope directly to ordinary Work provenance, persists `Work.map_disposition` as `reconciled` with that event identifier and checked scope, and returns the ready disposition. A later terminal Work call may omit `map_disposition` to keep that persisted value; an explicit `reconciled` report still requires non-empty checked scope plus the event identifier, and may use `scope_paths` as an alias for `scope`. Honest no-change/not-applicable/deferred dispositions remain available.
+
+## Durable observability
+
+`RuntimeEvent` is the durable event journal. `runtime_event_context` adds Work/Run/Task/Epic and host/session/model correlation without rewriting historical events. The stdio bridge propagates its correlation identifier into core execution, and common MCP execution records safe terminal `OperationCompleted` / `OperationFailed` evidence best-effort. Raw prompts and source bodies are not copied into the human activity presenter.
+
+Existing JSONL/context-trace telemetry remains diagnostic only. Dashboard activity now reads the durable RuntimeEvent journal; Work, managed Tasks, Project Map quality and MCP bridges are presented as separate concepts.
+
+Dashboard exposes versioned, bounded Work list/detail read contracts at `/api/v1/dashboard/work` and `/api/v1/dashboard/work/{project_key}/{work_key}`. The portfolio list supports project/status filters and deterministic ordering, batch-loads AgentRuns, and the detail response includes a safe bounded timeline from the durable RuntimeEvent journal. The Dashboard browser has Work list (`#/work`) and Work detail (`#/work/{project_key}/{work_key}`) pages, and the overview portfolio shows Now (live/non-stale), Needs attention (blocked, stale-active, map pending/deferred), and Recently completed slices from that enrichment.
+
+`/api/v1/dashboard/activity` now exposes Activity contract v2: milestone-first by default (including Epic lifecycle types), bounded by an opaque filter-bound keyset cursor ordered on `(occurred_at, event_id)`, and filterable by project, date range, Work/Task/Epic identity, actor, event type, status, importance and assurance. Task/Epic identity filters read `RuntimeEventContext`; new Task/Epic lifecycle events populate that sidecar, while historical `RuntimeEvent` rows without it stay unfilterable by `task_id`/`epic_id` and are not rewritten. The Dashboard keeps transport-level events available through an explicit all-events mode instead of mixing them into the default human work history.
+
+Current observability is truthful but intentionally incomplete: Work lifecycle visibility is available now, while richer native-host hooks and deeper subagent/tool observation remain future adapter work and are not claimed as implemented in this release.
+
+## Repository governance
+
+The root `AGENTS.md` points to the canonical ADR directory `DECISIONS/`. ADR 0020 records the Work/observability architecture. Agent-facing semantics remain governed by the versioned live runtime contract rather than stale historical workflow prose.
 
 ## Release validation status
 
-Release **0.13.3** is promoted in the source branch with an aligned deterministic application wheel, release manifest and governance baseline. ADR 0019 records the live-agent-contract and semantic-governance rules; ADRs 0017–0018 remain the Project Intelligence and semantic Project Map foundations.
+Release candidate **0.14.0** targets Alembic schema `0018_command_project_scope` and must not be promoted until the exact committed wheel, release manifest and governance baseline are aligned and the canonical quality + PostgreSQL/pgvector gates are green on the final clean head.
 
-Merge/release readiness still requires the committed clean head to pass:
-
-- canonical formatting/lint/type/architecture/migration/skill/governance/test/release gate;
-- real PostgreSQL/pgvector hardening;
-- deterministic packaging checks against the declared 0.13.3 release artifacts.
-
-After merge, supported-host field acceptance should exercise `project_status`, Project Map search, continuation, native execution, optional managed Task/Epic flows, dashboard visibility and native skills on real projects.
+After merge, supported-host field acceptance should exercise `project_status`, Work lifecycle/continuation, multilingual Project Map search, optional managed Task/Epic flows, durable activity/Dashboard visibility and native skills on real projects.

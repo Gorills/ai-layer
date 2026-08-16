@@ -472,13 +472,14 @@ def next_action(project_root: str | Path, *, key: str) -> dict:
         epic = epic_for_update(db, project, key)
         action = _navigation_action(db, project, epic)
         db.flush()
-        source_task_key = (
-            str(action.get("source_task_key") or "")
-            if action.get("tool") == "project_map_reconcile"
-            else None
-        )
-        return {
+        payload = {
             "epic": epic_payload(db, epic, include_spec=False, include_history=False),
-            "next_action": action,
-            "project_map": project_map_capability_contract(source_task_key=source_task_key or None),
+            "next_action": dict(action),
         }
+        if action.get("tool") == "project_map_reconcile":
+            source_task_key = str(action.get("source_task_key") or "") or None
+            payload["project_map"] = action.get("project_map") or project_map_capability_contract(
+                source_task_key=source_task_key
+            )
+            payload["next_action"].pop("project_map", None)
+        return payload

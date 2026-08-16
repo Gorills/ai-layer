@@ -188,6 +188,7 @@ def test_project_status_omits_idle_latest_task_and_procedure_payloads(
         assert "observability_contract" not in work
         assert "guidance" not in status
         assert "agent_contract" not in status
+        assert status["envelope"] == "ordinary"
         assert "languages" not in status["project"]
         assert "refresh_job" not in status["index"]["freshness"]
         assert "contract" not in status["index"]["project_map"]

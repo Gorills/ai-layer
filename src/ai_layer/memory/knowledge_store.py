@@ -291,7 +291,7 @@ def search_knowledge(
         score = max(0.0, 1.0 - float(distance if distance is not None else 1.0))
         if score < MIN_KNOWLEDGE_SCORE:
             continue
-        payload = public_card(row)
+        payload = public_card(row, include_evidence=False)
         payload["score"] = round(score, 4)
         result.append(payload)
         if len(result) >= max(1, min(int(limit), 20)):

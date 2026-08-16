@@ -77,8 +77,7 @@ def test_task_navigation_repeats_orchestrator_contract_at_delegation_and_complet
             constraints=[],
         )
         before = tasks.next_task_action(db, project)
-        assert before["orchestrator_contract"]["role"] == "orchestrator"
-        assert before["orchestrator_contract"]["repository_mutation"] == "forbidden"
+        assert "orchestrator_contract" not in before
         assert before["next_action"]["action"] == "delegate_stage"
         assert (
             before["next_action"]["orchestrator_contract"]["repository_mutation"]

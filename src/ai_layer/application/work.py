@@ -8,6 +8,7 @@ from ai_layer.application.commands import execute_idempotent
 from ai_layer.core.request_context import current_operation
 from ai_layer.core.service import get_project
 from ai_layer.db.session import session_scope
+from ai_layer.domain.agent_contract import ENVELOPE_ORDINARY, with_envelope
 from ai_layer.domain.security import SYSTEM_ACTOR
 from ai_layer.observability.work_events import append_contextual_event
 from ai_layer.work.service import (
@@ -35,10 +36,13 @@ def _command_id(value: str | None) -> str:
 
 
 def _bound_result(project: Any, payload: dict) -> dict:
-    return {
-        **payload,
-        "project_root": str(Path(project.root_path).expanduser().resolve()),
-    }
+    return with_envelope(
+        {
+            **payload,
+            "project_root": str(Path(project.root_path).expanduser().resolve()),
+        },
+        ENVELOPE_ORDINARY,
+    )
 
 
 def begin(project_root: str | Path, *, idempotency_key: str | None = None, **kwargs: Any) -> dict:

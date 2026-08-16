@@ -7,7 +7,11 @@ from ai_layer.application import tasks as task_uc
 from ai_layer.application import work as work_uc
 from ai_layer.core.service import get_project
 from ai_layer.db.session import session_scope
-from ai_layer.domain.agent_contract import PROJECT_SEARCH_MAX_QUERIES
+from ai_layer.domain.agent_contract import (
+    ENVELOPE_ORDINARY,
+    PROJECT_SEARCH_MAX_QUERIES,
+    with_envelope,
+)
 from ai_layer.epics.contracts import EPIC_EXECUTION_STATUSES, EPIC_OPEN_STATUSES
 from ai_layer.memory.navigation import project_map_status, search_project_map
 from ai_layer.memory.project_map_search import merge_project_search, search_semantic_map
@@ -178,6 +182,28 @@ def _focus_payload(
     return None
 
 
+def _public_map_state(map_state: dict | None) -> dict:
+    payload = dict(map_state or {})
+    payload.pop("contract", None)
+    payload.pop("language_policy", None)
+    return payload
+
+
+def _ordinary_result(payload: dict) -> dict:
+    result = dict(payload)
+    if isinstance(result.get("map"), dict):
+        result["map"] = _public_map_state(result["map"])
+    for essay in (
+        "query_contract",
+        "language_contract",
+        "source_contract",
+        "agent_contract",
+        "language_policy",
+    ):
+        result.pop(essay, None)
+    return with_envelope(result, ENVELOPE_ORDINARY)
+
+
 def project_status(project_root: str | Path) -> dict:
     """Return cheap durable work state, effective policy and Project Map freshness."""
     root = Path(project_root).expanduser().resolve()
@@ -202,24 +228,26 @@ def project_status(project_root: str | Path) -> dict:
         }
 
     focus_payload = _focus_payload(active_task, active_work, active_epic)
-    return {
-        "project": project_payload,
-        "project_policy": policy,
-        "repository": repository,
-        "work": {
-            "active_work": list(ordinary_work.get("active") or []),
-            "live_work": live_work,
-            "recent_work": list(ordinary_work.get("recent") or []),
-            "work_attention": list(ordinary_work.get("attention") or []),
-            "active_task": active_task,
-            "active_epic": active_epic,
-            "current_focus": focus_payload,
-            "continuation": _continuation(active_task, active_work, active_epic),
-            "state_source": task_state.get("source"),
-        },
-        "index": _compact_map_index(map_state, freshness),
-        "active": bool(focus_payload),
-    }
+    return _ordinary_result(
+        {
+            "project": project_payload,
+            "project_policy": policy,
+            "repository": repository,
+            "work": {
+                "active_work": list(ordinary_work.get("active") or []),
+                "live_work": live_work,
+                "recent_work": list(ordinary_work.get("recent") or []),
+                "work_attention": list(ordinary_work.get("attention") or []),
+                "active_task": active_task,
+                "active_epic": active_epic,
+                "current_focus": focus_payload,
+                "continuation": _continuation(active_task, active_work, active_epic),
+                "state_source": task_state.get("source"),
+            },
+            "index": _compact_map_index(map_state, freshness),
+            "active": bool(focus_payload),
+        }
+    )
 
 
 def _search_queries(query: str, query_variants: list[str] | None) -> list[str]:
@@ -284,12 +312,8 @@ def _fuse_search(results: list[tuple[str, dict]], limit: int) -> dict:
     fused["query"] = primary_query
     fused["queries_used"] = [item[0] for item in results]
     fused["matches"] = matches
-    fused["query_contract"] = {
-        "primary": "English code-centric for non-English natural-language intent",
-        "identifiers": "preserved verbatim",
-        "max_queries": PROJECT_SEARCH_MAX_QUERIES,
-        "source_verification_required": True,
-    }
+    for essay in ("query_contract", "language_contract", "source_contract"):
+        fused.pop(essay, None)
     return fused
 
 
@@ -329,7 +353,7 @@ def project_search(
     }
     if freshness.get("status") not in {"fresh", "refreshed"}:
         result["source_verification_required"] = True
-    return result
+    return _ordinary_result(result)
 
 
 def project_map_reconcile(
@@ -359,4 +383,4 @@ def project_map_reconcile(
         map_state = project_map_status(db, project)
         map_state.update(semantic_map_status(db, project))
         result["map"] = map_state
-        return result
+        return _ordinary_result(result)

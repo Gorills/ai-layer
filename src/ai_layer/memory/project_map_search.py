@@ -170,8 +170,4 @@ def merge_project_search(
         if semantic_hits
         else structural_result.get("search_mode", "hybrid_metadata")
     )
-    result["language_contract"] = (
-        "Queries may be Russian, English or mixed. Canonical semantic descriptions are English; "
-        "exact code identifiers are preserved; domain_terms may contain useful multilingual aliases."
-    )
     return result

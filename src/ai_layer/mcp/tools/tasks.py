@@ -280,11 +280,12 @@ def task_stage_delegate(
                 actual_model=actual_model,
                 model_assurance=model_assurance,
             )
-            result = _compact_open_transition(db, project, result)
             audit["metrics"] = {
-                "task": result.get("key"),
-                "stage": (result.get("active_stage") or {}).get("kind"),
-                "worker_id": (result.get("active_stage") or {}).get("worker_id"),
+                "task": ((result.get("task") or {}).get("key")),
+                "stage": ((result.get("orchestrator") or {}).get("next_action") or {}).get("stage"),
+                "worker_id": ((result.get("orchestrator") or {}).get("next_action") or {}).get(
+                    "worker_id"
+                ),
                 "idempotent": bool(result.get("delegation_idempotent")),
             }
             return _scoped(result, root)

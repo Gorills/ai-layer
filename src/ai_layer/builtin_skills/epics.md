@@ -24,7 +24,7 @@ entry_sections:
 
 Use when the user is designing, approving, resuming, executing, reconciling or closing an AI Layer Epic. An Epic is durable product/architecture specification and scheduling state over the existing managed Task engine. It is not a second implementation runtime and it is not a generic task-DAG framework.
 
-If an Epic already exists, especially one created by an older AI Layer release, **do not infer its next procedure from this skill, chat history or stored prose**. Call `project_status`, identify the active/selected Epic, then call `epic_next`. The live `epic_next` response plus its current `agent_contract`/Project Map contract defines present runtime procedure.
+If an Epic already exists, especially one created by an older AI Layer release, **do not infer its next procedure from this skill, chat history or stored prose**. Call `project_status`, identify the active/selected Epic, then call `epic_next`. Live `next_action` defines present procedure; bootstrap owns ordinary procedure; the Project Map capability contract is attached only when reconciling.
 
 ## Core contract
 

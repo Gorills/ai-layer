@@ -486,10 +486,6 @@ def reconcile_project_map(
         "removed": removed,
         "scope_paths": scope,
         "no_changes_reason": reason,
-        "contract": (
-            "Scanner-owned structure was not modified. Canonical semantic descriptions are English; "
-            "source identifiers stay exact; multilingual user/domain aliases belong in domain_terms."
-        ),
     }
     if work is not None:
         result["map_disposition"] = _persist_work_map_disposition(

@@ -26,6 +26,8 @@ from ai_layer.work.service import begin_work, finish_work
 
 def test_agent_contract_separates_work_from_managed_assurance_and_defines_search_protocol():
     contract = agent_runtime_contract()
+    assert contract["version"] == 3
+    assert contract["delivery"]["envelopes"] == ["ordinary", "managed_next", "worker"]
     assert contract["work"]["begin"] == "work_begin"
     assert contract["work"]["managed_task_relation"].startswith("ManagedTask is optional assurance")
     assert contract["search"]["max_queries"] == 2
@@ -78,6 +80,10 @@ def test_project_search_query_variants_are_bounded_and_fused_without_duplicate_p
         "retry order service",
         "повтор заказа",
     ]
+    assert "query_contract" not in fused
+    assert "language_contract" not in fused
+    assert "source_contract" not in fused
+    assert fused["queries_used"] == ["retry order service", "повтор заказа"]
 
 
 def test_dashboard_work_state_does_not_infer_working_from_task_or_mcp_bridge_only():

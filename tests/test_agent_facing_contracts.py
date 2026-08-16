@@ -6,8 +6,15 @@ from types import SimpleNamespace
 
 from ai_layer import __version__
 from ai_layer.application import epics as epic_app
-from ai_layer.application.tasks import _idle_managed_task_payload
-from ai_layer.domain.agent_contract import agent_runtime_bootstrap_line, agent_runtime_contract
+from ai_layer.application.tasks import _delegate_envelopes, _idle_managed_task_payload
+from ai_layer.domain.agent_contract import (
+    AGENT_RUNTIME_CONTRACT_VERSION,
+    ENVELOPE_MANAGED_NEXT,
+    ENVELOPE_ORDINARY,
+    ENVELOPE_WORKER,
+    agent_runtime_bootstrap_line,
+    agent_runtime_contract,
+)
 from ai_layer.domain.orchestrator import mcp_bootstrap_instructions, native_bootstrap_markdown
 from ai_layer.domain.static_policy import static_policy_markdown
 from ai_layer.integrations import global_install
@@ -23,6 +30,8 @@ from ai_layer.integrations.versioning import (
 from ai_layer.integrations.versioning import (
     INTEGRATION_TEMPLATE_VERSION as CANONICAL_TEMPLATE_VERSION,
 )
+from ai_layer.memory.knowledge_contract import public_card
+from ai_layer.tasks.delegation_contract import worker_job_packet
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,6 +50,9 @@ def test_runtime_contract_names_current_control_plane_surfaces() -> None:
     assert contract["skills"]["routing_owner"] == "host-native"
     assert contract["managed_work"]["task_resume"] == "task_next"
     assert contract["managed_work"]["epic_resume"] == "epic_next"
+    assert contract["version"] == AGENT_RUNTIME_CONTRACT_VERSION == 3
+    assert contract["delivery"]["envelopes"] == ["ordinary", "managed_next", "worker"]
+    assert "do not reprint" in contract["delivery"]["rule"].casefold()
     assert contract["legacy"]["memory_context"] == "compatibility_only"
     assert contract["legacy"]["memory_search"] == "alias_of_knowledge_search"
     precedence = contract["precedence"]
@@ -105,21 +117,27 @@ def test_mcp_catalog_keeps_task_and_epic_tools_without_host_filtering() -> None:
 def test_idle_managed_task_contract_is_native_first_and_task_create_is_optional() -> None:
     result = _idle_managed_task_payload({"active": False, "state": "no_active_task"})
     action = result["next_action"]
+    assert result["active"] is False
+    assert result["envelope"] == ENVELOPE_MANAGED_NEXT
+    assert result["runtime_contract_version"] == 3
     assert action["action"] == "host_native"
     assert action["tool"] is None
     assert action["managed_option"]["tool"] == "task_create"
     assert action["managed_option"]["required"] == ["goal"]
-    assert (
-        "ordinary host-native work" in result["agent_contract"]["managed_work"]["idle"].casefold()
-    )
+    assert "agent_contract" not in result
+    assert "latest" not in result
 
 
-def test_epic_application_navigation_always_attaches_current_runtime_contract(monkeypatch) -> None:
+def test_epic_application_navigation_uses_managed_next_envelope_without_full_contract(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(epic_app, "_next_action", lambda *args, **kwargs: {"state": "running"})
     result = epic_app.next_action("/tmp/project", key="E-0001")
     assert result["state"] == "running"
-    assert result["agent_contract"]["startup"]["tool"] == "project_status"
-    assert result["agent_contract"]["project_map"]["update"] == "project_map_reconcile"
+    assert result["envelope"] == ENVELOPE_MANAGED_NEXT
+    assert result["runtime_contract_version"] == 3
+    assert "agent_contract" not in result
+    assert "project_map" not in result
 
 
 def test_product_skills_match_live_task_and_epic_state_machines() -> None:
@@ -230,3 +248,232 @@ def test_known_agent_facing_files_do_not_contain_removed_workflow_phrases() -> N
         text = (ROOT / relative).read_text(encoding="utf-8").casefold()
         for phrase in removed:
             assert phrase not in text, f"stale agent-facing phrase in {relative}: {phrase}"
+
+
+def test_epic_next_attaches_project_map_only_when_reconciling(monkeypatch) -> None:
+    monkeypatch.setattr(
+        epic_app,
+        "_next_action",
+        lambda *args, **kwargs: {
+            "next_action": {
+                "action": "reconcile_project_map",
+                "tool": "project_map_reconcile",
+            },
+            "project_map": {"update": {"tool": "project_map_reconcile"}},
+        },
+    )
+    result = epic_app.next_action("/tmp/project", key="E-0001")
+    assert result["envelope"] == ENVELOPE_MANAGED_NEXT
+    assert result["runtime_contract_version"] == 3
+    assert "agent_contract" not in result
+    assert result["project_map"]["update"]["tool"] == "project_map_reconcile"
+
+
+def test_worker_job_packet_keeps_completion_fields_without_orchestrator_essays() -> None:
+    packet = worker_job_packet(
+        {
+            "goal": "Fix retry",
+            "role": "implementer",
+            "acceptance_criteria": ["passes"],
+            "constraints": [],
+            "repository_mode": "write",
+            "completion_contract": {
+                "tool": "task_implementation_complete",
+                "required": ["summary", "checks"],
+            },
+            "provenance_notice": "dirty baseline",
+            "context_policy": {
+                "mode": "isolated_review",
+                "host_requirement": "Start the reviewer from this compact contract.",
+            },
+            "orchestrator_contract": {"role": "orchestrator"},
+            "identity_enforcement": "essay",
+            "expertise_contract": {"routing_owner": "essay"},
+            "check_evidence_assurance": "essay",
+        }
+    )
+    assert packet["envelope"] == ENVELOPE_WORKER
+    assert packet["goal"] == "Fix retry"
+    assert packet["completion_contract"]["tool"] == "task_implementation_complete"
+    assert packet["provenance_notice"] == "dirty baseline"
+    assert packet["context_policy"]["host_requirement"].startswith("Start the reviewer")
+    assert "orchestrator_contract" not in packet
+    assert "identity_enforcement" not in packet
+    assert "expertise_contract" not in packet
+    assert "check_evidence_assurance" not in packet
+
+
+def test_delegate_mcp_payload_splits_orchestrator_and_worker_envelopes() -> None:
+    result = _delegate_envelopes(
+        {
+            "id": "task-1",
+            "key": "T-0001",
+            "status": "active",
+            "active_stage": {"id": "stage-1", "kind": "implement", "worker_id": "w1"},
+            "orchestrator_handoff": {
+                "next_host_action": "START_THE_DELEGATED_WORKER_NOW",
+            },
+            "next_action": {
+                "orchestrator_contract": {"role": "managed_task_orchestrator"},
+            },
+            "delegation_contract": {
+                "goal": "Fix retry",
+                "role": "implementer",
+                "acceptance_criteria": ["passes"],
+                "constraints": [],
+                "repository_mode": "write",
+                "completion_contract": {
+                    "tool": "task_implementation_complete",
+                    "required": ["summary"],
+                },
+                "orchestrator_contract": {"role": "orchestrator"},
+                "identity_enforcement": "essay",
+            },
+        }
+    )
+    next_action = result["orchestrator"]["next_action"]
+    assert result["envelope"] == ENVELOPE_MANAGED_NEXT
+    assert result["runtime_contract_version"] == 3
+    assert next_action["action"] == "START_THE_DELEGATED_WORKER_NOW"
+    assert next_action.get("tool") is None
+    assert next_action["worker_id"] == "w1"
+    assert next_action["stage"] == "implement"
+    assert next_action["stage_id"] == "stage-1"
+    assert next_action["orchestrator_contract"]["role"] == "managed_task_orchestrator"
+    assert result["worker"]["envelope"] == ENVELOPE_WORKER
+    assert result["worker"]["completion_contract"]["tool"] == "task_implementation_complete"
+    assert "orchestrator_contract" not in result["worker"]
+    assert "agent_contract" not in result
+
+
+def test_delegate_envelopes_ignores_persisted_completion_tool_on_orchestrator() -> None:
+    result = _delegate_envelopes(
+        {
+            "id": "task-1",
+            "key": "T-0001",
+            "status": "active",
+            "active_stage": {"id": "stage-1", "kind": "implement", "worker_id": "w1"},
+            "next_action": {
+                "action": "record_stage_result",
+                "tool": "task_implementation_complete",
+                "stage": "implement",
+                "stage_id": "stage-1",
+                "worker_id": "w1",
+                "orchestrator_contract": {"role": "managed_task_orchestrator"},
+            },
+            "orchestrator_handoff": {
+                "next_host_action": "START_THE_DELEGATED_WORKER_NOW",
+            },
+            "delegation_contract": {
+                "goal": "Fix retry",
+                "completion_contract": {
+                    "tool": "task_implementation_complete",
+                    "required": ["summary"],
+                },
+            },
+        }
+    )
+    next_action = result["orchestrator"]["next_action"]
+    assert next_action["action"] == "START_THE_DELEGATED_WORKER_NOW"
+    assert next_action.get("tool") is None
+    assert next_action["action"] != "record_stage_result"
+    assert next_action["worker_id"] == "w1"
+    assert next_action["stage"] == "implement"
+    assert next_action["stage_id"] == "stage-1"
+    assert result["worker"]["completion_contract"]["tool"] == "task_implementation_complete"
+
+
+def test_compact_open_transition_keeps_managed_next_envelope(monkeypatch) -> None:
+    from ai_layer.mcp import runtime as mcp_runtime
+
+    current = {
+        "envelope": ENVELOPE_MANAGED_NEXT,
+        "runtime_contract_version": 3,
+        "active": True,
+        "state": "active",
+        "task": {
+            "key": "T-0001",
+            "status": "active",
+            "active_stage": {"kind": "review"},
+        },
+        "next_action": {"action": "delegate_stage", "tool": "task_stage_delegate"},
+    }
+    monkeypatch.setattr(mcp_runtime, "db_current_task", lambda db, project, **kwargs: current)
+    result = mcp_runtime._compact_open_transition(
+        object(),
+        object(),
+        {
+            "status": "active",
+            "key": "T-0001",
+            "task": {"delegation_contract": {"essay": True}},
+            "idempotent": True,
+        },
+    )
+    assert result["envelope"] == ENVELOPE_MANAGED_NEXT
+    assert result["active"] is True
+    assert result["idempotent"] is True
+    assert result["next_action"]["tool"] == "task_stage_delegate"
+    assert result["task"]["key"] == "T-0001"
+    assert result.get("key") is None
+    assert "delegation_contract" not in result
+    assert "delegation_contract" not in result["task"]
+
+
+def test_knowledge_search_mcp_returns_ordinary_envelope_with_items(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    from ai_layer.mcp.tools import project_context as project_tools
+
+    project_root = tmp_path / "food"
+    project_root.mkdir()
+
+    @contextmanager
+    def fake_session_scope():
+        yield object()
+
+    @contextmanager
+    def fake_audit(*args, **kwargs):
+        yield {}
+
+    monkeypatch.setattr(project_tools, "session_scope", fake_session_scope)
+    monkeypatch.setattr(project_tools, "mcp_audit", fake_audit)
+    monkeypatch.setattr(
+        project_tools, "_project", lambda db, root: SimpleNamespace(root_path=root, id="p1")
+    )
+    monkeypatch.setattr(
+        project_tools,
+        "search_knowledge",
+        lambda db, project, query, limit: [{"title": "Retry invariant"}],
+    )
+    result = project_tools.knowledge_search(query="retry", project_root=str(project_root))
+    assert isinstance(result, dict)
+    assert result["envelope"] == ENVELOPE_ORDINARY
+    assert result["items"] == [{"title": "Retry invariant"}]
+
+
+def test_knowledge_search_public_card_omits_evidence_hashes() -> None:
+    item = SimpleNamespace(
+        id="card-1",
+        title="Retry invariant",
+        content="body",
+        meta={
+            "knowledge_key": "retry",
+            "category": "invariant",
+            "summary": "Retries failed orders.",
+            "claims": ["bounded"],
+            "constraints": [],
+            "unknowns": [],
+            "evidence": [{"path": "src/retry.py", "sha256": "abc123", "scanner_schema": 5}],
+            "status": "VERIFIED",
+            "stale_reason": None,
+        },
+    )
+    search = public_card(item, include_evidence=False)
+    listed = public_card(item)
+    assert "evidence" not in search
+    assert search["source_pointers"] == ["src/retry.py"]
+    assert search["stale_reason"] is None
+    assert listed["evidence"][0]["sha256"] == "abc123"

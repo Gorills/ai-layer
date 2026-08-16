@@ -14,7 +14,7 @@ A WorkItem can record goal, kind, lifecycle status, reviewed/changed paths, repo
 
 ## Project Intelligence startup contract
 
-`project_status` remains the mandatory first AI Layer state call for registered-project work. It returns a cheap state snapshot:
+`project_status` remains the mandatory first AI Layer state call for registered-project work. It returns a cheap ordinary envelope (data, not procedure):
 
 - current focus and continuation (live Work, active managed Task, or executing Epic);
 - bounded effective `project_policy` with contract version, SHA-256, character count and truncation flag, with project/privacy rules preserved if the 12k bound truncates a long custom global prefix;
@@ -23,13 +23,13 @@ A WorkItem can record goal, kind, lifecycle status, reviewed/changed paths, repo
 - compact active Task/Epic;
 - Project Map freshness (status, stale/missing counts, changed paths).
 
-It does not re-send the runtime procedure, Project Map capability essay, idle `latest_task`, or open Epic lists. Native bootstrap owns ordinary procedure; MCP initialize instructions are the compact fallback when that bootstrap is missing. Short ordinary work should normally use `work_begin` plus exactly one terminal Work call. `work_checkpoint` is reserved for meaningful milestones or blockers, not every file/tool action. Existing managed Task/Epic flows remain available when strict assurance is explicitly useful.
+It does not re-send the runtime procedure, Project Map capability essay, idle `latest_task`, or open Epic lists. Native bootstrap owns ordinary procedure; MCP initialize instructions are the compact fallback when that bootstrap is missing. MCP payloads declare `envelope` `ordinary` | `managed_next` | `worker` and do not reprint that procedure. Short ordinary work should normally use `work_begin` plus exactly one terminal Work call. `work_checkpoint` is reserved for meaningful milestones or blockers, not every file/tool action. Existing managed Task/Epic flows remain available when strict assurance is explicitly useful. Idle `task_next`/`task_current` return compact `host_native` next_action without a full `agent_contract` or latest-Task dump. `task_next`/`epic_next` attach live `next_action` as managed_next; the Project Map capability contract is attached only when reconciling.
 
 ## Project Map and search
 
 Project Map answers **where**. Project Knowledge answers **what is already understood and reviewed**. Current repository source remains final code truth.
 
-For unknown code locations, `project_search` uses a bounded search contract. For non-English natural-language intent the primary query should be concise English and code-centric while exact repository identifiers remain verbatim. At most one original-language or mixed variant may widen domain aliases. End-to-end flow claims should cover the relevant entrypoint/handler, core service/domain, persistence or external integration, and tests. Project Map hits are breadcrumbs and must be verified against current source.
+For unknown code locations, `project_search` uses a bounded search contract and returns breadcrumbs (path, semantic, symbols, score, queries used) without reprinting query/language/source essays. For non-English natural-language intent the primary query should be concise English and code-centric while exact repository identifiers remain verbatim. At most one original-language or mixed variant may widen domain aliases. End-to-end flow claims should cover the relevant entrypoint/handler, core service/domain, persistence or external integration, and tests. Project Map hits are breadcrumbs and must be verified against current source. `knowledge_search` returns reviewed cards with source pointers and omits evidence hashes; reviewers still use `knowledge_list`.
 
 Semantic Project Map enrichment remains canonical-English for purpose/responsibilities/navigation hints, preserves exact code identifiers, and may store useful multilingual aliases in `domain_terms`.
 
@@ -49,7 +49,7 @@ Current observability is truthful but intentionally incomplete: Work lifecycle v
 
 ## Repository governance
 
-The root `AGENTS.md` points to the canonical ADR directory `DECISIONS/`. ADR 0020 records the Work/observability architecture. Agent-facing semantics remain governed by the versioned live runtime contract rather than stale historical workflow prose.
+The root `AGENTS.md` points to the canonical ADR directory `DECISIONS/`. ADR 0020 records the Work/observability architecture. Agent-facing semantics remain governed by the versioned live runtime contract rather than stale historical workflow prose. MCP envelope delivery (runtime contract v3) is implemented in this checkout and does not constitute a separate 0.15 product release.
 
 ## Release validation status
 

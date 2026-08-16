@@ -128,8 +128,9 @@ def build_card_text(card: dict) -> str:
     return "\n".join(lines)
 
 
-def public_card(item, *, include_content: bool = False) -> dict:
+def public_card(item, *, include_content: bool = False, include_evidence: bool = True) -> dict:
     meta = dict(getattr(item, "meta", None) or {})
+    evidence = list(meta.get("evidence") or [])
     payload = {
         "id": str(item.id),
         "key": meta.get("knowledge_key"),
@@ -139,8 +140,7 @@ def public_card(item, *, include_content: bool = False) -> dict:
         "claims": list(meta.get("claims") or []),
         "constraints": list(meta.get("constraints") or []),
         "unknowns": list(meta.get("unknowns") or []),
-        "source_pointers": [e.get("path") for e in (meta.get("evidence") or []) if e.get("path")],
-        "evidence": list(meta.get("evidence") or []),
+        "source_pointers": [e.get("path") for e in evidence if e.get("path")],
         "status": meta.get("status") or "DRAFT",
         "confidence": meta.get("confidence") or "reviewed",
         "source_task_id": meta.get("source_task_id"),
@@ -148,6 +148,8 @@ def public_card(item, *, include_content: bool = False) -> dict:
         "stale_reason": meta.get("stale_reason"),
         "provenance": "curated_project_knowledge",
     }
+    if include_evidence:
+        payload["evidence"] = evidence
     if include_content:
         payload["content"] = item.content
     return payload

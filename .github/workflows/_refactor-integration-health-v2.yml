@@ -1,0 +1,207 @@
+name: refactor-integration-health-v2
+
+on:
+  push:
+    branches: [ai/integration-health-v2]
+    paths: [.github/workflows/_refactor-integration-health-v2.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ai/integration-health-v2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Extract cohesive health seams
+        shell: bash
+        run: |
+          cat > src/ai_layer/integrations/health_contract.py <<'PY'
+          from __future__ import annotations
+
+          STATUS_CONTRACT_VERSION = 2
+          RUNTIME_VERIFIED = "verified"
+          RUNTIME_UNVERIFIED = "unverified"
+          RUNTIME_BLOCKED = "blocked"
+          OPERATIONAL_CONFIGURED_UNVERIFIED = "configured_unverified"
+
+
+          def runtime_assurance(state: str, evidence: str, reason: str | None = None) -> dict:
+              return {"state": state, "evidence": evidence, "reason": reason}
+
+
+          def operational_status(
+              health: str,
+              assurance: dict,
+              *,
+              ready_status: str,
+              degraded_status: str,
+              not_installed_status: str,
+          ) -> str:
+              if health == not_installed_status:
+                  return not_installed_status
+              if health != ready_status or assurance.get("state") == RUNTIME_BLOCKED:
+                  return degraded_status
+              if assurance.get("state") == RUNTIME_UNVERIFIED:
+                  return OPERATIONAL_CONFIGURED_UNVERIFIED
+              return ready_status
+
+
+          def apply_status_contract(
+              state: dict,
+              *,
+              health: str,
+              runtime: dict,
+              ready_status: str,
+              degraded_status: str,
+              not_installed_status: str,
+          ) -> dict:
+              configuration_ready = health == ready_status
+              state["status_contract_version"] = STATUS_CONTRACT_VERSION
+              state["status"] = health
+              state["configuration_ready"] = configuration_ready
+              state["ready"] = configuration_ready
+              state["ready_semantics"] = "configuration"
+              state["runtime_assurance"] = runtime
+              state["operational_status"] = operational_status(
+                  health,
+                  runtime,
+                  ready_status=ready_status,
+                  degraded_status=degraded_status,
+                  not_installed_status=not_installed_status,
+              )
+              return state
+          PY
+
+          cat > src/ai_layer/integrations/codex_status.py <<'PY'
+          from __future__ import annotations
+
+          import os
+          import tomllib
+          from pathlib import Path
+          from typing import Protocol
+
+
+          class CodexStatusPolicy(Protocol):
+              toml_start: str
+              toml_end: str
+
+
+          def active_codex_home(home: Path) -> Path:
+              configured = str(os.environ.get("CODEX_HOME") or "").strip()
+              return Path(configured).expanduser().resolve() if configured else home / ".codex"
+
+
+          def nonempty_file(path: Path) -> bool:
+              if not path.is_file() or path.is_symlink():
+                  return False
+              try:
+                  return bool(path.read_text(encoding="utf-8").strip())
+              except (OSError, UnicodeDecodeError):
+                  return False
+
+
+          def codex_mcp_status(path: Path, policy: CodexStatusPolicy) -> dict:
+              if not path.exists():
+                  return {"present": False, "ready": False, "reason": "missing"}
+              try:
+                  text = path.read_text(encoding="utf-8")
+                  data = tomllib.loads(text)
+              except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+                  return {"present": True, "ready": False, "reason": "invalid_or_unreadable"}
+              servers = data.get("mcp_servers")
+              server = servers.get("ai-layer") if isinstance(servers, dict) else None
+              if not isinstance(server, dict):
+                  return {"present": False, "ready": False, "reason": "missing"}
+              managed = policy.toml_start in text and policy.toml_end in text
+              if not managed:
+                  return {"present": True, "ready": False, "reason": "ownership_conflict"}
+              if not server.get("command"):
+                  return {"present": True, "ready": False, "reason": "missing_command"}
+              if server.get("enabled") is False:
+                  return {"present": True, "ready": False, "reason": "mcp_disabled"}
+              return {"present": True, "ready": True, "reason": None}
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/ai_layer/integrations/status.py')
+          text = path.read_text(encoding='utf-8')
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'expected one status fragment, found {count}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          replace_once('import shutil\nimport tomllib\n', 'import shutil\n')
+          replace_once(
+              'from pathlib import Path\n\nfrom ai_layer.skills.common import builtin_skill_dir\n',
+              '''from pathlib import Path\n\nfrom ai_layer.integrations.codex_status import (\n    active_codex_home as _active_codex_home,\n)\nfrom ai_layer.integrations.codex_status import codex_mcp_status as _codex_mcp_status\nfrom ai_layer.integrations.codex_status import nonempty_file as _nonempty_file\nfrom ai_layer.integrations.health_contract import (\n    RUNTIME_BLOCKED as _RUNTIME_BLOCKED,\n)\nfrom ai_layer.integrations.health_contract import (\n    RUNTIME_UNVERIFIED as _RUNTIME_UNVERIFIED,\n)\nfrom ai_layer.integrations.health_contract import (\n    RUNTIME_VERIFIED as _RUNTIME_VERIFIED,\n)\nfrom ai_layer.integrations.health_contract import STATUS_CONTRACT_VERSION\nfrom ai_layer.integrations.health_contract import apply_status_contract as _contract_status\nfrom ai_layer.integrations.health_contract import runtime_assurance as _runtime_assurance\nfrom ai_layer.skills.common import builtin_skill_dir\n''',
+          )
+          replace_once(
+              '''STATUS_CONTRACT_VERSION = 2\n_RUNTIME_VERIFIED = "verified"\n_RUNTIME_UNVERIFIED = "unverified"\n_RUNTIME_BLOCKED = "blocked"\n_RUNTIME_NOT_REQUIRED = "not_required"\n_OPERATIONAL_CONFIGURED_UNVERIFIED = "configured_unverified"\n''',
+              '',
+          )
+          start = text.index('def _runtime_assurance(')
+          end = text.index('def _apply_provider_health(', start)
+          text = text[:start] + text[end:]
+          replace_once(
+              '    return _apply_status_contract(state, health=health, runtime_assurance=assurance)\n',
+              '''    return _apply_status_contract(state, health=health, runtime_assurance=assurance)\n''',
+          )
+          start = text.index('def _active_codex_home(')
+          end = text.index('def _bootstrap_payload(', start)
+          text = text[:start] + text[end:]
+          start = text.index('def _codex_mcp_status(')
+          end = text.index('def _expected_global_native_slugs(', start)
+          text = text[:start] + text[end:]
+
+          helper = '''def _apply_status_contract(state: dict, *, health: str, runtime_assurance: dict) -> dict:\n    return _contract_status(\n        state,\n        health=health,\n        runtime=runtime_assurance,\n        ready_status=_PROVIDER_HEALTH_READY,\n        degraded_status=_PROVIDER_HEALTH_DEGRADED,\n        not_installed_status=_PROVIDER_HEALTH_NOT_INSTALLED,\n    )\n\n\n'''
+          anchor = 'def _apply_provider_health(state: dict) -> dict:\n'
+          if text.count(anchor) != 1:
+              raise RuntimeError('provider health anchor missing')
+          text = text.replace(anchor, helper + anchor, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validate extracted seams
+        shell: bash
+        run: |
+          ruff check --fix src/ai_layer/integrations/status.py src/ai_layer/integrations/health_contract.py src/ai_layer/integrations/codex_status.py
+          ruff format src/ai_layer/integrations/status.py src/ai_layer/integrations/health_contract.py src/ai_layer/integrations/codex_status.py
+          ruff check src/ai_layer/integrations/status.py src/ai_layer/integrations/health_contract.py src/ai_layer/integrations/codex_status.py
+          mypy src/ai_layer
+          python scripts/architecture_gate.py --json
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_integrations.py tests/test_cli.py
+      - name: Refresh deterministic wheel and manifest
+        shell: bash
+        run: |
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          print(manifest['application_wheel_sha256'])
+          PY
+      - name: Commit architecture refactor
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/ai_layer/integrations/status.py src/ai_layer/integrations/health_contract.py src/ai_layer/integrations/codex_status.py dist/local_ai_development_layer-0.14.0-py3-none-any.whl release/release-manifest.json
+          git commit -m 'Extract integration health status seams'
+          git push origin HEAD:ai/integration-health-v2

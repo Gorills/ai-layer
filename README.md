@@ -20,14 +20,15 @@ Current package version: **0.14.0**. The source architecture described here refl
 For registered-project work, the small always-on bootstrap follows this shape:
 
 1. call `project_status(project_root=<workspace root>)` and apply its bounded `project_policy`;
-2. use `work.current_focus` / `work.continuation` to resume observed ordinary Work or managed Task/Epic state;
-3. for a new substantive ordinary request call `work_begin`; short work normally needs only one terminal Work call after execution;
-4. if a precise file or symbol is already known, inspect current source directly with host-native tools;
-5. if code location is unknown, use `project_search` with a concise English code-centric primary query for non-English intent, preserving exact repository identifiers and optionally one original/mixed widening variant;
-6. use `knowledge_search` and `decision_search` only when durable facts or prior decisions materially help the task;
-7. execute normally through the host runtime;
-8. use `task_next` / `epic_next` only when resuming or explicitly choosing a managed assurance workflow;
-9. reconcile Project Map only for navigation facts actually established from inspected/affected scope.
+2. use `work.current_focus` / `work.continuation` to resume existing ordinary Work or managed Task/Epic state before creating anything new;
+3. with no durable focus, if the user explicitly asks for a managed Task or the standard Task protocol, call `task_create` directly; AI Layer creates or links the backing Work automatically;
+4. otherwise, for a new substantive ordinary request call `work_begin`; short work normally needs only one terminal Work call after execution;
+5. if a precise file or symbol is already known, inspect current source directly with host-native tools;
+6. if code location is unknown, use `project_search` with a concise English code-centric primary query for non-English intent, preserving exact repository identifiers and optionally one original/mixed widening variant;
+7. use `knowledge_search` and `decision_search` only when durable facts or prior decisions materially help the task;
+8. execute normally through the host runtime;
+9. inside an existing managed Task/Epic, follow `task_next` / `epic_next`; a new explicit managed Task starts with `task_create`, not a preliminary `work_begin`;
+10. reconcile Project Map only for navigation facts actually established from inspected/affected scope.
 
 The goal is to make already-known project structure cheaper to reuse than to rediscover.
 
@@ -109,7 +110,7 @@ Managed profiles remain available:
 - **DISCOVERY_FIRST** — read-only discovery before implementation planning;
 - **ANALYSIS_ONLY** — read-only work that can complete without mutation.
 
-Inside an active managed Task, `task_next` remains the authoritative navigator. Existing provenance, worker leases, read-only review/discovery, adoption, review sandboxes, findings, remediation caps and verification mechanisms are preserved.
+A new explicit managed Task starts with `task_create` directly. The application layer creates, reuses or links its backing Work automatically and can repair a missing Task↔Work link on subsequent managed Task operations; the agent does not perform that bookkeeping. Inside an active managed Task, `task_next` remains the authoritative navigator. Existing provenance, worker leases, read-only review/discovery, adoption, review sandboxes, findings, remediation caps and verification mechanisms are preserved.
 
 A dirty worktree is valid user state. AI Layer must not discard/stash/reset user-owned work merely to make a workflow clean.
 

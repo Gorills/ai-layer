@@ -17,14 +17,14 @@ A WorkItem can record goal, kind, lifecycle status, reviewed/changed paths, repo
 `project_status` remains the mandatory first AI Layer state call for registered-project work. It returns a cheap ordinary envelope (data, not procedure):
 
 - current focus and continuation (live Work, active managed Task, or executing Epic);
-- idle ordinary continuation names `work_begin` as `next_action.tool` (with kinds and a tiny-Q&A `skip_when`) without reprinting the runtime procedure;
+- idle ordinary continuation keeps `work_begin` as the compatibility `next_action.tool`, but also carries an explicit managed-Task route to `task_create` when the user asked for a managed Task or standard Task protocol;
 - bounded effective `project_policy` with contract version, SHA-256, character count and truncation flag, with project/privacy rules preserved if the 12k bound truncates a long custom global prefix;
 - git/worktree summary;
 - compact live/attention/recent Work rows without AgentRun arrays;
 - compact active Task/Epic;
 - Project Map freshness (status, stale/missing counts, changed paths).
 
-It does not re-send the runtime procedure, Project Map capability essay, idle `latest_task`, or open Epic lists. Native bootstrap owns ordinary procedure; MCP initialize instructions are the compact fallback when that bootstrap is missing. MCP payloads declare `envelope` `ordinary` | `managed_next` | `worker` and do not reprint that procedure. Short ordinary work should normally use `work_begin` plus exactly one terminal Work call. `work_checkpoint` is reserved for meaningful milestones or blockers, not every file/tool action. Existing managed Task/Epic flows remain available when strict assurance is explicitly useful. Idle `task_next`/`task_current` return compact `host_native` next_action without a full `agent_contract` or latest-Task dump. `task_next`/`epic_next` attach live `next_action` as managed_next; the Project Map capability contract is attached only when reconciling.
+It does not re-send the runtime procedure, Project Map capability essay, idle `latest_task`, or open Epic lists. Native bootstrap owns ordinary procedure; MCP initialize instructions are the compact fallback when that bootstrap is missing. MCP payloads declare `envelope` `ordinary` | `managed_next` | `worker` and do not reprint that procedure. With no durable focus, explicit managed Task / standard Task protocol intent goes directly to `task_create`; AI Layer creates or links backing Work automatically, so no preliminary `work_begin` bookkeeping is required. Other substantive work uses `work_begin` plus exactly one terminal Work call. `work_checkpoint` is reserved for meaningful milestones or blockers, not every file/tool action. Idle `task_next`/`task_current` return compact `host_native` next_action without a full `agent_contract` or latest-Task dump. Active managed Task/Epic flows resume through `task_next` / `epic_next`; those navigators attach live `next_action` as managed_next. The Project Map capability contract is attached only when reconciling.
 
 ## Project Map and search
 
@@ -50,7 +50,7 @@ Current observability is truthful but intentionally incomplete: Work lifecycle v
 
 ## Repository governance
 
-The root `AGENTS.md` points to the canonical ADR directory `DECISIONS/`. ADR 0020 records the Work/observability architecture. Agent-facing semantics remain governed by the versioned live runtime contract rather than stale historical workflow prose. MCP envelope delivery (runtime contract v3) is implemented in this checkout and does not constitute a separate 0.15 product release.
+The root `AGENTS.md` points to the canonical ADR directory `DECISIONS/`. ADR 0020 records the Work/observability architecture. Agent-facing semantics remain governed by the versioned live runtime contract rather than stale historical workflow prose. MCP envelope delivery and explicit managed-Task idle routing (runtime contract v4) are implemented in this checkout and do not constitute a separate 0.15 product release.
 
 ## Release validation status
 

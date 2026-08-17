@@ -31,17 +31,8 @@ jobs:
           data = yaml.safe_load(Path('.github/workflows/_refactor-integration-health-v2-v2.yml').read_text(encoding='utf-8'))
           steps = data['jobs']['refactor']['steps']
           script = next(step['run'] for step in steps if step.get('name') == 'Extract cohesive health seams')
-          old = '''class CodexStatusPolicy(Protocol):
-    toml_start: str
-    toml_end: str
-'''
-          new = '''class CodexStatusPolicy(Protocol):
-    @property
-    def toml_start(self) -> str: ...
-
-    @property
-    def toml_end(self) -> str: ...
-'''
+          old = "class CodexStatusPolicy(Protocol):\n    toml_start: str\n    toml_end: str\n"
+          new = "class CodexStatusPolicy(Protocol):\n    @property\n    def toml_start(self) -> str: ...\n\n    @property\n    def toml_end(self) -> str: ...\n"
           if script.count(old) != 1:
               raise RuntimeError(f'protocol fragment count={script.count(old)}')
           Path('/tmp/extract-health.sh').write_text(script.replace(old, new, 1), encoding='utf-8')

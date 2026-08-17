@@ -252,6 +252,8 @@ def begin_work(
     normalized_coverage = str(observability_coverage or "lifecycle_only").strip()
     if normalized_coverage not in OBSERVABILITY_COVERAGE:
         raise ValueError("unsupported observability_coverage")
+    # Work sequences are human-facing project-local identifiers. Lock the durable project row so
+    # different idempotency keys cannot concurrently observe the same MAX(sequence).
     locked_project = db.scalar(select(Project).where(Project.id == project.id).with_for_update())
     if locked_project is None:
         raise ValueError("project no longer exists")

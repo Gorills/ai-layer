@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -16,6 +17,12 @@ _CORE_PROVIDERS = ("cursor", "codex", "antigravity")
 _PROVIDER_HEALTH_READY = "ready"
 _PROVIDER_HEALTH_DEGRADED = "degraded"
 _PROVIDER_HEALTH_NOT_INSTALLED = "not_installed"
+_PROVIDER_OPERATIONAL_UNVERIFIED = "configured_unverified"
+_PROVIDER_OPERATIONAL_BLOCKED = "blocked"
+_PROVIDER_OPERATIONAL_INCOMPLETE = "incomplete"
+_RUNTIME_ASSURANCE_NOT_REQUIRED = "not_required"
+_RUNTIME_ASSURANCE_UNKNOWN = "unknown"
+_RUNTIME_ASSURANCE_BLOCKED = "blocked"
 
 
 @dataclass(frozen=True)
@@ -54,14 +61,29 @@ def _presence(value: object) -> bool:
     return bool(value)
 
 
+def _operational_status(configuration_status: str, runtime_assurance: str) -> str:
+    if configuration_status != _PROVIDER_HEALTH_READY:
+        return _PROVIDER_OPERATIONAL_INCOMPLETE
+    if runtime_assurance == _RUNTIME_ASSURANCE_BLOCKED:
+        return _PROVIDER_OPERATIONAL_BLOCKED
+    if runtime_assurance == _RUNTIME_ASSURANCE_UNKNOWN:
+        return _PROVIDER_OPERATIONAL_UNVERIFIED
+    return _PROVIDER_HEALTH_READY
+
+
 def _apply_provider_health(state: dict) -> dict:
     health = provider_install_status(
         state.get("bootstrap"),
         state.get("mcp"),
         state.get("native_skills"),
     )
+    runtime_assurance = str(state.get("runtime_assurance") or _RUNTIME_ASSURANCE_NOT_REQUIRED)
     state["status"] = health
-    state["ready"] = health == _PROVIDER_HEALTH_READY
+    state["configuration_ready"] = health == _PROVIDER_HEALTH_READY
+    state["ready"] = state["configuration_ready"]
+    state["ready_semantics"] = "configuration_only"
+    state["runtime_assurance"] = runtime_assurance
+    state["operational_status"] = _operational_status(health, runtime_assurance)
     return state
 
 
@@ -78,7 +100,9 @@ def _host_mcp_skills_state(
         "mcp_ready": mcp_ready,
         "native_skills": native_skills,
         "status": health,
+        "configuration_ready": health == _PROVIDER_HEALTH_READY,
         "ready": health == _PROVIDER_HEALTH_READY,
+        "ready_semantics": "configuration_only",
     }
     if extra:
         payload.update(extra)
@@ -104,35 +128,95 @@ def _bootstrap_version_current(path: Path, deps: IntegrationStatusDependencies) 
         return False
 
 
+def _nonempty_file(path: Path) -> bool:
+    if not path.is_file() or path.is_symlink():
+        return False
+    try:
+        return bool(path.read_text(encoding="utf-8").strip())
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
+def _codex_home(home: Path) -> Path:
+    configured = str(os.environ.get("CODEX_HOME") or "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return home / ".codex"
+
+
+def _bootstrap_delivery_status(
+    *,
+    path: Path,
+    configured: bool,
+    verified_by: str,
+    runtime_assurance: str = _RUNTIME_ASSURANCE_NOT_REQUIRED,
+    runtime_reason: str | None = None,
+    extra: dict | None = None,
+) -> dict:
+    configuration_status = _PROVIDER_HEALTH_READY if configured else _PROVIDER_HEALTH_NOT_INSTALLED
+    payload = {
+        "path": str(path),
+        "ready": configured,
+        "configuration_ready": configured,
+        "ready_semantics": "configuration_only",
+        "runtime_assurance": runtime_assurance,
+        "operational_status": _operational_status(configuration_status, runtime_assurance),
+        "verified_by": verified_by,
+    }
+    if runtime_reason:
+        payload["runtime_reason"] = runtime_reason
+    if extra:
+        payload.update(extra)
+    return payload
+
+
 def global_bootstrap_status(deps: IntegrationStatusDependencies) -> dict:
     home = Path.home()
+    codex_home = _codex_home(home)
+    codex_agents = codex_home / "AGENTS.md"
+    codex_override = codex_home / "AGENTS.override.md"
+    codex_configured = _bootstrap_file_status(codex_agents, deps)
+    codex_shadowed = codex_configured and _nonempty_file(codex_override)
     plugin = home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap"
     cursor_manifest = plugin / ".cursor-plugin" / "plugin.json"
     cursor_rule = plugin / "rules" / "ai-layer.mdc"
+    cursor_configured = (
+        deps.cursor_plugin_owned(plugin)
+        and cursor_manifest.exists()
+        and _bootstrap_version_current(cursor_rule, deps)
+    )
     return {
-        "codex": {
-            "path": str(home / ".codex" / "AGENTS.md"),
-            "ready": _bootstrap_file_status(home / ".codex" / "AGENTS.md", deps),
-            "verified_by": "documented user-level AGENTS.md",
-        },
-        "claude-code": {
-            "path": str(home / ".claude" / "CLAUDE.md"),
-            "ready": _bootstrap_file_status(home / ".claude" / "CLAUDE.md", deps),
-            "verified_by": "documented user memory file",
-        },
-        "antigravity-gemini": {
-            "path": str(home / ".gemini" / "GEMINI.md"),
-            "ready": _bootstrap_file_status(home / ".gemini" / "GEMINI.md", deps),
-            "verified_by": "documented global context file",
-        },
-        "cursor": {
-            "path": str(plugin),
-            "ready": deps.cursor_plugin_owned(plugin)
-            and cursor_manifest.exists()
-            and _bootstrap_version_current(cursor_rule, deps),
-            "verified_by": "owned local plugin files present; runtime black-box acceptance required",
-            "runtime_acceptance_required": True,
-        },
+        "codex": _bootstrap_delivery_status(
+            path=codex_agents,
+            configured=codex_configured,
+            verified_by="documented Codex home AGENTS.md",
+            runtime_assurance=(
+                _RUNTIME_ASSURANCE_BLOCKED if codex_shadowed else _RUNTIME_ASSURANCE_NOT_REQUIRED
+            ),
+            runtime_reason="shadowed_by_agents_override" if codex_shadowed else None,
+            extra={
+                "codex_home": str(codex_home),
+                "override_path": str(codex_override),
+            },
+        ),
+        "claude-code": _bootstrap_delivery_status(
+            path=home / ".claude" / "CLAUDE.md",
+            configured=_bootstrap_file_status(home / ".claude" / "CLAUDE.md", deps),
+            verified_by="documented user memory file",
+        ),
+        "antigravity-gemini": _bootstrap_delivery_status(
+            path=home / ".gemini" / "GEMINI.md",
+            configured=_bootstrap_file_status(home / ".gemini" / "GEMINI.md", deps),
+            verified_by="documented global context file",
+        ),
+        "cursor": _bootstrap_delivery_status(
+            path=plugin,
+            configured=cursor_configured,
+            verified_by="owned local plugin files present",
+            runtime_assurance=_RUNTIME_ASSURANCE_UNKNOWN,
+            runtime_reason="host_runtime_acceptance_required",
+            extra={"runtime_acceptance_required": True},
+        ),
     }
 
 
@@ -159,12 +243,17 @@ def _codex_has_ai_layer(path: Path, deps: IntegrationStatusDependencies) -> bool
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return False
-    return (
-        deps.toml_start in text
-        and deps.toml_end in text
-        and "[mcp_servers.ai-layer]" in text
-        and "command = " in text
+    managed = re.search(
+        re.escape(deps.toml_start) + r"(.*?)" + re.escape(deps.toml_end),
+        text,
+        re.DOTALL,
     )
+    if managed is None:
+        return False
+    block = managed.group(1)
+    if re.search(r"(?mi)^\s*enabled\s*=\s*false\s*(?:#.*)?$", block):
+        return False
+    return "[mcp_servers.ai-layer]" in block and "command = " in block
 
 
 def _expected_global_native_slugs() -> frozenset[str]:
@@ -230,10 +319,11 @@ def _native_skill_catalog_status(root: Path) -> dict:
 
 def global_integration_status(deps: IntegrationStatusDependencies) -> dict:
     home = Path.home()
+    codex_home = _codex_home(home)
     targets = {
         "cursor": home / ".cursor" / "mcp.json",
         "antigravity": home / ".gemini" / "config" / "mcp_config.json",
-        "codex": home / ".codex" / "config.toml",
+        "codex": codex_home / "config.toml",
         "claude-code": home / ".claude",
     }
     shared_native = _native_skill_catalog_status(home / ".agents" / "skills")
@@ -304,6 +394,19 @@ def _core_hosts_ready(providers: dict, *, executable_ready: bool) -> bool:
     return executable_ready and all(providers[name]["ready"] for name in _CORE_PROVIDERS)
 
 
+def _core_operational_status(providers: dict, *, executable_ready: bool) -> str:
+    if not executable_ready:
+        return _PROVIDER_OPERATIONAL_INCOMPLETE
+    statuses = [providers[name]["operational_status"] for name in _CORE_PROVIDERS]
+    if _PROVIDER_OPERATIONAL_BLOCKED in statuses:
+        return _PROVIDER_OPERATIONAL_BLOCKED
+    if _PROVIDER_OPERATIONAL_INCOMPLETE in statuses:
+        return _PROVIDER_OPERATIONAL_INCOMPLETE
+    if _PROVIDER_OPERATIONAL_UNVERIFIED in statuses:
+        return _PROVIDER_OPERATIONAL_UNVERIFIED
+    return _PROVIDER_HEALTH_READY
+
+
 def _external_status(
     root: Path,
     deps: IntegrationStatusDependencies,
@@ -320,12 +423,16 @@ def _external_status(
             "bootstrap": bootstrap["cursor"]["ready"],
             "mcp": global_state["cursor"]["mcp_ready"],
             "native_skills": global_state["cursor"]["native_skills"]["ready"],
+            "runtime_assurance": bootstrap["cursor"]["runtime_assurance"],
+            "runtime_reason": bootstrap["cursor"].get("runtime_reason"),
             "runtime_acceptance_required": True,
         },
         "codex": {
             "bootstrap": bootstrap["codex"]["ready"],
             "mcp": global_state["codex"]["mcp_ready"],
             "native_skills": global_state["codex"]["native_skills"]["ready"],
+            "runtime_assurance": bootstrap["codex"]["runtime_assurance"],
+            "runtime_reason": bootstrap["codex"].get("runtime_reason"),
         },
         "antigravity": {
             "bootstrap": bootstrap["antigravity-gemini"]["ready"],
@@ -343,6 +450,7 @@ def _external_status(
         providers["claude-code"]["note"] = claude_state["note"]
     for state in providers.values():
         _apply_provider_health(state)
+    configuration_ready = _core_hosts_ready(providers, executable_ready=executable_ready)
     return {
         "project_root": str(root),
         "mode": mode,
@@ -353,7 +461,12 @@ def _external_status(
         "global": global_state,
         "bootstrap": bootstrap,
         "providers": providers,
-        "ready": _core_hosts_ready(providers, executable_ready=executable_ready),
+        "configuration_ready": configuration_ready,
+        "ready": configuration_ready,
+        "ready_semantics": "configuration_only",
+        "operational_status": _core_operational_status(
+            providers, executable_ready=executable_ready
+        ),
         "cursor_runtime_acceptance_required": True,
     }
 
@@ -386,31 +499,49 @@ def integration_status(deps: IntegrationStatusDependencies, project_root: str | 
             "template_version": deps.integration_template_version,
             "global": global_state,
             "providers": {},
+            "configuration_ready": False,
             "ready": False,
+            "ready_semantics": "configuration_only",
+            "operational_status": _PROVIDER_OPERATIONAL_INCOMPLETE,
             "unsafe_path": str(exc),
         }
 
     bootstrap = global_bootstrap_status(deps)
     claude_state = global_state["claude-code"]
+    claude_project_mcp = _json_has_ai_layer(targets[".mcp.json"], deps)
+    claude_global_mcp = bool(claude_state.get("mcp_ready"))
     providers = {
         "cursor": {
             "bootstrap": bootstrap["cursor"]["ready"],
             "mcp": _json_has_ai_layer(targets[".cursor/mcp.json"], deps)
             or global_state["cursor"]["mcp_ready"],
             "native_skills": global_state["cursor"]["native_skills"]["ready"],
+            "runtime_assurance": bootstrap["cursor"]["runtime_assurance"],
+            "runtime_reason": bootstrap["cursor"].get("runtime_reason"),
         },
         "claude-code": {
             "bootstrap": bootstrap["claude-code"]["ready"],
-            "mcp": _json_has_ai_layer(targets[".mcp.json"], deps)
-            or bool(claude_state.get("mcp_ready")),
+            "mcp": claude_project_mcp or claude_global_mcp,
             "native_skills": claude_state["native_skills"]["ready"],
             "cli_available": bool(claude_state.get("cli_available")),
+            "runtime_assurance": (
+                _RUNTIME_ASSURANCE_UNKNOWN
+                if claude_project_mcp and not claude_global_mcp
+                else _RUNTIME_ASSURANCE_NOT_REQUIRED
+            ),
+            "runtime_reason": (
+                "project_mcp_requires_host_approval"
+                if claude_project_mcp and not claude_global_mcp
+                else None
+            ),
         },
         "codex": {
             "bootstrap": bootstrap["codex"]["ready"],
             "mcp": _codex_has_ai_layer(targets[".codex/config.toml"], deps)
             or global_state["codex"]["mcp_ready"],
             "native_skills": global_state["codex"]["native_skills"]["ready"],
+            "runtime_assurance": bootstrap["codex"]["runtime_assurance"],
+            "runtime_reason": bootstrap["codex"].get("runtime_reason"),
         },
         "antigravity": {
             "bootstrap": bootstrap["antigravity-gemini"]["ready"],
@@ -423,6 +554,7 @@ def integration_status(deps: IntegrationStatusDependencies, project_root: str | 
         providers["claude-code"]["note"] = claude_state["note"]
     for state in providers.values():
         _apply_provider_health(state)
+    configuration_ready = _core_hosts_ready(providers, executable_ready=executable_ready)
     return {
         "project_root": str(root),
         "mcp_executable": executable,
@@ -430,5 +562,10 @@ def integration_status(deps: IntegrationStatusDependencies, project_root: str | 
         "template_version": deps.integration_template_version,
         "global": global_state,
         "providers": providers,
-        "ready": _core_hosts_ready(providers, executable_ready=executable_ready),
+        "configuration_ready": configuration_ready,
+        "ready": configuration_ready,
+        "ready_semantics": "configuration_only",
+        "operational_status": _core_operational_status(
+            providers, executable_ready=executable_ready
+        ),
     }

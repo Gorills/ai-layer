@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
 
+from ai_layer.db.base import Base
+from ai_layer.db.models import Project
 from ai_layer.db.navigation_models import ProjectNavigation
 from ai_layer.memory.navigation import _related_tests, _semantic_scores
 from ai_layer.memory.project_map_search import merge_project_search
-from ai_layer.memory.project_map_semantics import _normalize_entry
+from ai_layer.memory.project_map_semantics import _normalize_entry, reconcile_project_map
 
 
 def _navigation() -> ProjectNavigation:
@@ -75,6 +80,52 @@ def test_semantic_entry_rejects_symbols_not_proven_by_current_structural_map():
             },
             navigation_rows={row.path: row},
         )
+
+
+def test_reconcile_refreshes_scanner_visible_path_missing_from_structural_map(tmp_path: Path):
+    root = tmp_path / "project"
+    source = root / "src" / "sync_related_parking_links.py"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        "def sync_related_parking_links():\n"
+        "    return 'ok'\n",
+        encoding="utf-8",
+    )
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine, expire_on_commit=False) as db:
+        project = Project(
+            name="Map targeted refresh",
+            root_path=str(root.resolve()),
+            languages={},
+            dependencies={},
+            architecture_summary="",
+        )
+        db.add(project)
+        db.flush()
+        result = reconcile_project_map(
+            db,
+            project,
+            entries=[
+                {
+                    "path": "src/sync_related_parking_links.py",
+                    "purpose": "Synchronizes related parking links.",
+                }
+            ],
+            remove_paths=None,
+            scope_paths=None,
+            source_task_key=None,
+            no_changes_reason=None,
+            source_work_key=None,
+        )
+        assert result["updated"] == ["src/sync_related_parking_links.py"]
+        structural = db.scalar(
+            select(ProjectNavigation).where(
+                ProjectNavigation.project_id == project.id,
+                ProjectNavigation.path == "src/sync_related_parking_links.py",
+            )
+        )
+        assert structural is not None
 
 
 def test_structural_semantic_query_failure_degrades_to_lexical(monkeypatch):

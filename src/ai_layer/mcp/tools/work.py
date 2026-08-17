@@ -186,7 +186,7 @@ def work_complete(
     idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: substantive work reached a terminal successful result. Report only observed paths and bounded check/delta metadata; never raw commands, output, or source. A work-linked project_map_reconcile already persists reconciled map_disposition; omit it here to keep that value. An explicit reconciled disposition may use scope or scope_paths plus event_id; otherwise use checked_no_change, not_applicable, deferred, or pending."""
+    """WHEN: substantive work reached a terminal successful result. Report only observed paths and bounded check/delta metadata; never raw commands, output, or source. A work-linked project_map_reconcile already persists reconciled map_disposition; omit it here to keep that value. Do not synthesize reconciliation event IDs. If no reconciliation was recorded and map state is still pending, terminal closure records a truthful deferred disposition automatically instead of requiring ceremony from the agent."""
     return _terminal(
         "work_complete",
         work_key,

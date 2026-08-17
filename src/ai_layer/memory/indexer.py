@@ -19,8 +19,10 @@ from ai_layer.memory.project_state import refresh_project_snapshot, sync_project
 from ai_layer.memory.source import (
     extract_imports,
     infer_purpose,
+    iter_files,
     language_for,
     prepare_index_text,
+    read_stable_source,
     redact_secrets,
     risk_flags,
 )
@@ -296,6 +298,80 @@ def _store_navigation_documents(db: Session, project: Project, documents: list[d
                 regenerated += 1
         db.flush()
     return regenerated
+
+
+def refresh_navigation_paths(
+    db: Session,
+    project: Project,
+    root: Path,
+    paths: list[str],
+) -> list[str]:
+    """Synchronously refresh only requested scanner-visible Project Map paths."""
+    requested = list(
+        dict.fromkeys(str(item or "").strip() for item in paths if str(item or "").strip())
+    )
+    if not requested:
+        return []
+
+    resolved_root = root.expanduser().resolve()
+    remaining = set(requested)
+    visible: dict[str, Path] = {}
+    for path in iter_files(resolved_root):
+        rel = path.relative_to(resolved_root).as_posix()
+        if rel not in remaining:
+            continue
+        visible[rel] = path
+        remaining.remove(rel)
+        if not remaining:
+            break
+
+    previous_rows = list(
+        db.scalars(
+            select(ProjectFile).where(
+                ProjectFile.project_id == project.id,
+                ProjectFile.path.in_(requested),
+            )
+        ).all()
+    )
+    previous = {row.path: row for row in previous_rows}
+    documents: list[dict] = []
+    for rel in requested:
+        path = visible.get(rel)
+        if path is None:
+            continue
+        stable = read_stable_source(path)
+        if stable is None:
+            continue
+        raw, text, stat = stable
+        snapshot = SourceSnapshot(
+            path=rel,
+            text=text,
+            size=int(stat.st_size),
+            mtime_ns=int(stat.st_mtime_ns),
+            ctime_ns=int(getattr(stat, "st_ctime_ns", 0)),
+            content_sha256=hashlib.sha256(raw).hexdigest(),
+        )
+        document = _replace_changed_source(
+            db,
+            project,
+            snapshot,
+            previous.get(rel),
+            force_reparse=True,
+        )
+        if document is not None:
+            documents.append(document)
+
+    _store_navigation_documents(db, project, documents)
+    db.flush()
+    available = set(
+        db.scalars(
+            select(ProjectNavigation.path).where(
+                ProjectNavigation.project_id == project.id,
+                ProjectNavigation.path.in_(requested),
+            )
+        ).all()
+    )
+    return [path for path in requested if path in available]
 
 
 def _purge_legacy_scanner_knowledge(db: Session, project: Project) -> int:

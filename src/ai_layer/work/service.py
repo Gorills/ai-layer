@@ -252,8 +252,6 @@ def begin_work(
     normalized_coverage = str(observability_coverage or "lifecycle_only").strip()
     if normalized_coverage not in OBSERVABILITY_COVERAGE:
         raise ValueError("unsupported observability_coverage")
-    # Work sequences are human-facing project-local identifiers. Lock the durable project row so
-    # different idempotency keys cannot concurrently observe the same MAX(sequence).
     locked_project = db.scalar(select(Project).where(Project.id == project.id).with_for_update())
     if locked_project is None:
         raise ValueError("project no longer exists")
@@ -362,6 +360,26 @@ def checkpoint_work(
     return work, run
 
 
+def _terminal_deferred_map_disposition(
+    work: WorkItem,
+    *,
+    reviewed_paths: list[str] | None,
+    changed_paths: list[str] | None,
+) -> dict:
+    reviewed = reviewed_paths if reviewed_paths is not None else list(work.reviewed_paths or [])
+    changed = changed_paths if changed_paths is not None else list(work.changed_paths or [])
+    scope = list(dict.fromkeys([*reviewed, *changed]))
+    return {
+        "status": "deferred",
+        "scope": scope,
+        "reason": (
+            "No Project Map reconciliation was recorded before Work termination; "
+            "reconcile later if this work established reusable navigation facts."
+        ),
+        "event_id": None,
+    }
+
+
 def finish_work(
     db: Session,
     project: Project,
@@ -421,7 +439,19 @@ def finish_work(
                 raise ValueError(
                     "reconciled map_disposition.scope must match the ProjectMapReconciled event scope"
                 )
+        if disposition["status"] == "pending":
+            disposition = _terminal_deferred_map_disposition(
+                work,
+                reviewed_paths=normalized_reviewed_paths,
+                changed_paths=normalized_changed_paths,
+            )
         work.map_disposition = disposition
+    elif (work.map_disposition or {}).get("status", "pending") == "pending":
+        work.map_disposition = _terminal_deferred_map_disposition(
+            work,
+            reviewed_paths=normalized_reviewed_paths,
+            changed_paths=normalized_changed_paths,
+        )
     now = utcnow()
     work.status = terminal
     work.result_summary = normalized_summary

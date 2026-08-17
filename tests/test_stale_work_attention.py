@@ -228,7 +228,7 @@ def test_project_status_omits_idle_latest_task_and_procedure_payloads(
         assert "language_policy" not in status["index"]["project_map"]
 
 
-def test_completed_map_pending_stays_on_dashboard_not_mcp_attention(
+def test_completed_unreconciled_map_is_deferred_on_dashboard_not_mcp_attention(
     monkeypatch, tmp_path: Path
 ) -> None:
     _stub_status_reads(monkeypatch)
@@ -240,7 +240,7 @@ def test_completed_map_pending_stays_on_dashboard_not_mcp_attention(
         assert any(
             item["key"] == key
             and item["status"] == "completed"
-            and (item.get("map_disposition") or {}).get("status") == "pending"
+            and (item.get("map_disposition") or {}).get("status") == "deferred"
             for item in dashboard["attention"]
         )
         status = pi.project_status(root)

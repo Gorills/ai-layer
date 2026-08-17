@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -442,6 +442,28 @@ def reconcile_project_map(
             "project_map_reconcile: `source_task_key` and `source_work_key` are mutually exclusive"
         )
     navigation_rows = _navigation_rows(db, project)
+    entry_paths = [
+        _normalize_path(item.get("path"), field="entries.path")
+        for item in raw_entries
+        if isinstance(item, dict)
+    ]
+    missing_entry_paths = [path for path in entry_paths if path not in navigation_rows]
+    if missing_entry_paths:
+        from ai_layer.memory.indexer import refresh_navigation_paths
+
+        refresh_navigation_paths(
+            db,
+            project,
+            Path(project.root_path),
+            missing_entry_paths,
+        )
+        navigation_rows = _navigation_rows(db, project)
+        unresolved = [path for path in missing_entry_paths if path not in navigation_rows]
+        if unresolved:
+            raise ValueError(
+                "project_map_reconcile: entry paths are not scanner-visible after bounded refresh: "
+                f"{unresolved[:5]}"
+            )
     normalized = [_normalize_entry(item, navigation_rows=navigation_rows) for item in raw_entries]
     removals = _path_list(remove_paths or [], field="remove_paths", max_items=MAX_ENTRIES)
     scope = _path_list(raw_scope, field="scope_paths", max_items=MAX_SCOPE_PATHS)
@@ -454,6 +476,15 @@ def reconcile_project_map(
         )
     task, task_source_ref = _task_for_key(db, project, source_task_key)
     work = _work_for_key(db, project, source_work_key, lock=True)
+    if not scope and work is not None:
+        scope = list(
+            dict.fromkeys(
+                [
+                    *list(work.reviewed_paths or []),
+                    *list(work.changed_paths or []),
+                ]
+            )
+        )
     source_ref = (
         task_source_ref if task is not None else f"W-{int(work.sequence):04d}" if work else "agent"
     )

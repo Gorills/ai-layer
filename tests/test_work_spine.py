@@ -354,12 +354,14 @@ def test_work_linked_reconcile_persists_disposition_and_finish_keeps_omitted_val
         db.add(project)
         db.flush()
         work, _run = begin_work(db, project, goal="Keep map closure in sync")
+        work.reviewed_paths = ["src/app.py"]
+        db.flush()
         result = reconcile_project_map(
             db,
             project,
             entries=None,
             remove_paths=None,
-            scope_paths=["src/app.py"],
+            scope_paths=None,
             source_task_key=None,
             no_changes_reason="Existing map is accurate.",
             source_work_key="W-0001",
@@ -380,3 +382,30 @@ def test_work_linked_reconcile_persists_disposition_and_finish_keeps_omitted_val
         assert completed.map_disposition["event_id"] == result["event_id"]
         assert completed.map_disposition["scope"] == ["src/app.py"]
         assert completed.map_disposition["status"] != "pending"
+
+
+def test_terminal_work_converts_unresolved_pending_map_state_to_truthful_deferred():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine, expire_on_commit=False) as db:
+        project = Project(
+            name="Work map deferred",
+            root_path="/tmp/work-map-deferred",
+            languages={"python": 1},
+            dependencies={},
+            architecture_summary="",
+        )
+        db.add(project)
+        db.flush()
+        _work, _run = begin_work(db, project, goal="Finish without inventing map facts")
+        completed, _runs = finish_work(
+            db,
+            project,
+            work_key_value="W-0001",
+            status="completed",
+            summary="Done",
+            reviewed_paths=["src/app.py"],
+        )
+        assert completed.map_disposition["status"] == "deferred"
+        assert completed.map_disposition["scope"] == ["src/app.py"]
+        assert "No Project Map reconciliation was recorded" in completed.map_disposition["reason"]

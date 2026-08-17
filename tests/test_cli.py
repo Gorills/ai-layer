@@ -279,6 +279,7 @@ def test_doctor_machine_only_ignores_registered_project_health(monkeypatch, tmp_
             "cursor": {"ready": True},
             "antigravity": {"ready": True},
             "codex": {"ready": True},
+            "claude-code": {"ready": True, "optional": True},
         },
     )
     monkeypatch.setattr(cli, "list_registered_projects", lambda: [{"root": str(bad_project)}])

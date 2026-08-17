@@ -1,0 +1,65 @@
+name: fix-truthful-health
+on:
+  push:
+    branches: [ai/truthful-integration-health]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ai/truthful-integration-health
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Preserve legacy doctor acceptance warning
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/ai_layer/cli/doctor.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''        operational = state.get("operational_status")
+        if operational == "blocked":
+'''
+          new = '''        operational = state.get("operational_status")
+        if operational is None and state.get("runtime_acceptance_required"):
+            operational = "configured_unverified"
+        if operational == "blocked":
+'''
+          if text.count(old) != 1:
+              raise RuntimeError('doctor operational fallback context mismatch')
+          text = text.replace(old, new, 1)
+          old = '''                    "problem": f"global {provider} bootstrap is configured but runtime acceptance is unverified",
+'''
+          new = '''                    "problem": f"global {provider} bootstrap is configured; black-box acceptance is unverified",
+'''
+          if text.count(old) != 1:
+              raise RuntimeError('doctor acceptance message context mismatch')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          rm .github/workflows/fix-truthful-health.yml
+      - name: Refresh deterministic application wheel
+        run: |
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Preserve legacy health acceptance warning'
+          git push origin HEAD:ai/truthful-integration-health

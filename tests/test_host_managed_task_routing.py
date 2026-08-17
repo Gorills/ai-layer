@@ -16,13 +16,7 @@ def test_supported_host_bootstraps_share_direct_managed_task_route(tmp_path: Pat
         "claude-code": home / ".claude" / "CLAUDE.md",
         "antigravity": home / ".gemini" / "GEMINI.md",
         "cursor": (
-            home
-            / ".cursor"
-            / "plugins"
-            / "local"
-            / "ai-layer-bootstrap"
-            / "rules"
-            / "ai-layer.mdc"
+            home / ".cursor" / "plugins" / "local" / "ai-layer-bootstrap" / "rules" / "ai-layer.mdc"
         ),
     }
 

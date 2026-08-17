@@ -26,10 +26,11 @@ from ai_layer.work.service import begin_work, finish_work
 
 def test_agent_contract_separates_work_from_managed_assurance_and_defines_search_protocol():
     contract = agent_runtime_contract()
-    assert contract["version"] == 3
+    assert contract["version"] == 4
     assert contract["delivery"]["envelopes"] == ["ordinary", "managed_next", "worker"]
     assert contract["work"]["begin"] == "work_begin"
     assert contract["work"]["idle_next"] == "work_begin"
+    assert contract["work"]["new_request_routing"]["explicit_managed_task"]["tool"] == "task_create"
     assert contract["work"]["kinds"] == [
         "change",
         "diagnose",
@@ -46,8 +47,7 @@ def test_agent_contract_separates_work_from_managed_assurance_and_defines_search
     bootstrap = native_bootstrap_markdown()
     assert "work_begin" in bootstrap
     assert "`work.continuation.kind` is `none`" in bootstrap
-    assert "call `work_begin` before other tools" in bootstrap
-    assert "Managed Task is optional assurance" in bootstrap
+    assert "`task_create` directly" in bootstrap
     assert "English code-centric primary query" in bootstrap
     assert "query_variants" in bootstrap
     assert "project_status.project_policy" not in bootstrap

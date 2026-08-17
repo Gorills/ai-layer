@@ -139,8 +139,9 @@ def _continuation(
         "navigator": "work_begin",
         "next_action": idle_ordinary_work_next_action(),
         "instruction": (
-            "No live Work. For a new substantive request — including diagnose, review, "
-            "research, and multi-step investigation — call work_begin before other tools, "
+            "No live Work. If the user explicitly asks for a managed Task or the standard Task protocol, "
+            "call task_create directly; AI Layer handles backing Work automatically. Otherwise start substantive "
+            "ordinary work — including diagnose, review, research, and multi-step investigation — with work_begin, "
             "then execute host-natively. Tiny one-shot Q&A may stay unmaterialized."
         ),
     }

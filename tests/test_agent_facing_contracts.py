@@ -50,7 +50,7 @@ def test_runtime_contract_names_current_control_plane_surfaces() -> None:
     assert contract["skills"]["routing_owner"] == "host-native"
     assert contract["managed_work"]["task_resume"] == "task_next"
     assert contract["managed_work"]["epic_resume"] == "epic_next"
-    assert contract["version"] == AGENT_RUNTIME_CONTRACT_VERSION == 3
+    assert contract["version"] == AGENT_RUNTIME_CONTRACT_VERSION == 4
     assert contract["delivery"]["envelopes"] == ["ordinary", "managed_next", "worker"]
     assert "do not reprint" in contract["delivery"]["rule"].casefold()
     assert contract["legacy"]["memory_context"] == "compatibility_only"
@@ -92,8 +92,11 @@ def test_native_bootstrap_contains_one_procedure_copy() -> None:
     assert fallback.startswith("If native AI Layer bootstrap is not already in context:")
     assert contract_line["startup"]["tool"] == "project_status"
     assert contract_line["work"]["idle_next"] == "work_begin"
+    route = contract_line["work"]["new_request_routing"]["explicit_managed_task"]
+    assert route["tool"] == "task_create"
+    assert route["backing_work"] == "automatic"
     assert "`work.continuation.kind` is `none`" in bootstrap
-    assert "call `work_begin` before other tools" in bootstrap
+    assert "`task_create` directly" in bootstrap
     assert "When continuation.kind is none" in agent_runtime_bootstrap_line()
 
 
@@ -123,7 +126,7 @@ def test_idle_managed_task_contract_is_native_first_and_task_create_is_optional(
     action = result["next_action"]
     assert result["active"] is False
     assert result["envelope"] == ENVELOPE_MANAGED_NEXT
-    assert result["runtime_contract_version"] == 3
+    assert result["runtime_contract_version"] == 4
     assert action["action"] == "host_native"
     assert action["tool"] is None
     assert action["managed_option"]["tool"] == "task_create"
@@ -145,7 +148,7 @@ def test_idle_epic_next_is_compact_host_native_without_key(monkeypatch) -> None:
     result = epic_app.next_action("/tmp/project")
     assert result["active"] is False
     assert result["envelope"] == ENVELOPE_MANAGED_NEXT
-    assert result["runtime_contract_version"] == 3
+    assert result["runtime_contract_version"] == 4
     assert result["next_action"]["action"] == "host_native"
     assert "agent_contract" not in result
     assert "epic" not in result
@@ -159,7 +162,7 @@ def test_epic_application_navigation_uses_managed_next_envelope_without_full_con
     result = epic_app.next_action("/tmp/project", key="E-0001")
     assert result["state"] == "running"
     assert result["envelope"] == ENVELOPE_MANAGED_NEXT
-    assert result["runtime_contract_version"] == 3
+    assert result["runtime_contract_version"] == 4
     assert "agent_contract" not in result
     assert "project_map" not in result
 
@@ -288,7 +291,7 @@ def test_epic_next_attaches_project_map_only_when_reconciling(monkeypatch) -> No
     )
     result = epic_app.next_action("/tmp/project", key="E-0001")
     assert result["envelope"] == ENVELOPE_MANAGED_NEXT
-    assert result["runtime_contract_version"] == 3
+    assert result["runtime_contract_version"] == 4
     assert "agent_contract" not in result
     assert result["project_map"]["update"]["tool"] == "project_map_reconcile"
 
@@ -357,7 +360,7 @@ def test_delegate_mcp_payload_splits_orchestrator_and_worker_envelopes() -> None
     )
     next_action = result["orchestrator"]["next_action"]
     assert result["envelope"] == ENVELOPE_MANAGED_NEXT
-    assert result["runtime_contract_version"] == 3
+    assert result["runtime_contract_version"] == 4
     assert next_action["action"] == "START_THE_DELEGATED_WORKER_NOW"
     assert next_action.get("tool") is None
     assert next_action["worker_id"] == "w1"

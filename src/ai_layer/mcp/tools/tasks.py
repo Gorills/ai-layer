@@ -176,7 +176,7 @@ def task_create(
     cost_policy: TaskCostPolicy = "auto",
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: no managed Task is active and the user/agent explicitly chooses durable or strict managed execution. This tool is NOT required before ordinary host-native edits. INPUT: goal plus compact acceptance_criteria/constraints; normally keep workflow/risk/complexity/uncertainty/cost_policy=auto. Dirty worktrees are valid: AI Layer captures the exact current repository state as the immutable Task baseline and preserves pre-existing changes separately from the later managed delta. AI Layer classifies MICRO/STANDARD/DISCOVERY_FIRST/ANALYSIS_ONLY and returns the live managed next action."""
+    """WHEN: no managed Task is active and the user explicitly asks for a managed Task / standard Task protocol, or strict managed assurance is otherwise explicitly chosen. Call task_create directly; AI Layer creates or links the backing Work automatically, so no prior work_begin plumbing is needed. INPUT: goal plus compact acceptance_criteria/constraints; normally keep workflow/risk/complexity/uncertainty/cost_policy=auto. Dirty worktrees are valid: AI Layer captures the exact current repository state as the immutable Task baseline and preserves pre-existing changes separately from the later managed delta. AI Layer classifies MICRO/STANDARD/DISCOVERY_FIRST/ANALYSIS_ONLY and returns the live managed next action."""
     root = project_root_for_tool(project_root, tool="task_create")
     goal = _text(goal, tool="task_create", field="goal")
     criteria = _list(acceptance_criteria)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-AGENT_RUNTIME_CONTRACT_VERSION = 3
+AGENT_RUNTIME_CONTRACT_VERSION = 4
 PROJECT_SEARCH_MAX_QUERIES = 2
 ENVELOPE_ORDINARY = "ordinary"
 ENVELOPE_MANAGED_NEXT = "managed_next"
@@ -54,6 +54,15 @@ def agent_runtime_contract() -> dict[str, Any]:
             "ordinary": "WorkItem records substantive user work; host-native execution remains the owner.",
             "begin": "work_begin",
             "idle_next": "work_begin",
+            "new_request_routing": {
+                "explicit_managed_task": {
+                    "when": "user explicitly requests a managed Task or standard Task protocol",
+                    "tool": "task_create",
+                    "backing_work": "automatic",
+                },
+                "default_substantive": {"tool": "work_begin"},
+                "tiny_q_and_a": {"tool": None},
+            },
             "kinds": list(WORK_ITEM_KINDS),
             "unmaterialized": WORK_UNMATERIALIZED,
             "checkpoint": "work_checkpoint only for meaningful milestones/blockers",
@@ -137,6 +146,12 @@ def idle_ordinary_work_next_action() -> dict[str, Any]:
         "tool": "work_begin",
         "required": ["goal"],
         "kind": list(WORK_ITEM_KINDS),
+        "managed_task_route": {
+            "when": "user explicitly requests a managed Task or standard Task protocol",
+            "tool": "task_create",
+            "required": ["goal"],
+            "backing_work": "automatic",
+        },
         "skip_when": WORK_UNMATERIALIZED,
     }
 
@@ -145,9 +160,10 @@ def agent_runtime_bootstrap_line() -> str:
     return (
         f"AI Layer runtime contract v{AGENT_RUNTIME_CONTRACT_VERSION}: use `project_status` as the first "
         "registered-project state call and apply its `project_policy`. When continuation.kind is none, "
-        "call `work_begin` before other tools for substantive ordinary work and close with one terminal "
-        "Work call; use `work_checkpoint` only for meaningful milestones or "
-        "blockers. A managed Task is optional assurance, not the ordinary-work record. If code location is "
+        "explicit user Task/standard-Task-protocol intent goes directly to `task_create`; otherwise substantive "
+        "ordinary work goes to `work_begin` and closes with one terminal Work call. AI Layer creates/links backing "
+        "Work for managed Tasks automatically; use `work_checkpoint` only for meaningful milestones or blockers. "
+        "If code location is "
         "unknown, use `project_search`; for non-English goals make the primary retrieval query concise English "
         "and code-centric while preserving exact identifiers, with at most one original/mixed widening variant. "
         "Project Map hits are breadcrumbs, so verify current source. Read reviewed facts with `knowledge_search` "

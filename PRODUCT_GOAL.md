@@ -97,6 +97,12 @@ An open Task or active MCP bridge alone must never be presented as proof that an
 
 ## Required agent experience
 
+### Agent-effort design principle
+
+Agents report user intent and genuinely new facts. AI Layer derives mechanics, identifiers, links and state that the control plane already owns. One user intent should map to one obvious primary tool; agents should not mirror backend state or perform bookkeeping that AI Layer can safely infer or repair.
+
+For a new request, existing durable focus resumes first. With no active focus, an explicit user request for a managed Task or the standard Task protocol enters `task_create` directly; ordinary substantive work defaults to `work_begin`; tiny one-shot Q&A may stay unmaterialized. If a managed Task needs a backing WorkItem for portfolio history, AI Layer creates or links it automatically. Add agent ceremony only when the backend cannot safely resolve the ambiguity itself.
+
 ### Cheap startup and continuation
 
 `project_status` must provide a bounded current-focus surface: project identity, effective rules, WorkItem continuation, optional managed Task/Epic focus, repository state and structural/semantic Project Map freshness. It must not require loading a giant legacy memory payload.

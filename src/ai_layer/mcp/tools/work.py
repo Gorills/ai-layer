@@ -35,7 +35,7 @@ def work_begin(
     idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: begin one substantive user request (change, diagnose, review, research, planning, or ops), including investigation that should fill Project Map. Call after project_status when continuation.next_action.tool is work_begin. One WorkItem records what happened; a managed Task remains optional assurance. For short work pair this with work_complete and skip checkpoints. Reuse idempotency_key when retrying the same host event."""
+    """WHEN: begin one substantive ordinary user request (change, diagnose, review, research, planning, or ops), including investigation that should fill Project Map. Call after project_status on the default substantive route; an explicit managed Task / standard Task protocol request routes directly to task_create instead. For short work pair this with work_complete and skip checkpoints. Reuse idempotency_key when retrying the same host event."""
     root = project_root_for_tool(project_root, tool="work_begin")
     goal = _text(goal, tool="work_begin", field="goal")
     with mcp_audit(

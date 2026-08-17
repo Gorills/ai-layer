@@ -190,6 +190,30 @@ def _work_for_key(
     return work
 
 
+def _work_for_task(
+    db: Session, project: Project, task: Task, *, lock: bool = False
+) -> WorkItem | None:
+    stmt = (
+        select(WorkItem)
+        .where(WorkItem.project_id == project.id, WorkItem.linked_task_id == task.id)
+        .order_by(WorkItem.updated_at.desc(), WorkItem.sequence.desc())
+        .limit(1)
+    )
+    if lock:
+        stmt = stmt.with_for_update()
+    return db.scalar(stmt)
+
+
+def _task_changed_paths(task: Task) -> list[str]:
+    changes = dict(task.final_changes or {})
+    paths: list[str] = []
+    for field in ("added", "modified", "deleted", "renamed", "untracked"):
+        value = changes.get(field)
+        if isinstance(value, list):
+            paths.extend(str(item) for item in value if isinstance(item, str) and item)
+    return list(dict.fromkeys(paths))
+
+
 def _persist_work_map_disposition(
     work: WorkItem, *, event_id: str, scope: list[str], reason: str
 ) -> dict:
@@ -476,6 +500,8 @@ def reconcile_project_map(
         )
     task, task_source_ref = _task_for_key(db, project, source_task_key)
     work = _work_for_key(db, project, source_work_key, lock=True)
+    if task is not None and work is None:
+        work = _work_for_task(db, project, task, lock=True)
     if not scope and work is not None:
         scope = list(
             dict.fromkeys(
@@ -485,6 +511,8 @@ def reconcile_project_map(
                 ]
             )
         )
+    if not scope and task is not None:
+        scope = _task_changed_paths(task)
     source_ref = (
         task_source_ref if task is not None else f"W-{int(work.sequence):04d}" if work else "agent"
     )

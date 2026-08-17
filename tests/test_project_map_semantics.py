@@ -87,8 +87,7 @@ def test_reconcile_refreshes_scanner_visible_path_missing_from_structural_map(tm
     source = root / "src" / "sync_related_parking_links.py"
     source.parent.mkdir(parents=True)
     source.write_text(
-        "def sync_related_parking_links():\n"
-        "    return 'ok'\n",
+        "def sync_related_parking_links():\n    return 'ok'\n",
         encoding="utf-8",
     )
     engine = create_engine("sqlite:///:memory:")

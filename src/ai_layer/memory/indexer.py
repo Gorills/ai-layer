@@ -336,10 +336,10 @@ def refresh_navigation_paths(
     previous = {row.path: row for row in previous_rows}
     documents: list[dict] = []
     for rel in requested:
-        path = visible.get(rel)
-        if path is None:
+        candidate = visible.get(rel)
+        if candidate is None:
             continue
-        stable = read_stable_source(path)
+        stable = read_stable_source(candidate)
         if stable is None:
             continue
         raw, text, stat = stable

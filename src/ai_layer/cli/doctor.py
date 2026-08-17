@@ -214,6 +214,14 @@ def _machine_issues(
             )
         elif runtime.get("state") == "unverified" and canonical in _CORE_INTEGRATION_PROVIDERS:
             runtime_unverified.append(canonical)
+        elif not runtime and canonical == "cursor" and state.get("runtime_acceptance_required"):
+            issues.append(
+                {
+                    "severity": "warning",
+                    "problem": "Cursor global bootstrap files are installed; one real-agent black-box acceptance is still a machine-level validation step, not a project error",
+                    "action": "run the supported-host black-box items in release/release-manifest.json validation on the supported release host",
+                }
+            )
     if runtime_unverified:
         issues.append(
             {

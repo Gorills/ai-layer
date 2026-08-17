@@ -191,6 +191,8 @@ def _machine_issues(
             )
             continue
         operational = state.get("operational_status")
+        if operational is None and state.get("runtime_acceptance_required"):
+            operational = "configured_unverified"
         if operational == "blocked":
             issues.append(
                 {
@@ -204,7 +206,7 @@ def _machine_issues(
             issues.append(
                 {
                     "severity": "warning",
-                    "problem": f"global {provider} bootstrap is configured but runtime acceptance is unverified",
+                    "problem": f"global {provider} bootstrap is configured; black-box acceptance is unverified",
                     "details": {"reason": state.get("runtime_reason")},
                     "action": "run the supported-host black-box items in release/release-manifest.json validation on the supported release host",
                 }

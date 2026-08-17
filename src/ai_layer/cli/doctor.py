@@ -170,7 +170,8 @@ def _machine_issues(
             }
         )
     for provider, state in machine["global_integrations"].items():
-        if not state["ready"]:
+        configured = state.get("configuration_ready", state.get("ready", False))
+        if not configured:
             issues.append(
                 {
                     "severity": "error",
@@ -179,7 +180,8 @@ def _machine_issues(
                 }
             )
     for provider, state in machine["global_bootstrap"].items():
-        if not state.get("ready"):
+        configured = state.get("configuration_ready", state.get("ready", False))
+        if not configured:
             issues.append(
                 {
                     "severity": "warning",
@@ -187,15 +189,28 @@ def _machine_issues(
                     "action": "ai-layer upgrade",
                 }
             )
-    cursor_bootstrap = machine["global_bootstrap"].get("cursor", {})
-    if cursor_bootstrap.get("ready") and cursor_bootstrap.get("runtime_acceptance_required"):
-        issues.append(
-            {
-                "severity": "warning",
-                "problem": "Cursor global bootstrap files are installed; one real-agent black-box acceptance is still a machine-level validation step, not a project error",
-                "action": "run the supported-host black-box items in release/release-manifest.json validation on the supported release host",
-            }
-        )
+            continue
+        operational = state.get("operational_status")
+        if operational is None and state.get("runtime_acceptance_required"):
+            operational = "configured_unverified"
+        if operational == "blocked":
+            issues.append(
+                {
+                    "severity": "error",
+                    "problem": f"global {provider} bootstrap is configured but blocked by host precedence",
+                    "details": {"reason": state.get("runtime_reason")},
+                    "action": "resolve the active host instruction override, then run ai-layer doctor again",
+                }
+            )
+        elif operational == "configured_unverified":
+            issues.append(
+                {
+                    "severity": "warning",
+                    "problem": f"global {provider} bootstrap is configured; black-box acceptance is unverified",
+                    "details": {"reason": state.get("runtime_reason")},
+                    "action": "run the supported-host black-box items in release/release-manifest.json validation on the supported release host",
+                }
+            )
     for process in machine["mcp_processes"]:
         if not process.get("version_match", True):
             issues.append(

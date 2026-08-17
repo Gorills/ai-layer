@@ -43,7 +43,9 @@ def test_managed_task_gets_backing_work_without_fake_agent_run(tmp_path: Path):
             acceptance_criteria=[],
             constraints=[],
         )
-        work = sync_task_backing_work(db, project, created, create_if_missing=True)
+        work = sync_task_backing_work(
+            db, project, {"task": {"id": created["id"]}}, create_if_missing=True
+        )
         assert work is not None
         assert work["key"] == "W-0001"
         assert work["linked_task_id"] == created["id"]

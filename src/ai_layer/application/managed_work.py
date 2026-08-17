@@ -12,7 +12,9 @@ from ai_layer.work.service import finish_work, work_to_dict
 
 
 def _task_row(db: Session, project: Project, payload: dict) -> Task:
-    raw_id = str(payload.get("id") or "").strip()
+    nested = payload.get("task")
+    source: dict = nested if isinstance(nested, dict) else payload
+    raw_id = str(source.get("id") or "").strip()
     if not raw_id:
         raise RuntimeError("managed Task result is missing id")
     task = db.scalar(select(Task).where(Task.id == UUID(raw_id), Task.project_id == project.id))

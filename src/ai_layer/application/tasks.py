@@ -36,7 +36,7 @@ def _project(db, project_root: str | Path):
     return get_project(db, project_root)
 
 
-def _with_task_work(db, project, result: dict, *, create_if_missing: bool = False) -> dict:
+def _with_task_work(db, project, result: dict, *, create_if_missing: bool = True) -> dict:
     payload = dict(result)
     work = sync_task_backing_work(db, project, payload, create_if_missing=create_if_missing)
     if work is not None:
@@ -221,18 +221,20 @@ def read_state(project_root: str | Path, *, include_history: bool = True) -> dic
 
 def current(project_root: str | Path, *, include_history: bool = True) -> dict:
     with session_scope() as db:
-        result = current_task(db, _project(db, project_root), include_history=include_history)
+        project = _project(db, project_root)
+        result = current_task(db, project, include_history=include_history)
         if not result.get("active"):
             return _idle_managed_task_payload(result)
-        return _with_managed_next(result)
+        return _with_managed_next(_with_task_work(db, project, result))
 
 
 def next_action(project_root: str | Path) -> dict:
     with session_scope() as db:
-        result = next_task_action(db, _project(db, project_root))
+        project = _project(db, project_root)
+        result = next_task_action(db, project)
         if not result.get("active"):
             return _idle_managed_task_payload(result)
-        return _with_managed_next(result)
+        return _with_managed_next(_with_task_work(db, project, result))
 
 
 def cancel(project_root: str | Path, *, reason: str) -> dict:

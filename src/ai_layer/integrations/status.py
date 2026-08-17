@@ -3,26 +3,41 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai_layer.integrations.codex_status import active_codex_home as _active_codex_home
+from ai_layer.integrations.codex_status import codex_mcp_status as _codex_mcp_status
+from ai_layer.integrations.codex_status import nonempty_file as _nonempty_file
+from ai_layer.integrations.health_contract import (
+    HEALTH_DEGRADED as _PROVIDER_HEALTH_DEGRADED,
+)
+from ai_layer.integrations.health_contract import (
+    HEALTH_NOT_INSTALLED as _PROVIDER_HEALTH_NOT_INSTALLED,
+)
+from ai_layer.integrations.health_contract import HEALTH_READY as _PROVIDER_HEALTH_READY
+from ai_layer.integrations.health_contract import (
+    RUNTIME_BLOCKED as _RUNTIME_BLOCKED,
+)
+from ai_layer.integrations.health_contract import (
+    RUNTIME_UNVERIFIED as _RUNTIME_UNVERIFIED,
+)
+from ai_layer.integrations.health_contract import (
+    RUNTIME_VERIFIED as _RUNTIME_VERIFIED,
+)
+from ai_layer.integrations.health_contract import STATUS_CONTRACT_VERSION, provider_install_status
+from ai_layer.integrations.health_contract import (
+    apply_status_contract as _apply_status_contract,
+)
+from ai_layer.integrations.health_contract import operational_status as _operational_status
+from ai_layer.integrations.health_contract import runtime_assurance as _runtime_assurance
 from ai_layer.skills.common import builtin_skill_dir
 from ai_layer.skills.native_descriptor import NATIVE_MARKER
 from ai_layer.skills.native_files import descriptor_metadata
 from ai_layer.skills.registry import disabled_global_skill_slugs
 
 _CORE_PROVIDERS = ("cursor", "codex", "antigravity")
-_PROVIDER_HEALTH_READY = "ready"
-_PROVIDER_HEALTH_DEGRADED = "degraded"
-_PROVIDER_HEALTH_NOT_INSTALLED = "not_installed"
-STATUS_CONTRACT_VERSION = 2
-_RUNTIME_VERIFIED = "verified"
-_RUNTIME_UNVERIFIED = "unverified"
-_RUNTIME_BLOCKED = "blocked"
-_RUNTIME_NOT_REQUIRED = "not_required"
-_OPERATIONAL_CONFIGURED_UNVERIFIED = "configured_unverified"
 
 
 @dataclass(frozen=True)
@@ -41,50 +56,6 @@ class IntegrationStatusDependencies:
     global_bootstrap_marker: str
     project_integration_paths: tuple[str, ...]
     claude_user_mcp_status: Callable[[], dict]
-
-
-def provider_install_status(*parts: object) -> str:
-    """Classify host presence. ``None`` is absence, not success."""
-    present = [_presence(part) for part in parts]
-    if present and all(present):
-        return _PROVIDER_HEALTH_READY
-    if any(present):
-        return _PROVIDER_HEALTH_DEGRADED
-    return _PROVIDER_HEALTH_NOT_INSTALLED
-
-
-def _presence(value: object) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, dict):
-        return bool(value.get("ready"))
-    return bool(value)
-
-
-def _runtime_assurance(state: str, evidence: str, reason: str | None = None) -> dict:
-    return {"state": state, "evidence": evidence, "reason": reason}
-
-
-def _operational_status(health: str, assurance: dict) -> str:
-    if health == _PROVIDER_HEALTH_NOT_INSTALLED:
-        return _PROVIDER_HEALTH_NOT_INSTALLED
-    if health != _PROVIDER_HEALTH_READY or assurance.get("state") == _RUNTIME_BLOCKED:
-        return _PROVIDER_HEALTH_DEGRADED
-    if assurance.get("state") == _RUNTIME_UNVERIFIED:
-        return _OPERATIONAL_CONFIGURED_UNVERIFIED
-    return _PROVIDER_HEALTH_READY
-
-
-def _apply_status_contract(state: dict, *, health: str, runtime_assurance: dict) -> dict:
-    configuration_ready = health == _PROVIDER_HEALTH_READY
-    state["status_contract_version"] = STATUS_CONTRACT_VERSION
-    state["status"] = health
-    state["configuration_ready"] = configuration_ready
-    state["ready"] = configuration_ready
-    state["ready_semantics"] = "configuration"
-    state["runtime_assurance"] = runtime_assurance
-    state["operational_status"] = _operational_status(health, runtime_assurance)
-    return state
 
 
 def _apply_provider_health(state: dict) -> dict:
@@ -139,20 +110,6 @@ def _bootstrap_version_current(path: Path, deps: IntegrationStatusDependencies) 
         return False
     try:
         return deps.global_bootstrap_marker in path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return False
-
-
-def _active_codex_home(home: Path) -> Path:
-    configured = str(os.environ.get("CODEX_HOME") or "").strip()
-    return Path(configured).expanduser().resolve() if configured else home / ".codex"
-
-
-def _nonempty_file(path: Path) -> bool:
-    if not path.is_file() or path.is_symlink():
-        return False
-    try:
-        return bool(path.read_text(encoding="utf-8").strip())
     except (OSError, UnicodeDecodeError):
         return False
 
@@ -247,32 +204,6 @@ def _json_ai_layer_server(path: Path) -> dict | None:
 def _json_has_ai_layer(path: Path, deps: IntegrationStatusDependencies) -> bool:
     server = _json_ai_layer_server(path)
     return bool(server and server.get("command") and deps.server_is_owned(server))
-
-
-def _codex_mcp_status(path: Path, deps: IntegrationStatusDependencies) -> dict:
-    if not path.exists():
-        return {"present": False, "ready": False, "reason": "missing"}
-    try:
-        text = path.read_text(encoding="utf-8")
-        data = tomllib.loads(text)
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
-        return {"present": True, "ready": False, "reason": "invalid_or_unreadable"}
-    servers = data.get("mcp_servers")
-    server = servers.get("ai-layer") if isinstance(servers, dict) else None
-    if not isinstance(server, dict):
-        return {"present": False, "ready": False, "reason": "missing"}
-    managed = deps.toml_start in text and deps.toml_end in text
-    if not managed:
-        return {"present": True, "ready": False, "reason": "ownership_conflict"}
-    if not server.get("command"):
-        return {"present": True, "ready": False, "reason": "missing_command"}
-    if server.get("enabled") is False:
-        return {"present": True, "ready": False, "reason": "mcp_disabled"}
-    return {"present": True, "ready": True, "reason": None}
-
-
-def _codex_has_ai_layer(path: Path, deps: IntegrationStatusDependencies) -> bool:
-    return bool(_codex_mcp_status(path, deps).get("ready"))
 
 
 def _expected_global_native_slugs() -> frozenset[str]:

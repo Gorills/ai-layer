@@ -127,6 +127,86 @@ def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(
     state = integration_status(project)
     assert state["template_version"] == INTEGRATION_TEMPLATE_VERSION
     assert all(provider["ready"] for provider in state["providers"].values())
+    assert state["ready_semantics"] == "configuration"
+    cursor_state = state["providers"]["cursor"]
+    assert cursor_state["ready"] is True
+    assert cursor_state["configuration_ready"] is True
+    assert cursor_state["runtime_assurance"]["state"] == "unverified"
+    assert cursor_state["operational_status"] == "configured_unverified"
+    get_settings.cache_clear()
+
+
+def _installed_health_fixture(tmp_path: Path, monkeypatch):
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    executable = home / "bin" / "ai-layer-mcp"
+    executable.parent.mkdir()
+    executable.write_text("#!/bin/sh\n", encoding="utf-8")
+    executable.chmod(0o755)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    monkeypatch.setenv("AI_LAYER_MCP_EXECUTABLE", str(executable))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    get_settings.cache_clear()
+    install_global_integrations()
+    install_project_integrations(project)
+    return home, project
+
+
+def test_codex_override_blocks_runtime_without_reclassifying_configuration(
+    tmp_path: Path, monkeypatch
+):
+    home, project = _installed_health_fixture(tmp_path, monkeypatch)
+    override = home / ".codex" / "AGENTS.override.md"
+    override.write_text("# temporary override\n", encoding="utf-8")
+
+    state = integration_status(project)
+    codex = state["providers"]["codex"]
+    assert codex["ready"] is True
+    assert codex["configuration_ready"] is True
+    assert codex["runtime_assurance"]["state"] == "blocked"
+    assert codex["runtime_assurance"]["reason"] == "agents_override_shadows_global_bootstrap"
+    assert codex["operational_status"] == "degraded"
+    assert state["ready"] is True
+    assert state["operational_status"] == "degraded"
+
+    override.write_text("   \n", encoding="utf-8")
+    recovered = integration_status(project)["providers"]["codex"]
+    assert recovered["runtime_assurance"]["state"] == "unverified"
+    get_settings.cache_clear()
+
+
+def test_codex_project_disabled_mcp_is_not_masked_by_global_config(tmp_path: Path, monkeypatch):
+    _home, project = _installed_health_fixture(tmp_path, monkeypatch)
+    config = project / ".codex" / "config.toml"
+    text = config.read_text(encoding="utf-8")
+    config.write_text(
+        text.replace("args = []\n", "enabled = false\nargs = []\n", 1), encoding="utf-8"
+    )
+
+    state = integration_status(project)
+    codex = state["providers"]["codex"]
+    assert codex["ready"] is False
+    assert codex["configuration_ready"] is False
+    assert codex["mcp_reason"] == "mcp_disabled"
+    assert codex["runtime_assurance"]["state"] == "blocked"
+    assert state["ready"] is False
+    get_settings.cache_clear()
+
+
+def test_codex_status_reads_active_codex_home(tmp_path: Path, monkeypatch):
+    home, project = _installed_health_fixture(tmp_path, monkeypatch)
+    active = home / "custom-codex-home"
+    active.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(active))
+
+    state = integration_status(project)
+    codex = state["providers"]["codex"]
+    assert state["bootstrap"]["codex"]["path"] == str(active / "AGENTS.md")
+    assert codex["bootstrap"] is False
+    assert codex["configuration_ready"] is False
     get_settings.cache_clear()
 
 

@@ -7,6 +7,12 @@ from typing import Any
 
 import yaml
 
+_CORE_INTEGRATION_PROVIDERS = frozenset({"cursor", "codex", "antigravity"})
+
+
+def _canonical_provider(name: str) -> str:
+    return "antigravity" if name == "antigravity-gemini" else name
+
 
 @dataclass(frozen=True)
 class DoctorDependencies:
@@ -170,14 +176,21 @@ def _machine_issues(
             }
         )
     for provider, state in machine["global_integrations"].items():
-        if not state["ready"]:
-            issues.append(
-                {
-                    "severity": "error",
-                    "problem": f"global {provider} MCP integration is missing",
-                    "action": "ai-layer upgrade",
-                }
-            )
+        if state.get("ready"):
+            continue
+        optional = bool(state.get("optional")) or provider == "claude-code"
+        issues.append(
+            {
+                "severity": "warning" if optional else "error",
+                "problem": (
+                    f"optional global {provider} MCP integration is unavailable"
+                    if optional
+                    else f"global {provider} MCP integration is missing"
+                ),
+                "action": "ai-layer upgrade",
+            }
+        )
+    runtime_unverified: list[str] = []
     for provider, state in machine["global_bootstrap"].items():
         if not state.get("ready"):
             issues.append(
@@ -187,13 +200,35 @@ def _machine_issues(
                     "action": "ai-layer upgrade",
                 }
             )
-    cursor_bootstrap = machine["global_bootstrap"].get("cursor", {})
-    if cursor_bootstrap.get("ready") and cursor_bootstrap.get("runtime_acceptance_required"):
+            continue
+        runtime = state.get("runtime_assurance") or {}
+        canonical = _canonical_provider(provider)
+        if runtime.get("state") == "blocked" and canonical in _CORE_INTEGRATION_PROVIDERS:
+            issues.append(
+                {
+                    "severity": "error",
+                    "problem": f"global {provider} runtime acceptance is blocked",
+                    "details": {"reason": runtime.get("reason")},
+                    "action": "resolve the reported host-side blocker, then run ai-layer doctor again",
+                }
+            )
+        elif runtime.get("state") == "unverified" and canonical in _CORE_INTEGRATION_PROVIDERS:
+            runtime_unverified.append(canonical)
+        elif not runtime and canonical == "cursor" and state.get("runtime_acceptance_required"):
+            issues.append(
+                {
+                    "severity": "warning",
+                    "problem": "Cursor global bootstrap files are installed; one real-agent black-box acceptance is still a machine-level validation step, not a project error",
+                    "action": "run the supported-host black-box items in release/release-manifest.json validation on the supported release host",
+                }
+            )
+    if runtime_unverified:
         issues.append(
             {
                 "severity": "warning",
-                "problem": "Cursor global bootstrap files are installed; one real-agent black-box acceptance is still a machine-level validation step, not a project error",
-                "action": "run the supported-host black-box items in release/release-manifest.json validation on the supported release host",
+                "problem": "configured host runtime acceptance is unverified: "
+                + ", ".join(sorted(set(runtime_unverified))),
+                "action": "run the supported-host black-box acceptance for the installed release when practical",
             }
         )
     for process in machine["mcp_processes"]:
@@ -325,7 +360,8 @@ def _project_issues(projects: list[dict]) -> list[dict]:
                     "action": "ai-layer projects prune",
                 }
             )
-        elif item.get("unsafe_path"):
+            continue
+        if item.get("unsafe_path"):
             issues.append(
                 {
                     "severity": "error",
@@ -333,14 +369,35 @@ def _project_issues(projects: list[dict]) -> list[dict]:
                     "action": "replace project-local AI Layer symlinks with real files/directories, then run ai-layer sync",
                 }
             )
-        elif item.get("mode") == "strict-private" and not item.get("strict_private_ready", False):
+            continue
+        if item.get("mode") == "strict-private" and not item.get("strict_private_ready", False):
             issues.append(_strict_private_issue(item))
-        elif item.get("drift") or not item.get("ready"):
+            continue
+        if item.get("drift") or not item.get("ready"):
             issues.append(
                 {
                     "severity": "error",
                     "problem": f"project integration drift: {item['root']}",
                     "action": f"ai-layer repair --path {item['root']}",
+                }
+            )
+            continue
+        runtime = (item.get("integrations") or {}).get("runtime_assurance") or {}
+        if runtime.get("state") == "blocked":
+            issues.append(
+                {
+                    "severity": "error",
+                    "problem": f"project host runtime acceptance is blocked: {item['root']}",
+                    "details": {"reason": runtime.get("reason")},
+                    "action": "resolve the reported host-side blocker, then run ai-layer doctor again",
+                }
+            )
+        elif runtime.get("state") == "unverified":
+            issues.append(
+                {
+                    "severity": "warning",
+                    "problem": f"project integrations are configured but runtime acceptance is unverified: {item['root']}",
+                    "action": "run supported-host black-box acceptance when practical",
                 }
             )
     return issues
@@ -362,7 +419,10 @@ def doctor_report(
             deps, path=path, all_projects=all_projects, machine_only=machine_only
         )
     ]
-    global_ready = all(item["ready"] for item in machine["global_integrations"].values())
+    global_ready = all(
+        (machine["global_integrations"].get(provider) or {}).get("ready", False)
+        for provider in _CORE_INTEGRATION_PROVIDERS
+    )
     runtime_ready = machine["stable_cli"]["exists"] and machine["stable_mcp"]["exists"]
     db_ready = bool(machine["database"].get("connected") and machine["database"].get("pgvector"))
     existing = [item for item in projects if item.get("exists")]

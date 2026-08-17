@@ -174,6 +174,7 @@ def test_doctor_treats_stale_mcp_as_warning_not_upgrade_blocker(monkeypatch, tmp
             "cursor": {"ready": True},
             "antigravity": {"ready": True},
             "codex": {"ready": True},
+            "claude-code": {"ready": False, "optional": True},
         },
     )
     monkeypatch.setattr(cli, "list_registered_projects", lambda: [])
@@ -190,6 +191,58 @@ def test_doctor_treats_stale_mcp_as_warning_not_upgrade_blocker(monkeypatch, tmp
     assert payload["ok"] is True
     stale = [item for item in payload["issues"] if "stale MCP process" in item["problem"]]
     assert stale and stale[0]["severity"] == "warning"
+
+
+def test_doctor_runtime_assurance_warns_when_unverified_and_errors_when_blocked():
+    from types import SimpleNamespace
+
+    from ai_layer.cli.doctor import _machine_issues
+
+    machine = {
+        "docker_compose": {"available": True},
+        "global_integrations": {
+            "cursor": {"ready": True},
+            "codex": {"ready": True},
+            "antigravity": {"ready": True},
+            "claude-code": {"ready": False, "optional": True},
+        },
+        "global_bootstrap": {
+            "cursor": {
+                "ready": True,
+                "runtime_assurance": {
+                    "state": "unverified",
+                    "reason": "cursor_runtime_not_observed",
+                },
+            },
+            "codex": {
+                "ready": True,
+                "runtime_assurance": {"state": "unverified", "reason": "host_runtime_not_observed"},
+            },
+            "antigravity-gemini": {
+                "ready": True,
+                "runtime_assurance": {"state": "unverified", "reason": "host_runtime_not_observed"},
+            },
+        },
+        "mcp_processes": [],
+        "service": {},
+    }
+    issues = _machine_issues(
+        SimpleNamespace(version="test"), machine, runtime_ready=True, db_ready=True
+    )
+    assert not [item for item in issues if item["severity"] == "error"]
+    assert any("runtime acceptance is unverified" in item["problem"] for item in issues)
+
+    machine["global_bootstrap"]["codex"]["runtime_assurance"] = {
+        "state": "blocked",
+        "reason": "agents_override_shadows_global_bootstrap",
+    }
+    blocked = _machine_issues(
+        SimpleNamespace(version="test"), machine, runtime_ready=True, db_ready=True
+    )
+    assert any(
+        item["severity"] == "error" and "codex runtime acceptance is blocked" in item["problem"]
+        for item in blocked
+    )
 
 
 def test_audit_check_cli_treats_duplicate_context_as_tool_economy_warning(
@@ -279,6 +332,7 @@ def test_doctor_machine_only_ignores_registered_project_health(monkeypatch, tmp_
             "cursor": {"ready": True},
             "antigravity": {"ready": True},
             "codex": {"ready": True},
+            "claude-code": {"ready": True, "optional": True},
         },
     )
     monkeypatch.setattr(cli, "list_registered_projects", lambda: [{"root": str(bad_project)}])

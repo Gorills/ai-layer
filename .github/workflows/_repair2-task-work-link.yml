@@ -1,0 +1,84 @@
+name: repair2-task-work-link
+on:
+  push:
+    branches: [ai/natural-managed-task-routing]
+    paths: [.github/workflows/_repair2-task-work-link.yml]
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9
+        env: {POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: ai_layer_gate}
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      AI_LAYER_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/ai_layer_gate
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: ai/natural-managed-task-routing, fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Apply typed repair
+        shell: bash
+        run: |
+          git show 98daa0c43ec1972848d388ebe9a106654f5bd4c5:.github/workflows/_repair-task-work-link.yml > /tmp/repair.yml
+          python - <<'PY'
+          import subprocess, yaml
+          doc = yaml.safe_load(open('/tmp/repair.yml', encoding='utf-8'))
+          step = next(s for s in doc['jobs']['validate']['steps'] if s.get('name') == 'Make missing Task backing Work self-repairing')
+          subprocess.run(['bash', '-c', step['run']], check=True)
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/ai_layer/application/managed_work.py')
+          text = path.read_text(encoding='utf-8')
+          old = '    source = payload.get("task") if isinstance(payload.get("task"), dict) else payload\n    raw_id = str(source.get("id") or "").strip()\n'
+          new = '    nested = payload.get("task")\n    source: dict = nested if isinstance(nested, dict) else payload\n    raw_id = str(source.get("id") or "").strip()\n'
+          if text.count(old) != 1:
+              raise RuntimeError(f'expected one narrowing fragment, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Validate repair seam
+        shell: bash
+        run: |
+          ruff check --fix src/ai_layer/application/managed_work.py src/ai_layer/application/tasks.py tests/test_managed_task_work.py
+          ruff format src/ai_layer/application/managed_work.py src/ai_layer/application/tasks.py tests/test_managed_task_work.py
+          mypy src/ai_layer
+          python scripts/architecture_gate.py --json
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_managed_task_work.py tests/test_tasks.py tests/test_agent_facing_contracts.py tests/test_work_spine.py tests/test_stale_work_attention.py tests/test_workflow_skill_contract.py
+      - name: Refresh deterministic wheel and manifest
+        shell: bash
+        run: |
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          print(manifest['application_wheel_sha256'])
+          PY
+      - name: Full repository gates
+        shell: bash
+        run: |
+          make quality
+          make postgres-gate
+      - name: Commit repair
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/ai_layer/application/managed_work.py src/ai_layer/application/tasks.py tests/test_managed_task_work.py dist/local_ai_development_layer-0.14.0-py3-none-any.whl release/release-manifest.json
+          git commit -m 'Repair missing Task backing Work automatically'
+          git push origin HEAD:ai/natural-managed-task-routing

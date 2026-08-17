@@ -38,6 +38,26 @@ jobs:
           Path('/tmp/extract-health.sh').write_text(script.replace(old, new, 1), encoding='utf-8')
           PY
           bash /tmp/extract-health.sh
+          python - <<'PY'
+          from pathlib import Path
+
+          health = Path('src/ai_layer/integrations/health_contract.py')
+          health_text = health.read_text(encoding='utf-8')
+          insertion = "\n\ndef _presence(value: object) -> bool:\n    if value is None:\n        return False\n    if isinstance(value, dict):\n        return bool(value.get(\"ready\"))\n    return bool(value)\n\n\ndef provider_install_status(*parts: object) -> str:\n    present = [_presence(part) for part in parts]\n    if present and all(present):\n        return HEALTH_READY\n    if any(present):\n        return HEALTH_DEGRADED\n    return HEALTH_NOT_INSTALLED\n"
+          health.write_text(health_text + insertion, encoding='utf-8')
+
+          status = Path('src/ai_layer/integrations/status.py')
+          text = status.read_text(encoding='utf-8')
+          import_anchor = 'from ai_layer.integrations.health_contract import operational_status as _operational_status\n'
+          import_line = 'from ai_layer.integrations.health_contract import provider_install_status\n'
+          if text.count(import_anchor) != 1:
+              raise RuntimeError('health import anchor missing')
+          text = text.replace(import_anchor, import_anchor + import_line, 1)
+          old = "def provider_install_status(*parts: object) -> str:\n    \"\"\"Classify host presence. ``None`` is absence, not success.\"\"\"\n    present = [_presence(part) for part in parts]\n    if present and all(present):\n        return _PROVIDER_HEALTH_READY\n    if any(present):\n        return _PROVIDER_HEALTH_DEGRADED\n    return _PROVIDER_HEALTH_NOT_INSTALLED\n\n\ndef _presence(value: object) -> bool:\n    if value is None:\n        return False\n    if isinstance(value, dict):\n        return bool(value.get(\"ready\"))\n    return bool(value)\n\n\n"
+          if text.count(old) != 1:
+              raise RuntimeError(f'provider status fragment count={text.count(old)}')
+          status.write_text(text.replace(old, '', 1), encoding='utf-8')
+          PY
       - name: Validate extracted seams
         shell: bash
         run: |

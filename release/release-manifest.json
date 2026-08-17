@@ -1,6 +1,6 @@
 {
   "application_wheel": "dist/local_ai_development_layer-0.14.0-py3-none-any.whl",
-  "application_wheel_sha256": "e38bd46e24a434b4b310720ff9c5bc5aeb2e7774bb32ca8cf9c21d819bbe924b",
+  "application_wheel_sha256": "7bc9f588b3e3b3db5d025a70a06c6fca85bdce15877fce2dedb62692b42a9801",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {

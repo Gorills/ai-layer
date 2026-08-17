@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 WorkKind = Literal["change", "diagnose", "review", "research", "planning", "ops"]
-WorkCheckStatus = Literal["passed", "failed", "skipped", "blocked", "not_run"]
+WorkCheckStatus = Literal["passed", "failed", "skipped", "blocked", "not_run", "reported"]
 WorkMapStatus = Literal[
     "reconciled",
     "checked_no_change",
@@ -57,12 +57,41 @@ KnowledgeSummaryText = Annotated[str, Field(min_length=1, max_length=2200)]
 KnowledgeKeyText = Annotated[str, Field(min_length=1, max_length=160)]
 
 
+def _natural_check_status(
+    value: WorkCheckStatus | None, *, result: object, summary: str, command: str | None
+) -> WorkCheckStatus:
+    if value is not None:
+        return value
+    if isinstance(result, bool):
+        return "passed" if result else "failed"
+    if isinstance(result, int):
+        return "passed" if result == 0 else "failed"
+    if result is not None or summary.strip() or command:
+        return "reported"
+    return "not_run"
+
+
 class WorkCheckInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: Annotated[str, Field(min_length=1, max_length=240)]
-    status: WorkCheckStatus
+    name: Annotated[str, Field(max_length=240)] | None = None
+    status: WorkCheckStatus | None = None
     summary: Annotated[str, Field(max_length=500)] = ""
+    command: Annotated[str | None, Field(max_length=2000, exclude=True)] = None
+    result: Annotated[
+        Annotated[str, Field(max_length=4000)] | bool | int | None,
+        Field(exclude=True),
+    ] = None
+
+    @model_validator(mode="after")
+    def normalize_natural_report(self) -> WorkCheckInput:
+        self.name = str(self.name or "").strip() or "reported check"
+        if not self.summary and self.result is not None:
+            self.summary = str(self.result).strip()[:500]
+        self.status = _natural_check_status(
+            self.status, result=self.result, summary=self.summary, command=self.command
+        )
+        return self
 
 
 class WorkRepositoryDeltaInput(BaseModel):

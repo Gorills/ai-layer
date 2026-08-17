@@ -1,0 +1,74 @@
+name: temporary Cursor field-acceptance repair v3
+
+on:
+  push:
+    branches: [fix/cursor-natural-work-closure]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/cursor-natural-work-closure
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Reuse guarded patch with enum-safe transport status
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/_tmp_cursor_field_fix.yml').read_text(encoding='utf-8')
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY\n", start)
+          lines = workflow[start:end].splitlines()
+          script = "\n".join(line[10:] if line.startswith("          ") else line for line in lines)
+          old = '    status: Annotated[str, Field(max_length=32)] | None = None'
+          new = '    status: WorkCheckStatus | None = None'
+          if script.count(old) != 1:
+              raise SystemExit(f'expected one status annotation in guarded patch, found {script.count(old)}')
+          script = script.replace(old, new)
+          exec(compile(script, '<cursor-field-fix>', 'exec'), {'__name__': '__main__'})
+          PY
+      - name: Format touched Python files
+        run: |
+          ruff format src/ai_layer/mcp/tool_schema.py src/ai_layer/mcp/tools/work.py src/ai_layer/work/evidence.py src/ai_layer/work/service.py src/ai_layer/memory/project_map_semantics.py src/ai_layer/mcp/tools/project_context.py tests/test_cursor_field_acceptance.py
+          ruff check --fix src/ai_layer/mcp/tool_schema.py src/ai_layer/mcp/tools/work.py src/ai_layer/work/evidence.py src/ai_layer/work/service.py src/ai_layer/memory/project_map_semantics.py src/ai_layer/mcp/tools/project_context.py tests/test_cursor_field_acceptance.py
+      - name: Validate focused semantics and MCP schema hygiene
+        run: |
+          mypy src/ai_layer
+          python scripts/architecture_gate.py
+          python -m pytest tests/test_cursor_field_acceptance.py tests/test_work_spine.py tests/test_project_map_semantics.py tests/test_schema_hygiene.py
+      - name: Rebuild deterministic 0.14.0 wheel and release archive
+        run: |
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+          python scripts/build_release_archive.py --output dist/ai-layer-release.zip
+      - name: Full quality gate
+        run: make quality
+      - name: Commit validated result
+        run: |
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/ai_layer/mcp/tool_schema.py src/ai_layer/mcp/tools/work.py src/ai_layer/work/evidence.py src/ai_layer/work/service.py src/ai_layer/memory/project_map_semantics.py src/ai_layer/mcp/tools/project_context.py tests/test_cursor_field_acceptance.py release/release-manifest.json dist/local_ai_development_layer-0.14.0-py3-none-any.whl dist/ai-layer-release.zip
+          git commit -m 'Make Work closure natural for weak hosts'
+          git push origin HEAD:fix/cursor-natural-work-closure

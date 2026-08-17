@@ -62,7 +62,7 @@ For registered-project work, `project_status` is the first AI Layer state call. 
 
 Use the smallest control-plane path that materially helps the task.
 
-**If the user says “continue” or equivalent:** call `project_status` and follow `work.current_focus` / `work.continuation` exactly. If `kind` is `task`, resume that Task through `task_next`. If `kind` is `work`, resume that same WorkItem through host-native execution. If `kind` is `epic`, resume through `epic_next`. If `continuation.kind` is `none`, call `work_begin` before other tools unless the request is tiny one-shot Q&A. Do not invent a Task or Epic from old prose.
+**If the user says “continue” or equivalent:** call `project_status` and follow `work.current_focus` / `work.continuation` exactly. If `kind` is `task`, resume that Task through `task_next`. If `kind` is `work`, resume that same WorkItem through host-native execution. If `kind` is `epic`, resume through `epic_next`. If `continuation.kind` is `none`, an explicit managed Task / standard Task protocol request goes directly to `task_create`; otherwise substantive ordinary work starts with `work_begin` before other tools. Tiny one-shot Q&A may stay unmaterialized. Do not invent a Task or Epic from old prose.
 
 **If the exact relevant file or symbol is already known:** call `project_status`, then inspect that current source directly with native tools. `project_search` is unnecessary ceremony unless evidence shows the stated location is incomplete or wrong.
 
@@ -86,7 +86,7 @@ The default workflow is deliberately short:
 
 1. Call `project_status(project_root=<canonical workspace root>)` once at the beginning of registered-project work.
 2. Read `work.current_focus`, `work.continuation`, the worktree summary, and Project Map freshness. If the user is continuing, resume the exact focus `kind` (`task`, `work`, or `epic`).
-3. If `work.continuation.kind` is `none`, call `work_begin` before other tools unless the request is tiny one-shot Q&A. Short work should normally use only `work_begin` plus one terminal Work call (`work_complete`, `work_fail`, `work_interrupt`, or `work_abandon`). Use `work_checkpoint` only at a meaningful milestone or blocker.
+3. If `work.continuation.kind` is `none`, route explicit managed Task / standard Task protocol intent directly to `task_create`; otherwise substantive work starts with `work_begin` before other tools. AI Layer handles backing Work for managed Tasks automatically. Tiny one-shot Q&A may stay unmaterialized. Short ordinary work should normally use only `work_begin` plus one terminal Work call. Use `work_checkpoint` only at a meaningful milestone or blocker. Close ordinary Work with one terminal call: `work_complete`, `work_fail`, `work_interrupt`, or `work_abandon`.
 4. When the location is known, inspect current source directly. When it is unknown, call `project_search` before broad discovery: English code-centric primary query for non-English goals, exact identifiers verbatim, at most one original-language or mixed variant.
 5. Use `knowledge_search` and `decision_search` only when their durable information can materially affect the implementation or investigation.
 6. Let the host choose relevant native Agent Skills through its own progressive disclosure mechanism. Do not preload an unrelated skill bundle.
@@ -148,7 +148,7 @@ A user may ask “где повторно создаётся заказ посл
 
 ### Continuation pattern
 
-User says “continue”. Do not infer from chat fragments. `project_status.work.current_focus` / `work.continuation` name the live focus. Dispatch on `kind`: `task` → `task_next`; `work` → same WorkItem via host-native execution; `epic` → `epic_next`. If `continuation.kind` is `none`, call `work_begin` before other tools unless the request is tiny one-shot Q&A.
+User says “continue”. Do not infer from chat fragments. `project_status.work.current_focus` / `work.continuation` name the live focus. Dispatch on `kind`: `task` → `task_next`; `work` → same WorkItem via host-native execution; `epic` → `epic_next`. If `continuation.kind` is `none`, explicit managed Task / standard Task protocol intent goes to `task_create`; otherwise substantive work goes to `work_begin`.
 
 ### Durable-knowledge pattern
 

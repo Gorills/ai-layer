@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ai_layer.application.managed_work import sync_task_backing_work
 from ai_layer.core.paths import project_state_path
 from ai_layer.core.service import get_project
 from ai_layer.db.session import session_scope
@@ -35,6 +36,14 @@ def _project(db, project_root: str | Path):
     return get_project(db, project_root)
 
 
+def _with_task_work(db, project, result: dict, *, create_if_missing: bool = False) -> dict:
+    payload = dict(result)
+    work = sync_task_backing_work(db, project, payload, create_if_missing=create_if_missing)
+    if work is not None:
+        payload["work"] = work
+    return payload
+
+
 def _idle_managed_task_payload(result: dict) -> dict:
     """Translate legacy idle Task state into the current optional-managed-work contract."""
     if result.get("active"):
@@ -46,9 +55,9 @@ def _idle_managed_task_payload(result: dict) -> dict:
             "action": "host_native",
             "tool": None,
             "message": (
-                "No managed Task is active. Continue ordinary work through the host-native agent runtime; "
-                "a managed Task is not required. Create one only when the user or task needs durable/strict "
-                "managed execution."
+                "No managed Task is active. Ordinary work remains host-native. If the user explicitly "
+                "asked for a managed Task or standard Task protocol, call task_create directly; AI Layer creates "
+                "or links the backing Work automatically."
             ),
             "managed_option": {
                 "tool": "task_create",
@@ -228,12 +237,16 @@ def next_action(project_root: str | Path) -> dict:
 
 def cancel(project_root: str | Path, *, reason: str) -> dict:
     with session_scope() as db:
-        return cancel_task(db, _project(db, project_root), reason=reason)
+        project = _project(db, project_root)
+        result = cancel_task(db, project, reason=reason)
+        return _with_task_work(db, project, result)
 
 
 def worker_disconnected(project_root: str | Path, *, reason: str) -> dict:
     with session_scope() as db:
-        return recover_disconnected_worker(db, _project(db, project_root), reason=reason)
+        project = _project(db, project_root)
+        result = recover_disconnected_worker(db, project, reason=reason)
+        return _with_task_work(db, project, result)
 
 
 def worker_heartbeat(
@@ -258,17 +271,23 @@ def reap_stale_workers() -> dict:
 
 def resume(project_root: str | Path) -> dict:
     with session_scope() as db:
-        return resume_task(db, _project(db, project_root))
+        project = _project(db, project_root)
+        result = resume_task(db, project)
+        return _with_task_work(db, project, result)
 
 
 def create(project_root: str | Path, **kwargs: Any) -> dict:
     with session_scope() as db:
-        return create_task(db, _project(db, project_root), **kwargs)
+        project = _project(db, project_root)
+        result = create_task(db, project, **kwargs)
+        return _with_task_work(db, project, result, create_if_missing=True)
 
 
 def adopt(project_root: str | Path, **kwargs: Any) -> dict:
     with session_scope() as db:
-        return adopt_task(db, _project(db, project_root), **kwargs)
+        project = _project(db, project_root)
+        result = adopt_task(db, project, **kwargs)
+        return _with_task_work(db, project, result, create_if_missing=True)
 
 
 def delegate(
@@ -293,14 +312,16 @@ def delegate(
 
 def complete_current(project_root: str | Path, **kwargs: Any) -> dict:
     with session_scope() as db:
-        result = complete_current_stage(db, _project(db, project_root), **kwargs)
-        return _with_project_map_hint(result)
+        project = _project(db, project_root)
+        result = complete_current_stage(db, project, **kwargs)
+        return _with_project_map_hint(_with_task_work(db, project, result))
 
 
 def complete_legacy(project_root: str | Path, **kwargs: Any) -> dict:
     with session_scope() as db:
-        result = complete_stage(db, _project(db, project_root), **kwargs)
-        return _with_project_map_hint(result)
+        project = _project(db, project_root)
+        result = complete_stage(db, project, **kwargs)
+        return _with_project_map_hint(_with_task_work(db, project, result))
 
 
 def prepare_review_sandbox(project_root: str | Path) -> dict:

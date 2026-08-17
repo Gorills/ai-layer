@@ -23,9 +23,9 @@ def critical_orchestrator_contract() -> dict[str, Any]:
         "external_mutation": "host_native_subject_to_user_permissions",
         "startup_rule": "Call project_status before beginning registered-project work.",
         "work_rule": (
-            "When project_status continuation.kind is none, call work_begin before other tools for "
-            "substantive work. Short work normally needs only work_begin plus one terminal call; "
-            "managed Tasks remain optional assurance."
+            "When project_status continuation.kind is none, explicit user Task/standard-Task-protocol intent "
+            "goes directly to task_create; otherwise substantive work starts with work_begin. Backing Work for "
+            "managed Tasks is automatic."
         ),
         "discovery_rule": (
             "When code location is unknown, use a concise English code-centric project_search query for "
@@ -70,13 +70,13 @@ def critical_orchestrator_markdown() -> str:
 AI Layer provides Project Intelligence, durable ordinary-work state, optional managed assurance, professional skills, verification evidence and observability. The host agent runtime remains the execution engine.
 
 - Start registered-project work with `project_status(project_root=<workspace root>)` before implementation or broad discovery. Apply `project_policy.text` when present; its version/hash identifies the delivered revision. Use `work.current_focus` / `work.continuation` to interpret "continue" without rediscovering prior work.
-- After `project_status`, if `work.continuation.kind` is `none` and the request is substantive (implement, diagnose, review, research, multi-step investigation, live checks), call `work_begin` before other tools and pick `kind` accordingly. Tiny one-shot Q&A with no durable value may stay unmaterialized. Close with one of `work_complete`, `work_fail`, `work_interrupt`, or `work_abandon`. Use `work_checkpoint` only for a meaningful milestone or blocker. Managed Task is optional assurance, not ordinary-work identity.
+- After `project_status`, if `work.continuation.kind` is `none`, route by user intent: an explicit managed Task / standard Task protocol request calls `task_create` directly; otherwise substantive work (implement, diagnose, review, research, multi-step investigation, live checks) starts with `work_begin`. AI Layer creates or links backing Work for managed Tasks automatically. Tiny one-shot Q&A with no durable value may stay unmaterialized. Ordinary Work closes with one terminal Work call; use `work_checkpoint` only for a meaningful milestone or blocker.
 - If the user already names a precise file or symbol, open that current source directly after status.
 - If the relevant code location is unknown, call `project_search` before broad repository grep/search. For non-English natural-language intent, derive a concise English code-centric primary query and preserve exact identifiers; pass at most one original-language or mixed `query_variants` entry when it materially widens domain recall. Treat returned paths/symbols as breadcrumbs and inspect current source. If semantic search is degraded or implausible, retry with English code-centric terms, then one bounded native exact-token search. For end-to-end flows cover entrypoint/handler, core service/domain, persistence/external integration and tests before claiming the flow is complete.
 - Project Map is read with `project_search` and updated with `project_map_reconcile`. Reconcile only inspected scope. Pass `source_work_key` for ordinary Work closure or `source_task_key` for a completed managed Task/Epic, never both; if no semantic change is needed, record `no_changes_reason`.
 - Use `knowledge_search` for reviewed project facts/invariants and `decision_search` for architectural history only when relevant. They are not substitutes for current source.
 - Native read/edit/search/shell/test/subagent capabilities remain available. Prefer the smallest sufficient exploration. AI Layer does not grant per-edit permission and must not replace the host's own agent loop.
-- Existing managed Tasks and Epics remain durable strict workflows. When status reports one as the current managed focus, or the user explicitly chooses managed execution, use `task_next` / `epic_next`.
+- Existing managed Tasks and Epics remain durable strict workflows. Resume an active managed focus with `task_next` / `epic_next`; for a new explicit managed Task request, start with `task_create` and follow its returned live next action.
 - Never stash, reset, restore, discard or commit user changes merely to satisfy AI Layer; a dirty worktree is valid project state.
 - If AI Layer state/index retrieval fails, disclose the missing context and continue with native source inspection when safe. Never fabricate Work/Task/Epic/Knowledge state.
 - Agent Skills are selected by the host natively. Do not preload unrelated skills. Use `skill_get` only when host-native activation is insufficient.

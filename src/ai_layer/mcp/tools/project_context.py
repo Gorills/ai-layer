@@ -98,7 +98,7 @@ def project_map_reconcile(
     no_changes_reason: str | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: after meaningful real work established better navigation facts. Reconcile only inspected/affected paths. Canonical purpose/responsibilities/hints must be concise English; keep code identifiers exact and put useful Russian/other aliases in domain_terms. Pass source_work_key for ordinary Work closure or source_task_key for managed/Epic closure, never both. A work-linked call persists Work.map_disposition as reconciled with event_id and checked scope and returns that ready disposition."""
+    """WHEN: meaningful real work established new reusable navigation facts or explicit removals. Reconcile only inspected/affected paths. Canonical purpose/responsibilities/hints must be concise English; keep code identifiers exact and put useful Russian/other aliases in domain_terms. Pass source_work_key for ordinary Work closure or source_task_key for managed/Epic closure, never both. For source_work_key, scope_paths may be omitted when Work already records reviewed/changed paths; AI Layer derives that checked scope. Scanner-visible entry paths missing from the current structural map are refreshed before semantic validation. Do not call this only to say no map change at terminal Work closure; work_complete records unresolved map debt truthfully without a separate ceremony call."""
     root = project_root_for_tool(project_root, tool="project_map_reconcile")
     with mcp_audit(
         root,

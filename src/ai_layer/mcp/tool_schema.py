@@ -58,48 +58,17 @@ KnowledgeKeyText = Annotated[str, Field(min_length=1, max_length=160)]
 
 
 def _natural_check_status(
-    value: object, *, result: object, summary: str, command: str | None
+    value: WorkCheckStatus | None, *, result: object, summary: str, command: str | None
 ) -> WorkCheckStatus:
-    rendered = str(value or "").strip().casefold().replace("-", "_").replace(" ", "_")
-    aliases: dict[str, WorkCheckStatus] = {
-        "pass": "passed",
-        "passed": "passed",
-        "success": "passed",
-        "succeeded": "passed",
-        "ok": "passed",
-        "fail": "failed",
-        "failed": "failed",
-        "failure": "failed",
-        "error": "failed",
-        "skipped": "skipped",
-        "skip": "skipped",
-        "blocked": "blocked",
-        "not_run": "not_run",
-        "reported": "reported",
-    }
-    if rendered:
-        return aliases.get(rendered, "reported")
+    if value is not None:
+        return value
     if isinstance(result, bool):
         return "passed" if result else "failed"
     if isinstance(result, int):
         return "passed" if result == 0 else "failed"
-    evidence = " ".join(str(result if result is not None else summary).strip().casefold().split())
-    if not evidence:
-        return "reported" if command else "not_run"
-    if any(marker in evidence for marker in ("not run", "not executed", "not checked")):
-        return "not_run"
-    if "blocked" in evidence:
-        return "blocked"
-    if "skipped" in evidence:
-        return "skipped"
-    if any(
-        marker in evidence
-        for marker in ("no errors", "no error", "no failures", "passed", "success", "succeeded")
-    ):
-        return "passed"
-    if any(marker in evidence for marker in ("failed", "failure", " error", "errors")):
-        return "failed"
-    return "reported"
+    if result is not None or summary.strip() or command:
+        return "reported"
+    return "not_run"
 
 
 class WorkCheckInput(BaseModel):
@@ -109,7 +78,10 @@ class WorkCheckInput(BaseModel):
     status: WorkCheckStatus | None = None
     summary: Annotated[str, Field(max_length=500)] = ""
     command: Annotated[str | None, Field(max_length=2000, exclude=True)] = None
-    result: Annotated[str | bool | int | None, Field(exclude=True)] = None
+    result: Annotated[
+        Annotated[str, Field(max_length=4000)] | bool | int | None,
+        Field(exclude=True),
+    ] = None
 
     @model_validator(mode="after")
     def normalize_natural_report(self) -> WorkCheckInput:

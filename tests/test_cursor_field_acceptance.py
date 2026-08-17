@@ -29,6 +29,8 @@ def test_natural_cursor_check_report_normalizes_before_durable_work_evidence() -
     assert {"command", "result"} <= set(schema["properties"])
     assert "name" not in schema.get("required", [])
     assert "status" not in schema.get("required", [])
+    result_schema = schema["properties"]["result"]
+    assert any(item.get("maxLength") == 4000 for item in result_schema.get("anyOf", []))
 
     check = WorkCheckInput(
         command="npx tsc --noEmit (mobile)",
@@ -37,7 +39,7 @@ def test_natural_cursor_check_report_normalizes_before_durable_work_evidence() -
     assert wire_value([check]) == [
         {
             "name": "reported check",
-            "status": "passed",
+            "status": "reported",
             "summary": "pre-existing errors elsewhere, no errors in changed files",
         }
     ]
@@ -132,3 +134,9 @@ def test_task_linked_reconcile_falls_back_to_known_final_changes_without_work() 
             no_changes_reason="Existing navigation facts remain accurate.",
         )
         assert result["scope_paths"] == ["mobile/src/app.ts"]
+
+
+def test_natural_check_uses_explicit_machine_status_when_available() -> None:
+    assert WorkCheckInput(command="npx tsc --noEmit", result=0).status == "passed"
+    assert WorkCheckInput(command="npx tsc --noEmit", result=2).status == "failed"
+    assert WorkCheckInput(name="lint", status="failed", summary="lint failed").status == "failed"

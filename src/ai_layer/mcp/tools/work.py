@@ -18,6 +18,7 @@ from ai_layer.mcp.tool_schema import (
     WorkRepositoryDeltaInput,
     WorkSessionText,
     WorkSummaryOptional,
+    WorkSummaryText,
 )
 
 
@@ -202,7 +203,7 @@ def work_complete(
 
 def work_fail(
     work_key: WorkKeyText,
-    summary: WorkSummaryOptional = "",
+    summary: WorkSummaryText,
     reviewed_paths: ProjectPathList | None = None,
     changed_paths: ProjectPathList | None = None,
     checks: WorkCheckList | None = None,
@@ -228,7 +229,7 @@ def work_fail(
 
 def work_interrupt(
     work_key: WorkKeyText,
-    summary: WorkSummaryOptional = "",
+    summary: WorkSummaryText,
     reviewed_paths: ProjectPathList | None = None,
     changed_paths: ProjectPathList | None = None,
     checks: WorkCheckList | None = None,
@@ -254,7 +255,7 @@ def work_interrupt(
 
 def work_abandon(
     work_key: WorkKeyText,
-    summary: WorkSummaryOptional = "",
+    summary: WorkSummaryText,
     reviewed_paths: ProjectPathList | None = None,
     changed_paths: ProjectPathList | None = None,
     checks: WorkCheckList | None = None,

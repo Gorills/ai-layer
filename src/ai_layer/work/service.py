@@ -403,9 +403,9 @@ def finish_work(
         if work.status == terminal:
             return work, []
         raise RuntimeError(f"work item {work_key(work)} is already terminal: {work.status}")
-    reported_summary = str(summary or "").strip() or str(work.result_summary or "").strip()
-    if not reported_summary:
-        reported_summary = f"{terminal.capitalize()} work: {work.goal}"
+    reported_summary = str(summary or "").strip()
+    if terminal == "completed" and not reported_summary:
+        reported_summary = str(work.result_summary or "").strip() or f"Completed work: {work.goal}"
     normalized_summary = safe_metadata_text(
         reported_summary, field="summary", max_chars=WORK_SUMMARY_MAX_CHARS, required=True
     )

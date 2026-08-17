@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -140,3 +141,19 @@ def test_natural_check_uses_explicit_machine_status_when_available() -> None:
     assert WorkCheckInput(command="npx tsc --noEmit", result=0).status == "passed"
     assert WorkCheckInput(command="npx tsc --noEmit", result=2).status == "failed"
     assert WorkCheckInput(name="lint", status="failed", summary="lint failed").status == "failed"
+
+
+def test_non_success_terminal_reason_remains_new_agent_fact() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine, expire_on_commit=False) as db:
+        project = _project(db, "/tmp/cursor-terminal-reason")
+        begin_work(db, project, goal="Investigate mobile TypeScript errors")
+        with pytest.raises(ValueError, match="summary"):
+            finish_work(
+                db,
+                project,
+                work_key_value="W-0001",
+                status="failed",
+                summary="",
+            )

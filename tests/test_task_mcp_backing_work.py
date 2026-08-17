@@ -11,8 +11,8 @@ from ai_layer.application import tasks as tasks_uc
 from ai_layer.db.base import Base
 from ai_layer.db.models import Project
 from ai_layer.db.work_models import AgentRun, WorkItem
-from ai_layer.mcp import server
 from ai_layer.mcp import context as mcp_context
+from ai_layer.mcp import server
 from ai_layer.mcp.tools import tasks as task_tools
 
 

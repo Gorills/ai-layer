@@ -1,0 +1,68 @@
+name: fix-doctor-legacy-acceptance
+
+on:
+  push:
+    branches: [ai/integration-health-v2]
+    paths: [.github/workflows/_fix-doctor-legacy-acceptance.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ai/integration-health-v2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Restore legacy Cursor black-box warning compatibility
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/ai_layer/cli/doctor.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''        elif runtime.get("state") == "unverified" and canonical in _CORE_INTEGRATION_PROVIDERS:\n            runtime_unverified.append(canonical)\n    if runtime_unverified:\n'''
+          new = '''        elif runtime.get("state") == "unverified" and canonical in _CORE_INTEGRATION_PROVIDERS:\n            runtime_unverified.append(canonical)\n        elif (\n            not runtime\n            and canonical == "cursor"\n            and state.get("runtime_acceptance_required")\n        ):\n            issues.append(\n                {\n                    "severity": "warning",\n                    "problem": "Cursor global bootstrap files are installed; one real-agent black-box acceptance is still a machine-level validation step, not a project error",\n                    "action": "run the supported-host black-box acceptance for the installed release when practical",\n                }\n            )\n    if runtime_unverified:\n'''
+          if text.count(old) != 1:
+              raise RuntimeError(f'expected one doctor compatibility fragment, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Validate compatibility fix
+        shell: bash
+        run: |
+          ruff check --fix src/ai_layer/cli/doctor.py
+          ruff format src/ai_layer/cli/doctor.py
+          ruff check src/ai_layer/cli/doctor.py
+          mypy src/ai_layer
+          python scripts/architecture_gate.py --json
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_doc_hygiene.py tests/test_cli.py
+      - name: Refresh deterministic wheel and manifest
+        shell: bash
+        run: |
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          print(manifest['application_wheel_sha256'])
+          PY
+      - name: Commit tested compatibility fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/ai_layer/cli/doctor.py dist/local_ai_development_layer-0.14.0-py3-none-any.whl release/release-manifest.json
+          git commit -m 'Preserve legacy Cursor acceptance warning'
+          git push origin HEAD:ai/integration-health-v2

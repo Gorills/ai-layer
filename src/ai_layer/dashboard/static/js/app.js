@@ -111,6 +111,8 @@ function projectSection(current) {
 function scopedHref(root, projectKey) {
   if (root === "overview") return "#/overview";
   if (root === "project") return projectKey ? `#/project/${encodeURIComponent(projectKey)}` : "#/overview";
+  if (projectKey && root === "work") return `#/project/${encodeURIComponent(projectKey)}/work`;
+  if (projectKey && root === "knowledge") return `#/project/${encodeURIComponent(projectKey)}/knowledge`;
   if (FILTERABLE_ROOTS.has(root)) return hashUrl(root, { project: projectKey || null });
   return `#/${root}`;
 }
@@ -238,7 +240,7 @@ function projectRequired(title) {
     <div class="section-eyebrow">${escapeHtml(title)}</div>
     <h2>Сначала выберите проект</h2>
     <p>Этот раздел имеет смысл только внутри конкретного проекта. Выбор сохранится при дальнейшей навигации.</p>
-    <div class="project-choice-grid">${projects.map((project) => `<a class="project-choice" href="#/project/${encodeURIComponent(project.key)}"><strong>${escapeHtml(project.name)}</strong><span>${escapeHtml(project.root || "")}</span></a>`).join("") || `<div class="empty">Зарегистрированных проектов нет</div>`}</div>
+    <div class="project-choice-grid">${projects.map((project) => `<a class="project-choice" href="#/project/${encodeURIComponent(project.key)}/knowledge"><strong>${escapeHtml(project.name)}</strong><span>${escapeHtml(project.root || "")}</span></a>`).join("") || `<div class="empty">Зарегистрированных проектов нет</div>`}</div>
   </div>`;
 }
 

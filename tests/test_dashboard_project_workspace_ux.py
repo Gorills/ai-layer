@@ -20,6 +20,8 @@ def test_dashboard_keeps_project_context_across_navigation() -> None:
     workspace_css = _read("css", "workspace.css")
 
     assert "function scopedHref" in app_js
+    assert 'projectKey && root === "work"' in app_js
+    assert 'projectKey && root === "knowledge"' in app_js
     assert "element.href = scopedHref(target, knownProject)" in app_js
     assert 'parts[2] === "work"' in app_js
     assert 'parts[2] === "knowledge"' in app_js
@@ -81,6 +83,7 @@ def test_knowledge_without_project_does_not_silently_pick_first_project() -> Non
 
     assert "Сначала выберите проект" in app_js
     assert "Project Knowledge всегда принадлежит конкретному проекту" in app_js
+    assert 'href="#/project/${encodeURIComponent(project.key)}/knowledge"' in app_js
     assert "overviewCache.projects?.[0]?.key" not in app_js
 
 

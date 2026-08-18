@@ -15,6 +15,13 @@ function recentWork(project) {
   return (project?.work?.recent || []).slice(0, 5);
 }
 
+function mapFreshness(map) {
+  if (map?.error) return "error";
+  if (Number(map?.semantic_stale || 0) > 0 || Number(map?.semantic_missing || 0) > 0) return "stale";
+  if (Number(map?.semantic_entries || 0) > 0 || Number(map?.semantic_current || 0) > 0) return "current";
+  return "unknown";
+}
+
 function workMethod(work) {
   const runs = work?.runs || [];
   const run = runs.find((item) => item.role === "root" && !item.stale)
@@ -97,7 +104,7 @@ function attentionItems(data) {
   const project = data.project || {};
   const task = project.task || {};
   const protocol = project.protocol_state || {};
-  const freshness = project.intelligence?.freshness || {};
+  const freshness = mapFreshness(project.project_map || {});
   const items = [];
   for (const work of (project.work?.attention || []).slice(0, 4)) {
     items.push({
@@ -112,8 +119,8 @@ function attentionItems(data) {
   if (protocol.status === "warning") {
     items.push({ title: "Недавние protocol failures", reason: `${protocol.failures_5m || 0} за 5 минут`, href: hashUrl("monitoring", { project: project.key }) });
   }
-  if (["stale", "missing"].includes(String(freshness.status || "").toLowerCase())) {
-    items.push({ title: "Project Intelligence требует обновления", reason: freshness.status, href: `#/project/${encodeURIComponent(project.key)}/knowledge` });
+  if (["stale", "error"].includes(freshness)) {
+    items.push({ title: "Project Map требует обновления", reason: freshness, href: `#/project/${encodeURIComponent(project.key)}/knowledge` });
   }
   return items;
 }
@@ -129,7 +136,7 @@ function attentionPanel(data) {
 function nowPanel(data) {
   const project = data.project || {};
   const work = currentWork(project);
-  const task = project.task;
+  const task = ["active", "blocked"].includes(project.task?.status) ? project.task : null;
   if (!work && !task) {
     return `<section class="panel now-panel"><div class="panel-header"><div><div class="panel-title">Сейчас</div><div class="panel-hint">Текущий пользовательский фокус</div></div></div><div class="calm-state large"><strong>Проект в ожидании</strong><span>Активной работы нет. Последние результаты доступны ниже.</span></div></section>`;
   }
@@ -157,17 +164,22 @@ function recentResults(data) {
 
 function knowledgePulse(data) {
   const project = data.project || {};
-  const intelligence = project.intelligence || {};
-  const map = intelligence.project_map || project.project_map || {};
-  const freshness = intelligence.freshness || {};
-  const focus = intelligence.current_focus || null;
+  const map = project.project_map || {};
+  const freshness = mapFreshness(map);
+  const focusWork = currentWork(project);
+  const focusTask = ["active", "blocked"].includes(project.task?.status) ? project.task : null;
+  const focus = focusWork
+    ? { kind: "Work", key: focusWork.key, title: focusWork.goal }
+    : focusTask
+      ? { kind: "Task", key: focusTask.key, title: focusTask.goal }
+      : null;
   const catalogs = data.skill_state?.configured_catalog || {};
   const skillCount = Object.values(catalogs).reduce((sum, value) => sum + Number(value || 0), 0);
   return `<section class="panel">
     <div class="panel-header"><div><div class="panel-title">Контекст проекта</div><div class="panel-hint">То, что AI Layer уже знает и использует</div></div><a class="panel-header-link" href="#/project/${encodeURIComponent(project.key)}/knowledge">Знания →</a></div>
     <div class="info-list">
       ${infoRow("Current focus", focus ? `${focus.kind || "focus"} ${focus.key || ""}` : "новая работа", focus?.title || "")}
-      ${infoRow("Project Map", map.navigation_files != null ? `${map.navigation_files} файлов · ${map.symbol_count ?? 0} symbols` : "—", freshness.status || "unknown")}
+      ${infoRow("Project Map", `${map.semantic_current ?? 0} current · ${map.semantic_stale ?? 0} stale`, freshness)}
       ${infoRow("Memory refresh", project.memory_refresh?.status || "idle")}
       ${infoRow("Native skills", skillCount || "—", "user-level catalog")}
       ${infoRow("Privacy", project.mode || "standard")}
@@ -291,9 +303,8 @@ function skillCard(item, projectKey) {
 
 export function renderProjectKnowledgeHub(data) {
   const project = data.projectData?.project || {};
-  const intelligence = project.intelligence || {};
-  const map = intelligence.project_map || project.project_map || {};
-  const freshness = intelligence.freshness || {};
+  const map = project.project_map || {};
+  const freshness = mapFreshness(map);
   const summary = data.knowledge?.summary || {};
   const knowledge = data.knowledge?.items || [];
   const skills = data.skills?.items || [];
@@ -302,7 +313,7 @@ export function renderProjectKnowledgeHub(data) {
     ${projectHeader(project)}
     <div class="workspace-summary-grid">
       ${metric("Verified knowledge", summary.verified ?? 0, `${summary.stale ?? 0} stale · ${summary.draft ?? 0} draft`)}
-      ${metric("Project Map", map.navigation_files != null ? `${map.navigation_files} файлов` : "—", `${escapeHtml(map.symbol_count ?? 0)} symbols · ${escapeHtml(freshness.status || "unknown")}`)}
+      ${metric("Project Map", `${escapeHtml(map.semantic_current ?? 0)} current`, `${escapeHtml(map.semantic_stale ?? 0)} stale · ${escapeHtml(map.semantic_missing ?? 0)} missing`)}
       ${metric("Project rules", rules.rule_count ?? 0, rules.has_custom_rules ? "custom" : "только global policy")}
       ${metric("Skills", data.skills?.pagination?.total ?? skills.length, "доступно в контексте проекта")}
     </div>
@@ -313,12 +324,13 @@ export function renderProjectKnowledgeHub(data) {
           ${knowledge.length ? `<div class="knowledge-summary-list">${knowledge.map((item) => knowledgeCard(project.key, item)).join("")}</div>` : `<div class="empty">Knowledge cards пока нет</div>`}
         </section>
         <section class="panel">
-          <div class="panel-header"><div><div class="panel-title">Project Map</div><div class="panel-hint">Где находится код и насколько карта свежая</div></div>${stateBadge(String(freshness.status || "unknown").toLowerCase())}</div>
+          <div class="panel-header"><div><div class="panel-title">Project Map</div><div class="panel-hint">Где находится код и насколько карта свежая</div></div>${stateBadge(freshness)}</div>
           <div class="info-list">
-            ${infoRow("Navigation files", map.navigation_files ?? "—")}
-            ${infoRow("Symbols", map.symbol_count ?? "—")}
-            ${infoRow("Freshness", freshness.status || "unknown")}
-            ${infoRow("Execution owner", intelligence.execution_owner || "host-native")}
+            ${infoRow("Semantic entries", map.semantic_entries ?? "—")}
+            ${infoRow("Current", map.semantic_current ?? "—")}
+            ${infoRow("Stale / missing", `${map.semantic_stale ?? 0} / ${map.semantic_missing ?? 0}`)}
+            ${infoRow("Freshness", freshness)}
+            ${infoRow("Execution owner", "host-native")}
           </div>
         </section>
       </div>

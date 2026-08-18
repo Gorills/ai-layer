@@ -52,6 +52,10 @@ def test_project_workspace_answers_operational_questions_without_screen_hopping(
     assert "changedLabel(work)" in project_js
     assert "checksLabel(work)" in project_js
     assert "workMethod(work)" in project_js
+    assert '["active", "blocked"].includes(project.task?.status)' in project_js
+    assert "project.intelligence" not in project_js
+    assert "navigation_files" not in project_js
+    assert "semantic_current" in project_js
     assert "Promise.all([" in app_js
     assert "api.work({ project_key: current.key" in app_js
     assert "api.tasks({ project_key: current.key" in app_js

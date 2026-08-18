@@ -42,7 +42,7 @@ def work_begin(
     idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: begin one substantive ordinary user request (change, diagnose, review, research, planning, or ops), including investigation that should fill Project Map. Call after project_status on the default substantive route; an explicit managed Task / standard Task protocol request routes directly to task_create instead. For short work pair this with work_complete and skip checkpoints. Reuse idempotency_key when retrying the same host event."""
+    """WHEN: begin one substantive ordinary user outcome (change, diagnose, review, research, planning, or ops), including investigation that should fill Project Map. Call after project_status on the default substantive route; an explicit managed Task / standard Task protocol request routes directly to task_create instead. Keep this WorkItem across related user revisions: use work_wait after an execution episode that may receive feedback, work_resume for the next related iteration, and terminal Work tools only when the durable outcome is truly finished or abandoned. Reuse idempotency_key when retrying the same host event."""
     root = project_root_for_tool(project_root, tool="work_begin")
     goal = _text(goal, tool="work_begin", field="goal")
     with mcp_audit(
@@ -131,6 +131,73 @@ def work_checkpoint(
         return _scoped(result, root)
 
 
+def work_wait(
+    work_key: WorkKeyText | None = None,
+    summary: WorkSummaryOptional = "",
+    idempotency_key: IdempotencyKey | None = None,
+    project_root: str | None = None,
+) -> dict:
+    """WHEN: the current execution episode has produced a result and normal user feedback/revision may follow. Ends active AgentRuns but keeps the same WorkItem open as awaiting_feedback. This is not a terminal success state."""
+    root = project_root_for_tool(project_root, tool="work_wait")
+    work_key = _optional_work_key(work_key, tool="work_wait")
+    with mcp_audit(
+        root,
+        "work_wait",
+        arg_keys=["work_key", "summary", "idempotency_key", "project_root"],
+    ) as audit:
+        result = work_uc.wait(
+            root,
+            work_key=work_key,
+            summary=summary,
+            idempotency_key=(idempotency_key or "").strip() or None,
+        )
+        work = result.get("work") or {}
+        audit["metrics"] = {"work_key": work.get("key"), "status": work.get("status")}
+        return _scoped(result, root)
+
+
+def work_resume(
+    work_key: WorkKeyText | None = None,
+    host: WorkHostText = "unknown",
+    client: WorkClientText = "unknown",
+    session_id: WorkSessionText = "",
+    turn_id: WorkSessionText = "",
+    model: WorkSessionText = "",
+    idempotency_key: IdempotencyKey | None = None,
+    project_root: str | None = None,
+) -> dict:
+    """WHEN: the user gives a related follow-up for an awaiting_feedback WorkItem. Starts a new root AgentRun on that same durable Work instead of creating another WorkItem."""
+    root = project_root_for_tool(project_root, tool="work_resume")
+    work_key = _optional_work_key(work_key, tool="work_resume")
+    with mcp_audit(
+        root,
+        "work_resume",
+        arg_keys=[
+            "work_key",
+            "host",
+            "client",
+            "session_id",
+            "turn_id",
+            "model",
+            "idempotency_key",
+            "project_root",
+        ],
+    ) as audit:
+        result = work_uc.resume(
+            root,
+            work_key=work_key,
+            host=host,
+            client=client,
+            session_id=session_id,
+            turn_id=turn_id,
+            model=model,
+            idempotency_key=(idempotency_key or "").strip() or None,
+        )
+        work = result.get("work") or {}
+        audit["metrics"] = {"work_key": work.get("key"), "status": work.get("status")}
+        return _scoped(result, root)
+
+
 def _terminal(
     operation: str,
     work_key: str | None,
@@ -193,7 +260,7 @@ def work_complete(
     idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: substantive work reached a terminal successful result. work_key may be omitted when AI Layer has exactly one active Work. summary is optional: when omitted AI Layer reuses an existing Work summary or derives a truthful terminal summary from the known goal. checks may use canonical name/status/summary or natural command/result/passed/details reports; raw command/result fields are normalized and are not persisted. A work-linked project_map_reconcile already persists reconciled map_disposition; omit it here to keep that value. If no reconciliation was recorded and map state is still pending, terminal closure records a truthful deferred disposition automatically."""
+    """WHEN: the durable user outcome reached a terminal successful result rather than merely awaiting another normal revision. work_key may be omitted when AI Layer has exactly one open Work. summary is optional: when omitted AI Layer reuses an existing Work summary or derives a truthful terminal summary from the known goal. checks may use canonical name/status/summary or natural command/result/passed/details reports; raw command/result fields are normalized and are not persisted. A work-linked project_map_reconcile already persists reconciled map_disposition; omit it here to keep that value. If no reconciliation was recorded and map state is still pending, terminal closure records a truthful deferred disposition automatically."""
     return _terminal(
         "work_complete",
         work_key,
@@ -245,7 +312,7 @@ def work_interrupt(
     idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: work stops with useful continuation state and may be resumed by a later WorkItem or host session."""
+    """WHEN: the durable Work itself is being interrupted, not when one normal execution episode ends for user feedback."""
     return _terminal(
         "work_interrupt",
         work_key,
@@ -288,6 +355,8 @@ def work_abandon(
 
 work_begin = core_tool()(work_begin)
 work_checkpoint = core_tool()(work_checkpoint)
+work_wait = core_tool()(work_wait)
+work_resume = core_tool()(work_resume)
 work_complete = core_tool()(work_complete)
 work_fail = core_tool()(work_fail)
 work_interrupt = core_tool()(work_interrupt)

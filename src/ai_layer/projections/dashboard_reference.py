@@ -167,26 +167,29 @@ def _read_text(path: Path | None) -> str:
 def _project_rules_path(entry: dict) -> Path | None:
     root = Path(str(entry.get("root") or "")).expanduser().resolve()
     mode = str(entry.get("mode") or "standard")
-    if mode not in {"external", "strict-private"}:
-        meta = root / ".ai-layer"
-        target = meta / "rules.md"
-        if meta.is_symlink() or target.is_symlink():
+    project_id = str(entry.get("project_id") or "").strip()
+    project_id_path = Path(project_id)
+    if project_id:
+        if (
+            project_id in {".", ".."}
+            or len(project_id_path.parts) != 1
+            or project_id_path.name != project_id
+        ):
+            return None
+        base = get_settings().home / "projects"
+        project_dir = base / project_id
+        target = project_dir / "rules.md"
+        if base.is_symlink() or project_dir.is_symlink() or target.is_symlink():
             return None
         return target
 
-    project_id = str(entry.get("project_id") or "").strip()
-    project_id_path = Path(project_id)
-    if (
-        not project_id
-        or project_id in {".", ".."}
-        or len(project_id_path.parts) != 1
-        or project_id_path.name != project_id
-    ):
+    # Compatibility read for a legacy standard registration that has not been repaired yet.
+    # Current standard/external/private attachments all store rules machine-side once project_id exists.
+    if mode != "standard":
         return None
-    base = get_settings().home / "projects"
-    project_dir = base / project_id
-    target = project_dir / "rules.md"
-    if base.is_symlink() or project_dir.is_symlink() or target.is_symlink():
+    meta = root / ".ai-layer"
+    target = meta / "rules.md"
+    if meta.is_symlink() or target.is_symlink():
         return None
     return target
 

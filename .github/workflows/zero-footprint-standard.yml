@@ -38,6 +38,7 @@ jobs:
         run: |
           python .github/zero_footprint_runner.py
           python .github/zero_footprint_followup.py
+          python .github/zero_footprint_syntaxfix.py
       - name: Align global-host readiness regression
         run: |
           python - <<'PY'
@@ -60,6 +61,7 @@ jobs:
             .github/zero_footprint_migrate.py \
             .github/zero_footprint_runner.py \
             .github/zero_footprint_followup.py \
+            .github/zero_footprint_syntaxfix.py \
             src/ai_layer/core/paths.py \
             src/ai_layer/core/registry.py \
             src/ai_layer/core/service.py \

@@ -1,9 +1,9 @@
 name: dashboard-ux-finalize
 
 on:
-  push:
+  pull_request:
     branches:
-      - ux/project-centered-dashboard
+      - main
 
 permissions:
   contents: write

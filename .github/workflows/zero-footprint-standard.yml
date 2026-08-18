@@ -35,7 +35,9 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
       - name: Materialize bounded change-set
-        run: python .github/zero_footprint_runner.py
+        run: |
+          python .github/zero_footprint_runner.py
+          python .github/zero_footprint_followup.py
       - name: Align global-host readiness regression
         run: |
           python - <<'PY'
@@ -57,21 +59,32 @@ jobs:
           python -m ruff format \
             .github/zero_footprint_migrate.py \
             .github/zero_footprint_runner.py \
+            .github/zero_footprint_followup.py \
             src/ai_layer/core/paths.py \
             src/ai_layer/core/registry.py \
             src/ai_layer/core/service.py \
             src/ai_layer/core/repair.py \
             src/ai_layer/integrations/status.py \
             src/ai_layer/integrations/versioning.py \
+            src/ai_layer/skills/native_files.py \
             src/ai_layer/skills/native_sync.py \
             src/ai_layer/cli/commands/operations.py \
             tests/test_integrations.py \
+            tests/test_native_skills.py \
             tests/test_privacy.py \
-            tests/test_repair.py
+            tests/test_repair.py \
+            tests/test_sync.py
       - name: Fast gate
         run: make fast-gate
       - name: Focused regressions
-        run: python -m pytest -q tests/test_integrations.py tests/test_privacy.py tests/test_repair.py tests/test_cli.py
+        run: >-
+          python -m pytest -q
+          tests/test_integrations.py
+          tests/test_native_skills.py
+          tests/test_privacy.py
+          tests/test_repair.py
+          tests/test_sync.py
+          tests/test_cli.py
       - name: Refresh deterministic wheel and manifest
         run: |
           python scripts/build_release_wheel.py
@@ -103,11 +116,14 @@ jobs:
             src/ai_layer/core/repair.py \
             src/ai_layer/integrations/status.py \
             src/ai_layer/integrations/versioning.py \
+            src/ai_layer/skills/native_files.py \
             src/ai_layer/skills/native_sync.py \
             src/ai_layer/cli/commands/operations.py \
             tests/test_integrations.py \
+            tests/test_native_skills.py \
             tests/test_privacy.py \
             tests/test_repair.py \
+            tests/test_sync.py \
             PROJECT_CHARTER.md ARCHITECTURE.md README.md CURRENT_STATE.md \
             release/release-manifest.json \
             dist/local_ai_development_layer-0.14.0-py3-none-any.whl \

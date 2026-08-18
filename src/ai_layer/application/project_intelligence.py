@@ -109,6 +109,22 @@ def _continuation(
             ),
         }
     if active_work:
+        if active_work.get("status") == "awaiting_feedback":
+            return {
+                "kind": "work",
+                "key": active_work.get("key"),
+                "goal": active_work.get("goal"),
+                "navigator": "work_resume",
+                "next_action": {
+                    "action": "resume_ordinary_work",
+                    "tool": "work_resume",
+                    "required": ["work_key"],
+                },
+                "instruction": (
+                    "This ordinary Work is awaiting user feedback. A related follow-up resumes the same "
+                    "WorkItem with work_resume; do not start a new WorkItem."
+                ),
+            }
         if active_work.get("live"):
             instruction = (
                 "This project has live ordinary Work. Resume it through host-native execution and keep the "

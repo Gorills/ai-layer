@@ -11,6 +11,7 @@ from ai_layer.db.session import session_scope
 from ai_layer.domain.agent_contract import ENVELOPE_ORDINARY, with_envelope
 from ai_layer.domain.security import SYSTEM_ACTOR
 from ai_layer.observability.work_events import append_contextual_event
+from ai_layer.work.lifecycle import resume_work, wait_work
 from ai_layer.work.service import (
     begin_work,
     checkpoint_work,
@@ -43,6 +44,30 @@ def _bound_result(project: Any, payload: dict) -> dict:
         },
         ENVELOPE_ORDINARY,
     )
+
+
+def _effective_work_payload(item: dict) -> dict:
+    result = dict(item)
+    if result.get("status") == "active" and not any(
+        run.get("status") == "active" for run in result.get("runs") or []
+    ):
+        result["status"] = "awaiting_feedback"
+    return result
+
+
+def _compact_work_payload(item: dict) -> dict:
+    disposition = dict(item.get("map_disposition") or {}) or {"status": "pending"}
+    return {
+        "id": item.get("id"),
+        "key": item.get("key"),
+        "goal": item.get("goal"),
+        "kind": item.get("kind"),
+        "status": item.get("status"),
+        "live": bool(item.get("live")),
+        "map_disposition": {"status": disposition.get("status", "pending")},
+        "map_pending": disposition.get("status") == "pending",
+        "updated_at": item.get("updated_at"),
+    }
 
 
 def begin(project_root: str | Path, *, idempotency_key: str | None = None, **kwargs: Any) -> dict:
@@ -135,6 +160,134 @@ def checkpoint(
             db,
             command_id=_command_id(idempotency_key),
             command_name="work_checkpoint",
+            request=request,
+            actor=actor,
+            correlation_id=correlation_id,
+            project_id=project.id,
+            handler=handler,
+        )
+
+
+def wait(
+    project_root: str | Path,
+    *,
+    work_key: str | None,
+    summary: str = "",
+    idempotency_key: str | None = None,
+) -> dict:
+    actor, correlation_id = _command_context()
+    with session_scope() as db:
+        project = get_project(db, project_root)
+        request = {"work_key": work_key, "summary": summary}
+
+        def handler() -> dict:
+            work, runs = wait_work(
+                db,
+                project,
+                work_key_value=work_key,
+                summary=summary,
+            )
+            root_run = next((item for item in runs if item.role == "root"), None)
+            append_contextual_event(
+                db,
+                event_type="WorkAwaitingFeedback",
+                project=project,
+                aggregate_type="work",
+                aggregate_id=str(work.id),
+                work=work,
+                run=root_run,
+                host=root_run.host if root_run else "",
+                client=root_run.client if root_run else "",
+                session_id=root_run.session_id if root_run else "",
+                turn_id=root_run.turn_id if root_run else "",
+                model=root_run.model if root_run else "",
+                payload={"status": "awaiting_feedback", "summary": work.result_summary},
+                importance="high",
+            )
+            for run in runs:
+                append_contextual_event(
+                    db,
+                    event_type="AgentRunStopped",
+                    project=project,
+                    aggregate_type="agent_run",
+                    aggregate_id=str(run.id),
+                    work=work,
+                    run=run,
+                    host=run.host,
+                    client=run.client,
+                    session_id=run.session_id,
+                    turn_id=run.turn_id,
+                    model=run.model,
+                    payload={"status": run.status},
+                )
+            payload = _effective_work_payload(work_to_dict(db, work))
+            return _bound_result(project, {"work": payload})
+
+        return execute_idempotent(
+            db,
+            command_id=_command_id(idempotency_key),
+            command_name="work_wait",
+            request=request,
+            actor=actor,
+            correlation_id=correlation_id,
+            project_id=project.id,
+            handler=handler,
+        )
+
+
+def resume(
+    project_root: str | Path,
+    *,
+    work_key: str | None,
+    idempotency_key: str | None = None,
+    **kwargs: Any,
+) -> dict:
+    actor, correlation_id = _command_context()
+    with session_scope() as db:
+        project = get_project(db, project_root)
+        request = {"work_key": work_key, **kwargs}
+
+        def handler() -> dict:
+            work, run = resume_work(db, project, work_key_value=work_key, **kwargs)
+            append_contextual_event(
+                db,
+                event_type="WorkResumed",
+                project=project,
+                aggregate_type="work",
+                aggregate_id=str(work.id),
+                work=work,
+                run=run,
+                host=run.host,
+                client=run.client,
+                session_id=run.session_id,
+                turn_id=run.turn_id,
+                model=run.model,
+                payload={"status": work.status},
+                importance="high",
+            )
+            append_contextual_event(
+                db,
+                event_type="AgentRunStarted",
+                project=project,
+                aggregate_type="agent_run",
+                aggregate_id=str(run.id),
+                work=work,
+                run=run,
+                host=run.host,
+                client=run.client,
+                session_id=run.session_id,
+                turn_id=run.turn_id,
+                model=run.model,
+                payload={"status": run.status},
+            )
+            return _bound_result(
+                project, {"work": work_to_dict(db, work), "root_run": run_to_dict(run)}
+            )
+
+        return execute_idempotent(
+            db,
+            command_id=_command_id(idempotency_key),
+            command_name="work_resume",
             request=request,
             actor=actor,
             correlation_id=correlation_id,
@@ -303,7 +456,12 @@ def _attention_work(active: list[dict], recent: list[dict]) -> list[dict]:
     items: list[dict] = []
     seen: set[str] = set()
     for item in [
-        *[row for row in active if row.get("status") == "blocked" or not row.get("live")],
+        *[
+            row
+            for row in active
+            if row.get("status") == "blocked"
+            or (row.get("status") == "active" and not row.get("live"))
+        ],
         *[
             row
             for row in recent
@@ -321,19 +479,34 @@ def _attention_work(active: list[dict], recent: list[dict]) -> list[dict]:
 def state(project_root: str | Path, *, limit: int = 8, compact: bool = False) -> dict:
     with session_scope() as db:
         project = get_project(db, project_root)
-        active = list_work(db, project, active_only=True, limit=50, compact=compact)
-        recent = [
-            item
-            for item in list_work(db, project, active_only=False, limit=limit, compact=compact)
-            if item["status"] not in {"active", "blocked"}
+        active_full = [
+            _effective_work_payload(item)
+            for item in list_work(db, project, active_only=True, limit=50, compact=False)
         ]
+        all_recent = [
+            _effective_work_payload(item)
+            for item in list_work(db, project, active_only=False, limit=limit, compact=False)
+        ]
+        recent_full = [
+            item
+            for item in all_recent
+            if item["status"] not in {"active", "blocked", "awaiting_feedback"}
+        ]
+        if compact:
+            active = [_compact_work_payload(item) for item in active_full]
+            recent = [_compact_work_payload(item) for item in recent_full]
+        else:
+            active = active_full
+            recent = recent_full
+        bounded_recent = recent[: max(1, min(limit, 20))]
         return {
             "active": active,
-            "recent": recent[: max(1, min(limit, 20))],
+            "recent": bounded_recent,
             "live": [item for item in active if item.get("live")],
-            "attention": _attention_work(active, recent),
+            "attention": _attention_work(active, bounded_recent),
             "observability_contract": (
                 "WorkItems are durable user-work records. live=true requires a non-stale observed AgentRun; "
-                "managed Tasks and MCP bridges alone never prove that native work is active."
+                "awaiting_feedback is an open WorkItem with no active AgentRun; managed Tasks and MCP bridges "
+                "alone never prove that native work is active."
             ),
         }

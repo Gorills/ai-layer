@@ -3,8 +3,9 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from ai_layer.db.work_models import WORK_ASSURANCE, WORK_KINDS, WORK_STATUSES
+from ai_layer.db.work_models import WORK_ASSURANCE, WORK_KINDS
 from ai_layer.memory.knowledge_contract import KNOWLEDGE_CATEGORIES, KNOWLEDGE_STATUSES
+from ai_layer.projections.dashboard_work import WORK_FILTER_STATUSES
 from ai_layer.skills.constants import VALID_SCOPES
 from ai_layer.tasks.constants import MAX_TASK_GOAL_CHARS
 from ai_layer.work.evidence import WORK_CHECK_STATUSES, WORK_PATH_LIMIT, WORK_PATH_MAX_CHARS
@@ -78,7 +79,7 @@ def test_openapi_contract_versions_are_const_and_required():
 def test_openapi_work_and_activity_query_enums_match_runtime():
     schema = _openapi()
     status = _query_schema(schema, "/api/v1/dashboard/work", "status")
-    assert _schema_enum(status) == set(WORK_STATUSES)
+    assert _schema_enum(status) == set(WORK_FILTER_STATUSES)
     mode = _query_schema(schema, "/api/v1/dashboard/activity", "mode")
     assert _schema_enum(mode) == {"milestones", "all"}
     importance = _query_schema(schema, "/api/v1/dashboard/activity", "importance")
@@ -91,7 +92,7 @@ def test_openapi_work_and_activity_query_enums_match_runtime():
     )
     work_item = schema["components"]["schemas"]["WorkItemRead"]
     assert _schema_enum(work_item["properties"]["kind"]) == set(WORK_KINDS)
-    assert _schema_enum(work_item["properties"]["status"]) == set(WORK_STATUSES)
+    assert _schema_enum(work_item["properties"]["status"]) == set(WORK_FILTER_STATUSES)
     assert _schema_enum(work_item["properties"]["assurance"]) == set(WORK_ASSURANCE)
 
 

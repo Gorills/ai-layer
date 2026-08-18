@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -7,8 +8,10 @@ from ai_layer.application.project_intelligence import _continuation, _mcp_work_a
 from ai_layer.application.work import _attention_work, _effective_work_payload
 from ai_layer.db.base import Base
 from ai_layer.db.models import Project
-from ai_layer.db.work_models import AgentRun
+from ai_layer.db.work_models import AgentRun, WorkItem
 from ai_layer.domain.agent_contract import agent_runtime_bootstrap_line, agent_runtime_contract
+from ai_layer.domain.orchestrator import critical_orchestrator_contract, native_bootstrap_markdown
+from ai_layer.projections.dashboard_work import _normalized_status, _status_condition, _work_items
 from ai_layer.projections.dashboard_work_state import _truthful_state
 from ai_layer.work.lifecycle import effective_work_status, resume_work, wait_work
 from ai_layer.work.service import begin_work, finish_work
@@ -53,6 +56,17 @@ def test_wait_and_resume_rotate_agent_runs_without_closing_work() -> None:
         assert stopped_runs[0].status == "completed"
         assert stopped_runs[0].ended_at is not None
         assert effective_work_status(waiting, stopped_runs) == "awaiting_feedback"
+        waiting_item = _work_items(
+            db,
+            [waiting],
+            {project.id: {"key": "project", "name": project.name, "root": project.root_path}},
+        )[0]
+        assert waiting_item["status"] == "awaiting_feedback"
+        assert _normalized_status("awaiting_feedback") == "awaiting_feedback"
+        assert list(db.scalars(select(WorkItem).where(_status_condition("awaiting_feedback")))) == [
+            work
+        ]
+        assert list(db.scalars(select(WorkItem).where(_status_condition("active")))) == []
 
         resumed, second_run = resume_work(
             db,
@@ -73,6 +87,12 @@ def test_wait_and_resume_rotate_agent_runs_without_closing_work() -> None:
         assert second_run.status == "active"
         assert len(runs) == 2
         assert effective_work_status(resumed, runs) == "active"
+        assert _work_items(
+            db,
+            [resumed],
+            {project.id: {"key": "project", "name": project.name, "root": project.root_path}},
+        )[0]["status"] == "active"
+        assert list(db.scalars(select(WorkItem).where(_status_condition("active")))) == [work]
 
         completed, terminal_runs = finish_work(
             db,
@@ -102,12 +122,8 @@ def test_wait_is_repeatable_but_resume_refuses_duplicate_execution() -> None:
 
         _resumed, active_run = resume_work(db, project, work_key_value="W-0001")
         assert active_run.status == "active"
-        try:
+        with pytest.raises(RuntimeError, match="already has an active AgentRun"):
             resume_work(db, project, work_key_value="W-0001")
-        except RuntimeError as exc:
-            assert "already has an active AgentRun" in str(exc)
-        else:
-            raise AssertionError("duplicate work_resume must not create another active AgentRun")
 
         active_runs = list(
             db.scalars(
@@ -154,6 +170,11 @@ def test_agent_contract_keeps_one_work_across_feedback_iterations() -> None:
     assert "`work_wait`" in bootstrap
     assert "`work_resume`" in bootstrap
     assert "Terminal Work calls end the durable outcome itself" in bootstrap
+    native = native_bootstrap_markdown()
+    assert "`work_wait`" in native
+    assert "`work_resume`" in native
+    assert "same WorkItem" in native
+    assert "work_wait/work_resume" in critical_orchestrator_contract()["work_rule"]
 
 
 def test_mcp_catalog_exposes_wait_and_resume() -> None:

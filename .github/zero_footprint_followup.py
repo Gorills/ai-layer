@@ -23,26 +23,26 @@ def rewrite(path: str, pattern: str, replacement: str) -> None:
 
 replace_once(
     "src/ai_layer/core/paths.py",
-    '''        base = get_settings().home / "projects"
-        if base.is_symlink():
-            raise RuntimeError(f"Refusing symlinked AI Layer projects state root: {base}")
-        base.mkdir(parents=True, exist_ok=True)
-        return _safe_child(base, project_id)
+    '''            base = get_settings().home / "projects"
+            if base.is_symlink():
+                raise RuntimeError(f"Refusing symlinked AI Layer projects state root: {base}")
+            base.mkdir(parents=True, exist_ok=True)
+            return _safe_child(base, project_id)
 ''',
-    '''        base = get_settings().home / "projects"
-        if base.is_symlink():
-            raise RuntimeError(f"Refusing symlinked AI Layer projects state root: {base}")
-        base_resolved = base.expanduser().resolve()
-        try:
-            base_resolved.relative_to(resolved)
-        except ValueError:
-            pass
-        else:
-            raise RuntimeError(
-                f"AI Layer machine state must be outside the registered project root: {base_resolved}"
-            )
-        base.mkdir(parents=True, exist_ok=True)
-        return _safe_child(base, project_id)
+    '''            base = get_settings().home / "projects"
+            if base.is_symlink():
+                raise RuntimeError(f"Refusing symlinked AI Layer projects state root: {base}")
+            base_resolved = base.expanduser().resolve()
+            try:
+                base_resolved.relative_to(resolved)
+            except ValueError:
+                pass
+            else:
+                raise RuntimeError(
+                    f"AI Layer machine state must be outside the registered project root: {base_resolved}"
+                )
+            base.mkdir(parents=True, exist_ok=True)
+            return _safe_child(base, project_id)
 ''',
 )
 

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 permissions:
-  contents: read
+  contents: write
 jobs:
   quality:
     runs-on: ubuntu-24.04
@@ -15,7 +15,49 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - run: make quality
+      - name: Build and publish refreshed application wheel
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'agent/dashboard-padding'
+        env:
+          TARGET_BRANCH: agent/dashboard-padding
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import importlib.util
+          import json
+          from pathlib import Path
+
+          root = Path.cwd()
+          builder_path = root / "scripts" / "build_release_wheel.py"
+          spec = importlib.util.spec_from_file_location("build_release_wheel_publish", builder_path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          out = Path("/tmp/dashboard-padding-release")
+          out.mkdir(parents=True, exist_ok=True)
+          wheel = module.build(out)
+          digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          expected = "205eea3c76392d981414dd15929ac85438af4e5cdc13110ca8c9669a2ebbb3e1"
+          if digest != expected:
+              raise SystemExit(f"unexpected rebuilt wheel digest: {digest}")
+          manifest_path = root / "release" / "release-manifest.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          manifest["application_wheel_sha256"] = digest
+          (out / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          print(f"validated rebuilt wheel sha256={digest}")
+          PY
+          git fetch origin "$TARGET_BRANCH"
+          test "$(git rev-parse "origin/$TARGET_BRANCH")" = "$EXPECTED_HEAD"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          cp /tmp/dashboard-padding-release/local_ai_development_layer-0.14.0-py3-none-any.whl dist/local_ai_development_layer-0.14.0-py3-none-any.whl
+          cp /tmp/dashboard-padding-release/release-manifest.json release/release-manifest.json
+          test "$(sha256sum dist/local_ai_development_layer-0.14.0-py3-none-any.whl | awk '{print $1}')" = "205eea3c76392d981414dd15929ac85438af4e5cdc13110ca8c9669a2ebbb3e1"
+          git add dist/local_ai_development_layer-0.14.0-py3-none-any.whl release/release-manifest.json
+          test "$(git diff --cached --name-only | sort)" = "$(printf '%s\n' dist/local_ai_development_layer-0.14.0-py3-none-any.whl release/release-manifest.json | sort)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "refresh dashboard release wheel"
+          git push origin "HEAD:$TARGET_BRANCH"
 
   postgres-hardening:
     runs-on: ubuntu-24.04

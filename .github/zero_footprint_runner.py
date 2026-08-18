@@ -38,11 +38,11 @@ helper.write_text(text.replace(old, new, 1), encoding="utf-8")
 runpy.run_path(str(helper), run_name="__main__")
 
 # The regex above consumes only the function name, leaving its signature in place. Put the name
-# back before format/lint parse the generated source.
-replace_once(
+# back before format/lint parse the generated source, independent of blank-line count.
+rewrite(
     "src/ai_layer/core/repair.py",
-    "\n\n\n(root: str | Path, *, sync: bool = True) -> dict:\n",
-    "\n\n\ndef repair_project(root: str | Path, *, sync: bool = True) -> dict:\n",
+    r"\n+\(root: str \| Path, \*, sync: bool = True\) -> dict:\n",
+    "\n\ndef repair_project(root: str | Path, *, sync: bool = True) -> dict:\n",
 )
 
 # The original materializer predates these tests and writes their embedded newline literals via

@@ -104,8 +104,23 @@ jobs:
           manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           print(manifest["application_wheel_sha256"])
           PY
-      - name: Canonical preflight in controlled PostgreSQL
-        run: make preflight-ci
+      - name: Canonical quality diagnostic
+        id: quality
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python scripts/quality_gate.py --deterministic-wheel --continue-on-failure --json | tee /tmp/quality.json
+      - name: Upload quality diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zero-footprint-quality-diagnostic
+          path: /tmp/quality.json
+      - name: Require canonical quality
+        if: steps.quality.outcome != 'success'
+        run: exit 1
+      - name: PostgreSQL gate
+        run: make postgres-gate
       - name: Refresh release archive
         run: python scripts/build_release_archive.py --output dist/ai-layer-release.zip
       - name: Diff check

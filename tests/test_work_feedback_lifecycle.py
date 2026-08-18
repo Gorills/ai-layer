@@ -11,6 +11,7 @@ from ai_layer.db.models import Project
 from ai_layer.db.work_models import AgentRun, WorkItem
 from ai_layer.domain.agent_contract import agent_runtime_bootstrap_line, agent_runtime_contract
 from ai_layer.domain.orchestrator import critical_orchestrator_contract, native_bootstrap_markdown
+from ai_layer.integrations.versioning import GLOBAL_BOOTSTRAP_MARKER, GLOBAL_BOOTSTRAP_VERSION
 from ai_layer.observability.domain_events import EVENT_TYPES
 from ai_layer.observability.work_events import MILESTONE_EVENT_TYPES
 from ai_layer.projections.dashboard_work import _normalized_status, _status_condition, _work_items
@@ -176,6 +177,8 @@ def test_agent_contract_keeps_one_work_across_feedback_iterations() -> None:
     assert "`work_resume`" in native
     assert "same WorkItem" in native
     assert "work_wait/work_resume" in critical_orchestrator_contract()["work_rule"]
+    assert GLOBAL_BOOTSTRAP_VERSION == 17
+    assert "v17" in GLOBAL_BOOTSTRAP_MARKER
     assert {"WorkAwaitingFeedback", "WorkResumed"} <= EVENT_TYPES
     assert {"WorkAwaitingFeedback", "WorkResumed"} <= MILESTONE_EVENT_TYPES
 

@@ -289,7 +289,7 @@ def test_dashboard_frontend_bounds_dense_lists_and_exposes_real_sections():
     )
     index_html = (root / "src/ai_layer/dashboard/static/index.html").read_text(encoding="utf-8")
 
-    assert "slice(0, 10)" in project_js
+    assert "slice(0, 5)" in project_js
     assert "slice(0, 10)" in overview_js
     assert "page_size: 10" in app_js
     assert 'current.kind === "epics"' in app_js

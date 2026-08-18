@@ -61,7 +61,8 @@ def test_dashboard_web_and_overview_api(monkeypatch, tmp_path: Path):
     assert data["projects"][0]["name"] == "Dashboard Project"
     assert data["summary"]["operations_5m"] >= 1
     assert '<html lang="ru">' in page.text
-    assert "Текущее состояние локального AI workspace" in page.text
+    assert "Рабочий проект" in page.text
+    assert "Сводка проекта" in page.text
 
 
 def test_dashboard_keeps_durable_task_state_distinct_from_live_work(monkeypatch, tmp_path: Path):

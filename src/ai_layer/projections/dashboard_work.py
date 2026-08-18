@@ -21,9 +21,10 @@ from ai_layer.projections.dashboard_common import (
     project_options,
     selected_entries,
 )
+from ai_layer.work.lifecycle import effective_work_status
 from ai_layer.work.service import work_to_dict
 
-WORK_FILTER_STATUSES = frozenset(WORK_STATUSES)
+WORK_FILTER_STATUSES = frozenset((*WORK_STATUSES, "awaiting_feedback"))
 WORK_TIMELINE_LIMIT = 200
 
 
@@ -76,6 +77,19 @@ def _normalized_status(status: str | None) -> str:
     return value
 
 
+def _status_condition(status: str) -> ColumnElement[bool]:
+    active_run = (
+        select(AgentRun.id)
+        .where(AgentRun.work_id == WorkItem.id, AgentRun.status == "active")
+        .exists()
+    )
+    if status == "awaiting_feedback":
+        return and_(WorkItem.status == "active", ~active_run)
+    if status == "active":
+        return and_(WorkItem.status == "active", active_run)
+    return WorkItem.status == status
+
+
 def _runs_by_work(db: Session, work_ids: list[UUID]) -> dict[UUID, list[AgentRun]]:
     grouped: dict[UUID, list[AgentRun]] = defaultdict(list)
     if not work_ids:
@@ -110,7 +124,9 @@ def _work_items(
     task_keys, epic_keys = _link_keys(db, rows)
     result = []
     for row in rows:
-        item = work_to_dict(db, row, preloaded_runs=runs.get(row.id, []))
+        row_runs = runs.get(row.id, [])
+        item = work_to_dict(db, row, preloaded_runs=row_runs)
+        item["status"] = effective_work_status(row, row_runs)
         item["project"] = project_metadata.get(row.project_id, {})
         item["linked_task_key"] = (
             task_keys.get(row.linked_task_id) if row.linked_task_id is not None else None
@@ -138,7 +154,7 @@ def work_items_payload(
         project_ids = [project.id for project in projects]
         conditions: list[ColumnElement[bool]] = [WorkItem.project_id.in_(project_ids)]
         if wanted_status:
-            conditions.append(WorkItem.status == wanted_status)
+            conditions.append(_status_condition(wanted_status))
         total = (
             int(db.scalar(select(func.count()).select_from(WorkItem).where(*conditions)) or 0)
             if project_ids

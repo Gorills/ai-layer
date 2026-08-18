@@ -53,10 +53,12 @@ MILESTONE_EVENT_TYPES = frozenset(
         "TaskResumed",
         "VerificationCompleted",
         "WorkAbandoned",
+        "WorkAwaitingFeedback",
         "WorkCheckpointed",
         "WorkCompleted",
         "WorkFailed",
         "WorkInterrupted",
+        "WorkResumed",
         "WorkStarted",
     }
 ) | frozenset(name for name in EVENT_TYPES if name.startswith("Epic"))

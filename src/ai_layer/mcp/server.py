@@ -78,6 +78,8 @@ from ai_layer.mcp.tools.work import (
     work_complete,
     work_fail,
     work_interrupt,
+    work_resume,
+    work_wait,
 )
 from ai_layer.mcp.tools.worker_control import task_worker_disconnected, task_worker_heartbeat
 
@@ -103,6 +105,8 @@ __all__ = [
     "memory_context",
     "work_begin",
     "work_checkpoint",
+    "work_wait",
+    "work_resume",
     "work_complete",
     "work_fail",
     "work_interrupt",

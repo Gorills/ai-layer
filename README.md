@@ -144,7 +144,7 @@ Global/project skills are synchronized to supported native locations for:
 
 The host discovers and loads relevant skill bodies progressively. AI Layer does not centrally inject a domain skill bundle into every task. `skill_get` remains available for explicit authoritative retrieval or section access.
 
-External/strict-private project modes keep project-specific AI Layer state and managed skill material outside repositories according to the privacy contract.
+Standard, external and strict-private project modes keep project-specific AI Layer state and managed skill material outside repositories; strict-private additionally enforces the provenance/privacy contract.
 
 ## Model routing and economics
 
@@ -199,9 +199,9 @@ Project Knowledge evidence is hash-bound to scanned paths and can become `STALE`
 
 ## Installation and updates
 
-The supported flow remains the repository's one-command installer/updater and immutable machine runtime layout. Runtime state lives under the AI Layer machine home rather than being copied into target projects.
+The supported flow remains the repository's one-command installer/updater and immutable machine runtime layout. Runtime state lives under the AI Layer machine home rather than being copied into target projects. Standard `ai-layer init` is zero-footprint: it registers the project, stores project state machine-side, relies on global host MCP/bootstrap delivery, and publishes project skills through namespaced user-level native catalogs.
 
-Use the CLI health/update/install commands and generated host integrations rather than manually editing runtime internals. Strict-private/external projects should continue to use the zero-footprint path supported by the installer.
+Use the CLI health/update/install commands rather than manually editing runtime internals. Upgrading AI Layer repairs registered projects automatically: verified legacy `.ai-layer` state is moved to machine storage and AI Layer-owned project MCP/skill residue is removed. `--private` keeps the same zero-footprint layout and additionally enables provenance restrictions plus the Git privacy guard; `--external` remains a compatibility alias for explicit zero-footprint attachment.
 
 ## Quality and release gates
 

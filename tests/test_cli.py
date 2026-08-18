@@ -52,12 +52,14 @@ def test_audit_tail_cli_reads_privacy_minimal_events(tmp_path: Path, monkeypatch
     from ai_layer.core.config import get_settings
     from ai_layer.core.registry import register_project
 
+    project = tmp_path / "project"
+    project.mkdir()
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "home"))
     get_settings.cache_clear()
-    register_project(tmp_path, "audit-cli-tail", "audit-cli-tail")
-    with mcp_audit(tmp_path, "memory_context", arg_keys=["task"]):
+    register_project(project, "audit-cli-tail", "audit-cli-tail")
+    with mcp_audit(project, "memory_context", arg_keys=["task"]):
         pass
-    result = CliRunner().invoke(app, ["audit", "tail", "--path", str(tmp_path), "--limit", "5"])
+    result = CliRunner().invoke(app, ["audit", "tail", "--path", str(project), "--limit", "5"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["events"][0]["tool"] == "memory_context"
@@ -69,14 +71,16 @@ def test_audit_check_cli_validates_latest_completed_flow(tmp_path: Path, monkeyp
     from ai_layer.core.config import get_settings
     from ai_layer.core.registry import register_project
 
+    project = tmp_path / "project"
+    project.mkdir()
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "home"))
     get_settings.cache_clear()
-    register_project(tmp_path, "audit-cli-check", "audit-cli-check")
-    with mcp_audit(tmp_path, "project_status", arg_keys=["task"]):
+    register_project(project, "audit-cli-check", "audit-cli-check")
+    with mcp_audit(project, "project_status", arg_keys=["task"]):
         pass
-    with mcp_audit(tmp_path, "session_save", arg_keys=["goal", "current_state"]):
+    with mcp_audit(project, "session_save", arg_keys=["goal", "current_state"]):
         pass
-    result = CliRunner().invoke(app, ["audit", "check", "--path", str(tmp_path)])
+    result = CliRunner().invoke(app, ["audit", "check", "--path", str(project)])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["ok"] is True
@@ -252,19 +256,21 @@ def test_audit_check_cli_treats_duplicate_context_as_tool_economy_warning(
     from ai_layer.core.config import get_settings
     from ai_layer.core.registry import register_project
 
+    project = tmp_path / "project"
+    project.mkdir()
     monkeypatch.setenv("AI_LAYER_HOME", str(tmp_path / "home"))
     get_settings.cache_clear()
-    register_project(tmp_path, "audit-cli-economy", "audit-cli-economy")
-    with mcp_audit(tmp_path, "project_status", arg_keys=[]):
+    register_project(project, "audit-cli-economy", "audit-cli-economy")
+    with mcp_audit(project, "project_status", arg_keys=[]):
         pass
-    with mcp_audit(tmp_path, "memory_context", arg_keys=["task"]):
+    with mcp_audit(project, "memory_context", arg_keys=["task"]):
         pass
-    with mcp_audit(tmp_path, "memory_context", arg_keys=["task"]):
+    with mcp_audit(project, "memory_context", arg_keys=["task"]):
         pass
-    with mcp_audit(tmp_path, "session_save", arg_keys=["goal", "current_state"]):
+    with mcp_audit(project, "session_save", arg_keys=["goal", "current_state"]):
         pass
 
-    result = CliRunner().invoke(app, ["audit", "check", "--path", str(tmp_path)])
+    result = CliRunner().invoke(app, ["audit", "check", "--path", str(project)])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["ok"] is True

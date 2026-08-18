@@ -321,15 +321,15 @@ def init(
     private: bool = typer.Option(
         False,
         "--private",
-        help="Use zero-footprint external state and forbid AI-development provenance.",
+        help="Use zero-footprint machine state and forbid AI-development provenance.",
     ),
     external: bool = typer.Option(
         False,
         "--external",
-        help="Use zero-footprint external state without enabling provenance restrictions.",
+        help="Legacy explicit zero-footprint alias; standard init is already zero-footprint.",
     ),
 ):
-    """Register a project using standard adapters or zero-footprint external attachment."""
+    """Register a project with zero repository footprint; --private adds provenance guards."""
     if private and external:
         raise typer.BadParameter("--private and --external are mutually exclusive")
     project = initialize_project(path, name, private=private, external=external)
@@ -341,6 +341,7 @@ def init(
             "root": project["root_path"],
             "mode": project_mode(root),
             "provenance": project_provenance(root),
+            "repository_writes": False,
             "integration_template_version": INTEGRATION_TEMPLATE_VERSION,
             "workflow": "AI Layer supplies Project Intelligence and durable work state; execution remains host-native.",
             "repository_footprint": repository_footprint(root)

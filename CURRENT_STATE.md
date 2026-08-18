@@ -26,6 +26,12 @@ A WorkItem can record goal, kind, lifecycle status, reviewed/changed paths, repo
 
 It does not re-send the runtime procedure, Project Map capability essay, idle `latest_task`, or open Epic lists. Native bootstrap owns ordinary procedure; MCP initialize instructions are the compact fallback when that bootstrap is missing. MCP payloads declare `envelope` `ordinary` | `managed_next` | `worker` and do not reprint that procedure. With no durable focus, explicit managed Task / standard Task protocol intent goes directly to `task_create`; AI Layer creates or links backing Work automatically, so no preliminary `work_begin` bookkeeping is required. Other substantive work uses `work_begin` plus exactly one terminal Work call. `work_checkpoint` is reserved for meaningful milestones or blockers, not every file/tool action. Idle `task_next`/`task_current` return compact `host_native` next_action without a full `agent_contract` or latest-Task dump. Active managed Task/Epic flows resume through `task_next` / `epic_next`; those navigators attach live `next_action` as managed_next. The Project Map capability contract is attached only when reconciling.
 
+## Target-project attachment
+
+Standard `ai-layer init` is zero-footprint. Registered project metadata/rules live under `~/.ai-layer/projects/<project-id>/`, supported hosts use the global MCP/bootstrap installation, and project-specific native skills are published into namespaced user-level host catalogs rather than `.agents/skills` / `.claude/skills` inside the repository. `--external` remains a compatibility spelling for the same repository-clean attachment model. `--private` uses the same layout but additionally forbids AI-development provenance and installs the strict Git privacy guard.
+
+Machine upgrade/repair migrates verified legacy standard `.ai-layer` state into the canonical machine-side directory, removes only AI Layer-owned project MCP/native-skill residue, and preserves unrelated user configuration. Integration template contract v24 records this physical-delivery change.
+
 ## Project Map and search
 
 Project Map answers **where**. Project Knowledge answers **what is already understood and reviewed**. Current repository source remains final code truth.

@@ -420,7 +420,7 @@ def _finish_integration_status(payload: dict, *, providers: dict, executable_rea
     return payload
 
 
-def _external_status(
+def _global_project_status(
     root: Path,
     deps: IntegrationStatusDependencies,
     *,
@@ -492,8 +492,8 @@ def integration_status(deps: IntegrationStatusDependencies, project_root: str | 
     executable = deps.mcp_command()
     executable_ready = _command_ready(executable)
     mode = deps.project_mode(root)
-    if mode in {"external", "strict-private"}:
-        return _external_status(
+    if mode in {"standard", "external", "strict-private"}:
+        return _global_project_status(
             root,
             deps,
             mode=mode,

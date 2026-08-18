@@ -47,6 +47,30 @@ def test_strict_private_state_is_external_to_repository(tmp_path: Path, monkeypa
         get_settings.cache_clear()
 
 
+def test_standard_state_is_external_to_repository(tmp_path: Path, monkeypatch):
+    home = tmp_path / "home"
+    project = tmp_path / "standard-project"
+    home.mkdir()
+    project.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    get_settings.cache_clear()
+    try:
+        register_project(
+            project,
+            "standard-project-id",
+            "standard",
+            mode="standard",
+            provenance="allow",
+        )
+        meta = project_meta_dir(project)
+        assert meta == (home / ".ai-layer" / "projects" / "standard-project-id").resolve()
+        assert project not in meta.parents and meta != project
+        assert not (project / ".ai-layer").exists()
+    finally:
+        get_settings.cache_clear()
+
+
 def test_privacy_check_blocks_provenance_but_allows_legitimate_ai_domain_content(
     tmp_path: Path, monkeypatch
 ):

@@ -121,7 +121,9 @@ def test_native_activation_contains_complete_authoritative_skill(tmp_path, monke
         get_settings.cache_clear()
 
 
-def test_project_skill_materializes_full_content_once_in_standard_workspace(tmp_path, monkeypatch):
+def test_project_skill_materializes_namespaced_global_content_in_standard_mode(
+    tmp_path, monkeypatch
+):
     home = tmp_path / "home"
     project = tmp_path / "repo"
     project.mkdir()
@@ -137,16 +139,18 @@ def test_project_skill_materializes_full_content_once_in_standard_workspace(tmp_
             task_terms=["iiko-order", "cart-sync"],
             content="# iiko project rules\n\n## Core contract\n\nPreserve the existing order pipeline and cart synchronization invariants.\n",
         )
-        assert result["native_sync"]["scope"] == "workspace"
+        assert result["native_sync"]["scope"] == "namespaced-global-zero-footprint"
+        assert result["native_sync"]["repository_writes"] is False
         assert result["native_sync"]["activation_payload"] == "full-authoritative-skill"
-        target = project / ".agents" / "skills" / "food-iiko-order-rules" / "SKILL.md"
-        assert target.is_file()
+        assert not (project / ".agents").exists()
+        assert not (project / ".claude").exists()
+        catalog = native_catalog_files(project, home=home)
+        target = next(path for path in catalog["cursor"] if "food-iiko-order-rules" in str(path))
         target_text = target.read_text(encoding="utf-8")
         assert "Preserve the existing order pipeline" in target_text
+        assert str(project.resolve()) in _frontmatter(target_text)["description"]
         assert NATIVE_PACKAGE_RESOURCE_NOTICE not in target_text
         assert "skill_get" not in target_text
-        assert not (project / ".cursor" / "skills" / "ai-layer" / "SKILL.md").exists()
-        assert not (project / ".claude" / "skills" / "ai-layer" / "SKILL.md").exists()
 
         set_skill_enabled(
             "food-iiko-order-rules", scope="project", enabled=False, project_root=project
@@ -286,7 +290,7 @@ def test_sync_native_root_refuses_symlinked_parent(tmp_path: Path):
     assert not (outside / "skills").exists()
 
 
-def test_project_native_sync_refuses_symlinked_host_root(tmp_path: Path, monkeypatch):
+def test_project_native_sync_does_not_touch_repository_host_roots(tmp_path: Path, monkeypatch):
     home = tmp_path / "home"
     project = tmp_path / "repo"
     outside = tmp_path / "outside"
@@ -300,9 +304,11 @@ def test_project_native_sync_refuses_symlinked_host_root(tmp_path: Path, monkeyp
     monkeypatch.setenv("HOME", str(home))
     get_settings.cache_clear()
     try:
-        with pytest.raises(RuntimeError, match="symlink"):
-            sync_project_native_skills(project, home=home)
+        result = sync_project_native_skills(project, home=home)
+        assert result["repository_writes"] is False
+        assert result["scope"] == "namespaced-global-zero-footprint"
         assert list(outside.rglob("*")) == []
+        assert skills.is_symlink()
     finally:
         get_settings.cache_clear()
 

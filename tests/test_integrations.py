@@ -126,7 +126,10 @@ def test_provider_bootstrap_is_native_idempotent_and_preserves_existing(
 
     state = integration_status(project)
     assert state["template_version"] == INTEGRATION_TEMPLATE_VERSION
-    assert all(provider["ready"] for provider in state["providers"].values())
+    assert state["repository_writes"] is False
+    assert all(
+        state["providers"][provider]["ready"] for provider in ("cursor", "codex", "antigravity")
+    )
     assert state["ready_semantics"] == "configuration"
     cursor_state = state["providers"]["cursor"]
     assert cursor_state["ready"] is True
@@ -178,7 +181,9 @@ def test_codex_override_blocks_runtime_without_reclassifying_configuration(
     get_settings.cache_clear()
 
 
-def test_codex_project_disabled_mcp_is_not_masked_by_global_config(tmp_path: Path, monkeypatch):
+def test_codex_legacy_project_disabled_mcp_does_not_override_global_config(
+    tmp_path: Path, monkeypatch
+):
     _home, project = _installed_health_fixture(tmp_path, monkeypatch)
     config = project / ".codex" / "config.toml"
     text = config.read_text(encoding="utf-8")
@@ -188,11 +193,12 @@ def test_codex_project_disabled_mcp_is_not_masked_by_global_config(tmp_path: Pat
 
     state = integration_status(project)
     codex = state["providers"]["codex"]
-    assert codex["ready"] is False
-    assert codex["configuration_ready"] is False
-    assert codex["mcp_reason"] == "mcp_disabled"
-    assert codex["runtime_assurance"]["state"] == "blocked"
-    assert state["ready"] is False
+    assert state["mode"] == "standard"
+    assert state["repository_writes"] is False
+    assert codex["ready"] is True
+    assert codex["configuration_ready"] is True
+    assert codex.get("mcp_reason") != "mcp_disabled"
+    assert state["ready"] is True
     get_settings.cache_clear()
 
 
@@ -344,6 +350,66 @@ def test_strict_private_integration_uses_global_bootstrap_and_no_project_files(
             ".agents/rules/ai-layer.md",
         ]:
             assert not (project / rel).exists()
+    finally:
+        get_settings.cache_clear()
+
+
+def test_standard_sync_removes_legacy_repository_bindings(tmp_path: Path, monkeypatch):
+    from ai_layer.core import service as project_service
+    from ai_layer.core.registry import register_project
+
+    home = tmp_path / "home"
+    project = tmp_path / "standard-project"
+    home.mkdir()
+    project.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    monkeypatch.setenv("AI_LAYER_MCP_EXECUTABLE", str(home / "bin" / "ai-layer-mcp"))
+    (home / "bin").mkdir()
+    (home / "bin" / "ai-layer-mcp").write_text("#!/bin/sh\n", encoding="utf-8")
+    (home / "bin" / "ai-layer-mcp").chmod(0o755)
+    get_settings.cache_clear()
+    try:
+        register_project(project, "standard-id", "standard", mode="standard", provenance="allow")
+        state_dir = home / ".ai-layer" / "projects" / "standard-id"
+        state_dir.mkdir(parents=True)
+        (state_dir / "project.yaml").write_text(
+            "version: 2\n"
+            "project_id: standard-id\n"
+            "name: standard\n"
+            f"root: {project.resolve()}\n"
+            "mode: standard\n"
+            "provenance: allow\n",
+            encoding="utf-8",
+        )
+        install_global_integrations()
+        install_project_integrations(project)
+        assert (project / ".cursor" / "mcp.json").exists()
+        assert (project / ".mcp.json").exists()
+
+        monkeypatch.setattr(
+            project_service,
+            "sync_project_native_skills",
+            lambda _root: {
+                "repository_writes": False,
+                "scope": "namespaced-global-zero-footprint",
+            },
+        )
+        synced = project_service.sync_project_integrations(project)
+
+        assert synced["mode"] == "standard"
+        assert synced["repository_writes"] is False
+        for rel in [".mcp.json", ".codex/config.toml", ".agents/mcp_config.json"]:
+            assert not (project / rel).exists(), rel
+        cursor = project / ".cursor" / "mcp.json"
+        if cursor.exists():
+            assert "ai-layer" not in json.loads(cursor.read_text(encoding="utf-8")).get(
+                "mcpServers", {}
+            )
+        state = integration_status(project)
+        assert state["mode"] == "standard"
+        assert state["repository_writes"] is False
+        assert state["ready"] is True
     finally:
         get_settings.cache_clear()
 

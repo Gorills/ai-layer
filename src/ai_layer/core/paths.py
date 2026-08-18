@@ -40,15 +40,25 @@ def project_provenance(root: str | Path) -> str:
 def project_meta_dir(root: str | Path) -> Path:
     resolved = Path(root).expanduser().resolve()
     item = get_registered_project(resolved)
-    if item and item.get("mode") in {"external", "strict-private"}:
+    if item:
         project_id = str(item.get("project_id") or "").strip()
-        if not project_id:
+        if project_id:
+            base = get_settings().home / "projects"
+            if base.is_symlink():
+                raise RuntimeError(f"Refusing symlinked AI Layer projects state root: {base}")
+            base_resolved = base.expanduser().resolve()
+            try:
+                base_resolved.relative_to(resolved)
+            except ValueError:
+                pass
+            else:
+                raise RuntimeError(
+                    f"AI Layer machine state must be outside the registered project root: {base_resolved}"
+                )
+            base.mkdir(parents=True, exist_ok=True)
+            return _safe_child(base, project_id)
+        if item.get("mode") in {"external", "strict-private"}:
             raise RuntimeError(f"External-state project lacks registry project_id: {resolved}")
-        base = get_settings().home / "projects"
-        if base.is_symlink():
-            raise RuntimeError(f"Refusing symlinked AI Layer projects state root: {base}")
-        base.mkdir(parents=True, exist_ok=True)
-        return _safe_child(base, project_id)
     return project_local_path(resolved, ".ai-layer")
 
 

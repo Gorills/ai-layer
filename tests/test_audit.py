@@ -28,9 +28,11 @@ def test_mcp_audit_records_call_without_argument_values(monkeypatch, tmp_path: P
     assert event["tool"] == "memory_context"
     assert event["ok"] is True
     assert event["arg_keys"] == ["project_root", "task"]
-    raw = audit_path(project).read_text(encoding="utf-8")
+    path = audit_path(project)
+    raw = path.read_text(encoding="utf-8")
     assert "secret prompt" not in raw
-    assert ".ai-layer/audit/mcp.jsonl" in audit_path(project).as_posix()
+    assert ".ai-layer/projects/audit-test/audit/mcp.jsonl" in path.as_posix()
+    assert not (project / ".ai-layer").exists()
 
 
 def test_mcp_audit_records_error_type_and_reraises(monkeypatch, tmp_path: Path):
@@ -134,10 +136,12 @@ def test_audit_event_identifies_server_version_and_pid(monkeypatch, tmp_path: Pa
     from ai_layer import __version__
 
     _isolate_home(monkeypatch, tmp_path)
-    register_project(tmp_path, "audit-version", tmp_path.name)
-    with mcp_audit(tmp_path, "memory_context", arg_keys=["task"]):
+    project = tmp_path / "project-version"
+    project.mkdir()
+    register_project(project, "audit-version", project.name)
+    with mcp_audit(project, "memory_context", arg_keys=["task"]):
         pass
-    event = read_audit(tmp_path)[0]
+    event = read_audit(project)[0]
     assert event["server_version"] == __version__
     assert event["pid"] == os.getpid()
 

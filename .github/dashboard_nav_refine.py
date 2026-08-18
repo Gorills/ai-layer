@@ -60,7 +60,7 @@ replace(
     assert "overviewCache.projects?.[0]?.key" not in app_js
 ''',
     '''    assert "Project Knowledge всегда принадлежит конкретному проекту" in app_js
-    assert '`#/project/${encodeURIComponent(project.key)}/knowledge`' in app_js
+    assert 'href="#/project/${encodeURIComponent(project.key)}/knowledge"' in app_js
     assert "overviewCache.projects?.[0]?.key" not in app_js
 ''',
 )

@@ -39,6 +39,8 @@ jobs:
       - name: Format changed Python
         run: |
           python -m ruff format \
+            .github/zero_footprint_migrate.py \
+            .github/zero_footprint_runner.py \
             src/ai_layer/core/paths.py \
             src/ai_layer/core/registry.py \
             src/ai_layer/core/service.py \

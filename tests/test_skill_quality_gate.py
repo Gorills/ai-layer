@@ -23,6 +23,31 @@ def test_bundled_skill_quality_floor_accepts_shipped_catalog() -> None:
     assert result["quality_floor"]["min_sections"] == 10
 
 
+def test_design_skill_preserves_weak_model_execution_contract() -> None:
+    path = BUILTINS / "design.md"
+    skill = skill_gate._parse_skill_text(
+        slug="design",
+        text=path.read_text(encoding="utf-8"),
+        path=str(path),
+    )
+    core, sections = skill_gate.skill_section_content(skill, section="core")
+
+    assert skill["meta"]["entry_sections"] == [
+        "Apply when",
+        "Core contract",
+        "Decision rules",
+    ]
+    assert "CLASSIFY THE MODE" in core
+    assert "SET THREE DESIGN DIALS" in core
+    assert "DEFINE ONE SIGNATURE MOVE" in core
+    assert "RUN ANTI-SLOP CHECKS BEFORE IMPLEMENTATION" in core
+    assert "RUN THE BEAUTY GATE" in core
+    assert "Design preflight" in sections
+    assert "Hard anti-slop gates" in sections
+    assert "Structural slop" in sections
+    assert "Beauty gate" in sections
+
+
 def test_bundled_skill_quality_floor_rejects_shallow_skill(tmp_path: Path) -> None:
     root = _catalog_copy(tmp_path)
     design = root / "src" / "ai_layer" / "builtin_skills" / "design.md"

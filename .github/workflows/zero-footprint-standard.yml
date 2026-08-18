@@ -39,6 +39,7 @@ jobs:
           python .github/zero_footprint_runner.py
           python .github/zero_footprint_followup.py
           python .github/zero_footprint_syntaxfix.py
+          python .github/zero_footprint_clifix.py
       - name: Align global-host readiness regression
         run: |
           python - <<'PY'
@@ -62,6 +63,7 @@ jobs:
             .github/zero_footprint_runner.py \
             .github/zero_footprint_followup.py \
             .github/zero_footprint_syntaxfix.py \
+            .github/zero_footprint_clifix.py \
             src/ai_layer/core/paths.py \
             src/ai_layer/core/registry.py \
             src/ai_layer/core/service.py \
@@ -75,7 +77,8 @@ jobs:
             tests/test_native_skills.py \
             tests/test_privacy.py \
             tests/test_repair.py \
-            tests/test_sync.py
+            tests/test_sync.py \
+            tests/test_cli.py
       - name: Fast gate
         run: make fast-gate
       - name: Focused regressions
@@ -126,6 +129,7 @@ jobs:
             tests/test_privacy.py \
             tests/test_repair.py \
             tests/test_sync.py \
+            tests/test_cli.py \
             PROJECT_CHARTER.md ARCHITECTURE.md README.md CURRENT_STATE.md \
             release/release-manifest.json \
             dist/local_ai_development_layer-0.14.0-py3-none-any.whl \

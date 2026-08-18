@@ -1,5 +1,6 @@
 name: zero-footprint-standard-migration
 on:
+  pull_request:
   push:
     branches: [refactor/zero-footprint-standard-init]
 permissions:
@@ -187,7 +188,7 @@ jobs:
           )
           replace_once(
               "tests/test_integrations.py",
-              '''def test_codex_project_disabled_mcp_is_not_masked_by_global_config(tmp_path: Path, monkeypatch):\n    _home, project = _installed_health_fixture(tmp_path, monkeypatch)\n    config = project / ".codex" / "config.toml"\n    text = config.read_text(encoding="utf-8")\n    config.write_text(\n        text.replace("args = []\\n", "enabled = false\\nargs = []\\n", 1), encoding="utf-8"\n    )\n\n    state = integration_status(project)\n    codex = state["providers"]["codex"]\n    assert codex["ready"] is False\n    assert codex["configuration_ready"] is False\n    assert codex["mcp_reason"] == "mcp_disabled"\n    assert codex["runtime_assurance"]["state"] == "blocked"\n    assert state["ready"] is False\n    get_settings.cache_clear()\n''',
+              '''def test_codex_project_disabled_mcp_is_not_masked_by_global_config(tmp_path: Path, monkeypatch):\n    _home, project = _installed_health_fixture(tmp_path, monkeypatch)\n    config = project / ".codex" / "config.toml"\n    text = config.read_text(encoding="utf-8")\n    config.write_text(\n        text.replace("args = []\\n", "enabled = false\nargs = []\\n", 1), encoding="utf-8"\n    )\n\n    state = integration_status(project)\n    codex = state["providers"]["codex"]\n    assert codex["ready"] is False\n    assert codex["configuration_ready"] is False\n    assert codex["mcp_reason"] == "mcp_disabled"\n    assert codex["runtime_assurance"]["state"] == "blocked"\n    assert state["ready"] is False\n    get_settings.cache_clear()\n''',
               '''def test_codex_legacy_project_disabled_mcp_does_not_override_global_config(\n    tmp_path: Path, monkeypatch\n):\n    _home, project = _installed_health_fixture(tmp_path, monkeypatch)\n    config = project / ".codex" / "config.toml"\n    text = config.read_text(encoding="utf-8")\n    config.write_text(\n        text.replace("args = []\\n", "enabled = false\\nargs = []\\n", 1), encoding="utf-8"\n    )\n\n    state = integration_status(project)\n    codex = state["providers"]["codex"]\n    assert state["mode"] == "standard"\n    assert state["repository_writes"] is False\n    assert codex["ready"] is True\n    assert codex["configuration_ready"] is True\n    assert codex.get("mcp_reason") != "mcp_disabled"\n    assert state["ready"] is True\n    get_settings.cache_clear()\n''',
           )
           marker = '''def test_remove_project_integrations_preserves_user_content(tmp_path: Path):\n'''

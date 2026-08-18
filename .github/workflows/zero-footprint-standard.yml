@@ -35,7 +35,28 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
       - name: Apply bounded source and regression changes
-        run: python .github/zero_footprint_migrate.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          helper = Path('.github/zero_footprint_migrate.py')
+          text = helper.read_text(encoding='utf-8')
+          old = r'def _archive_external_local_residue\(root: Path\) -> list\[str\]:.*?\n\ndef _archive_overlapping_state'
+          new = r'def _archive_external_local_residue\(root: Path\) -> list\[str\]:.*?\n\ndef repair_project'
+          if text.count(old) != 1:
+              raise SystemExit('repair helper pattern marker mismatch')
+          helper.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          python .github/zero_footprint_migrate.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/ai_layer/core/repair.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'from ai_layer.core.paths import project_config_path, project_local_path, project_mode\n'
+          new = 'from ai_layer.core.paths import project_local_path, project_mode\n'
+          if text.count(old) != 1:
+              raise SystemExit('repair import marker mismatch')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Format changed Python
         run: |
           python -m ruff format \

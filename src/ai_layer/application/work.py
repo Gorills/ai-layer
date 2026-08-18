@@ -492,12 +492,12 @@ def state(project_root: str | Path, *, limit: int = 8, compact: bool = False) ->
             for item in all_recent
             if item["status"] not in {"active", "blocked", "awaiting_feedback"}
         ]
-        active = (
-            [_compact_work_payload(item) for item in active_full] if compact else active_full
-        )
-        recent = (
-            [_compact_work_payload(item) for item in recent_full] if compact else recent_full
-        )
+        if compact:
+            active = [_compact_work_payload(item) for item in active_full]
+            recent = [_compact_work_payload(item) for item in recent_full]
+        else:
+            active = active_full
+            recent = recent_full
         bounded_recent = recent[: max(1, min(limit, 20))]
         return {
             "active": active,

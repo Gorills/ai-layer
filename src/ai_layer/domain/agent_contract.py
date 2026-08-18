@@ -54,6 +54,12 @@ def agent_runtime_contract() -> dict[str, Any]:
             "ordinary": "WorkItem records substantive user work; host-native execution remains the owner.",
             "begin": "work_begin",
             "idle_next": "work_begin",
+            "wait": "work_wait",
+            "resume": "work_resume",
+            "awaiting_feedback": (
+                "work_wait ends the current AgentRun without ending the durable WorkItem; a related user "
+                "follow-up resumes the same WorkItem with work_resume"
+            ),
             "new_request_routing": {
                 "explicit_managed_task": {
                     "when": "user explicitly requests a managed Task or standard Task protocol",
@@ -67,7 +73,10 @@ def agent_runtime_contract() -> dict[str, Any]:
             "unmaterialized": WORK_UNMATERIALIZED,
             "checkpoint": "work_checkpoint only for meaningful milestones/blockers",
             "terminal": ["work_complete", "work_fail", "work_interrupt", "work_abandon"],
-            "short_work_budget": "Normally work_begin + one terminal call; do not checkpoint every action.",
+            "short_work_budget": (
+                "Use work_begin for the durable outcome and work_wait when an execution episode may receive "
+                "normal user revision; use terminal Work calls only when that outcome is truly finished."
+            ),
             "managed_task_relation": (
                 "ManagedTask is optional assurance and may link to WorkItem; it is not the ordinary-work record."
             ),
@@ -161,15 +170,16 @@ def agent_runtime_bootstrap_line() -> str:
         f"AI Layer runtime contract v{AGENT_RUNTIME_CONTRACT_VERSION}: use `project_status` as the first "
         "registered-project state call and apply its `project_policy`. When continuation.kind is none, "
         "explicit user Task/standard-Task-protocol intent goes directly to `task_create`; otherwise substantive "
-        "ordinary work goes to `work_begin` and closes with one terminal Work call. AI Layer creates/links backing "
-        "Work for managed Tasks automatically; use `work_checkpoint` only for meaningful milestones or blockers. "
-        "If code location is "
-        "unknown, use `project_search`; for non-English goals make the primary retrieval query concise English "
-        "and code-centric while preserving exact identifiers, with at most one original/mixed widening variant. "
-        "Project Map hits are breadcrumbs, so verify current source. Read reviewed facts with `knowledge_search` "
-        "and decisions with `decision_search`. Normal execution remains host-native. When a managed Task/Epic "
-        "is active/selected, `task_next` or `epic_next` is the live strict procedure and overrides older stored "
-        "workflow prose. MCP payloads declare envelope ordinary|managed_next|worker and do not reprint this "
-        "procedure. `memory_context` is legacy compatibility only and `memory_search` aliases "
-        "`knowledge_search`."
+        "ordinary work goes to `work_begin`. After an execution episode that may receive normal user revision, "
+        "call `work_wait` so the WorkItem remains open; when project_status reports awaiting_feedback, a related "
+        "follow-up uses `work_resume` on that same WorkItem. Terminal Work calls end the durable outcome itself. "
+        "AI Layer creates/links backing Work for managed Tasks automatically; use `work_checkpoint` only for "
+        "meaningful milestones or blockers. If code location is unknown, use `project_search`; for non-English "
+        "goals make the primary retrieval query concise English and code-centric while preserving exact "
+        "identifiers, with at most one original/mixed widening variant. Project Map hits are breadcrumbs, so "
+        "verify current source. Read reviewed facts with `knowledge_search` and decisions with `decision_search`. "
+        "Normal execution remains host-native. When a managed Task/Epic is active/selected, `task_next` or "
+        "`epic_next` is the live strict procedure and overrides older stored workflow prose. MCP payloads declare "
+        "envelope ordinary|managed_next|worker and do not reprint this procedure. `memory_context` is legacy "
+        "compatibility only and `memory_search` aliases `knowledge_search`."
     )

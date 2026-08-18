@@ -45,6 +45,8 @@ EVENT_TYPES = frozenset(
         "ProjectMapReconciled",
         "WorkStarted",
         "WorkCheckpointed",
+        "WorkAwaitingFeedback",
+        "WorkResumed",
         "WorkCompleted",
         "WorkFailed",
         "WorkInterrupted",

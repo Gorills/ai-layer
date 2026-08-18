@@ -92,7 +92,9 @@ def test_standard_project_rules_are_read_from_zero_footprint_machine_state(
         register_project(project, "p-dashboard", "Dashboard", mode="standard", provenance="allow")
         state = home / "projects" / "p-dashboard"
         state.mkdir(parents=True)
-        (state / "rules.md").write_text("# Project rules\n\n- Keep the project context stable.\n", encoding="utf-8")
+        (state / "rules.md").write_text(
+            "# Project rules\n\n- Keep the project context stable.\n", encoding="utf-8"
+        )
 
         payload = rules_payload("p-dashboard")
 

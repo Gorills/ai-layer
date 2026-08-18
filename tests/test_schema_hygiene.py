@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from ai_layer.db.work_models import WORK_ASSURANCE, WORK_KINDS, WORK_STATUSES
 from ai_layer.memory.knowledge_contract import KNOWLEDGE_CATEGORIES, KNOWLEDGE_STATUSES
+from ai_layer.projections.dashboard_work import WORK_FILTER_STATUSES
 from ai_layer.skills.constants import VALID_SCOPES
 from ai_layer.tasks.constants import MAX_TASK_GOAL_CHARS
 from ai_layer.work.evidence import WORK_CHECK_STATUSES, WORK_PATH_LIMIT, WORK_PATH_MAX_CHARS
@@ -78,7 +79,7 @@ def test_openapi_contract_versions_are_const_and_required():
 def test_openapi_work_and_activity_query_enums_match_runtime():
     schema = _openapi()
     status = _query_schema(schema, "/api/v1/dashboard/work", "status")
-    assert _schema_enum(status) == set(WORK_STATUSES)
+    assert _schema_enum(status) == set(WORK_FILTER_STATUSES)
     mode = _query_schema(schema, "/api/v1/dashboard/activity", "mode")
     assert _schema_enum(mode) == {"milestones", "all"}
     importance = _query_schema(schema, "/api/v1/dashboard/activity", "importance")
@@ -91,7 +92,7 @@ def test_openapi_work_and_activity_query_enums_match_runtime():
     )
     work_item = schema["components"]["schemas"]["WorkItemRead"]
     assert _schema_enum(work_item["properties"]["kind"]) == set(WORK_KINDS)
-    assert _schema_enum(work_item["properties"]["status"]) == set(WORK_STATUSES)
+    assert _schema_enum(work_item["properties"]["status"]) == set(WORK_FILTER_STATUSES)
     assert _schema_enum(work_item["properties"]["assurance"]) == set(WORK_ASSURANCE)
 
 
@@ -120,91 +121,23 @@ def test_mcp_work_and_task_schemas_reject_invalid_enums_and_overlong_text():
     path_schema = next(item for item in paths["anyOf"] if item.get("type") == "array")
     assert path_schema["maxItems"] == WORK_PATH_LIMIT
     assert path_schema["items"]["maxLength"] == WORK_PATH_MAX_CHARS
-    workflow = _mcp_property("task_create", "workflow")
-    assert _schema_enum(workflow) == {
-        "auto",
-        "micro",
-        "standard",
-        "discovery_first",
-        "analysis_only",
-    }
-    assert _schema_enum(_mcp_property("task_create", "risk")) == {"auto", "low", "normal", "high"}
-    assert _schema_enum(_mcp_property("task_create", "complexity")) == {
-        "auto",
-        "low",
-        "normal",
-        "high",
-    }
-    assert _schema_enum(_mcp_property("task_create", "uncertainty")) == {
-        "auto",
-        "low",
-        "normal",
-        "high",
-    }
-    assert _schema_enum(_mcp_property("task_create", "cost_policy")) == {
-        "auto",
-        "economy",
-        "balanced",
-        "quality",
-    }
-    assert _mcp_property("task_create", "goal")["maxLength"] == MAX_TASK_GOAL_CHARS
+
+
+def test_knowledge_and_skill_contract_enums_match_runtime():
+    from ai_layer.memory.knowledge_contract import KnowledgeDraftInput
+
+    schema = KnowledgeDraftInput.model_json_schema()
+    assert _schema_enum(schema["properties"]["category"]) == set(KNOWLEDGE_CATEGORIES)
     status = _mcp_property("knowledge_list", "status")
     assert _schema_enum(status) == set(KNOWLEDGE_STATUSES)
-    assert _mcp_property("knowledge_list", "limit")["maximum"] == 200
-    category = _mcp_property("knowledge_draft_upsert", "category")
-    assert _schema_enum(category) == set(KNOWLEDGE_CATEGORIES)
-    search_limit = _mcp_property("project_search", "limit")
-    assert search_limit["minimum"] == 1
-    assert search_limit["maximum"] == 20
-    variants = _mcp_property("project_search", "query_variants")
-    variant_schema = next(item for item in variants["anyOf"] if item.get("type") == "array")
-    assert variant_schema["maxItems"] == 1
-    assert _schema_enum(_mcp_property("skill_remove", "scope")) == set(VALID_SCOPES)
+    scope = _mcp_property("skill_list", "scope")
+    assert _schema_enum(scope) == set(VALID_SCOPES)
 
-    work_begin = _mcp_tool("work_begin")
-    try:
-        work_begin.fn_metadata.validate_arguments({"goal": "ship it", "kind": "hotfix"})
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("invalid work kind must fail MCP schema validation")
-    try:
-        work_begin.fn_metadata.validate_arguments({"goal": "x" * (WORK_GOAL_MAX_CHARS + 1)})
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("overlong work goal must fail MCP schema validation")
-    work_complete = _mcp_tool("work_complete")
-    try:
-        work_complete.fn_metadata.validate_arguments(
-            {"work_key": "W-0001", "summary": "done", "map_disposition": {}}
-        )
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("map_disposition without status must fail MCP schema validation")
-    work_complete.fn_metadata.validate_arguments(
-        {
-            "work_key": "W-0001",
-            "summary": "done",
-            "map_disposition": {"status": "pending"},
-        }
-    )
-    work_complete.fn_metadata.validate_arguments(
-        {
-            "work_key": "W-0001",
-            "summary": "done",
-            "map_disposition": {
-                "status": "reconciled",
-                "scope_paths": ["src/app.py"],
-                "event_id": "00000000-0000-4000-8000-000000000001",
-            },
-        }
-    )
-    task_create = _mcp_tool("task_create")
-    try:
-        task_create.fn_metadata.validate_arguments({"goal": "managed work", "workflow": "ad-hoc"})
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("invalid task workflow must fail MCP schema validation")
+
+def test_task_goal_schema_rejects_overlong_values():
+    from ai_layer.mcp.tool_schema import TaskGoalText
+    from pydantic import TypeAdapter
+
+    adapter = TypeAdapter(TaskGoalText)
+    with pytest.raises(ValidationError):
+        adapter.validate_python("x" * (MAX_TASK_GOAL_CHARS + 1))

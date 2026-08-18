@@ -103,7 +103,7 @@ def begin(project_root: str | Path, *, idempotency_key: str | None = None, **kwa
 def checkpoint(
     project_root: str | Path,
     *,
-    work_key: str,
+    work_key: str | None,
     idempotency_key: str | None = None,
     **kwargs: Any,
 ) -> dict:
@@ -149,7 +149,7 @@ def _finish(
     command_name: str,
     event_type: str,
     status: str,
-    work_key: str,
+    work_key: str | None,
     summary: str,
     idempotency_key: str | None = None,
     **kwargs: Any,
@@ -222,7 +222,7 @@ def _finish(
 def complete(
     project_root: str | Path,
     *,
-    work_key: str,
+    work_key: str | None,
     summary: str,
     idempotency_key: str | None = None,
     **kwargs: Any,
@@ -242,7 +242,7 @@ def complete(
 def fail(
     project_root: str | Path,
     *,
-    work_key: str,
+    work_key: str | None,
     summary: str,
     idempotency_key: str | None = None,
     **kwargs: Any,
@@ -262,7 +262,7 @@ def fail(
 def interrupt(
     project_root: str | Path,
     *,
-    work_key: str,
+    work_key: str | None,
     summary: str,
     idempotency_key: str | None = None,
     **kwargs: Any,
@@ -282,7 +282,7 @@ def interrupt(
 def abandon(
     project_root: str | Path,
     *,
-    work_key: str,
+    work_key: str | None,
     summary: str,
     idempotency_key: str | None = None,
     **kwargs: Any,

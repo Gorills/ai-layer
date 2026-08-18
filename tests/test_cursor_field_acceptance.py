@@ -9,7 +9,7 @@ from ai_layer.db.base import Base
 from ai_layer.db.models import Project, Task
 from ai_layer.mcp.tool_schema import WorkCheckInput
 from ai_layer.memory.project_map_semantics import reconcile_project_map
-from ai_layer.work.service import begin_work, finish_work
+from ai_layer.work.service import begin_work, checkpoint_work, finish_work
 
 
 def _project(db: Session, root: str = "/tmp/cursor-field-acceptance") -> Project:
@@ -55,7 +55,7 @@ def test_terminal_work_derives_summary_when_cursor_omits_it() -> None:
         completed, _runs = finish_work(
             db,
             project,
-            work_key_value="W-0001",
+            work_key_value=None,
             status="completed",
             summary="",
             changed_paths=["mobile/src/app.ts"],
@@ -155,5 +155,63 @@ def test_non_success_terminal_reason_remains_new_agent_fact() -> None:
                 project,
                 work_key_value="W-0001",
                 status="failed",
+                summary="",
+            )
+
+
+def test_cursor_passed_details_report_normalizes_without_host_contract_knowledge() -> None:
+    schema = WorkCheckInput.model_json_schema()
+    assert {"passed", "details"} <= set(schema["properties"])
+    check = WorkCheckInput(
+        passed=True,
+        details="No new errors in nutrition autocomplete; pre-existing project errors unchanged",
+    )
+    assert wire_value([check]) == [
+        {
+            "name": "reported check",
+            "status": "passed",
+            "summary": (
+                "No new errors in nutrition autocomplete; pre-existing project errors unchanged"
+            ),
+        }
+    ]
+
+
+def test_mcp_work_lifecycle_does_not_require_redundant_work_key() -> None:
+    from ai_layer.mcp.server import mcp
+
+    for name in (
+        "work_checkpoint",
+        "work_complete",
+        "work_fail",
+        "work_interrupt",
+        "work_abandon",
+    ):
+        tool = mcp._tool_manager.get_tool(name)
+        assert tool is not None
+        assert "work_key" not in (tool.parameters.get("required") or [])
+
+
+def test_single_active_work_is_resolved_but_ambiguous_work_is_not_guessed() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine, expire_on_commit=False) as db:
+        project = _project(db, "/tmp/cursor-work-key-resolution")
+        begin_work(db, project, goal="First change")
+        checkpointed, _run = checkpoint_work(
+            db,
+            project,
+            work_key_value=None,
+            summary="Observed one active Work",
+        )
+        assert checkpointed.sequence == 1
+
+        begin_work(db, project, goal="Second concurrent change")
+        with pytest.raises(ValueError, match="multiple active Work items"):
+            finish_work(
+                db,
+                project,
+                work_key_value=None,
+                status="completed",
                 summary="",
             )

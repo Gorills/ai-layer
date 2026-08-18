@@ -22,6 +22,13 @@ from ai_layer.mcp.tool_schema import (
 )
 
 
+def _optional_work_key(value: str | None, *, tool: str) -> str | None:
+    rendered = str(value or "").strip()
+    if not rendered:
+        return None
+    return _text(rendered, tool=tool, field="work_key")
+
+
 def work_begin(
     goal: WorkGoalText,
     kind: WorkKind = "change",
@@ -73,7 +80,7 @@ def work_begin(
 
 
 def work_checkpoint(
-    work_key: WorkKeyText,
+    work_key: WorkKeyText | None = None,
     summary: WorkSummaryOptional = "",
     reviewed_paths: ProjectPathList | None = None,
     changed_paths: ProjectPathList | None = None,
@@ -85,9 +92,9 @@ def work_checkpoint(
     idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: a long work phase reaches a meaningful milestone or blocker. Do not checkpoint every file/tool action. checks use bounded name/status/summary metadata, never raw output. repository_delta accepts only revision IDs, changed_files/insertions/deletions counts, dirty, and assurance. Optional linked_task_key / linked_epic_key may attach a project-scoped Task or Epic after begin. Reuse idempotency_key for delivery retries."""
+    """WHEN: a long work phase reaches a meaningful milestone or blocker. work_key may be omitted when AI Layer has exactly one active Work. Do not checkpoint every file/tool action. checks use bounded canonical evidence or natural host reports. repository_delta accepts only revision IDs, changed_files/insertions/deletions counts, dirty, and assurance. Optional linked_task_key / linked_epic_key may attach a project-scoped Task or Epic after begin. Reuse idempotency_key for delivery retries."""
     root = project_root_for_tool(project_root, tool="work_checkpoint")
-    work_key = _text(work_key, tool="work_checkpoint", field="work_key")
+    work_key = _optional_work_key(work_key, tool="work_checkpoint")
     task_key = (linked_task_key or "").strip() or None
     epic_key = (linked_epic_key or "").strip() or None
     with mcp_audit(
@@ -126,7 +133,7 @@ def work_checkpoint(
 
 def _terminal(
     operation: str,
-    work_key: str,
+    work_key: str | None,
     summary: str,
     reviewed_paths: ProjectPathList | None,
     changed_paths: ProjectPathList | None,
@@ -137,7 +144,7 @@ def _terminal(
     project_root: str | None,
 ) -> dict:
     root = project_root_for_tool(project_root, tool=operation)
-    work_key = _text(work_key, tool=operation, field="work_key")
+    work_key = _optional_work_key(work_key, tool=operation)
     summary = (summary or "").strip()
     with mcp_audit(
         root,
@@ -176,7 +183,7 @@ def _terminal(
 
 
 def work_complete(
-    work_key: WorkKeyText,
+    work_key: WorkKeyText | None = None,
     summary: WorkSummaryOptional = "",
     reviewed_paths: ProjectPathList | None = None,
     changed_paths: ProjectPathList | None = None,
@@ -186,7 +193,7 @@ def work_complete(
     idempotency_key: IdempotencyKey | None = None,
     project_root: str | None = None,
 ) -> dict:
-    """WHEN: substantive work reached a terminal successful result. summary is optional: when omitted AI Layer reuses an existing Work summary or derives a truthful terminal summary from the known goal. checks may use canonical name/status/summary or a natural command/result report; raw command/result fields are normalized and are not persisted. A work-linked project_map_reconcile already persists reconciled map_disposition; omit it here to keep that value. If no reconciliation was recorded and map state is still pending, terminal closure records a truthful deferred disposition automatically."""
+    """WHEN: substantive work reached a terminal successful result. work_key may be omitted when AI Layer has exactly one active Work. summary is optional: when omitted AI Layer reuses an existing Work summary or derives a truthful terminal summary from the known goal. checks may use canonical name/status/summary or natural command/result/passed/details reports; raw command/result fields are normalized and are not persisted. A work-linked project_map_reconcile already persists reconciled map_disposition; omit it here to keep that value. If no reconciliation was recorded and map state is still pending, terminal closure records a truthful deferred disposition automatically."""
     return _terminal(
         "work_complete",
         work_key,
@@ -202,8 +209,8 @@ def work_complete(
 
 
 def work_fail(
-    work_key: WorkKeyText,
     summary: WorkSummaryText,
+    work_key: WorkKeyText | None = None,
     reviewed_paths: ProjectPathList | None = None,
     changed_paths: ProjectPathList | None = None,
     checks: WorkCheckList | None = None,
@@ -228,8 +235,8 @@ def work_fail(
 
 
 def work_interrupt(
-    work_key: WorkKeyText,
     summary: WorkSummaryText,
+    work_key: WorkKeyText | None = None,
     reviewed_paths: ProjectPathList | None = None,
     changed_paths: ProjectPathList | None = None,
     checks: WorkCheckList | None = None,
@@ -254,8 +261,8 @@ def work_interrupt(
 
 
 def work_abandon(
-    work_key: WorkKeyText,
     summary: WorkSummaryText,
+    work_key: WorkKeyText | None = None,
     reviewed_paths: ProjectPathList | None = None,
     changed_paths: ProjectPathList | None = None,
     checks: WorkCheckList | None = None,

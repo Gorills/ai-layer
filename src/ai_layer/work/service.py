@@ -180,6 +180,35 @@ def _work_for_key(db: Session, project: Project, key: str, *, lock: bool = False
     return row
 
 
+def resolve_work_key(db: Session, project: Project, value: str | None) -> str:
+    rendered = str(value or "").strip()
+    if rendered:
+        return work_key(_work_for_key(db, project, rendered))
+
+    locked_project = db.scalar(select(Project).where(Project.id == project.id).with_for_update())
+    if locked_project is None:
+        raise ValueError("project no longer exists")
+    rows = list(
+        db.scalars(
+            select(WorkItem)
+            .where(
+                WorkItem.project_id == project.id,
+                WorkItem.status.in_(("active", "blocked")),
+            )
+            .order_by(WorkItem.updated_at.desc(), WorkItem.sequence.desc())
+            .limit(2)
+        ).all()
+    )
+    if len(rows) == 1:
+        return work_key(rows[0])
+    if not rows:
+        raise ValueError("work_key is required because this project has no active Work item")
+    keys = ", ".join(work_key(item) for item in rows)
+    raise ValueError(
+        f"work_key is required because this project has multiple active Work items: {keys}"
+    )
+
+
 def _task_id(db: Session, project: Project, key: str | None):
     rendered = str(key or "").strip().upper()
     if not rendered:
@@ -309,7 +338,7 @@ def checkpoint_work(
     db: Session,
     project: Project,
     *,
-    work_key_value: str,
+    work_key_value: str | None,
     summary: str = "",
     reviewed_paths: list[str] | None = None,
     changed_paths: list[str] | None = None,
@@ -319,7 +348,8 @@ def checkpoint_work(
     linked_task_key: str | None = None,
     linked_epic_key: str | None = None,
 ) -> tuple[WorkItem, AgentRun | None]:
-    work = _work_for_key(db, project, work_key_value, lock=True)
+    resolved_work_key = resolve_work_key(db, project, work_key_value)
+    work = _work_for_key(db, project, resolved_work_key, lock=True)
     if work.status not in {"active", "blocked"}:
         raise RuntimeError(f"work item {work_key(work)} is terminal: {work.status}")
     now = utcnow()
@@ -386,7 +416,7 @@ def finish_work(
     db: Session,
     project: Project,
     *,
-    work_key_value: str,
+    work_key_value: str | None,
     status: str,
     summary: str,
     reviewed_paths: list[str] | None = None,
@@ -398,7 +428,8 @@ def finish_work(
     terminal = str(status).strip().casefold()
     if terminal not in {"completed", "failed", "interrupted", "abandoned"}:
         raise ValueError("terminal work status must be completed, failed, interrupted or abandoned")
-    work = _work_for_key(db, project, work_key_value, lock=True)
+    resolved_work_key = resolve_work_key(db, project, work_key_value)
+    work = _work_for_key(db, project, resolved_work_key, lock=True)
     if work.status not in {"active", "blocked"}:
         if work.status == terminal:
             return work, []

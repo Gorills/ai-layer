@@ -41,8 +41,9 @@ function projectCard(project) {
 }
 
 function projectGrid(projects) {
-  if (!projects?.length) return `<div class="empty">Зарегистрированных проектов нет</div>`;
-  return `<div class="portfolio-project-grid">${projects.map(projectCard).join("")}</div>`;
+  const visible = (projects || []).slice(0, 10);
+  if (!visible.length) return `<div class="empty">Зарегистрированных проектов нет</div>`;
+  return `<div class="portfolio-project-grid">${visible.map(projectCard).join("")}</div>${projects.length > visible.length ? `<div class="table-caption">Показаны ${escapeHtml(visible.length)} из ${escapeHtml(projects.length)} проектов</div>` : ""}`;
 }
 
 function attentionList(items) {
@@ -93,6 +94,8 @@ export function renderOverview(data) {
   const summary = data.summary || {};
   const projects = data.projects || [];
   const portfolio = collectPortfolioWork(projects, { nowLimit: 6, attentionLimit: 8, recentLimit: 8 });
+  const firstActive = (portfolio.now || [])[0] || null;
+  const focusTitle = firstActive ? `${firstActive.work.key || "Work"} · ${firstActive.work.goal || "Текущая работа"}` : "Нет активной работы";
   const sortedProjects = [...projects].sort((left, right) => {
     const leftAttention = (left.work?.attention || []).length;
     const rightAttention = (right.work?.attention || []).length;
@@ -108,6 +111,7 @@ export function renderOverview(data) {
       <div>
         <div class="section-eyebrow">LOCAL PORTFOLIO</div>
         <h2>${portfolio.attentionTotal ? `${portfolio.attentionTotal} ${portfolio.attentionTotal === 1 ? "сигнал требует" : "сигналов требуют"} внимания` : portfolio.nowTotal ? `${portfolio.nowTotal} ${portfolio.nowTotal === 1 ? "работа идёт" : "работы идут"} сейчас` : "Рабочее пространство спокойно"}</h2>
+        <div class="focus-title">${escapeHtml(focusTitle)}</div>
         <p>${portfolio.attentionTotal ? "Сначала разберите blocked/stale работу. Остальная информация остаётся ниже по приоритету." : "Откройте проект один раз — внутри будут текущая работа, результаты, знания и история без повторного выбора контекста."}</p>
       </div>
       <div class="portfolio-hero-count">${escapeHtml(projects.length)}<span>проектов</span></div>
@@ -115,11 +119,11 @@ export function renderOverview(data) {
     <div class="summary-grid overview-summary-grid">
       ${metric("Сейчас в работе", summary.active_work ?? portfolio.nowTotal ?? 0, "только live Work")}
       ${metric("Нужно внимания", portfolio.attentionTotal ?? 0, "blocked · stale · map")}
-      ${metric("Недавние результаты", portfolio.recentTotal ?? summary.recent_work ?? 0, "terminal Work")}
+      ${metric("Недавно завершено", portfolio.recentTotal ?? summary.recent_work ?? 0, "terminal Work")}
       ${metric("System warnings", summary.protocol_warnings ?? 0, `${summary.failures_5m ?? 0} failures / 5m`)}
     </div>
     <section class="panel priority-panel ${portfolio.attentionTotal ? "has-attention" : ""}">
-      <div class="panel-header"><div><div class="panel-title">Сначала внимание</div><div class="panel-hint">Проблемы, для которых действительно нужно действие человека или продолжение работы</div></div><a class="panel-header-link" href="#/work">Все Work →</a></div>
+      <div class="panel-header"><div><div class="panel-title">Сначала внимание</div><div class="panel-hint">Проблемы, для которых действительно нужно действие человека или продолжение работы</div></div><a class="panel-header-link" href="#/work">Все →</a></div>
       ${attentionList(portfolio.attention)}
     </section>
     <div class="portfolio-two-column">

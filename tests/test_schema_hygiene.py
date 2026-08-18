@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from ai_layer.db.work_models import WORK_ASSURANCE, WORK_KINDS, WORK_STATUSES
+from ai_layer.db.work_models import WORK_ASSURANCE, WORK_KINDS
 from ai_layer.memory.knowledge_contract import KNOWLEDGE_CATEGORIES, KNOWLEDGE_STATUSES
 from ai_layer.projections.dashboard_work import WORK_FILTER_STATUSES
 from ai_layer.skills.constants import VALID_SCOPES

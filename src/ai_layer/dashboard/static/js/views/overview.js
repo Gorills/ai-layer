@@ -13,10 +13,60 @@ function mapLabel(project) {
   return `${coverage}% · ${current}/${total} current`;
 }
 
+function projectAttention(project) {
+  const items = [];
+  for (const work of project.work?.attention || []) {
+    items.push({
+      project,
+      title: work.goal || work.key || "Работа",
+      detail: `${work.key || "Work"} · ${workAttentionReason(work)}`,
+      state: work.status === "active" && !work.live ? "stale" : work.status || "attention",
+      href: workHref(project.key, work.key),
+    });
+  }
+  const task = project.task || {};
+  if (task.human_attention_required) {
+    items.push({
+      project,
+      title: task.goal || `${task.key || "Task"} требует решения`,
+      detail: task.human_attention_reason || `${task.key || "Task"} · нужен ответ пользователя`,
+      state: "attention",
+      href: `#/task/${encodeURIComponent(project.key)}/${encodeURIComponent(task.key)}`,
+    });
+  }
+  const protocol = project.protocol_state || {};
+  if (protocol.status === "warning") {
+    items.push({
+      project,
+      title: "Protocol требует проверки",
+      detail: `${protocol.failures_5m || 0} failures за 5 минут`,
+      state: "warning",
+      href: `#/monitoring?project=${encodeURIComponent(project.key)}`,
+    });
+  }
+  const map = project.project_map || {};
+  const stale = Number(map.semantic_stale || 0);
+  const missing = Number(map.semantic_missing || 0);
+  if (stale || missing) {
+    items.push({
+      project,
+      title: "Project Map требует обновления",
+      detail: `${stale} stale · ${missing} missing`,
+      state: "stale",
+      href: `#/project/${encodeURIComponent(project.key)}/knowledge`,
+    });
+  }
+  return items;
+}
+
+function projectAttentionCount(project) {
+  return projectAttention(project).length;
+}
+
 function projectCard(project) {
   const work = primaryProjectWork(project);
   const recent = (project.work?.recent || [])[0] || null;
-  const attention = (project.work?.attention || []).length;
+  const attention = projectAttentionCount(project);
   const task = project.task || null;
   const href = `#/project/${encodeURIComponent(project.key)}`;
   const state = attention ? "attention" : project.project_state || "healthy";
@@ -47,11 +97,11 @@ function projectGrid(projects) {
 }
 
 function attentionList(items) {
-  if (!items?.length) return `<div class="calm-state large"><strong>Ничего не требует вмешательства</strong><span>Blocked/stale Work и незавершённые Project Map dispositions отсутствуют.</span></div>`;
-  return `<div class="attention-work-list">${items.map(({ project, work }) => `<a class="attention-work-row" href="${workHref(project.key, work.key)}">
-    <div class="attention-work-project">${escapeHtml(project.name)}</div>
-    <div class="attention-work-main"><strong>${escapeHtml(work.goal || work.key || "Работа")}</strong><span>${escapeHtml(work.key || "Work")} · ${escapeHtml(workAttentionReason(work))}</span></div>
-    ${stateBadge(work.status === "active" && !work.live ? "stale" : work.status || "attention")}
+  if (!items?.length) return `<div class="calm-state large"><strong>Ничего не требует вмешательства</strong><span>Нет blocked/stale работы, решений пользователя, protocol warnings или stale Project Map.</span></div>`;
+  return `<div class="attention-work-list">${items.map((item) => `<a class="attention-work-row" href="${item.href}">
+    <div class="attention-work-project">${escapeHtml(item.project.name)}</div>
+    <div class="attention-work-main"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.detail)}</span></div>
+    ${stateBadge(item.state)}
   </a>`).join("")}</div>`;
 }
 
@@ -94,11 +144,13 @@ export function renderOverview(data) {
   const summary = data.summary || {};
   const projects = data.projects || [];
   const portfolio = collectPortfolioWork(projects, { nowLimit: 6, attentionLimit: 8, recentLimit: 8 });
+  const attention = projects.flatMap(projectAttention);
+  const attentionTotal = attention.length;
   const firstActive = (portfolio.now || [])[0] || null;
   const focusTitle = firstActive ? `${firstActive.work.key || "Work"} · ${firstActive.work.goal || "Текущая работа"}` : "Нет активной работы";
   const sortedProjects = [...projects].sort((left, right) => {
-    const leftAttention = (left.work?.attention || []).length;
-    const rightAttention = (right.work?.attention || []).length;
+    const leftAttention = projectAttentionCount(left);
+    const rightAttention = projectAttentionCount(right);
     if (leftAttention !== rightAttention) return rightAttention - leftAttention;
     const leftLive = (left.work?.live || []).some((item) => item.live) ? 1 : 0;
     const rightLive = (right.work?.live || []).some((item) => item.live) ? 1 : 0;
@@ -110,21 +162,21 @@ export function renderOverview(data) {
     <section class="portfolio-hero">
       <div>
         <div class="section-eyebrow">LOCAL PORTFOLIO</div>
-        <h2>${portfolio.attentionTotal ? `${portfolio.attentionTotal} ${portfolio.attentionTotal === 1 ? "сигнал требует" : "сигналов требуют"} внимания` : portfolio.nowTotal ? `${portfolio.nowTotal} ${portfolio.nowTotal === 1 ? "работа идёт" : "работы идут"} сейчас` : "Рабочее пространство спокойно"}</h2>
+        <h2>${attentionTotal ? `${attentionTotal} ${attentionTotal === 1 ? "сигнал требует" : "сигналов требуют"} внимания` : portfolio.nowTotal ? `${portfolio.nowTotal} ${portfolio.nowTotal === 1 ? "работа идёт" : "работы идут"} сейчас` : "Рабочее пространство спокойно"}</h2>
         <div class="focus-title">${escapeHtml(focusTitle)}</div>
-        <p>${portfolio.attentionTotal ? "Сначала разберите blocked/stale работу. Остальная информация остаётся ниже по приоритету." : "Откройте проект один раз — внутри будут текущая работа, результаты, знания и история без повторного выбора контекста."}</p>
+        <p>${attentionTotal ? "Сначала разберите actionable сигналы. Остальная информация остаётся ниже по приоритету." : "Откройте проект один раз — внутри будут текущая работа, результаты, знания и история без повторного выбора контекста."}</p>
       </div>
       <div class="portfolio-hero-count">${escapeHtml(projects.length)}<span>проектов</span></div>
     </section>
     <div class="summary-grid overview-summary-grid">
       ${metric("Сейчас в работе", summary.active_work ?? portfolio.nowTotal ?? 0, "только live Work")}
-      ${metric("Нужно внимания", portfolio.attentionTotal ?? 0, "blocked · stale · map")}
+      ${metric("Нужно внимание", attentionTotal, "work · task · map · protocol")}
       ${metric("Недавно завершено", portfolio.recentTotal ?? summary.recent_work ?? 0, "terminal Work")}
       ${metric("System warnings", summary.protocol_warnings ?? 0, `${summary.failures_5m ?? 0} failures / 5m`)}
     </div>
-    <section class="panel priority-panel ${portfolio.attentionTotal ? "has-attention" : ""}">
+    <section class="panel priority-panel ${attentionTotal ? "has-attention" : ""}">
       <div class="panel-header"><div><div class="panel-title">Сначала внимание</div><div class="panel-hint">Проблемы, для которых действительно нужно действие человека или продолжение работы</div></div><a class="panel-header-link" href="#/work">Все →</a></div>
-      ${attentionList(portfolio.attention)}
+      ${attentionList(attention.slice(0, 8))}
     </section>
     <div class="portfolio-two-column">
       <section class="panel">

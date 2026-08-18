@@ -28,6 +28,7 @@ jobs:
           --health-retries 10
     env:
       AI_LAYER_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/ai_layer
+      AI_LAYER_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/ai_layer
     steps:
       - uses: actions/checkout@v4
         with:

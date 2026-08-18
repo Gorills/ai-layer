@@ -45,7 +45,9 @@ def wait_work(
     """End the current execution episode while keeping the durable WorkItem open."""
     work = _locked_work(db, project, work_key_value)
     if work.status != "active":
-        raise RuntimeError(f"work item W-{work.sequence:04d} cannot await feedback from {work.status}")
+        raise RuntimeError(
+            f"work item W-{work.sequence:04d} cannot await feedback from {work.status}"
+        )
 
     now = utcnow()
     if summary:

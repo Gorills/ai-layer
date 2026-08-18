@@ -37,21 +37,12 @@ if text.count(old) != 1:
 helper.write_text(text.replace(old, new, 1), encoding="utf-8")
 runpy.run_path(str(helper), run_name="__main__")
 
-# The materializer deliberately replaces the legacy helper through the beginning of repair_project.
-# Restore that consumed function header before any parser/linter sees the generated source.
+# The regex above consumes only the function name, leaving its signature in place. Put the name
+# back before format/lint parse the generated source.
 replace_once(
     "src/ai_layer/core/repair.py",
-    '''    return {"migrated": True, "destination": str(destination), "archived": []}
-
-
-    path = Path(root).expanduser().resolve()
-''',
-    '''    return {"migrated": True, "destination": str(destination), "archived": []}
-
-
-def repair_project(root: str | Path, *, sync: bool = True) -> dict:
-    path = Path(root).expanduser().resolve()
-''',
+    "\n\n\n(root: str | Path, *, sync: bool = True) -> dict:\n",
+    "\n\n\ndef repair_project(root: str | Path, *, sync: bool = True) -> dict:\n",
 )
 
 # The original materializer predates these tests and writes their embedded newline literals via

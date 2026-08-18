@@ -30,20 +30,17 @@ venv.EnvBuilder(system_site_packages=True, with_pip=False).create(".venv")
 
 helper = Path(".github/zero_footprint_migrate.py")
 text = helper.read_text(encoding="utf-8")
-old = r"def _archive_external_local_residue\(root: Path\) -> list\[str\]:.*?\n\ndef _archive_overlapping_state"
-new = r"def _archive_external_local_residue\(root: Path\) -> list\[str\]:.*?\n\ndef repair_project"
-if text.count(old) != 1:
+old_pattern = r"def _archive_external_local_residue\(root: Path\) -> list\[str\]:.*?\n\ndef _archive_overlapping_state"
+new_pattern = r"def _archive_external_local_residue\(root: Path\) -> list\[str\]:.*?\n\ndef repair_project"
+if text.count(old_pattern) != 1:
     raise SystemExit("repair helper pattern marker mismatch")
-helper.write_text(text.replace(old, new, 1), encoding="utf-8")
+text = text.replace(old_pattern, new_pattern, 1)
+old_tail = '    return {"migrated": True, "destination": str(destination), "archived": []}\n\n\ndef _archive_overlapping_state\'\'\',\n)'
+new_tail = '    return {"migrated": True, "destination": str(destination), "archived": []}\n\n\ndef repair_project\'\'\',\n)'
+if text.count(old_tail) != 1:
+    raise SystemExit("repair helper replacement tail mismatch")
+helper.write_text(text.replace(old_tail, new_tail, 1), encoding="utf-8")
 runpy.run_path(str(helper), run_name="__main__")
-
-# The regex above consumes only the function name, leaving its signature in place. Put the name
-# back before format/lint parse the generated source, independent of blank-line count.
-rewrite(
-    "src/ai_layer/core/repair.py",
-    r"\n+\(root: str \| Path, \*, sync: bool = True\) -> dict:\n",
-    "\n\ndef repair_project(root: str | Path, *, sync: bool = True) -> dict:\n",
-)
 
 # The original materializer predates these tests and writes their embedded newline literals via
 # ordinary triple-quoted strings. Rewrite only those generated functions with literal backslashes.

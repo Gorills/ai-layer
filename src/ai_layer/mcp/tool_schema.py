@@ -58,10 +58,17 @@ KnowledgeKeyText = Annotated[str, Field(min_length=1, max_length=160)]
 
 
 def _natural_check_status(
-    value: WorkCheckStatus | None, *, result: object, summary: str, command: str | None
+    value: WorkCheckStatus | None,
+    *,
+    passed: bool | None,
+    result: object,
+    summary: str,
+    command: str | None,
 ) -> WorkCheckStatus:
     if value is not None:
         return value
+    if passed is not None:
+        return "passed" if passed else "failed"
     if isinstance(result, bool):
         return "passed" if result else "failed"
     if isinstance(result, int):
@@ -82,14 +89,25 @@ class WorkCheckInput(BaseModel):
         Annotated[str, Field(max_length=4000)] | bool | int | None,
         Field(exclude=True),
     ] = None
+    passed: Annotated[bool | None, Field(exclude=True)] = None
+    details: Annotated[
+        Annotated[str, Field(max_length=4000)] | None,
+        Field(exclude=True),
+    ] = None
 
     @model_validator(mode="after")
     def normalize_natural_report(self) -> WorkCheckInput:
         self.name = str(self.name or "").strip() or "reported check"
-        if not self.summary and self.result is not None:
-            self.summary = str(self.result).strip()[:500]
+        if not self.summary:
+            detail = self.details if self.details is not None else self.result
+            if detail is not None:
+                self.summary = str(detail).strip()[:500]
         self.status = _natural_check_status(
-            self.status, result=self.result, summary=self.summary, command=self.command
+            self.status,
+            passed=self.passed,
+            result=self.result,
+            summary=self.summary,
+            command=self.command,
         )
         return self
 

@@ -40,11 +40,16 @@ jobs:
       - run: python -m pip install -e '.[dev]'
       - name: Apply reviewed UX truthfulness fixes
         run: python .github/dashboard_ux_finalize.py
-      - name: Format changed Python tests
-        run: ruff format tests/test_dashboard.py tests/test_dashboard_redesign.py tests/test_dashboard_project_workspace_ux.py
+      - name: Format temporary helper and changed Python tests
+        run: >-
+          ruff format
+          .github/dashboard_ux_finalize.py
+          tests/test_dashboard.py
+          tests/test_dashboard_redesign.py
+          tests/test_dashboard_project_workspace_ux.py
       - name: Fast static checks
         run: |
-          ruff check tests/test_dashboard.py tests/test_dashboard_redesign.py tests/test_dashboard_project_workspace_ux.py src/ai_layer/projections/dashboard_reference.py
+          ruff check .github/dashboard_ux_finalize.py tests/test_dashboard.py tests/test_dashboard_redesign.py tests/test_dashboard_project_workspace_ux.py src/ai_layer/projections/dashboard_reference.py
           mypy src/ai_layer
           python scripts/architecture_gate.py
       - name: Focused Dashboard regressions

@@ -34,7 +34,26 @@ old = r"def _archive_external_local_residue\(root: Path\) -> list\[str\]:.*?\n\n
 new = r"def _archive_external_local_residue\(root: Path\) -> list\[str\]:.*?\n\ndef repair_project"
 if text.count(old) != 1:
     raise SystemExit("repair helper pattern marker mismatch")
-helper.write_text(text.replace(old, new, 1), encoding="utf-8")
+text = text.replace(old, new, 1)
+old_tail = '''    return {"migrated": True, "destination": str(destination), "archived": []}
+
+
+def _archive_overlapping_state''',
+)
+replace_regex(
+    "src/ai_layer/core/repair.py",
+    r"        mode = project_mode'''
+new_tail = '''    return {"migrated": True, "destination": str(destination), "archived": []}
+
+
+def repair_project''',
+)
+replace_regex(
+    "src/ai_layer/core/repair.py",
+    r"        mode = project_mode'''
+if text.count(old_tail) != 1:
+    raise SystemExit("repair replacement tail marker mismatch")
+helper.write_text(text.replace(old_tail, new_tail, 1), encoding="utf-8")
 runpy.run_path(str(helper), run_name="__main__")
 
 # The original materializer predates these tests and writes their embedded newline literals via

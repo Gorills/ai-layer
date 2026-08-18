@@ -11,6 +11,8 @@ from ai_layer.db.models import Project
 from ai_layer.db.work_models import AgentRun, WorkItem
 from ai_layer.domain.agent_contract import agent_runtime_bootstrap_line, agent_runtime_contract
 from ai_layer.domain.orchestrator import critical_orchestrator_contract, native_bootstrap_markdown
+from ai_layer.observability.domain_events import EVENT_TYPES
+from ai_layer.observability.work_events import MILESTONE_EVENT_TYPES
 from ai_layer.projections.dashboard_work import _normalized_status, _status_condition, _work_items
 from ai_layer.projections.dashboard_work_state import _truthful_state
 from ai_layer.work.lifecycle import effective_work_status, resume_work, wait_work
@@ -35,6 +37,13 @@ def test_wait_and_resume_rotate_agent_runs_without_closing_work() -> None:
     Base.metadata.create_all(engine)
     with Session(engine, expire_on_commit=False) as db:
         project = _project(db)
+        project_metadata = {
+            project.id: {
+                "key": "project",
+                "name": project.name,
+                "root": project.root_path,
+            }
+        }
         work, first_run = begin_work(
             db,
             project,
@@ -56,16 +65,12 @@ def test_wait_and_resume_rotate_agent_runs_without_closing_work() -> None:
         assert stopped_runs[0].status == "completed"
         assert stopped_runs[0].ended_at is not None
         assert effective_work_status(waiting, stopped_runs) == "awaiting_feedback"
-        waiting_item = _work_items(
-            db,
-            [waiting],
-            {project.id: {"key": "project", "name": project.name, "root": project.root_path}},
-        )[0]
-        assert waiting_item["status"] == "awaiting_feedback"
+        assert _work_items(db, [waiting], project_metadata)[0]["status"] == "awaiting_feedback"
         assert _normalized_status("awaiting_feedback") == "awaiting_feedback"
-        assert list(db.scalars(select(WorkItem).where(_status_condition("awaiting_feedback")))) == [
-            work
-        ]
+        waiting_rows = list(
+            db.scalars(select(WorkItem).where(_status_condition("awaiting_feedback")))
+        )
+        assert waiting_rows == [work]
         assert list(db.scalars(select(WorkItem).where(_status_condition("active")))) == []
 
         resumed, second_run = resume_work(
@@ -87,11 +92,7 @@ def test_wait_and_resume_rotate_agent_runs_without_closing_work() -> None:
         assert second_run.status == "active"
         assert len(runs) == 2
         assert effective_work_status(resumed, runs) == "active"
-        assert _work_items(
-            db,
-            [resumed],
-            {project.id: {"key": "project", "name": project.name, "root": project.root_path}},
-        )[0]["status"] == "active"
+        assert _work_items(db, [resumed], project_metadata)[0]["status"] == "active"
         assert list(db.scalars(select(WorkItem).where(_status_condition("active")))) == [work]
 
         completed, terminal_runs = finish_work(
@@ -175,6 +176,8 @@ def test_agent_contract_keeps_one_work_across_feedback_iterations() -> None:
     assert "`work_resume`" in native
     assert "same WorkItem" in native
     assert "work_wait/work_resume" in critical_orchestrator_contract()["work_rule"]
+    assert {"WorkAwaitingFeedback", "WorkResumed"} <= EVENT_TYPES
+    assert {"WorkAwaitingFeedback", "WorkResumed"} <= MILESTONE_EVENT_TYPES
 
 
 def test_mcp_catalog_exposes_wait_and_resume() -> None:

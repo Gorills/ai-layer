@@ -31,8 +31,6 @@ from ai_layer.core.registry import (
 from ai_layer.db.models import Project, ProjectSkill
 from ai_layer.integrations.service import (
     INTEGRATION_TEMPLATE_VERSION,
-    install_project_integrations,
-    preflight_project_integrations,
     remove_project_integrations,
 )
 from ai_layer.memory.freshness import (
@@ -83,6 +81,30 @@ def _write_project_config(path: Path, data: dict) -> None:
         os.replace(temp_name, file)
     finally:
         Path(temp_name).unlink(missing_ok=True)
+
+
+def _legacy_local_state_owned(path: Path, root: Path, project_id: str) -> bool:
+    """Recognize legacy repository-local state without claiming unrelated user content."""
+    if not path.exists():
+        return False
+    if path.is_symlink():
+        raise RuntimeError(f"Refusing symlinked AI Layer project metadata: {path}")
+    if not path.is_dir():
+        return False
+    config = path / "project.yaml"
+    if not config.is_file() or config.is_symlink():
+        return False
+    try:
+        data = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    configured_root = str(data.get("root") or "").strip()
+    if not configured_root or Path(configured_root).expanduser().resolve() != root:
+        return False
+    configured_id = str(data.get("project_id") or "").strip()
+    return not configured_id or configured_id == project_id
 
 
 def _ensure_rules(meta: Path) -> None:
@@ -139,26 +161,23 @@ def sync_project_integrations(root: str | Path | None = None) -> dict:
     ) as observed:
         config = _read_project_config(path)
         mode = project_mode(path)
-        if mode in {"external", "strict-private"}:
-            remove_project_integrations(path)
-            result = {
-                "template_version": INTEGRATION_TEMPLATE_VERSION,
-                "ai_layer_version": __version__,
-                "mode": mode,
-                "repository_writes": False,
-                "native_skills": sync_project_native_skills(path),
-            }
-            if mode == "strict-private":
-                guard = install_git_privacy_guard(path)
-                if not guard.get("ready", False):
-                    raise RuntimeError(
-                        f"Strict-private Git privacy guard is not ready: {guard.get('reason') or guard}"
-                    )
-                result["git_guard"] = guard
-            else:
-                remove_git_privacy_guard(path)
+        remove_project_integrations(path)
+        result = {
+            "template_version": INTEGRATION_TEMPLATE_VERSION,
+            "ai_layer_version": __version__,
+            "mode": mode,
+            "repository_writes": False,
+            "native_skills": sync_project_native_skills(path),
+        }
+        if mode == "strict-private":
+            guard = install_git_privacy_guard(path)
+            if not guard.get("ready", False):
+                raise RuntimeError(
+                    f"Strict-private Git privacy guard is not ready: {guard.get('reason') or guard}"
+                )
+            result["git_guard"] = guard
         else:
-            result = install_project_integrations(path)
+            remove_git_privacy_guard(path)
         config.update(
             {
                 "ai_layer_version": __version__,
@@ -211,16 +230,13 @@ def init_project(
     if local_meta.is_symlink():
         raise RuntimeError(f"Refusing symlinked AI Layer project metadata: {local_meta}")
 
-    # Reject deterministic integration/privacy conflicts before creating durable project identity.
-    # Later filesystem I/O can still fail, so PostgreSQL remains the recovery anchor after this gate.
-    if mode == "strict-private":
-        if not is_git_repository(path):
-            raise RuntimeError(
-                "Strict-private initialization requires an existing Git repository so privacy "
-                "enforcement can fail closed. Initialize Git first, then retry."
-            )
-    elif mode == "standard":
-        preflight_project_integrations(path)
+    # Strict-private alone needs a repository-level precondition because it installs a Git guard.
+    # Standard and external attachment are zero-footprint and have no repository integration targets.
+    if mode == "strict-private" and not is_git_repository(path):
+        raise RuntimeError(
+            "Strict-private initialization requires an existing Git repository so privacy "
+            "enforcement can fail closed. Initialize Git first, then retry."
+        )
 
     project = get_project(db, path, required=False)
     if project is None:
@@ -236,8 +252,8 @@ def init_project(
         db.flush()
     db.commit()
 
-    # Registry is the authority that selects local vs external state. Publish it before resolving
-    # project_meta_dir, then migrate any existing local state if this is a standard -> private move.
+    # Registry publishes durable project identity before resolving machine-side state. Existing
+    # repository-local state from older standard installs is copied out before repository cleanup.
     register_project(path, str(project.id), project.name, mode=mode, provenance=provenance)
     meta = project_meta_dir(path)
     meta.mkdir(parents=True, exist_ok=True)
@@ -245,11 +261,8 @@ def init_project(
         os.chmod(meta, 0o700)
     except OSError:
         pass
-    if (
-        mode in {"external", "strict-private"}
-        and local_meta.exists()
-        and local_meta.resolve() != meta.resolve()
-    ):
+    legacy_local_owned = _legacy_local_state_owned(local_meta, path, str(project.id))
+    if legacy_local_owned and local_meta.resolve() != meta.resolve():
         symlinks = [item for item in local_meta.rglob("*") if item.is_symlink()]
         if symlinks:
             raise RuntimeError(f"Refusing to migrate symlinked AI Layer state: {symlinks[0]}")
@@ -273,21 +286,18 @@ def init_project(
     _write_project_config(path, config)
     _ensure_rules(meta)
 
-    if mode in {"external", "strict-private"}:
-        remove_project_integrations(path)
-        sync_project_native_skills(path)
-        if local_meta.exists() and local_meta.resolve() != meta.resolve():
-            shutil.rmtree(local_meta)
-        if mode == "strict-private":
-            guard = install_git_privacy_guard(path)
-            if not guard.get("ready", False):
-                raise RuntimeError(
-                    f"Strict-private Git privacy guard is not ready: {guard.get('reason') or guard}"
-                )
-        else:
-            remove_git_privacy_guard(path)
+    remove_project_integrations(path)
+    sync_project_native_skills(path)
+    if legacy_local_owned and local_meta.resolve() != meta.resolve():
+        shutil.rmtree(local_meta)
+    if mode == "strict-private":
+        guard = install_git_privacy_guard(path)
+        if not guard.get("ready", False):
+            raise RuntimeError(
+                f"Strict-private Git privacy guard is not ready: {guard.get('reason') or guard}"
+            )
     else:
-        install_project_integrations(path)
+        remove_git_privacy_guard(path)
     register_project(path, str(project.id), project.name, mode=mode, provenance=provenance)
     return project
 

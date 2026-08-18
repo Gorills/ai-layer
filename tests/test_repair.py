@@ -74,6 +74,48 @@ def test_repair_auto_detaches_nested_registration_and_archives_ai_state(
         get_settings.cache_clear()
 
 
+def test_repair_migrates_legacy_standard_state_and_removes_project_bindings(
+    tmp_path: Path, monkeypatch
+):
+    from ai_layer.integrations.service import install_project_integrations
+
+    home = tmp_path / "home"
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
+    get_settings.cache_clear()
+    try:
+        register_project(root, "p-standard", "repo", mode="standard", provenance="allow")
+        local = root / ".ai-layer"
+        (local / "memory").mkdir(parents=True)
+        (local / "project.yaml").write_text(
+            _project_yaml(root, "p-standard", mode="standard", provenance="allow"),
+            encoding="utf-8",
+        )
+        (local / "memory" / "keep.txt").write_text("durable\n", encoding="utf-8")
+        cursor = root / ".cursor" / "mcp.json"
+        cursor.parent.mkdir(parents=True)
+        cursor.write_text('{"mcpServers":{"existing":{"command":"keep"}}}\n', encoding="utf-8")
+        install_project_integrations(root)
+
+        result = repair_project(root, sync=False)
+
+        destination = home / ".ai-layer" / "projects" / "p-standard"
+        assert result["ok"] is True
+        assert result["state_destination"] == str(destination)
+        assert not local.exists()
+        assert (destination / "project.yaml").exists()
+        assert (destination / "memory" / "keep.txt").read_text(encoding="utf-8") == "durable\n"
+        cursor_data = __import__("json").loads(cursor.read_text(encoding="utf-8"))
+        assert cursor_data == {"mcpServers": {"existing": {"command": "keep"}}}
+        assert not (root / ".mcp.json").exists()
+        assert not (root / ".codex" / "config.toml").exists()
+        assert not (root / ".agents" / "mcp_config.json").exists()
+    finally:
+        get_settings.cache_clear()
+
+
 def test_repair_moves_verified_strict_private_local_residue_out_of_repository(
     tmp_path: Path, monkeypatch
 ):

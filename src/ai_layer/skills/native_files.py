@@ -7,7 +7,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from ai_layer.core.paths import project_local_path, project_mode
+from ai_layer.core.paths import project_local_path
 from ai_layer.skills.native_descriptor import native_descriptor_name
 
 GLOBAL_NATIVE_ROOT_PARTS: dict[str, tuple[str, ...]] = {
@@ -189,19 +189,12 @@ def assert_native_targets_available(
         if project_root is None:
             raise ValueError("project_root is required for project native skill preflight")
         root = Path(project_root).expanduser().resolve()
-        mode = project_mode(root)
-        external = mode in {"external", "strict-private"}
-        name = native_descriptor_name(slug, project_root=root, external_scope=external)
-        if external:
-            home_root = (home or Path.home()).expanduser()
-            names = [
-                (project_local_path(home_root, *parts), name)
-                for parts in GLOBAL_NATIVE_ROOT_PARTS.values()
-            ]
-        else:
-            names = [
-                (project_local_path(root, *parts), name) for parts in PROJECT_NATIVE_ROOT_PARTS
-            ]
+        name = native_descriptor_name(slug, project_root=root, external_scope=True)
+        home_root = (home or Path.home()).expanduser()
+        names = [
+            (project_local_path(home_root, *parts), name)
+            for parts in GLOBAL_NATIVE_ROOT_PARTS.values()
+        ]
     else:
         raise ValueError(f"Unsupported skill scope: {scope}")
     for base, name in names:

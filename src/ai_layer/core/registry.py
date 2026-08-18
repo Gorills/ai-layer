@@ -50,7 +50,7 @@ def _utcnow() -> str:
 
 
 def _external_state_entries() -> list[dict]:
-    """Recover external-state project authority if registry entries are lost."""
+    """Recover machine-side project authority if registry entries are lost."""
     base = get_settings().projects_state_dir
     if not base.exists():
         return []
@@ -78,7 +78,7 @@ def _external_state_entries() -> list[dict]:
         if not isinstance(data, dict):
             raise RegistryCorruptError(f"AI Layer external project state is invalid: {config}")
         mode = str(data.get("mode") or "")
-        if mode not in {"external", "strict-private"}:
+        if mode not in PROJECT_MODES:
             continue
         root = str(data.get("root") or "").strip()
         project_id = str(data.get("project_id") or child.name).strip()

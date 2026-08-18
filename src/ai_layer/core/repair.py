@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 from ai_layer.core.config import get_settings
-from ai_layer.core.paths import project_config_path, project_local_path, project_mode
+from ai_layer.core.paths import project_local_path, project_mode
 from ai_layer.core.registry import (
     get_registered_project,
     is_ephemeral_project_root,
@@ -189,23 +189,50 @@ def detach_nested_registration(child: str | Path, parent: str | Path) -> dict:
     }
 
 
-def _archive_external_local_residue(root: Path) -> list[str]:
-    """Move verified legacy local state out of an external-state repository."""
-    if project_mode(root) not in {"external", "strict-private"}:
-        return []
+def _migrate_legacy_local_state(root: Path) -> dict:
+    """Move verified legacy repository-local state to canonical machine-side project storage."""
     local_meta = project_local_path(root, ".ai-layer")
     if not local_meta.exists() and not local_meta.is_symlink():
-        return []
+        return {"migrated": False, "destination": None, "archived": []}
     project_id = _project_id(root)
+    if not project_id:
+        raise RuntimeError(
+            f"Registered project lacks project_id; refusing to move legacy state: {root}"
+        )
     if not _validated_owned_state(local_meta, root, project_id):
-        return []
-    # A strict-private project must already have its canonical external project.yaml before we
-    # move local residue. Otherwise automatic cleanup could remove the only usable project state.
-    canonical = project_config_path(root)
-    if not canonical.exists() or canonical.resolve() == (local_meta / "project.yaml").resolve():
-        raise RuntimeError(f"External project state is not ready; refusing to move {local_meta}")
-    recovery = _recovery_dir(root, project_id, "external-local-state")
-    return [_archive_dir(local_meta, recovery, "local-state")]
+        return {"migrated": False, "destination": None, "archived": []}
+
+    base = get_settings().projects_state_dir
+    if base.is_symlink():
+        raise RuntimeError(f"Refusing symlinked AI Layer projects state root: {base}")
+    destination = base / project_id
+    try:
+        destination.resolve().relative_to(root)
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError(
+            f"AI Layer machine state must be outside the registered project root: {destination}"
+        )
+    try:
+        destination.resolve().relative_to(base.expanduser().resolve())
+    except ValueError as exc:
+        raise RuntimeError(f"Unsafe external AI Layer project state path: {destination}") from exc
+
+    if destination.exists() or destination.is_symlink():
+        if not _validated_owned_state(destination, root, project_id):
+            raise RuntimeError(f"Canonical project state is not safely owned: {destination}")
+        recovery = _recovery_dir(root, project_id, "legacy-local-state")
+        archived = _archive_dir(local_meta, recovery, "local-state")
+        return {"migrated": False, "destination": str(destination), "archived": [archived]}
+
+    base.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(local_meta), str(destination))
+    try:
+        os.chmod(destination, 0o700)
+    except OSError:
+        pass
+    return {"migrated": True, "destination": str(destination), "archived": []}
 
 
 def repair_project(root: str | Path, *, sync: bool = True) -> dict:
@@ -221,23 +248,25 @@ def repair_project(root: str | Path, *, sync: bool = True) -> dict:
         return result
     try:
         mode = project_mode(path)
-        if mode in {"external", "strict-private"}:
-            # External attachment never needs repository-local bridges or metadata.
-            remove_project_integrations(path)
-            result["actions"].append("removed external-mode repository bridge residue")
-            archived = _archive_external_local_residue(path)
-            if archived:
-                result["actions"].append("archived legacy local .ai-layer state")
-                result["archived_state"] = archived
-            if mode == "strict-private":
-                guard = install_git_privacy_guard(path)
-                result["git_guard"] = guard
-                if not guard.get("ready", False):
-                    result["manual"].append(
-                        f"Git privacy guard conflict: {guard.get('reason') or guard}"
-                    )
-            else:
-                remove_git_privacy_guard(path)
+        layout = _migrate_legacy_local_state(path)
+        if layout.get("migrated"):
+            result["actions"].append("migrated legacy local .ai-layer state to machine storage")
+            result["state_destination"] = layout.get("destination")
+        if layout.get("archived"):
+            result["actions"].append("archived duplicate legacy local .ai-layer state")
+            result["archived_state"] = layout["archived"]
+
+        remove_project_integrations(path)
+        result["actions"].append("removed repository-local AI Layer integration residue")
+        if mode == "strict-private":
+            guard = install_git_privacy_guard(path)
+            result["git_guard"] = guard
+            if not guard.get("ready", False):
+                result["manual"].append(
+                    f"Git privacy guard conflict: {guard.get('reason') or guard}"
+                )
+        else:
+            remove_git_privacy_guard(path)
         if sync:
             synced = sync_project_integrations(path)
             result["sync"] = synced

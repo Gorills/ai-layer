@@ -136,11 +136,21 @@ def test_claude_bootstrap_only_is_not_ready(tmp_path: Path, monkeypatch) -> None
         get_settings.cache_clear()
 
 
-def test_claude_bootstrap_plus_mcp_without_skills_is_not_ready(tmp_path: Path, monkeypatch) -> None:
-    home, project, executable = _isolate_home(tmp_path, monkeypatch)
+def test_claude_bootstrap_plus_user_mcp_without_skills_is_not_ready(
+    tmp_path: Path, monkeypatch
+) -> None:
+    home, project, _executable = _isolate_home(tmp_path, monkeypatch)
     try:
         _write_claude_bootstrap(home)
-        _write_owned_mcp(project / ".mcp.json", str(executable))
+        monkeypatch.setattr(
+            "ai_layer.integrations.service.claude_user_mcp_status",
+            lambda: {
+                "cli_available": True,
+                "installed": True,
+                "owned": True,
+                "reason": None,
+            },
+        )
         state = integration_status(project)
         claude = state["providers"]["claude-code"]
         assert claude["bootstrap"] is True
@@ -148,6 +158,7 @@ def test_claude_bootstrap_plus_mcp_without_skills_is_not_ready(tmp_path: Path, m
         assert claude["native_skills"] is False
         assert claude["ready"] is False
         assert claude["status"] == "degraded"
+        assert not (project / ".mcp.json").exists()
     finally:
         get_settings.cache_clear()
 

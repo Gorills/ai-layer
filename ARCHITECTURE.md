@@ -126,7 +126,7 @@ Findings are durable structured records with severity/category/path/problem/requ
 
 ## Target-project footprint
 
-`standard` mode writes only minimal generated/reversible host bridges plus project-native descriptors for explicit project skills under the shared `.agents/skills/` convention. Global AI Layer skills stay in user-level native catalogs. `external` keeps project-specific descriptors at machine/user level and removes repository bridges while preserving normal provenance policy. `strict-private` is external attachment plus provenance prohibition and Git privacy guard. Canonical workflow snapshots and Epic state are machine/DB state and do not add source-controlled AI Layer artifacts to target repositories.
+`standard` mode is a zero-footprint attachment: project metadata/rules live under the machine AI Layer home, MCP/bootstrap delivery is global, and project-specific native skills are namespaced into user-level host catalogs. The legacy `external` mode is retained as a compatibility spelling for the same repository-clean attachment behavior. `strict-private` uses the same machine-side layout plus provenance prohibition and a Git privacy guard. Upgrade/repair migrates verified legacy `.ai-layer` state out of older standard repositories and removes only AI Layer-owned project MCP/skill residue while preserving unrelated user configuration.
 
 ## Epic boundary rule
 

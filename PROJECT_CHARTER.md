@@ -14,7 +14,7 @@ Chat history is never authoritative durable state, and AI Layer indexes never re
 
 1. **Development repository** — this repository: source, tests, migrations, release tooling, CI-compatible gates, built-in runtime skills, maintainership rules and ADRs.
 2. **Machine runtime/control plane** — installed immutable runtime, daemon, database, project registry, Project Intelligence, Task/Epic/Skill/Verification capabilities, projections, host adapters and updater.
-3. **Target projects** — user repositories. AI Layer implementation is never copied into them. Standard mode may install minimal generated host bridge/native-skill files. External and strict-private modes keep managed state machine-side according to their privacy contract.
+3. **Target projects** — user repositories. AI Layer implementation and managed state are not copied into them. Standard attachment is zero-footprint and uses global host integration plus machine-side project state; strict-private adds provenance restrictions and its Git privacy guard. The legacy `external` mode remains a compatibility spelling for the same zero-footprint attachment model.
 
 Development governance belongs only to this repository. Runtime skills are engineering contracts for agents working on target projects; they are a separate product capability.
 

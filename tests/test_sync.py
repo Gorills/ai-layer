@@ -9,24 +9,39 @@ from ai_layer.integrations.service import INTEGRATION_TEMPLATE_VERSION
 
 
 def test_sync_updates_template_version_and_machine_registry(tmp_path: Path, monkeypatch):
+    from ai_layer.core.registry import register_project
+
     home = tmp_path / "home"
     project = tmp_path / "project"
     home.mkdir()
-    (project / ".ai-layer").mkdir(parents=True)
-    (project / ".ai-layer" / "project.yaml").write_text(
-        yaml.safe_dump({"project_id": "legacy-id", "name": "legacy", "root": str(project)}),
-        encoding="utf-8",
-    )
+    project.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("AI_LAYER_HOME", str(home / ".ai-layer"))
     monkeypatch.setenv("AI_LAYER_MCP_EXECUTABLE", "/stable/ai-layer-mcp")
     get_settings.cache_clear()
+    register_project(project, "legacy-id", "legacy", mode="standard", provenance="allow")
+    meta = home / ".ai-layer" / "projects" / "legacy-id"
+    meta.mkdir(parents=True)
+    (meta / "project.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "project_id": "legacy-id",
+                "name": "legacy",
+                "root": str(project.resolve()),
+                "mode": "standard",
+                "provenance": "allow",
+            }
+        ),
+        encoding="utf-8",
+    )
 
     result = sync_project_integrations(project)
-    config = yaml.safe_load((project / ".ai-layer" / "project.yaml").read_text(encoding="utf-8"))
+    config = yaml.safe_load((meta / "project.yaml").read_text(encoding="utf-8"))
     assert result["template_version"] == INTEGRATION_TEMPLATE_VERSION
+    assert result["repository_writes"] is False
     assert config["integration_template_version"] == INTEGRATION_TEMPLATE_VERSION
     assert list_registered_projects()[0]["root"] == str(project.resolve())
+    assert not (project / ".ai-layer").exists()
     get_settings.cache_clear()
 
 
@@ -65,6 +80,8 @@ def test_init_commits_project_identity_before_publishing_filesystem_metadata(
     from ai_layer.db.base import Base
     from ai_layer.db.models import Project
 
+    project_root = tmp_path / "project"
+    project_root.mkdir()
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
 
@@ -74,16 +91,18 @@ def test_init_commits_project_identity_before_publishing_filesystem_metadata(
     monkeypatch.setattr(service, "_write_project_config", fail_publish)
     with Session(engine) as db:
         try:
-            service.init_project(db, tmp_path)
+            service.init_project(db, project_root)
         except RuntimeError as exc:
             assert "metadata publish failure" in str(exc)
         else:
             raise AssertionError("filesystem publication failure must propagate")
 
     with Session(engine) as verify:
-        project = verify.scalar(select(Project).where(Project.root_path == str(tmp_path.resolve())))
+        project = verify.scalar(
+            select(Project).where(Project.root_path == str(project_root.resolve()))
+        )
         assert project is not None
-        assert not (tmp_path / ".ai-layer" / "project.yaml").exists()
+        assert not (project_root / ".ai-layer" / "project.yaml").exists()
 
 
 def test_init_refuses_symlinked_ai_layer_state_directory(tmp_path: Path):
@@ -395,13 +414,14 @@ def test_remove_nested_standard_project_does_not_remove_parent_strict_private_gi
         get_settings.cache_clear()
 
 
-def test_init_preserves_user_owned_legacy_rule_and_uses_sparse_mcp_binding(
+def test_init_preserves_user_owned_legacy_rule_without_repository_bindings(
     tmp_path: Path, monkeypatch
 ):
     from sqlalchemy import create_engine, select
     from sqlalchemy.orm import Session
 
     from ai_layer.core import service
+    from ai_layer.core.paths import project_meta_dir
     from ai_layer.db.base import Base
     from ai_layer.db.models import Project
 
@@ -430,8 +450,10 @@ def test_init_preserves_user_owned_legacy_rule_and_uses_sparse_mcp_binding(
     assert (
         legacy_rule.read_text(encoding="utf-8") == "user-owned rule with this historical filename\n"
     )
-    assert (project_root / ".cursor" / "mcp.json").exists()
-    assert (project_root / ".agents" / "mcp_config.json").exists()
+    assert project_meta_dir(project_root).is_relative_to(home / ".ai-layer")
+    assert not (project_root / ".cursor" / "mcp.json").exists()
+    assert not (project_root / ".agents" / "mcp_config.json").exists()
+    assert not (project_root / ".mcp.json").exists()
     get_settings.cache_clear()
 
 

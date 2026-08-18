@@ -12,7 +12,6 @@ from ai_layer.skills.native_descriptor import (
 )
 from ai_layer.skills.native_files import (
     GLOBAL_NATIVE_ROOT_PARTS,
-    PROJECT_NATIVE_ROOT_PARTS,
     global_native_roots,
     sync_native_root,
 )
@@ -110,45 +109,22 @@ def sync_project_native_skills(project_root: str | Path, *, home: Path | None = 
     root = Path(project_root).expanduser().resolve()
     mode = project_mode(root)
     project_key = hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:10]
-    if mode in {"external", "strict-private"}:
-        desired, validation = _project_skill_descriptors(root, external_scope=True)
-        home_root = (home or Path.home()).expanduser()
-        results = {
-            host: sync_native_root(
-                home_root, *parts, desired=desired, scope="project", project_key=project_key
-            )
-            for host, parts in GLOBAL_NATIVE_ROOT_PARTS.items()
-        }
-        return {
-            "mode": mode,
-            "repository_writes": False,
-            "scope": "namespaced-global-zero-footprint",
-            "descriptors": sorted(desired),
-            "activation_payload": "full-authoritative-skill",
-            "validation": validation,
-            "sync": results,
-        }
-    desired, validation = _project_skill_descriptors(root, external_scope=False)
-    agents_parts, claude_parts = PROJECT_NATIVE_ROOT_PARTS
-    shared_sync = sync_native_root(
-        root, *agents_parts, desired=desired, scope="project", project_key=project_key
-    )
-    claude_sync = sync_native_root(
-        root, *claude_parts, desired=desired, scope="project", project_key=project_key
-    )
+    desired, validation = _project_skill_descriptors(root, external_scope=True)
+    home_root = (home or Path.home()).expanduser()
+    results = {
+        host: sync_native_root(
+            home_root, *parts, desired=desired, scope="project", project_key=project_key
+        )
+        for host, parts in GLOBAL_NATIVE_ROOT_PARTS.items()
+    }
     return {
         "mode": mode,
-        "repository_writes": bool(desired),
-        "scope": "workspace",
+        "repository_writes": False,
+        "scope": "namespaced-global-zero-footprint",
         "descriptors": sorted(desired),
         "activation_payload": "full-authoritative-skill",
         "validation": validation,
-        # Preserve the historical primary sync shape for callers while exposing host-specific output.
-        "sync": shared_sync,
-        "host_sync": {
-            "cursor_codex": shared_sync,
-            "claude": claude_sync,
-        },
+        "sync": results,
     }
 
 

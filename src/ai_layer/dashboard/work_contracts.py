@@ -9,6 +9,7 @@ from ai_layer.dashboard.event_contracts import SafeEventPayload
 WorkKind = Literal["change", "diagnose", "review", "research", "planning", "ops"]
 WorkStatus = Literal[
     "active",
+    "awaiting_feedback",
     "blocked",
     "completed",
     "failed",

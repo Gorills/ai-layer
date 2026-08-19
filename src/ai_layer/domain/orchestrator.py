@@ -21,7 +21,11 @@ def critical_orchestrator_contract() -> dict[str, Any]:
         "authority": "host_native_execution",
         "repository_mutation": "host_native",
         "external_mutation": "host_native_subject_to_user_permissions",
-        "startup_rule": "Call project_status before beginning registered-project work.",
+        "startup_rule": (
+            "Call project_status(project_root=<workspace root>) before registered-project work, then "
+            "reuse the canonical project_root returned by that successful response on every "
+            "project-scoped AI Layer call."
+        ),
         "work_rule": (
             "When project_status continuation.kind is none, explicit user Task/standard-Task-protocol intent "
             "goes directly to task_create; otherwise substantive work starts with work_begin. Related feedback "
@@ -39,9 +43,15 @@ def critical_orchestrator_contract() -> dict[str, Any]:
         "managed_workflow_rule": (
             "Task/Epic navigators are authoritative only after a managed Task/Epic is explicitly active or selected."
         ),
+        "tool_error_rule": (
+            "A failed AI Layer tool call is not a successful step. For schema/validation/project-context errors, "
+            "stop dependent AI Layer actions, correct the exact arguments/context named by the error, retry the "
+            "same tool, and proceed only after success. Tool schemas are authoritative; never invent aliases."
+        ),
         "failure_rule": (
-            "If Project Intelligence is temporarily unavailable, report that loss of context and continue with "
-            "host-native source inspection rather than inventing state or becoming blocked by the control plane."
+            "Only genuine temporary Project Intelligence availability/runtime failures may fall back to "
+            "host-native source inspection when safe. Validation and PROJECT_CONTEXT_* failures must be repaired "
+            "and retried; never treat them as unavailable context."
         ),
     }
 
@@ -70,7 +80,8 @@ def critical_orchestrator_markdown() -> str:
 
 AI Layer provides Project Intelligence, durable ordinary-work state, optional managed assurance, professional skills, verification evidence and observability. The host agent runtime remains the execution engine.
 
-- Start registered-project work with `project_status(project_root=<workspace root>)` before implementation or broad discovery. Apply `project_policy.text` when present; its version/hash identifies the delivered revision. Use `work.current_focus` / `work.continuation` to interpret "continue" without rediscovering prior work.
+- Start registered-project work with `project_status(project_root=<workspace root>)` before implementation or broad discovery. Treat the successful response's `project_root` as canonical and pass it verbatim to every later project-scoped AI Layer tool call; after this MCP process has seen multiple projects, never omit or guess that argument. Apply `project_policy.text` when present; its version/hash identifies the delivered revision. Use `work.current_focus` / `work.continuation` to interpret "continue" without rediscovering prior work.
+- A failed AI Layer tool call is not a completed step. On schema/validation/`PROJECT_CONTEXT_REQUIRED`/`PROJECT_CONTEXT_AMBIGUOUS`, stop dependent AI Layer actions, read the exact error and tool schema, correct only the named arguments/context, retry the same tool, and continue only after it succeeds. If canonical identity is not established, call `project_status(project_root=<host workspace root>)` first and reuse its returned root. Tool schemas are authoritative: do not invent aliases such as `skill_name` when `skill_get` requires `slug`.
 - After `project_status`, if `work.continuation.kind` is `none`, route by user intent: an explicit managed Task / standard Task protocol request calls `task_create` directly; otherwise substantive work (implement, diagnose, review, research, multi-step investigation, live checks) starts with `work_begin`. AI Layer creates or links backing Work for managed Tasks automatically. Tiny one-shot Q&A with no durable value may stay unmaterialized. Ordinary Work stays open across related feedback/revision iterations: call `work_wait` when the current execution episode is done but normal user feedback may follow, and `work_resume` for the related follow-up on that same WorkItem. Use terminal Work calls only when the durable outcome itself is finished, failed, interrupted, or abandoned. Use `work_checkpoint` only for a meaningful milestone or blocker.
 - If the user already names a precise file or symbol, open that current source directly after status.
 - If the relevant code location is unknown, call `project_search` before broad repository grep/search. For non-English natural-language intent, derive a concise English code-centric primary query and preserve exact identifiers; pass at most one original-language or mixed `query_variants` entry when it materially widens domain recall. Treat returned paths/symbols as breadcrumbs and inspect current source. If semantic search is degraded or implausible, retry with English code-centric terms, then one bounded native exact-token search. For end-to-end flows cover entrypoint/handler, core service/domain, persistence/external integration and tests before claiming the flow is complete.
@@ -79,8 +90,8 @@ AI Layer provides Project Intelligence, durable ordinary-work state, optional ma
 - Native read/edit/search/shell/test/subagent capabilities remain available. Prefer the smallest sufficient exploration. AI Layer does not grant per-edit permission and must not replace the host's own agent loop.
 - Existing managed Tasks and Epics remain durable strict workflows. Resume an active managed focus with `task_next` / `epic_next`; for a new explicit managed Task request, start with `task_create` and follow its returned live next action.
 - Never stash, reset, restore, discard or commit user changes merely to satisfy AI Layer; a dirty worktree is valid project state.
-- If AI Layer state/index retrieval fails, disclose the missing context and continue with native source inspection when safe. Never fabricate Work/Task/Epic/Knowledge state.
-- Agent Skills are selected by the host natively. Do not preload unrelated skills. Use `skill_get` only when host-native activation is insufficient.
+- If AI Layer is genuinely temporarily unavailable at runtime, disclose the missing context and continue with native source inspection when safe. Do not use this fallback for validation, schema, or project-context errors: repair those calls first. Never fabricate Work/Task/Epic/Knowledge state.
+- Agent Skills are selected by the host natively. Do not preload unrelated skills. Use `skill_get` only when host-native activation is insufficient; the exact fallback form is `skill_get(slug="<slug>", project_root=<canonical project_root>)`, never `skill_name=...`.
 - A control-plane call is justified only when it reduces uncertainty, preserves durable state, or supplies evidence the host would otherwise reconstruct.
 
 Current repository source is final code truth. Project Map is a navigation index; Project Knowledge is reviewed semantic memory; Decisions explain prior choices.

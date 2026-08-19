@@ -1,0 +1,238 @@
+name: harden-agent-tool-errors
+
+on:
+  push:
+    branches:
+      - agent/fail-closed-tool-errors
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/fail-closed-tool-errors
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Harden agent tool-error recovery contract
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import subprocess
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one replacement target, found {count}: {old!r}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          agent = "src/ai_layer/domain/agent_contract.py"
+          replace_once(agent, "AGENT_RUNTIME_CONTRACT_VERSION = 4", "AGENT_RUNTIME_CONTRACT_VERSION = 5")
+          replace_once(
+              agent,
+              '        "startup": {\n            "tool": "project_status",\n            "rule": "Use as the first AI Layer state call for registered-project work.",\n        },',
+              '''        "startup": {
+            "tool": "project_status",
+            "rule": (
+                "Use as the first AI Layer state call for registered-project work. Pass the host workspace "
+                "root explicitly, then reuse the canonical project_root returned by the successful response "
+                "on every later project-scoped AI Layer call."
+            ),
+        },
+        "tool_errors": {
+            "success_precondition": (
+                "A tool call that returned any error or schema validation failure did not succeed and cannot "
+                "satisfy a required workflow step."
+            ),
+            "validation": (
+                "For validation/schema/PROJECT_CONTEXT_REQUIRED/PROJECT_CONTEXT_AMBIGUOUS errors, stop dependent "
+                "AI Layer steps, read the exact error and tool schema, correct only the arguments/context, and "
+                "retry the same tool. Do not continue until the required call succeeds."
+            ),
+            "project_context": (
+                "After project_status succeeds, copy its project_root verbatim into every subsequent "
+                "project-scoped tool call. If no canonical root is established, call "
+                "project_status(project_root=<host workspace root>) first. Never infer project identity from cwd."
+            ),
+            "schema": (
+                "Tool schemas are authoritative; never invent argument aliases. For example, skill_get requires "
+                "the argument slug, not skill_name."
+            ),
+            "availability": (
+                "Only genuine temporary availability/runtime failures may fall back to host-native source "
+                "inspection when safe; validation errors are not availability failures."
+            ),
+        },''',
+          )
+          replace_once(
+              agent,
+              '        "skills": {\n            "routing_owner": "host-native",\n            "explicit_fallback": "skill_get",\n        },',
+              '''        "skills": {
+            "routing_owner": "host-native",
+            "explicit_fallback": "skill_get",
+            "fallback_example": 'skill_get(slug="<slug>", project_root="<canonical project_root>")',
+        },''',
+          )
+          replace_once(
+              agent,
+              '        "registered-project state call and apply its `project_policy`. When continuation.kind is none, "',
+              '        "registered-project state call and apply its `project_policy`; reuse its returned `project_root` "\n'
+              '        "verbatim on every later project-scoped AI Layer call. A failed tool call or schema validation "\n'
+              '        "is NOT success: before any dependent step, read the exact error and tool schema, correct only "\n'
+              '        "arguments/context, retry the same tool, and continue only after it succeeds. For "\n'
+              '        "PROJECT_CONTEXT_REQUIRED/PROJECT_CONTEXT_AMBIGUOUS, establish identity with "\n'
+              '        "`project_status(project_root=<host workspace root>)` and reuse the returned root. Never invent "\n'
+              '        "tool argument aliases: `skill_get` takes `slug`, not `skill_name`. Only genuine temporary "\n'
+              '        "availability failures may fall back to native source inspection; validation failures must be "\n'
+              '        "repaired. When continuation.kind is none, "',
+          )
+
+          orchestrator = "src/ai_layer/domain/orchestrator.py"
+          replace_once(
+              orchestrator,
+              "CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 9",
+              "CRITICAL_ORCHESTRATOR_CONTRACT_VERSION = 10",
+          )
+          replace_once(
+              orchestrator,
+              '        "startup_rule": "Call project_status before beginning registered-project work.",',
+              '''        "startup_rule": (
+            "Call project_status(project_root=<workspace root>) before registered-project work, then reuse the "
+            "canonical project_root returned by that successful response on every project-scoped AI Layer call."
+        ),''',
+          )
+          replace_once(
+              orchestrator,
+              '        "managed_workflow_rule": (\n            "Task/Epic navigators are authoritative only after a managed Task/Epic is explicitly active or selected."\n        ),\n        "failure_rule": (\n            "If Project Intelligence is temporarily unavailable, report that loss of context and continue with "\n            "host-native source inspection rather than inventing state or becoming blocked by the control plane."\n        ),',
+              '''        "managed_workflow_rule": (
+            "Task/Epic navigators are authoritative only after a managed Task/Epic is explicitly active or selected."
+        ),
+        "tool_error_rule": (
+            "A failed AI Layer tool call is not a successful step. For schema/validation/project-context errors, "
+            "stop dependent AI Layer actions, correct the exact arguments/context named by the error, retry the "
+            "same tool, and proceed only after success. Tool schemas are authoritative; never invent aliases."
+        ),
+        "failure_rule": (
+            "Only genuine temporary Project Intelligence availability/runtime failures may fall back to "
+            "host-native source inspection when safe. Validation and PROJECT_CONTEXT_* failures must be repaired "
+            "and retried; never treat them as unavailable context."
+        ),''',
+          )
+          replace_once(
+              orchestrator,
+              '- Start registered-project work with `project_status(project_root=<workspace root>)` before implementation or broad discovery. Apply `project_policy.text` when present; its version/hash identifies the delivered revision. Use `work.current_focus` / `work.continuation` to interpret "continue" without rediscovering prior work.\n',
+              '- Start registered-project work with `project_status(project_root=<workspace root>)` before implementation or broad discovery. Treat the successful response\'s `project_root` as canonical and pass it verbatim to every later project-scoped AI Layer tool call; after this MCP process has seen multiple projects, never omit or guess that argument. Apply `project_policy.text` when present; its version/hash identifies the delivered revision. Use `work.current_focus` / `work.continuation` to interpret "continue" without rediscovering prior work.\n'
+              '- A failed AI Layer tool call is not a completed step. On schema/validation/`PROJECT_CONTEXT_REQUIRED`/`PROJECT_CONTEXT_AMBIGUOUS`, stop dependent AI Layer actions, read the exact error and tool schema, correct only the named arguments/context, retry the same tool, and continue only after it succeeds. If canonical identity is not established, call `project_status(project_root=<host workspace root>)` first and reuse its returned root. Tool schemas are authoritative: do not invent aliases such as `skill_name` when `skill_get` requires `slug`.\n',
+          )
+          replace_once(
+              orchestrator,
+              '- If AI Layer state/index retrieval fails, disclose the missing context and continue with native source inspection when safe. Never fabricate Work/Task/Epic/Knowledge state.\n',
+              '- If AI Layer is genuinely temporarily unavailable at runtime, disclose the missing context and continue with native source inspection when safe. Do not use this fallback for validation, schema, or project-context errors: repair those calls first. Never fabricate Work/Task/Epic/Knowledge state.\n',
+          )
+          replace_once(
+              orchestrator,
+              '- Agent Skills are selected by the host natively. Do not preload unrelated skills. Use `skill_get` only when host-native activation is insufficient.\n',
+              '- Agent Skills are selected by the host natively. Do not preload unrelated skills. Use `skill_get` only when host-native activation is insufficient; the exact fallback form is `skill_get(slug="<slug>", project_root=<canonical project_root>)`, never `skill_name=...`.\n',
+          )
+
+          versioning = "src/ai_layer/integrations/versioning.py"
+          replace_once(
+              versioning,
+              "# v17 teaches ordinary-work hosts to keep a WorkItem open across user feedback iterations.\nGLOBAL_BOOTSTRAP_VERSION = 17",
+              "# v18 makes tool/schema/project-context errors fail closed until corrected and retried.\nGLOBAL_BOOTSTRAP_VERSION = 18",
+          )
+
+          tests = Path("tests/test_agent_facing_contracts.py")
+          text = tests.read_text(encoding="utf-8")
+          old = 'assert contract["version"] == AGENT_RUNTIME_CONTRACT_VERSION == 4'
+          if text.count(old) != 1:
+              raise SystemExit("unexpected runtime contract version assertion count")
+          text = text.replace(old, 'assert contract["version"] == AGENT_RUNTIME_CONTRACT_VERSION == 5', 1)
+          count = text.count('result["runtime_contract_version"] == 4')
+          if count < 1:
+              raise SystemExit("no managed-next runtime version assertions found")
+          text = text.replace('result["runtime_contract_version"] == 4', 'result["runtime_contract_version"] == 5')
+          tests.write_text(text, encoding="utf-8")
+
+          Path("tests/test_agent_tool_error_recovery_contract.py").write_text(
+              '''from ai_layer.domain.agent_contract import (
+    AGENT_RUNTIME_CONTRACT_VERSION,
+    agent_runtime_bootstrap_line,
+    agent_runtime_contract,
+)
+from ai_layer.domain.orchestrator import (
+    CRITICAL_ORCHESTRATOR_CONTRACT_VERSION,
+    critical_orchestrator_contract,
+    native_bootstrap_markdown,
+)
+from ai_layer.integrations.versioning import GLOBAL_BOOTSTRAP_VERSION
+
+
+def test_tool_errors_are_fail_closed_until_the_required_call_succeeds() -> None:
+    contract = agent_runtime_contract()
+    errors = contract["tool_errors"]
+
+    assert "did not succeed" in errors["success_precondition"]
+    assert "retry the same tool" in errors["validation"]
+    assert "Do not continue until the required call succeeds" in errors["validation"]
+    assert "copy its project_root verbatim" in errors["project_context"]
+    assert "project_status(project_root=<host workspace root>)" in errors["project_context"]
+    assert "skill_get requires the argument slug, not skill_name" in errors["schema"]
+    assert "validation errors are not availability failures" in errors["availability"]
+
+
+def test_native_and_mcp_bootstraps_explain_the_recovery_sequence() -> None:
+    native = native_bootstrap_markdown()
+    fallback = agent_runtime_bootstrap_line()
+
+    for text in (native, fallback):
+        lowered = text.casefold()
+        assert "failed ai layer tool call" in lowered or "failed tool call" in lowered
+        assert "retry the same tool" in lowered
+        assert "project_context_ambiguous" in lowered
+        assert "project_status(project_root=<host workspace root>)" in text
+        assert "skill_get" in lowered
+        assert "skill_name" in lowered
+        assert "slug" in lowered
+
+    assert "pass it verbatim to every later project-scoped AI Layer tool call" in native
+    assert "validation failures must be repaired" in fallback
+
+
+def test_error_recovery_contract_revision_is_explicitly_versioned() -> None:
+    orchestrator = critical_orchestrator_contract()
+
+    assert AGENT_RUNTIME_CONTRACT_VERSION == 5
+    assert orchestrator["agent_runtime_contract_version"] == 5
+    assert CRITICAL_ORCHESTRATOR_CONTRACT_VERSION == 10
+    assert orchestrator["version"] == 10
+    assert GLOBAL_BOOTSTRAP_VERSION == 18
+    assert "retry the same tool" in orchestrator["tool_error_rule"]
+''',
+              encoding="utf-8",
+          )
+
+          subprocess.run(["python", "scripts/build_release_wheel.py"], check=True)
+          manifest_path = Path("release/release-manifest.json")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          wheel = Path(manifest["application_wheel"])
+          manifest["application_wheel_sha256"] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - name: Run focused contract tests
+        run: python -m pytest tests/test_agent_tool_error_recovery_contract.py tests/test_agent_facing_contracts.py -q
+      - name: Commit hardened contract and release evidence
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/ai_layer/domain/agent_contract.py src/ai_layer/domain/orchestrator.py src/ai_layer/integrations/versioning.py tests/test_agent_facing_contracts.py tests/test_agent_tool_error_recovery_contract.py dist/local_ai_development_layer-0.14.0-py3-none-any.whl release/release-manifest.json
+          git commit -m "Fail closed on AI Layer tool errors"
+          git push origin HEAD:agent/fail-closed-tool-errors

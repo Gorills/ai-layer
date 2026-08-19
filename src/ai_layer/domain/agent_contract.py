@@ -48,7 +48,37 @@ def agent_runtime_contract() -> dict[str, Any]:
         },
         "startup": {
             "tool": "project_status",
-            "rule": "Use as the first AI Layer state call for registered-project work.",
+            "rule": (
+                "Use as the first AI Layer state call for registered-project work. Pass the host "
+                "workspace root explicitly, then reuse the canonical project_root returned by the "
+                "successful response on every later project-scoped AI Layer call."
+            ),
+        },
+        "tool_errors": {
+            "success_precondition": (
+                "A tool call that returned any error or schema validation failure did not succeed "
+                "and cannot satisfy a required workflow step."
+            ),
+            "validation": (
+                "For validation/schema/PROJECT_CONTEXT_REQUIRED/PROJECT_CONTEXT_AMBIGUOUS errors, "
+                "stop dependent AI Layer steps, read the exact error and tool schema, correct only "
+                "the arguments/context, and retry the same tool. Do not continue until the required "
+                "call succeeds."
+            ),
+            "project_context": (
+                "After project_status succeeds, copy its project_root verbatim into every subsequent "
+                "project-scoped tool call. If no canonical root is established, call "
+                "project_status(project_root=<host workspace root>) first. Never infer project identity "
+                "from shell cwd."
+            ),
+            "schema": (
+                "Tool schemas are authoritative; never invent argument aliases. For example, "
+                "skill_get requires the argument slug, not skill_name."
+            ),
+            "availability": (
+                "Only genuine temporary availability/runtime failures may fall back to host-native "
+                "source inspection when safe; validation errors are not availability failures."
+            ),
         },
         "work": {
             "ordinary": "WorkItem records substantive user work; host-native execution remains the owner.",
@@ -124,6 +154,7 @@ def agent_runtime_contract() -> dict[str, Any]:
         "skills": {
             "routing_owner": "host-native",
             "explicit_fallback": "skill_get",
+            "fallback_example": 'skill_get(slug="<slug>", project_root="<canonical project_root>")',
         },
         "managed_work": {
             "task_resume": "task_next",
@@ -168,18 +199,26 @@ def idle_ordinary_work_next_action() -> dict[str, Any]:
 def agent_runtime_bootstrap_line() -> str:
     return (
         f"AI Layer runtime contract v{AGENT_RUNTIME_CONTRACT_VERSION}: use `project_status` as the first "
-        "registered-project state call and apply its `project_policy`. When continuation.kind is none, "
-        "explicit user Task/standard-Task-protocol intent goes directly to `task_create`; otherwise substantive "
-        "ordinary work goes to `work_begin`. After an execution episode that may receive normal user revision, "
-        "call `work_wait` so the WorkItem remains open; when project_status reports awaiting_feedback, a related "
-        "follow-up uses `work_resume` on that same WorkItem. Terminal Work calls end the durable outcome itself. "
-        "AI Layer creates/links backing Work for managed Tasks automatically; use `work_checkpoint` only for "
-        "meaningful milestones or blockers. If code location is unknown, use `project_search`; for non-English "
-        "goals make the primary retrieval query concise English and code-centric while preserving exact "
-        "identifiers, with at most one original/mixed widening variant. Project Map hits are breadcrumbs, so "
-        "verify current source. Read reviewed facts with `knowledge_search` and decisions with `decision_search`. "
-        "Normal execution remains host-native. When a managed Task/Epic is active/selected, `task_next` or "
-        "`epic_next` is the live strict procedure and overrides older stored workflow prose. MCP payloads declare "
-        "envelope ordinary|managed_next|worker and do not reprint this procedure. `memory_context` is legacy "
+        "registered-project state call and apply its `project_policy`; reuse its returned `project_root` "
+        "verbatim on every later project-scoped AI Layer call. A failed tool call or schema validation is "
+        "NOT success: before any dependent step, read the exact error and tool schema, correct only "
+        "arguments/context, retry the same tool, and continue only after it succeeds. For "
+        "PROJECT_CONTEXT_REQUIRED/PROJECT_CONTEXT_AMBIGUOUS, establish identity with "
+        "`project_status(project_root=<host workspace root>)` and reuse the returned root. Never invent "
+        "tool argument aliases: `skill_get` takes `slug`, not `skill_name`. Only genuine temporary "
+        "availability failures may fall back to native source inspection; validation failures must be "
+        "repaired. When continuation.kind is none, explicit user Task/standard-Task-protocol intent goes "
+        "directly to `task_create`; otherwise substantive ordinary work goes to `work_begin`. After an "
+        "execution episode that may receive normal user revision, call `work_wait` so the WorkItem remains "
+        "open; when project_status reports awaiting_feedback, a related follow-up uses `work_resume` on that "
+        "same WorkItem. Terminal Work calls end the durable outcome itself. AI Layer creates/links backing "
+        "Work for managed Tasks automatically; use `work_checkpoint` only for meaningful milestones or "
+        "blockers. If code location is unknown, use `project_search`; for non-English goals make the primary "
+        "retrieval query concise English and code-centric while preserving exact identifiers, with at most "
+        "one original/mixed widening variant. Project Map hits are breadcrumbs, so verify current source. "
+        "Read reviewed facts with `knowledge_search` and decisions with `decision_search`. Normal execution "
+        "remains host-native. When a managed Task/Epic is active/selected, `task_next` or `epic_next` is the "
+        "live strict procedure and overrides older stored workflow prose. MCP payloads declare envelope "
+        "ordinary|managed_next|worker and do not reprint this procedure. `memory_context` is legacy "
         "compatibility only and `memory_search` aliases `knowledge_search`."
     )

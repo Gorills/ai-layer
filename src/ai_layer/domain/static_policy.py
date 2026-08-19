@@ -34,6 +34,15 @@ STATIC_POLICY_RULES = (
     "Use `project_status` as the cheap reusable AI Layer state surface. Do not call legacy `memory_context` "
     "mechanically or refresh Project Intelligence merely because you made your own edits. Inspect current source "
     "directly for code truth; use focused Project Map/Knowledge/Decision calls only when they reduce uncertainty.",
+    "After every AI Layer or MCP tool call, explicitly branch on success versus error before using the result or "
+    "issuing a dependent call. A tool error is a control-flow branch, never usable task state. On schema or "
+    "validation errors, inspect the exact tool schema/signature and correct only the named fields; never guess "
+    "aliases (`skill_get` takes `slug`, not `skill_name`). On `PROJECT_CONTEXT_REQUIRED` or "
+    "`PROJECT_CONTEXT_AMBIGUOUS`, stop project-scoped calls until a successful `project_status` or another "
+    "successful project-scoped AI Layer response supplies the canonical `project_root`; then reuse that exact "
+    "value, never shell cwd or a guessed path. A failed `work_begin` means Work was not started, so do not "
+    "continue project search/edit/test as if it succeeded. Make at most one corrected retry for the same error; "
+    "if the same error code repeats, stop that AI Layer call chain and report the blocker.",
     "Skills provide guidance, not project authority. Current source, explicit project rules and recorded project "
     "decisions take precedence when they establish a different valid convention. Skill relevance/activation is "
     "owned by the host-native skill system; use `skill_get` only for explicit retrieval or diagnostics when native "

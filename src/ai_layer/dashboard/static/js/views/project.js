@@ -3,6 +3,8 @@ import { agentsList, metric, stageName, stateBadge } from "../components/common.
 import { hashUrl, infoRow } from "../components/ui.js";
 import { workAttentionReason, workCompletionAction, workDisplayState, workHref } from "./work.js";
 
+const OPEN_EPIC_STATUSES = new Set(["draft", "approved", "phase0", "planning", "running", "final_review", "blocked"]);
+
 function currentWork(project) {
   const work = project?.work || {};
   return (work.live || []).find((item) => item.live)
@@ -160,7 +162,7 @@ function workflowPanel(data) {
   const allTasks = data.tasks?.items || [];
   const allEpics = data.epics?.items || [];
   const activeTasks = allTasks.filter((item) => ["active", "blocked"].includes(item.status));
-  const activeEpics = allEpics.filter((item) => !["completed", "cancelled", "failed", "abandoned"].includes(item.status));
+  const activeEpics = allEpics.filter((item) => OPEN_EPIC_STATUSES.has(item.status));
   const tasks = (activeTasks.length ? activeTasks : allTasks).slice(0, 3);
   const epics = (activeEpics.length ? activeEpics : allEpics).slice(0, 3);
   return `<section class="panel cockpit-workflow-panel">
@@ -241,7 +243,7 @@ export function renderProject(data) {
   const recent = recentWork(project);
   const attention = attentionItems(data);
   const activeTasks = (data.tasks?.items || []).filter((item) => ["active", "blocked"].includes(item.status));
-  const activeEpics = (data.epics?.items || []).filter((item) => !["completed", "cancelled", "failed", "abandoned"].includes(item.status));
+  const activeEpics = (data.epics?.items || []).filter((item) => OPEN_EPIC_STATUSES.has(item.status));
   return `
     ${projectHeader(project)}
     <div class="workspace-summary-grid">

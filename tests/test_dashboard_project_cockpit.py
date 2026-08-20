@@ -117,3 +117,5 @@ def test_project_summary_no_longer_renders_duplicate_now_panel() -> None:
     assert "function nowPanel(data)" not in source
     assert "${nowPanel(data)}" not in source
     assert "${workflowPanel(data)}" in source
+    assert "OPEN_EPIC_STATUSES = new Set" in source
+    assert source.count("OPEN_EPIC_STATUSES.has(item.status)") == 2

@@ -405,9 +405,7 @@ def test_navigation_during_inflight_refresh_reaches_latest_project_without_stale
         page.locator("#page-title").filter(has_text="Alpha Project").wait_for(timeout=5000)
         assert page.locator("[data-refresh-warning]").count() == 0
         assert (
-            page.locator(".open-work-panel")
-            .get_by_text("Verify dashboard navigation")
-            .is_visible()
+            page.locator(".open-work-panel").get_by_text("Verify dashboard navigation").is_visible()
         )
         browser.close()
 
@@ -456,9 +454,7 @@ def test_transient_network_failure_preserves_project_and_recovers_on_next_refres
         page.goto(url)
         page.locator(".portfolio-project-card", has_text="Alpha Project").click()
         page.locator("#page-title").filter(has_text="Alpha Project").wait_for(timeout=5000)
-        original_work = page.locator(".open-work-panel").get_by_text(
-            "Verify dashboard navigation"
-        )
+        original_work = page.locator(".open-work-panel").get_by_text("Verify dashboard navigation")
         assert original_work.is_visible()
 
         state.drop_next("/api/v1/dashboard/overview")
@@ -486,9 +482,7 @@ def test_project_work_hub_opens_epic_without_losing_project_context(dashboard_se
         page.locator(".portfolio-project-card", has_text="Alpha Project").click()
         page.locator("#page-title").filter(has_text="Alpha Project").wait_for(timeout=5000)
 
-        page.get_by_label("Разделы проекта").get_by_role(
-            "link", name="Работа", exact=True
-        ).click()
+        page.get_by_label("Разделы проекта").get_by_role("link", name="Работа", exact=True).click()
         page.get_by_text("Вся работа проекта в одном месте").wait_for(timeout=5000)
         page.locator('a[href="#/epic/alpha/E-0001"]').click()
         page.locator("#page-title").filter(has_text="E-0001").wait_for(timeout=5000)

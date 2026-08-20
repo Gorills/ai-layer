@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from sqlalchemy import create_engine
@@ -12,6 +13,7 @@ from ai_layer.db.base import Base
 from ai_layer.db.models import Project
 from ai_layer.mcp.runtime import _scoped
 from ai_layer.mcp.tools import work as work_tools
+from ai_layer.observability.operation_events import _result_context
 
 
 def _project(db: Session, tmp_path: Path, name: str) -> Path:
@@ -137,3 +139,51 @@ def test_mcp_scoped_task_payloads_still_receive_requested_root(tmp_path: Path) -
     payload = _scoped({"task": {"key": "T-0001"}}, str(root))
     assert payload["project_root"] == str(root.resolve())
     assert payload["task"]["project_root"] == str(root.resolve())
+
+
+def test_work_mutation_responses_bound_run_history_and_keep_current_root_context(
+    tmp_path: Path,
+) -> None:
+    with _bound_work_db(tmp_path) as (root, _other_root):
+        started = work_uc.begin(
+            root,
+            goal="Refine one durable outcome",
+            kind="change",
+            host="codex",
+            session_id="session-1",
+        )
+        key = started["work"]["key"]
+        first_run_id = started["root_run"]["id"]
+        assert "runs" not in started["work"]
+        assert _result_context(started)["run_id"] == UUID(first_run_id)
+
+        waiting = work_uc.wait(root, work_key=key, summary="Ready for feedback")
+        assert waiting["work"]["status"] == "awaiting_feedback"
+        assert "runs" not in waiting["work"]
+        assert waiting["root_run"]["id"] == first_run_id
+        assert _result_context(waiting)["run_id"] == UUID(first_run_id)
+
+        resumed = work_uc.resume(
+            root,
+            work_key=key,
+            host="codex",
+            session_id="session-2",
+        )
+        second_run_id = resumed["root_run"]["id"]
+        assert second_run_id != first_run_id
+        assert "runs" not in resumed["work"]
+        assert _result_context(resumed)["run_id"] == UUID(second_run_id)
+
+        checkpoint = work_uc.checkpoint(root, work_key=key, summary="Second pass complete")
+        assert "runs" not in checkpoint["work"]
+        assert checkpoint["root_run"]["id"] == second_run_id
+        assert _result_context(checkpoint)["run_id"] == UUID(second_run_id)
+
+        completed = work_uc.complete(root, work_key=key, summary="Accepted")
+        assert "runs" not in completed["work"]
+        assert completed["root_run"]["id"] == second_run_id
+        assert _result_context(completed)["run_id"] == UUID(second_run_id)
+
+        full_state = work_uc.state(root)
+        stored = next(item for item in full_state["recent"] if item["key"] == key)
+        assert [run["id"] for run in stored["runs"]] == [first_run_id, second_run_id]

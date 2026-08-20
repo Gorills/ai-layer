@@ -39,7 +39,7 @@ WorkAssurance = Literal[
     "inferred_unattributed",
     "requested_unverified",
 ]
-WorkCheckStatus = Literal["passed", "failed", "skipped", "blocked", "not_run"]
+WorkCheckStatus = Literal["passed", "failed", "skipped", "blocked", "not_run", "reported"]
 WorkMapStatus = Literal[
     "reconciled",
     "checked_no_change",

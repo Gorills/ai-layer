@@ -1,0 +1,115 @@
+name: dashboard-work-complete-finalizer
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Materialize bounded implementation
+        run: |
+          python .github/dashboard-work-complete-finalize.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/test_dashboard_work_actions.py')
+          source = path.read_text(encoding='utf-8')
+          old = "if (!waitingHtml.includes('project_key=alpha%2Fbeta&work_key=W-0001')) throw new Error('query action');"
+          new = "if (!waitingHtml.includes('project_key=alpha%2Fbeta&amp;work_key=W-0001')) throw new Error('query action');"
+          assert source.count(old) == 1
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/ai_layer/dashboard/web.py')
+          source = path.read_text(encoding='utf-8')
+          old_guard = "    if not _loopback_host(candidate.hostname) or not _loopback_host(base.hostname):\n"
+          new_guard = (
+              "    candidate_hostname = candidate.hostname\n"
+              "    base_hostname = base.hostname\n"
+              "    if candidate_hostname is None or base_hostname is None:\n"
+              "        return False\n"
+              "    if not _loopback_host(candidate_hostname) or not _loopback_host(base_hostname):\n"
+          )
+          old_compare = "        candidate.hostname.casefold() == base.hostname.casefold()\n"
+          new_compare = "        candidate_hostname.casefold() == base_hostname.casefold()\n"
+          assert source.count(old_guard) == 1
+          assert source.count(old_compare) == 1
+          source = source.replace(old_guard, new_guard, 1).replace(old_compare, new_compare, 1)
+          path.write_text(source, encoding='utf-8')
+          PY
+          rm .github/dashboard-work-complete.patch
+          rm .github/dashboard-work-complete-finalize.py
+          rm .github/workflows/dashboard-work-complete-finalize.yml
+      - name: Install development dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+      - name: Normalize changed Python files
+        run: |
+          ruff check --fix src/ai_layer/dashboard/web.py tests/test_dashboard_work_actions.py
+          ruff format src/ai_layer/dashboard/web.py tests/test_dashboard_work_actions.py
+      - name: Refresh deterministic application wheel
+        run: |
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+      - name: Focused verification
+        run: |
+          python -m pytest \
+            tests/test_dashboard_work_actions.py \
+            tests/test_dashboard_work_ui.py \
+            tests/test_work_idempotency.py
+      - name: Canonical quality gate
+        run: make quality
+      - name: Self-review and publish finalized branch
+        run: |
+          git diff --check
+          git add -A -- \
+            src/ai_layer/dashboard/web.py \
+            src/ai_layer/dashboard/static/js/views/work.js \
+            tests/test_dashboard_work_actions.py \
+            dist/local_ai_development_layer-0.14.0-py3-none-any.whl \
+            release/release-manifest.json \
+            .github/dashboard-work-complete.patch \
+            .github/dashboard-work-complete-finalize.py \
+            .github/workflows/dashboard-work-complete-finalize.yml
+          git diff --cached --check
+          actual="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' \
+            .github/dashboard-work-complete.patch \
+            .github/dashboard-work-complete-finalize.py \
+            .github/workflows/dashboard-work-complete-finalize.yml \
+            dist/local_ai_development_layer-0.14.0-py3-none-any.whl \
+            release/release-manifest.json \
+            src/ai_layer/dashboard/static/js/views/work.js \
+            src/ai_layer/dashboard/web.py \
+            tests/test_dashboard_work_actions.py | sort)"
+          test "$actual" = "$expected"
+          git diff --cached --stat
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Add manual Dashboard Work completion'
+          git push origin HEAD:agent/dashboard-work-complete

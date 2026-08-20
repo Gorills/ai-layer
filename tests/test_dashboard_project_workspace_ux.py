@@ -39,7 +39,7 @@ def test_project_workspace_answers_operational_questions_without_screen_hopping(
     app_js = _read("js", "app.js")
 
     for label in (
-        "Сейчас",
+        "В работе",
         "Требует внимания",
         "Недавние результаты",
         "Контекст проекта",

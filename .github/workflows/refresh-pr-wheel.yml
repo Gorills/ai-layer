@@ -1,0 +1,43 @@
+name: refresh-pr-wheel
+on:
+  push:
+    branches: [agent/project-status-navigation-boundary]
+permissions:
+  contents: write
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/project-status-navigation-boundary
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Rebuild deterministic application wheel
+        run: python scripts/build_release_wheel.py
+      - name: Refresh release manifest checksum
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+          print(manifest['application_wheel_sha256'])
+          PY
+      - name: Commit release artifacts and remove helper
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/refresh-pr-wheel.yml
+          git add -- dist/local_ai_development_layer-0.14.0-py3-none-any.whl release/release-manifest.json
+          git commit -m 'Refresh release wheel'
+          git push origin HEAD:agent/project-status-navigation-boundary

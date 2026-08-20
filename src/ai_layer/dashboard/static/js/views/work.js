@@ -12,6 +12,21 @@ const WORK_STATUSES = [
   { label: "Abandoned", value: "abandoned" },
 ];
 
+const COMPLETABLE_WORK_STATUSES = new Set(["active", "awaiting_feedback", "blocked"]);
+
+export function workCompletionAction(project, work) {
+  if (
+    !project?.key ||
+    !work?.key ||
+    work.live ||
+    !COMPLETABLE_WORK_STATUSES.has(work.status)
+  ) return "";
+  const action = `/dashboard/actions/work/complete?project_key=${encodeURIComponent(project.key)}&work_key=${encodeURIComponent(work.key)}`;
+  return `<form method="post" action="${escapeHtml(action)}">
+    <button class="button" type="submit" title="Закрыть Work как completed без запуска агента.">Завершить Work</button>
+  </form>`;
+}
+
 export function workHref(projectKey, workKey) {
   if (!projectKey || !workKey) return "#/work";
   return hashUrl(`work/${encodeURIComponent(projectKey)}/${encodeURIComponent(workKey)}`);
@@ -193,7 +208,10 @@ export function renderWorkDetail(payload) {
         <h2>${escapeHtml(work.goal || "—")}</h2>
         <div class="detail-subtitle">${escapeHtml(work.kind || "work")} · ${escapeHtml(work.observability_coverage || "unknown coverage")} · ${escapeHtml(work.assurance || "—")}</div>
       </div>
-      ${stateBadge(workDisplayState(work))}
+      <div class="toolbar-controls">
+        ${stateBadge(workDisplayState(work))}
+        ${workCompletionAction(project, work)}
+      </div>
     </div>
     ${staleActive ? `<div class="notice warning"><strong>Нет живого AgentRun.</strong> Активный WorkItem устарел по heartbeat — resume или завершите его. Это не live ordinary work.</div>` : ""}
     ${work.status === "blocked" ? `<div class="notice warning"><strong>Work заблокирован.</strong> ${escapeHtml(work.result_summary || "Нужно внимание")}</div>` : ""}

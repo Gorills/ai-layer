@@ -163,8 +163,8 @@ function workflowPanel(data) {
   const allEpics = data.epics?.items || [];
   const activeTasks = allTasks.filter((item) => ["active", "blocked"].includes(item.status));
   const activeEpics = allEpics.filter((item) => OPEN_EPIC_STATUSES.has(item.status));
-  const tasks = (activeTasks.length ? activeTasks : allTasks).slice(0, 3);
-  const epics = (activeEpics.length ? activeEpics : allEpics).slice(0, 3);
+  const tasks = activeTasks.slice(0, 3);
+  const epics = activeEpics.slice(0, 3);
   return `<section class="panel cockpit-workflow-panel">
     <div class="panel-header"><div><div class="panel-title">План и assurance</div><div class="panel-hint">Managed Tasks и Epics доступны прямо в cockpit; отдельный экран нужен только для деталей.</div></div></div>
     <div class="cockpit-workflow-group">
@@ -244,13 +244,15 @@ export function renderProject(data) {
   const attention = attentionItems(data);
   const activeTasks = (data.tasks?.items || []).filter((item) => ["active", "blocked"].includes(item.status));
   const activeEpics = (data.epics?.items || []).filter((item) => OPEN_EPIC_STATUSES.has(item.status));
+  const activeTaskCount = data.tasks?.pagination?.total ?? activeTasks.length;
+  const activeEpicCount = data.epics?.pagination?.total ?? activeEpics.length;
   return `
     ${projectHeader(project)}
     <div class="workspace-summary-grid">
       ${metric("Открытые Work", open.length, open.length ? `${liveCount} live · ${open.length - liveCount} non-live` : "активной работы нет")}
       ${metric("Нужно внимания", attention.length, attention.length ? "есть actionable сигналы" : "всё спокойно")}
-      ${metric("Managed Tasks", activeTasks.length, activeTasks.length ? "active / blocked" : "нет активных")}
-      ${metric("Epics", activeEpics.length, activeEpics.length ? "в работе" : "нет активных")}
+      ${metric("Managed Tasks", activeTaskCount, activeTaskCount ? "active / blocked" : "нет активных")}
+      ${metric("Epics", activeEpicCount, activeEpicCount ? "в работе" : "нет активных")}
     </div>
     ${attention.length ? `<div class="cockpit-attention">${attentionPanel(data)}</div>` : ""}
     <div class="dashboard-grid project-workspace-layout">

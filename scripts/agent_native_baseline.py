@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from agent_native_baseline_lib import build_baseline_report, write_baseline_report
+
 from ai_layer import __version__
 from ai_layer.domain.orchestrator import native_bootstrap_markdown
 from ai_layer.mcp.runtime import MCP_INSTRUCTIONS, TOOL_HANDLERS
 from ai_layer.mcp.server import mcp
-from agent_native_baseline_lib import build_baseline_report, write_baseline_report
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "docs" / "evidence" / f"{__version__}-agent-native-phase0-baseline.json"

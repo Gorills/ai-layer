@@ -422,7 +422,7 @@ def test_project_navigation_exposes_busy_feedback_switches_scope_and_supports_hi
 
         state.delay_next("/api/v1/dashboard/projects/alpha", 0.6)
         page.locator(".portfolio-project-card", has_text="Alpha Project").click()
-        page.locator("body").wait_for()
+        page.locator('body[data-navigation-loading="true"]').wait_for(timeout=1000)
         assert page.locator("body").get_attribute("data-navigation-loading") == "true"
         assert page.locator("#app").get_attribute("aria-busy") == "true"
         page.locator("#page-title").filter(has_text="Alpha Project").wait_for(timeout=5000)
@@ -438,6 +438,7 @@ def test_project_navigation_exposes_busy_feedback_switches_scope_and_supports_hi
 
         state.delay_next("/api/v1/dashboard/projects/beta", 0.4)
         page.locator("#project-scope").select_option("beta")
+        page.locator('body[data-navigation-loading="true"]').wait_for(timeout=1000)
         assert page.locator("body").get_attribute("data-navigation-loading") == "true"
         page.locator("#page-title").filter(has_text="Beta Project").wait_for(timeout=5000)
         assert page.locator("#project-scope").input_value() == "beta"

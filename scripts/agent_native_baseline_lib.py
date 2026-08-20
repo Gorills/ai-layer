@@ -279,12 +279,14 @@ def summarize_journey(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             event.get("kind") in {"native_search", "native_read"} for event in events[:boundary]
         )
 
-    seen: set[tuple[str, str | None]] = set()
+    seen: set[tuple[str, str]] = set()
     duplicates = 0
     for event in ai_calls:
         request = event.get("request_profile")
         digest = request.get("sha256") if isinstance(request, Mapping) else None
-        identity = (str(event.get("operation") or ""), str(digest) if digest else None)
+        if not isinstance(digest, str) or not digest:
+            continue
+        identity = (str(event.get("operation") or ""), digest)
         duplicates += identity in seen
         seen.add(identity)
 

@@ -1,13 +1,446 @@
 name: dashboard-runtime-stability-finalizer
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
 
 permissions:
   contents: write
 
 jobs:
-  dormant:
+  finalize:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'agent/dashboard-runtime-stability'
     runs-on: ubuntu-latest
     steps:
-      - run: echo 'Finalizer is intentionally dormant while source changes are staged.'
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply bounded source edits
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding='utf-8')
+              if text.count(old) != 1:
+                  raise SystemExit(f'{path}: expected exactly one replacement target, found {text.count(old)}')
+              target.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          app_path = 'src/ai_layer/dashboard/static/js/app.js'
+          replace_once(
+              app_path,
+              '''let overviewCache = null;
+          let timer = null;
+          let loading = false;
+          let nextPollMs = IDLE_POLL_MS;
+          let lastRenderFingerprint = null;
+          let lastScopeFingerprint = null;''',
+              '''let overviewCache = null;
+          let overviewCachedAt = 0;
+          let timer = null;
+          let loadPromise = null;
+          let reloadRequested = false;
+          let nextPollMs = IDLE_POLL_MS;
+          let lastRenderFingerprint = null;
+          let lastScopeFingerprint = null;''',
+          )
+          replace_once(
+              app_path,
+              '''function setConnection(ok, label) {
+            dot.classList.toggle("online", ok);
+            dot.classList.toggle("offline", !ok);
+            connectionLabel.textContent = label;
+          }
+
+          function rootRoute(kind) {''',
+              '''function setConnection(ok, label) {
+            dot.classList.toggle("online", ok);
+            dot.classList.toggle("offline", !ok);
+            connectionLabel.textContent = label;
+          }
+
+          function routeIsCurrent(current) {
+            return routeKey(current) === routeKey(route());
+          }
+
+          function overviewCacheExpired() {
+            return !overviewCache || Date.now() - overviewCachedAt >= IDLE_POLL_MS;
+          }
+
+          function setNavigationBusy(busy) {
+            document.body.dataset.navigationLoading = busy ? "true" : "false";
+            app.setAttribute("aria-busy", busy ? "true" : "false");
+            refreshButton.disabled = busy;
+            if (busy) updatedAt.textContent = "обновляю…";
+          }
+
+          function showRefreshWarning(error) {
+            let warning = app.querySelector("[data-refresh-warning]");
+            if (!warning) {
+              app.insertAdjacentHTML(
+                "afterbegin",
+                '<div class="alert dashboard-refresh-warning" data-refresh-warning="true"></div>',
+              );
+              warning = app.querySelector("[data-refresh-warning]");
+            }
+            if (warning) warning.textContent = `Не удалось обновить данные: ${error?.message || "ошибка сети"}`;
+          }
+
+          function clearRefreshWarning() {
+            app.querySelector("[data-refresh-warning]")?.remove();
+          }
+
+          function keepCurrentRoute(current) {
+            if (routeIsCurrent(current)) return true;
+            reloadRequested = true;
+            return false;
+          }
+
+          function rootRoute(kind) {''',
+          )
+          replace_once(
+              app_path,
+              '''  document.querySelectorAll("select[data-hash-select]").forEach((select) => select.addEventListener("change", () => {
+              if (select.value) location.hash = select.value.startsWith("#") ? select.value.slice(1) : select.value;
+            }));
+          }''',
+              '''  document.querySelectorAll("select[data-hash-select]").forEach((select) => select.addEventListener("change", () => {
+              if (select.value) location.hash = select.value.startsWith("#") ? select.value.slice(1) : select.value;
+            }));
+            document.querySelectorAll('form[data-work-complete="true"]').forEach((form) => form.addEventListener("submit", () => {
+              const button = form.querySelector('[data-work-complete-button="true"]');
+              if (!button) return;
+              button.disabled = true;
+              button.textContent = "Завершаю…";
+            }));
+          }''',
+          )
+          replace_once(
+              app_path,
+              '''function renderChanged(current, payload, render) {
+            const fingerprint = semanticFingerprint(current, payload);''',
+              '''function renderChanged(current, payload, render) {
+            if (!keepCurrentRoute(current)) return false;
+            const fingerprint = semanticFingerprint(current, payload);''',
+          )
+          replace_once(
+              app_path,
+              '''async function load() {
+            if (loading) return;
+            loading = true;
+            try {
+              const current = route();
+              if (!overviewCache || current.kind === "overview" || current.kind === "monitoring") overviewCache = await api.overview();
+              renderNav(overviewCache);''',
+              '''async function loadCycle() {
+            const current = route();
+            try {
+              if (overviewCacheExpired() || current.kind === "overview" || current.kind === "monitoring") {
+                overviewCache = await api.overview();
+                overviewCachedAt = Date.now();
+              }
+              renderNav(overviewCache);''',
+          )
+          replace_once(
+              app_path,
+              '''    updatedAt.textContent = `обновлено ${time(generatedAt)}`;
+              const background = Boolean(overviewCache.service?.background);
+              setConnection(true, background ? "Система активна" : "AI Layer активен");
+              sidebarVersion.textContent = `AI Layer ${overviewCache.version || ""}`.trim();
+            } catch (error) {
+              setConnection(false, "Панель отключена");
+              lastRenderFingerprint = null;
+              app.innerHTML = `<div class="alert">Ошибка API панели: ${escapeHtml(error.message)}</div>`;
+              nextPollMs = IDLE_POLL_MS;
+            } finally {
+              loading = false;
+            }
+          }
+
+          function schedule() {''',
+              '''    if (!keepCurrentRoute(current)) return;
+              clearRefreshWarning();
+              updatedAt.textContent = `обновлено ${time(generatedAt)}`;
+              const background = Boolean(overviewCache.service?.background);
+              setConnection(true, background ? "Система активна" : "AI Layer активен");
+              sidebarVersion.textContent = `AI Layer ${overviewCache.version || ""}`.trim();
+            } catch (error) {
+              if (!routeIsCurrent(current)) {
+                reloadRequested = true;
+                return;
+              }
+              setConnection(false, "Обновление недоступно");
+              showRefreshWarning(error);
+              nextPollMs = IDLE_POLL_MS;
+            }
+          }
+
+          async function load() {
+            if (loadPromise) {
+              reloadRequested = true;
+              await loadPromise;
+              return;
+            }
+            loadPromise = (async () => {
+              do {
+                reloadRequested = false;
+                await loadCycle();
+              } while (reloadRequested);
+            })();
+            try {
+              await loadPromise;
+            } finally {
+              loadPromise = null;
+            }
+          }
+
+          function schedule() {''',
+          )
+          replace_once(
+              app_path,
+              '''async function refresh({ resetOverview = false } = {}) {
+            if (resetOverview) overviewCache = null;
+            await load();''',
+              '''async function refresh({ resetOverview = false } = {}) {
+            if (resetOverview) {
+              overviewCache = null;
+              overviewCachedAt = 0;
+            }
+            await load();''',
+          )
+          replace_once(
+              app_path,
+              '''window.addEventListener("hashchange", () => { lastRenderFingerprint = null; void refresh({ resetOverview: true }); });
+          refreshButton.addEventListener("click", () => { void refresh({ resetOverview: true }); });
+          projectScope.addEventListener("change", () => navigateScope(projectScope.value || null));''',
+              '''window.addEventListener("hashchange", () => {
+            lastRenderFingerprint = null;
+            setNavigationBusy(true);
+            void refresh().finally(() => setNavigationBusy(false));
+          });
+          refreshButton.addEventListener("click", () => {
+            setNavigationBusy(true);
+            void refresh({ resetOverview: true }).finally(() => setNavigationBusy(false));
+          });
+          projectScope.addEventListener("change", () => navigateScope(projectScope.value || null));''',
+          )
+          replace_once(
+              app_path,
+              '''void refresh();''',
+              '''setNavigationBusy(true);
+          void refresh().finally(() => setNavigationBusy(false));''',
+          )
+
+          Path('src/ai_layer/dashboard/static/js/api.js').write_text(
+              '''const base = "/api/v1/dashboard";
+          const REQUEST_TIMEOUT_MS = 10000;
+
+          async function request(path, params = null) {
+            const query = params
+              ? `?${new URLSearchParams(Object.entries(params).filter(([, value]) => value !== null && value !== undefined && value !== "")).toString()}`
+              : "";
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+            try {
+              const response = await fetch(`${base}${path}${query}`, {
+                headers: { Accept: "application/json" },
+                cache: "no-store",
+                signal: controller.signal,
+              });
+              if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`${response.status}: ${text || response.statusText}`);
+              }
+              return response.json();
+            } catch (error) {
+              if (error?.name === "AbortError") {
+                throw new Error("Таймаут обновления Dashboard");
+              }
+              throw error;
+            } finally {
+              clearTimeout(timeout);
+            }
+          }
+
+          export const api = {
+            overview: () => request("/overview"),
+            work: (params = {}) => request("/work", params),
+            workDetail: (projectKey, workKey) => request(`/work/${encodeURIComponent(projectKey)}/${encodeURIComponent(workKey)}`),
+            tasks: (params = {}) => request("/tasks", params),
+            task: (projectKey, taskKey) => request(`/tasks/${encodeURIComponent(projectKey)}/${encodeURIComponent(taskKey)}`),
+            epics: (params = {}) => request("/epics", params),
+            skills: (params = {}) => request("/skills", params),
+            skill: (slug, projectKey = null) => request(`/skills/${encodeURIComponent(slug)}`, { project_key: projectKey }),
+            rules: (projectKey = null) => request("/rules", { project_key: projectKey }),
+            knowledge: (projectKey, params = {}) => request(`/knowledge/${encodeURIComponent(projectKey)}`, params),
+            knowledgeDetail: (projectKey, knowledgeId) => request(`/knowledge/${encodeURIComponent(projectKey)}/${encodeURIComponent(knowledgeId)}`),
+            monitoring: (projectKey = null) => request("/monitoring", { project_key: projectKey }),
+            activity: (params = {}) => request("/activity", params),
+            project: (key) => request(`/projects/${encodeURIComponent(key)}`),
+            projectEpics: (key) => request(`/projects/${encodeURIComponent(key)}/epics`),
+            epic: (projectKey, epicKey) => request(`/projects/${encodeURIComponent(projectKey)}/epics/${encodeURIComponent(epicKey)}`),
+          };
+          ''',
+              encoding='utf-8',
+          )
+
+          replace_once(
+              'src/ai_layer/dashboard/static/js/views/work.js',
+              '''  return `<form method="post" action="${escapeHtml(action)}">
+              <button class="button" type="submit" title="Закрыть Work как completed без запуска агента.">Завершить Work</button>
+            </form>`;''',
+              '''  return `<form method="post" action="${escapeHtml(action)}" data-work-complete="true">
+              <button class="button compact-button" data-work-complete-button="true" type="submit" title="Закрыть Work как completed без запуска агента.">Завершить</button>
+            </form>`;''',
+          )
+
+          replace_once(
+              'src/ai_layer/dashboard/static/css/app.css',
+              '''  background: rgba(10, 12, 15, .88);
+            backdrop-filter: blur(14px);
+          }
+          .topbar-copy { min-width: 0; }''',
+              '''  background: rgba(10, 12, 15, .88);
+            backdrop-filter: blur(14px);
+          }
+          body[data-navigation-loading="true"] .topbar { box-shadow: inset 0 -2px 0 var(--accent); }
+          .topbar-copy { min-width: 0; }''',
+          )
+          replace_once(
+              'src/ai_layer/dashboard/static/css/app.css',
+              '''.button:hover { border-color: var(--border-strong); background: var(--surface-raised); color: var(--text); }
+          .icon-button { width: 32px; padding: 0; }''',
+              '''.button:hover { border-color: var(--border-strong); background: var(--surface-raised); color: var(--text); }
+          .button:disabled { opacity: .58; cursor: wait; }
+          .compact-button { min-height: 28px; padding: 4px 8px; font-size: 11px; white-space: nowrap; }
+          .icon-button { width: 32px; padding: 0; }''',
+          )
+          replace_once(
+              'src/ai_layer/dashboard/static/css/app.css',
+              '''.icon-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+          .content {''',
+              '''.icon-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+          .dashboard-refresh-warning { position: sticky; top: calc(var(--topbar-height) + 8px); z-index: 12; }
+
+          .content {''',
+          )
+
+          replace_once(
+              'tests/test_dashboard_work_ui.py',
+              '''    assert "escapeHtml(error.message)" in app_js''',
+              '''    assert "warning.textContent" in app_js''',
+          )
+          replace_once(
+              'tests/test_dashboard_work_actions.py',
+              '''                "if (!waitingHtml.includes('Завершить Work')) throw new Error('label');",''',
+              '''                "if (!waitingHtml.includes('>Завершить</button>')) throw new Error('label');",
+              "if (!waitingHtml.includes('data-work-complete=\\\"true\\\"')) throw new Error('completion marker');",
+              "if (!waitingHtml.includes('data-work-complete-button=\\\"true\\\"')) throw new Error('button marker');",''',
+          )
+          PY
+          rm .github/workflows/dashboard-runtime-stability-finalize.yml
+
+      - name: Install development dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Format changed Python tests
+        run: |
+          python -m ruff check --fix \
+            src/ai_layer/dashboard/work_contracts.py \
+            tests/test_dashboard_work.py \
+            tests/test_dashboard_runtime_ui.py \
+            tests/test_dashboard_work_ui.py \
+            tests/test_dashboard_work_actions.py
+          python -m ruff format \
+            src/ai_layer/dashboard/work_contracts.py \
+            tests/test_dashboard_work.py \
+            tests/test_dashboard_runtime_ui.py \
+            tests/test_dashboard_work_ui.py \
+            tests/test_dashboard_work_actions.py
+
+      - name: Refresh deterministic release wheel
+        run: |
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          wheel = Path('dist/local_ai_development_layer-0.14.0-py3-none-any.whl')
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Focused Dashboard verification
+        run: >-
+          pytest -q
+          tests/test_dashboard_work.py
+          tests/test_dashboard_work_ui.py
+          tests/test_dashboard_runtime_ui.py
+          tests/test_dashboard_work_actions.py
+          tests/test_dashboard_redesign.py
+
+      - name: Canonical quality gate
+        run: make quality
+
+      - name: Validate final diff scope
+        run: |
+          git diff --check
+          git add \
+            src/ai_layer/dashboard/static/js/app.js \
+            src/ai_layer/dashboard/static/js/api.js \
+            src/ai_layer/dashboard/static/js/views/work.js \
+            src/ai_layer/dashboard/static/css/app.css \
+            tests/test_dashboard_work_ui.py \
+            tests/test_dashboard_work_actions.py \
+            dist/local_ai_development_layer-0.14.0-py3-none-any.whl \
+            release/release-manifest.json
+          git add -A .github/workflows/dashboard-runtime-stability-finalize.yml
+          python - <<'PY'
+          import subprocess
+
+          allowed = {
+              'src/ai_layer/dashboard/static/js/app.js',
+              'src/ai_layer/dashboard/static/js/api.js',
+              'src/ai_layer/dashboard/static/js/views/work.js',
+              'src/ai_layer/dashboard/static/css/app.css',
+              'tests/test_dashboard_work_ui.py',
+              'tests/test_dashboard_work_actions.py',
+              'dist/local_ai_development_layer-0.14.0-py3-none-any.whl',
+              'release/release-manifest.json',
+              '.github/workflows/dashboard-runtime-stability-finalize.yml',
+          }
+          changed = set(
+              subprocess.check_output(
+                  ['git', 'diff', '--cached', '--name-only'], text=True
+              ).splitlines()
+          )
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit(f'unexpected finalizer changes: {sorted(unexpected)}')
+          required = allowed - {'.github/workflows/dashboard-runtime-stability-finalize.yml'}
+          missing = required - changed
+          if missing:
+              raise SystemExit(f'missing expected finalizer changes: {sorted(missing)}')
+          PY
+
+      - name: Commit finalized implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Stabilize Dashboard runtime navigation'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}

@@ -75,13 +75,16 @@ def test_public_tool_catalog_is_small_disjoint_and_not_registered() -> None:
         assert matching_tools(arguments) == (name,)
         assert validate_tool_arguments(name, arguments) == ()
 
-    assert matching_tools(
-        {
-            "action_token": _token(),
-            "report": {"kind": "native_result", "summary": "done"},
-            "summary": "ambiguous extra terminal report",
-        }
-    ) == ()
+    assert (
+        matching_tools(
+            {
+                "action_token": _token(),
+                "report": {"kind": "native_result", "summary": "done"},
+                "summary": "ambiguous extra terminal report",
+            }
+        )
+        == ()
+    )
 
 
 def test_enter_semantics_reject_ambiguous_start_resume_payloads() -> None:

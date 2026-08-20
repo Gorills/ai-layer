@@ -1,6 +1,6 @@
 import { age, escapeHtml } from "../format.js";
 import { metric, scanLabel, stateBadge } from "../components/common.js";
-import { collectPortfolioWork, primaryProjectWork, workAttentionReason, workHref } from "./work.js";
+import { collectPortfolioWork, primaryProjectWork, workAttentionReason, workCompletionAction, workHref } from "./work.js";
 
 function mapLabel(project) {
   const map = project.project_map || {};
@@ -22,6 +22,7 @@ function projectAttention(project) {
       detail: `${work.key || "Work"} · ${workAttentionReason(work)}`,
       state: work.status === "active" && !work.live ? "stale" : work.status || "attention",
       href: workHref(project.key, work.key),
+      work,
     });
   }
   const task = project.task || {};
@@ -98,11 +99,11 @@ function projectGrid(projects) {
 
 function attentionList(items) {
   if (!items?.length) return `<div class="calm-state large"><strong>Ничего не требует вмешательства</strong><span>Нет blocked/stale работы, решений пользователя, protocol warnings или stale Project Map.</span></div>`;
-  return `<div class="attention-work-list">${items.map((item) => `<a class="attention-work-row" href="${item.href}">
-    <div class="attention-work-project">${escapeHtml(item.project.name)}</div>
-    <div class="attention-work-main"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.detail)}</span></div>
-    ${stateBadge(item.state)}
-  </a>`).join("")}</div>`;
+  return `<div class="attention-work-list">${items.map((item) => `<div class="attention-work-row">
+    <a class="attention-work-project" href="${item.href}">${escapeHtml(item.project.name)}</a>
+    <a class="attention-work-main" href="${item.href}"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.detail)}</span></a>
+    <div class="toolbar-controls">${stateBadge(item.state)}${item.work ? workCompletionAction(item.project, item.work) : ""}</div>
+  </div>`).join("")}</div>`;
 }
 
 function activeList(items) {

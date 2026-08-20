@@ -20,7 +20,7 @@ from ai_layer.mcp.tool_schema import (
 
 
 def project_status(project_root: str | None = None) -> dict:
-    """WHEN: first state call for registered-project work. Returns focus, continuation, Git, dynamic policy and map freshness. Follow work.continuation.next_action: if tool is work_begin, record the new substantive request before other tools. Procedure lives in native bootstrap; MCP initialize instructions are the fallback."""
+    """WHEN: first state call for registered-project work. Returns focus, continuation, Git, dynamic policy and map freshness. Use work.continuation.navigator when present; follow work.continuation.next_action only when that field is returned. Managed Task navigation goes through task_next. Procedure lives in native bootstrap; MCP initialize instructions are the fallback."""
     root = project_root_for_tool(project_root, tool="project_status")
     with mcp_audit(
         root,

@@ -28,6 +28,17 @@ def test_dashboard_transient_refresh_failure_preserves_rendered_content() -> Non
     assert 'app.innerHTML = `<div class="alert">Ошибка API панели:' not in app_js
 
 
+def test_dashboard_stale_route_failure_is_discarded_before_warning() -> None:
+    app_js = _read("js", "app.js")
+
+    catch_start = app_js.index("} catch (error) {")
+    catch_body = app_js[catch_start:]
+    stale_guard = catch_body.index("if (!routeIsCurrent(current))")
+    warning = catch_body.index("showRefreshWarning(error)")
+    assert stale_guard < warning
+    assert "reloadRequested = true;" in catch_body[stale_guard:warning]
+
+
 def test_dashboard_route_change_reuses_fresh_portfolio_cache_and_exposes_busy_feedback() -> None:
     app_js = _read("js", "app.js")
     app_css = _read("css", "app.css")

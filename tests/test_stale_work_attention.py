@@ -121,8 +121,9 @@ def test_fresh_work_stays_live_and_out_of_attention(monkeypatch, tmp_path: Path)
         continuation = work["continuation"]
         assert continuation["kind"] == "work"
         assert continuation["key"] == key
-        assert "live ordinary work" in continuation["instruction"].casefold()
-        assert "stale" not in continuation["instruction"].casefold()
+        assert continuation.get("navigator") is None
+        assert "next_action" not in continuation
+        assert "instruction" not in continuation
         live_row = next(item for item in work["live_work"] if item["key"] == key)
         assert "runs" not in live_row
         assert "guidance" not in status
@@ -145,10 +146,6 @@ def test_project_status_does_not_start_new_work_while_stale_active_exists(
         continuation = work["continuation"]
         assert continuation["kind"] == "work"
         assert continuation["key"] == key
-        instruction = continuation["instruction"].casefold()
-        assert "new request" not in instruction
-        assert "resume" in instruction
-        assert "terminate" in instruction
         assert work["current_focus"] == {
             "kind": "work",
             "key": key,
@@ -156,6 +153,7 @@ def test_project_status_does_not_start_new_work_while_stale_active_exists(
         }
         assert continuation.get("navigator") is None
         assert "next_action" not in continuation
+        assert "instruction" not in continuation
 
 
 def test_project_status_idle_continuation_points_to_work_begin(monkeypatch, tmp_path: Path) -> None:
@@ -168,7 +166,6 @@ def test_project_status_idle_continuation_points_to_work_begin(monkeypatch, tmp_
     with _bound_work_db(tmp_path) as root:
         status = pi.project_status(root)
         continuation = status["work"]["continuation"]
-        instruction = continuation["instruction"].casefold()
         next_action = continuation["next_action"]
         assert status["envelope"] == "ordinary"
         assert "next_action" not in status
@@ -182,11 +179,43 @@ def test_project_status_idle_continuation_points_to_work_begin(monkeypatch, tmp_
         assert "research" in next_action["kind"]
         assert "diagnose" in next_action["kind"]
         assert "tiny one-shot" in next_action["skip_when"].casefold()
-        assert "work_begin" in instruction
-        assert "research" in instruction
-        assert "natively" in instruction
+        assert "instruction" not in continuation
         assert status["work"]["current_focus"] is None
         assert status["active"] is False
+
+
+def test_project_status_task_continuation_requires_authoritative_task_next() -> None:
+    task = pi._compact_task(
+        {
+            "id": "task-1",
+            "key": "T-0001",
+            "goal": "Review the change",
+            "status": "active",
+            "workflow_profile": "STANDARD",
+            "risk_level": "normal",
+            "updated_at": "2026-08-20T00:00:00+00:00",
+            "active_stage": {
+                "id": "stage-1",
+                "kind": "review",
+                "status": "active",
+                "worker_id": None,
+            },
+            "next_action": {
+                "action": "delegate_stage",
+                "tool": "task_stage_delegate",
+                "message": "Projected state must not become live navigation.",
+            },
+            "open_findings": 0,
+        }
+    )
+    assert task is not None
+    assert "next_action" not in task
+    assert pi._continuation(task, None, None) == {
+        "kind": "task",
+        "key": "T-0001",
+        "goal": "Review the change",
+        "navigator": "task_next",
+    }
 
 
 def test_project_status_omits_idle_latest_task_and_procedure_payloads(

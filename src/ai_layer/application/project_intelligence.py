@@ -44,7 +44,6 @@ def _compact_task(item: dict | None) -> dict | None:
             if stage
             else None
         ),
-        "next_action": item.get("next_action"),
         "open_findings": int(item.get("open_findings") or 0),
     }
 
@@ -102,11 +101,6 @@ def _continuation(
             "key": active_task.get("key"),
             "goal": active_task.get("goal"),
             "navigator": "task_next",
-            "next_action": active_task.get("next_action"),
-            "instruction": (
-                "This project has an in-progress managed Task. Resume its strict Task procedure rather than "
-                "rediscovering repository state."
-            ),
         }
     if active_work:
         if active_work.get("status") == "awaiting_feedback":
@@ -120,27 +114,12 @@ def _continuation(
                     "tool": "work_resume",
                     "required": ["work_key"],
                 },
-                "instruction": (
-                    "This ordinary Work is awaiting user feedback. A related follow-up resumes the same "
-                    "WorkItem with work_resume; do not start a new WorkItem."
-                ),
             }
-        if active_work.get("live"):
-            instruction = (
-                "This project has live ordinary Work. Resume it through host-native execution and keep the "
-                "same WorkItem; checkpoint only at a meaningful milestone or blocker."
-            )
-        else:
-            instruction = (
-                "This project has stale ordinary Work. Resume or terminate that WorkItem; "
-                "do not start a new WorkItem."
-            )
         return {
             "kind": "work",
             "key": active_work.get("key"),
             "goal": active_work.get("goal"),
             "navigator": None,
-            "instruction": instruction,
         }
     if active_epic:
         return {
@@ -148,18 +127,11 @@ def _continuation(
             "key": active_epic.get("key"),
             "title": active_epic.get("title"),
             "navigator": "epic_next",
-            "instruction": "This project has an executing Epic. Resume this Epic.",
         }
     return {
         "kind": "none",
         "navigator": "work_begin",
         "next_action": idle_ordinary_work_next_action(),
-        "instruction": (
-            "No live Work. If the user explicitly asks for a managed Task or the standard Task protocol, "
-            "call task_create directly; AI Layer handles backing Work automatically. Otherwise start substantive "
-            "ordinary work — including diagnose, review, research, and multi-step investigation — with work_begin, "
-            "then execute host-natively. Tiny one-shot Q&A may stay unmaterialized."
-        ),
     }
 
 

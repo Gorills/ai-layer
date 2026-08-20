@@ -25,8 +25,10 @@ const VOLATILE_RENDER_FIELDS = new Set(["generated_at", "uptime_seconds", "idle_
 const FILTERABLE_ROOTS = new Set(["work", "tasks", "epics", "skills", "rules", "knowledge", "monitoring", "activity"]);
 
 let overviewCache = null;
+let overviewCachedAt = 0;
 let timer = null;
-let loading = false;
+let loadPromise = null;
+let reloadRequested = false;
 let nextPollMs = IDLE_POLL_MS;
 let lastRenderFingerprint = null;
 let lastScopeFingerprint = null;
@@ -82,6 +84,43 @@ function setConnection(ok, label) {
   dot.classList.toggle("online", ok);
   dot.classList.toggle("offline", !ok);
   connectionLabel.textContent = label;
+}
+
+function routeIsCurrent(current) {
+  return routeKey(current) === routeKey(route());
+}
+
+function overviewCacheExpired() {
+  return !overviewCache || Date.now() - overviewCachedAt >= IDLE_POLL_MS;
+}
+
+function setNavigationBusy(busy) {
+  document.body.dataset.navigationLoading = busy ? "true" : "false";
+  app.setAttribute("aria-busy", busy ? "true" : "false");
+  refreshButton.disabled = busy;
+  if (busy) updatedAt.textContent = "обновляю…";
+}
+
+function showRefreshWarning(error) {
+  let warning = app.querySelector("[data-refresh-warning]");
+  if (!warning) {
+    app.insertAdjacentHTML(
+      "afterbegin",
+      '<div class="alert dashboard-refresh-warning" data-refresh-warning="true"></div>',
+    );
+    warning = app.querySelector("[data-refresh-warning]");
+  }
+  if (warning) warning.textContent = `Не удалось обновить данные: ${error?.message || "ошибка сети"}`;
+}
+
+function clearRefreshWarning() {
+  app.querySelector("[data-refresh-warning]")?.remove();
+}
+
+function keepCurrentRoute(current) {
+  if (routeIsCurrent(current)) return true;
+  reloadRequested = true;
+  return false;
 }
 
 function rootRoute(kind) {
@@ -202,6 +241,12 @@ function bindDynamicControls() {
   document.querySelectorAll("select[data-hash-select]").forEach((select) => select.addEventListener("change", () => {
     if (select.value) location.hash = select.value.startsWith("#") ? select.value.slice(1) : select.value;
   }));
+  document.querySelectorAll('form[data-work-complete="true"]').forEach((form) => form.addEventListener("submit", () => {
+    const button = form.querySelector('[data-work-complete-button="true"]');
+    if (!button) return;
+    button.disabled = true;
+    button.textContent = "Завершаю…";
+  }));
 }
 
 function overviewIsLive(data) {
@@ -219,6 +264,7 @@ function epicIsLive(data) { return ["phase0", "planning", "running", "final_revi
 function epicsAreLive(data) { return (data?.items || []).some((item) => ["phase0", "planning", "running", "final_review"].includes(item.status || "")); }
 
 function renderChanged(current, payload, render) {
+  if (!keepCurrentRoute(current)) return false;
   const fingerprint = semanticFingerprint(current, payload);
   if (fingerprint === lastRenderFingerprint) return false;
   lastRenderFingerprint = fingerprint;
@@ -244,12 +290,13 @@ function projectRequired(title) {
   </div>`;
 }
 
-async function load() {
-  if (loading) return;
-  loading = true;
+async function loadCycle() {
+  const current = route();
   try {
-    const current = route();
-    if (!overviewCache || current.kind === "overview" || current.kind === "monitoring") overviewCache = await api.overview();
+    if (overviewCacheExpired() || current.kind === "overview" || current.kind === "monitoring") {
+      overviewCache = await api.overview();
+      overviewCachedAt = Date.now();
+    }
     renderNav(overviewCache);
 
     let generatedAt = overviewCache.generated_at;
@@ -389,17 +436,39 @@ async function load() {
       nextPollMs = overviewIsLive(overviewCache) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
     }
 
+    if (!keepCurrentRoute(current)) return;
+    clearRefreshWarning();
     updatedAt.textContent = `обновлено ${time(generatedAt)}`;
     const background = Boolean(overviewCache.service?.background);
     setConnection(true, background ? "Система активна" : "AI Layer активен");
     sidebarVersion.textContent = `AI Layer ${overviewCache.version || ""}`.trim();
   } catch (error) {
-    setConnection(false, "Панель отключена");
-    lastRenderFingerprint = null;
-    app.innerHTML = `<div class="alert">Ошибка API панели: ${escapeHtml(error.message)}</div>`;
+    if (!routeIsCurrent(current)) {
+      reloadRequested = true;
+      return;
+    }
+    setConnection(false, "Обновление недоступно");
+    showRefreshWarning(error);
     nextPollMs = IDLE_POLL_MS;
+  }
+}
+
+async function load() {
+  if (loadPromise) {
+    reloadRequested = true;
+    await loadPromise;
+    return;
+  }
+  loadPromise = (async () => {
+    do {
+      reloadRequested = false;
+      await loadCycle();
+    } while (reloadRequested);
+  })();
+  try {
+    await loadPromise;
   } finally {
-    loading = false;
+    loadPromise = null;
   }
 }
 
@@ -411,13 +480,23 @@ function schedule() {
 }
 
 async function refresh({ resetOverview = false } = {}) {
-  if (resetOverview) overviewCache = null;
+  if (resetOverview) {
+    overviewCache = null;
+    overviewCachedAt = 0;
+  }
   await load();
   schedule();
 }
 
-window.addEventListener("hashchange", () => { lastRenderFingerprint = null; void refresh({ resetOverview: true }); });
-refreshButton.addEventListener("click", () => { void refresh({ resetOverview: true }); });
+window.addEventListener("hashchange", () => {
+  lastRenderFingerprint = null;
+  setNavigationBusy(true);
+  void refresh().finally(() => setNavigationBusy(false));
+});
+refreshButton.addEventListener("click", () => {
+  setNavigationBusy(true);
+  void refresh({ resetOverview: true }).finally(() => setNavigationBusy(false));
+});
 projectScope.addEventListener("change", () => navigateScope(projectScope.value || null));
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
@@ -428,4 +507,5 @@ document.addEventListener("visibilitychange", () => {
   void refresh({ resetOverview: true });
 });
 
-void refresh();
+setNavigationBusy(true);
+void refresh().finally(() => setNavigationBusy(false));

@@ -28,15 +28,16 @@ def test_dashboard_transient_refresh_failure_preserves_rendered_content() -> Non
     assert 'app.innerHTML = `<div class="alert">Ошибка API панели:' not in app_js
 
 
-def test_dashboard_route_change_reuses_portfolio_cache_and_exposes_busy_feedback() -> None:
+def test_dashboard_route_change_reuses_fresh_portfolio_cache_and_exposes_busy_feedback() -> None:
     app_js = _read("js", "app.js")
     app_css = _read("css", "app.css")
 
-    hash_handler = next(
-        line for line in app_js.splitlines() if 'addEventListener("hashchange"' in line
-    )
+    start = app_js.index('window.addEventListener("hashchange"')
+    end = app_js.index('refreshButton.addEventListener("click"', start)
+    hash_handler = app_js[start:end]
     assert "resetOverview: true" not in hash_handler
     assert "setNavigationBusy(true)" in hash_handler
+    assert "overviewCacheExpired()" in app_js
     assert "navigationLoading" in app_js
     assert 'body[data-navigation-loading="true"] .topbar' in app_css
 

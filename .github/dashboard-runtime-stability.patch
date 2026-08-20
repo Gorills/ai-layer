@@ -1,0 +1,249 @@
+diff --git a/src/ai_layer/dashboard/static/js/app.js b/src/ai_layer/dashboard/static/js/app.js
+index bdefaa1..0000000 100644
+--- a/src/ai_layer/dashboard/static/js/app.js
++++ b/src/ai_layer/dashboard/static/js/app.js
+@@ -25,7 +25,8 @@ const FILTERABLE_ROOTS = new Set(["work", "tasks", "epics", "skills", "rules", "knowledge", "monitoring", "activity"]);
+ 
+ let overviewCache = null;
+ let timer = null;
+-let loading = false;
++let loadPromise = null;
++let reloadRequested = false;
+ let nextPollMs = IDLE_POLL_MS;
+ let lastRenderFingerprint = null;
+ let lastScopeFingerprint = null;
+@@ -82,6 +83,38 @@ function setConnection(ok, label) {
+   connectionLabel.textContent = label;
+ }
+ 
++function routeIsCurrent(current) {
++  return routeKey(current) === routeKey(route());
++}
++
++function setNavigationBusy(busy) {
++  document.body.dataset.navigationLoading = busy ? "true" : "false";
++  app.setAttribute("aria-busy", busy ? "true" : "false");
++  refreshButton.disabled = busy;
++  if (busy) updatedAt.textContent = "обновляю…";
++}
++
++function showRefreshWarning(error) {
++  let warning = app.querySelector("[data-refresh-warning]");
++  if (!warning) {
++    app.insertAdjacentHTML(
++      "afterbegin",
++      '<div class="alert dashboard-refresh-warning" data-refresh-warning="true"></div>',
++    );
++    warning = app.querySelector("[data-refresh-warning]");
++  }
++  if (warning) warning.textContent = `Не удалось обновить данные: ${error?.message || "ошибка сети"}`;
++}
++
++function clearRefreshWarning() {
++  app.querySelector("[data-refresh-warning]")?.remove();
++}
++
++function keepCurrentRoute(current) {
++  if (routeIsCurrent(current)) return true;
++  reloadRequested = true;
++  return false;
++}
++
+ function rootRoute(kind) {
+   if (["work-item", "work", "project-work"].includes(kind)) return "work";
+   if (["task", "tasks"].includes(kind)) return "tasks";
+@@ -201,6 +234,12 @@ function bindDynamicControls() {
+   document.querySelectorAll("select[data-hash-select]").forEach((select) => select.addEventListener("change", () => {
+     if (select.value) location.hash = select.value.startsWith("#") ? select.value.slice(1) : select.value;
+   }));
++  document.querySelectorAll('form[data-work-complete="true"]').forEach((form) => form.addEventListener("submit", () => {
++    const button = form.querySelector('[data-work-complete-button="true"]');
++    if (!button) return;
++    button.disabled = true;
++    button.textContent = "Завершаю…";
++  }));
+ }
+ 
+ function overviewIsLive(data) {
+@@ -221,6 +260,10 @@ function epicsAreLive(data) { return (data?.items || []).some((item) => ["phase0
+ 
+ function renderChanged(current, payload, render) {
++  if (!keepCurrentRoute(current)) {
++    return false;
++  }
+   const fingerprint = semanticFingerprint(current, payload);
+   if (fingerprint === lastRenderFingerprint) return false;
+   lastRenderFingerprint = fingerprint;
+@@ -244,11 +287,9 @@ function projectRequired(title) {
+   </div>`;
+ }
+ 
+-async function load() {
+-  if (loading) return;
+-  loading = true;
++async function loadCycle() {
++  const current = route();
+   try {
+-    const current = route();
+     if (!overviewCache || current.kind === "overview" || current.kind === "monitoring") overviewCache = await api.overview();
+     renderNav(overviewCache);
+ 
+@@ -360,18 +401,37 @@ async function load() {
+         app.innerHTML = renderOverview(overviewCache);
+       });
+       nextPollMs = overviewIsLive(overviewCache) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+     }
+ 
++    if (!keepCurrentRoute(current)) return;
++    clearRefreshWarning();
+     updatedAt.textContent = `обновлено ${time(generatedAt)}`;
+     const background = Boolean(overviewCache.service?.background);
+     setConnection(true, background ? "Система активна" : "AI Layer активен");
+     sidebarVersion.textContent = `AI Layer ${overviewCache.version || ""}`.trim();
+   } catch (error) {
+-    setConnection(false, "Панель отключена");
+-    lastRenderFingerprint = null;
+-    app.innerHTML = `<div class="alert">Ошибка API панели: ${escapeHtml(error.message)}</div>`;
++    if (!routeIsCurrent(current)) {
++      reloadRequested = true;
++      return;
++    }
++    setConnection(false, "Обновление недоступно");
++    showRefreshWarning(error);
+     nextPollMs = IDLE_POLL_MS;
+-  } finally {
+-    loading = false;
+   }
+ }
+ 
++async function load() {
++  if (loadPromise) {
++    reloadRequested = true;
++    await loadPromise;
++    return;
++  }
++  loadPromise = (async () => {
++    do {
++      reloadRequested = false;
++      await loadCycle();
++    } while (reloadRequested);
++  })();
++  try {
++    await loadPromise;
++  } finally {
++    loadPromise = null;
++  }
++}
++
+ function schedule() {
+   if (timer) clearTimeout(timer);
+   timer = null;
+@@ -386,8 +446,14 @@ async function refresh({ resetOverview = false } = {}) {
+   schedule();
+ }
+ 
+-window.addEventListener("hashchange", () => { lastRenderFingerprint = null; void refresh({ resetOverview: true }); });
+-refreshButton.addEventListener("click", () => { void refresh({ resetOverview: true }); });
++window.addEventListener("hashchange", () => {
++  lastRenderFingerprint = null;
++  setNavigationBusy(true);
++  void refresh().finally(() => setNavigationBusy(false));
++});
++refreshButton.addEventListener("click", () => {
++  setNavigationBusy(true);
++  void refresh({ resetOverview: true }).finally(() => setNavigationBusy(false));
++});
+ projectScope.addEventListener("change", () => navigateScope(projectScope.value || null));
+ document.addEventListener("visibilitychange", () => {
+   if (document.hidden) {
+@@ -399,4 +465,5 @@ document.addEventListener("visibilitychange", () => {
+   void refresh({ resetOverview: true });
+ });
+ 
+-void refresh();
++setNavigationBusy(true);
++void refresh().finally(() => setNavigationBusy(false));
+diff --git a/src/ai_layer/dashboard/static/js/api.js b/src/ai_layer/dashboard/static/js/api.js
+index c10c05c..0000000 100644
+--- a/src/ai_layer/dashboard/static/js/api.js
++++ b/src/ai_layer/dashboard/static/js/api.js
+@@ -1,18 +1,31 @@
+ const base = "/api/v1/dashboard";
++const REQUEST_TIMEOUT_MS = 10000;
+ 
+ async function request(path, params = null) {
+   const query = params
+     ? `?${new URLSearchParams(Object.entries(params).filter(([, value]) => value !== null && value !== undefined && value !== "")).toString()}`
+     : "";
+-  const response = await fetch(`${base}${path}${query}`, {
+-    headers: { Accept: "application/json" },
+-    cache: "no-store",
+-  });
+-  if (!response.ok) {
+-    const text = await response.text();
+-    throw new Error(`${response.status}: ${text || response.statusText}`);
++  const controller = new AbortController();
++  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
++  try {
++    const response = await fetch(`${base}${path}${query}`, {
++      headers: { Accept: "application/json" },
++      cache: "no-store",
++      signal: controller.signal,
++    });
++    if (!response.ok) {
++      const text = await response.text();
++      throw new Error(`${response.status}: ${text || response.statusText}`);
++    }
++    return response.json();
++  } catch (error) {
++    if (error?.name === "AbortError") {
++      throw new Error("Таймаут обновления Dashboard");
++    }
++    throw error;
++  } finally {
++    clearTimeout(timeout);
+   }
+-  return response.json();
+ }
+ 
+ export const api = {
+diff --git a/src/ai_layer/dashboard/static/js/views/work.js b/src/ai_layer/dashboard/static/js/views/work.js
+index 0000000..0000000 100644
+--- a/src/ai_layer/dashboard/static/js/views/work.js
++++ b/src/ai_layer/dashboard/static/js/views/work.js
+@@ -19,8 +19,8 @@ export function workCompletionAction(project, work) {
+     !COMPLETABLE_WORK_STATUSES.has(work.status)
+   ) return "";
+   const action = `/dashboard/actions/work/complete?project_key=${encodeURIComponent(project.key)}&work_key=${encodeURIComponent(work.key)}`;
+-  return `<form method="post" action="${escapeHtml(action)}">
+-    <button class="button" type="submit" title="Закрыть Work как completed без запуска агента.">Завершить Work</button>
++  return `<form method="post" action="${escapeHtml(action)}" data-work-complete="true">
++    <button class="button compact-button" data-work-complete-button="true" type="submit" title="Закрыть Work как completed без запуска агента.">Завершить</button>
+   </form>`;
+ }
+ 
+diff --git a/src/ai_layer/dashboard/static/css/app.css b/src/ai_layer/dashboard/static/css/app.css
+index d9b2916..0000000 100644
+--- a/src/ai_layer/dashboard/static/css/app.css
++++ b/src/ai_layer/dashboard/static/css/app.css
+@@ -110,6 +110,7 @@
+   background: rgba(10, 12, 15, .88);
+   backdrop-filter: blur(14px);
+ }
++body[data-navigation-loading="true"] .topbar { box-shadow: inset 0 -2px 0 var(--accent); }
+ .topbar-copy { min-width: 0; }
+ .topbar h1 {
+   margin: 0;
+@@ -160,8 +161,12 @@
+   cursor: pointer;
+   transition: background var(--ease), border-color var(--ease), color var(--ease);
+ }
+ .button:hover { border-color: var(--border-strong); background: var(--surface-raised); color: var(--text); }
++.button:disabled { opacity: .58; cursor: wait; }
++.compact-button { min-height: 28px; padding: 4px 8px; font-size: 11px; white-space: nowrap; }
+ .icon-button { width: 32px; padding: 0; }
+ .icon-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
++.dashboard-refresh-warning { position: sticky; top: calc(var(--topbar-height) + 8px); z-index: 12; }
+ 
+ .content { width: min(100%, var(--content-max)); margin: 0 auto; padding: 26px 28px 54px; }
+ .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.62fr) minmax(300px, .74fr); gap: 18px; align-items: start; }

@@ -2,32 +2,55 @@ from __future__ import annotations
 
 import json
 import runpy
+import sys
 from pathlib import Path
 
 from ai_layer import __version__
-from ai_layer.domain.orchestrator import native_bootstrap_markdown
-from ai_layer.mcp.runtime import MCP_INSTRUCTIONS, TOOL_HANDLERS
-from ai_layer.mcp.server import mcp
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
 BASELINE_PATH = ROOT / "docs" / "evidence" / f"{__version__}-agent-native-phase0-baseline.json"
-_baseline = runpy.run_path(str(ROOT / "scripts" / "agent_native_baseline_lib.py"))
-build_baseline_report = _baseline["build_baseline_report"]
+sys.path.insert(0, str(SCRIPTS))
+try:
+    _generator = runpy.run_path(str(SCRIPTS / "agent_native_baseline.py"))
+finally:
+    sys.path.pop(0)
+build_report = _generator["build_report"]
 
 
-def _skill_documents() -> dict[str, str]:
-    root = ROOT / "src" / "ai_layer" / "builtin_skills"
-    return {path.name: path.read_text(encoding="utf-8") for path in sorted(root.glob("*.md"))}
+def test_configured_phase0_journeys_are_executable_and_quantitative() -> None:
+    report = build_report()
+    contract = report["journey_trace_contract"]
+    fixtures = contract["fixtures"]
+
+    assert contract["fixture_evidence"] == "configured_protocol_not_observed_host_run"
+    assert {item["journey"] for item in fixtures} == set(contract["journeys"])
+    expected_calls = {
+        "ordinary_known_location_change": 4,
+        "ordinary_unknown_location_change": 5,
+        "explicit_standard_change": 8,
+        "native_to_reviewed_escalation": 7,
+        "continue_after_restart": 4,
+        "epic_continuation": 10,
+    }
+    for fixture in fixtures:
+        assert fixture["events"]
+        assert fixture["host"] == "protocol-configured"
+        assert fixture["metrics"]["ai_layer_call_count"] == expected_calls[fixture["journey"]]
+        assert fixture["metrics"]["observability_class_counts"] == {
+            "configured": len(fixture["events"]),
+            "observed": 0,
+            "unsupported": 0,
+        }
+
+    unknown = next(
+        item for item in fixtures if item["journey"] == "ordinary_unknown_location_change"
+    )
+    assert unknown["metrics"]["retrieval_usefulness"]["candidate_to_inspected_hit_rate"] == 0.5
 
 
 def test_committed_phase0_baseline_matches_live_runtime() -> None:
-    report = build_baseline_report(
-        mcp,
-        tool_handlers=TOOL_HANDLERS,
-        mcp_instructions=MCP_INSTRUCTIONS,
-        bootstrap_text=native_bootstrap_markdown(),
-        skill_documents=_skill_documents(),
-    )
+    report = build_report()
     expected = json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
 
     assert BASELINE_PATH.is_file()

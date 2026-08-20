@@ -80,6 +80,9 @@ def test_dashboard_complete_work_is_same_origin_idempotent_and_attributed(
         client = TestClient(_dashboard_app(), base_url="http://127.0.0.1:8765")
         action = "/dashboard/actions/work/complete?project_key=alpha%2Fbeta&work_key=W-0001"
 
+        missing_origin = client.post(action, follow_redirects=False)
+        assert missing_origin.status_code == 403
+
         rejected = client.post(
             action,
             headers={"Origin": "https://example.com"},

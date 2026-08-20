@@ -55,6 +55,24 @@ def _effective_work_payload(item: dict) -> dict:
     return result
 
 
+def _mutation_result(
+    project: Any,
+    db: Any,
+    work: Any,
+    *,
+    root_run: Any | None = None,
+    effective_status: bool = False,
+) -> dict:
+    work_payload = work_to_dict(db, work, include_runs=False)
+    if effective_status:
+        work_payload = _effective_work_payload(work_payload)
+    work_payload.pop("runs", None)
+    payload = {"work": work_payload}
+    if root_run is not None:
+        payload["root_run"] = run_to_dict(root_run)
+    return _bound_result(project, payload)
+
+
 def _compact_work_payload(item: dict) -> dict:
     disposition = dict(item.get("map_disposition") or {}) or {"status": "pending"}
     return {
@@ -109,9 +127,7 @@ def begin(project_root: str | Path, *, idempotency_key: str | None = None, **kwa
                 model=run.model,
                 payload={"status": run.status},
             )
-            return _bound_result(
-                project, {"work": work_to_dict(db, work), "root_run": run_to_dict(run)}
-            )
+            return _mutation_result(project, db, work, root_run=run)
 
         return execute_idempotent(
             db,
@@ -154,7 +170,7 @@ def checkpoint(
                 model=run.model if run else "",
                 payload={"status": work.status, "summary": work.result_summary},
             )
-            return _bound_result(project, {"work": work_to_dict(db, work)})
+            return _mutation_result(project, db, work, root_run=run)
 
         return execute_idempotent(
             db,
@@ -220,8 +236,7 @@ def wait(
                     model=run.model,
                     payload={"status": run.status},
                 )
-            payload = _effective_work_payload(work_to_dict(db, work))
-            return _bound_result(project, {"work": payload})
+            return _mutation_result(project, db, work, root_run=root_run, effective_status=True)
 
         return execute_idempotent(
             db,
@@ -280,9 +295,7 @@ def resume(
                 model=run.model,
                 payload={"status": run.status},
             )
-            return _bound_result(
-                project, {"work": work_to_dict(db, work), "root_run": run_to_dict(run)}
-            )
+            return _mutation_result(project, db, work, root_run=run)
 
         return execute_idempotent(
             db,
@@ -358,7 +371,7 @@ def _finish(
                     model=run.model,
                     payload={"status": run.status},
                 )
-            return _bound_result(project, {"work": work_to_dict(db, work)})
+            return _mutation_result(project, db, work, root_run=root_run)
 
         return execute_idempotent(
             db,

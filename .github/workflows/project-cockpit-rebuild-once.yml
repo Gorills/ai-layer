@@ -1,0 +1,83 @@
+name: project-cockpit-rebuild-once
+on:
+  push:
+    branches: [agent/dashboard-project-cockpit]
+permissions:
+  contents: write
+jobs:
+  rebuild:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/dashboard-project-cockpit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Apply reviewed Epic status contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          project_path = Path('src/ai_layer/dashboard/static/js/views/project.js')
+          test_path = Path('tests/test_dashboard_project_cockpit.py')
+          project = project_path.read_text(encoding='utf-8')
+          import_line = 'import { workAttentionReason, workCompletionAction, workDisplayState, workHref } from "./work.js";\n\n'
+          open_statuses = 'const OPEN_EPIC_STATUSES = new Set(["draft", "approved", "phase0", "planning", "running", "final_review", "blocked"]);\n\n'
+          old_filter = 'const activeEpics = allEpics.filter((item) => !["completed", "cancelled", "failed", "abandoned"].includes(item.status));'
+          new_filter = 'const activeEpics = allEpics.filter((item) => OPEN_EPIC_STATUSES.has(item.status));'
+          if open_statuses not in project:
+              if project.count(import_line) != 1:
+                  raise RuntimeError('unexpected project.js import contract')
+              project = project.replace(import_line, import_line + open_statuses, 1)
+          if old_filter in project:
+              if project.count(old_filter) != 2:
+                  raise RuntimeError('unexpected active Epic filter count')
+              project = project.replace(old_filter, new_filter)
+          if project.count(new_filter) != 2:
+              raise RuntimeError('reviewed active Epic filter not applied exactly twice')
+          project_path.write_text(project, encoding='utf-8')
+
+          test = test_path.read_text(encoding='utf-8')
+          marker = '    assert "${workflowPanel(data)}" in source\n'
+          regression = '    assert "OPEN_EPIC_STATUSES = new Set" in source\n    assert source.count("OPEN_EPIC_STATUSES.has(item.status)") == 2\n'
+          if regression not in test:
+              if test.count(marker) != 1:
+                  raise RuntimeError('unexpected cockpit test marker')
+              test = test.replace(marker, marker + regression, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+      - name: Verify focused cockpit regression
+        run: |
+          python -m ruff format tests/test_dashboard_project_cockpit.py
+          pytest -q tests/test_dashboard_project_cockpit.py
+      - name: Rebuild release artifacts
+        run: |
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+      - name: Publish materialized files
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- \
+            src/ai_layer/dashboard/static/js/views/project.js \
+            tests/test_dashboard_project_cockpit.py \
+            dist/local_ai_development_layer-0.14.0-py3-none-any.whl \
+            release/release-manifest.json
+          git diff --cached --check
+          git commit -m 'Materialize Project Cockpit reviewed fix [cockpit-materialized]'
+          git push origin HEAD:agent/dashboard-project-cockpit

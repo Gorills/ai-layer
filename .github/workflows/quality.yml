@@ -144,14 +144,20 @@ jobs:
 
           test = Path('tests/test_dashboard_project_cockpit.py')
           text = test.read_text(encoding='utf-8')
-          text = text.replace('''        "tasks": {
-              "items": [''', '''        "tasks": {
-              "pagination": {"total": 5},
-              "items": [''', 1)
-          text = text.replace('''        "epics": {
-              "items": [''', '''        "epics": {
-              "pagination": {"total": 4},
-              "items": [''', 1)
+          tasks_marker = '        "tasks": {\n            "items": ['
+          epics_marker = '        "epics": {\n            "items": ['
+          if text.count(tasks_marker) != 1 or text.count(epics_marker) != 1:
+              raise SystemExit('cockpit payload markers mismatch')
+          text = text.replace(
+              tasks_marker,
+              '        "tasks": {\n            "pagination": {"total": 5},\n            "items": [',
+              1,
+          )
+          text = text.replace(
+              epics_marker,
+              '        "epics": {\n            "pagination": {"total": 4},\n            "items": [',
+              1,
+          )
           marker = '''    assert "Archived UX" not in html
           '''
           replacement = '''    assert "Archived UX" not in html
@@ -185,6 +191,7 @@ jobs:
           PY
       - name: Verify focused fix and rebuild wheel
         run: |
+          ruff format tests/test_dashboard_project_cockpit.py
           pytest -q tests/test_dashboard_project_cockpit.py tests/test_dashboard_open_work_overview.py tests/test_dashboard_project_workspace_ux.py
           python scripts/build_release_wheel.py
           python - <<'PY'

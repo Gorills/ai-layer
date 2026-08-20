@@ -12,8 +12,9 @@ import hashlib
 import hmac
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Any, Literal, Mapping, Required, TypedDict
+from typing import Any, Literal, Required, TypedDict
 
 CONTRACT_VERSION = 1
 TOKEN_VERSION = "act1"

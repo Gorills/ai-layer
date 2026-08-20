@@ -21,6 +21,16 @@ jobs:
       - name: Materialize bounded implementation
         run: |
           python .github/dashboard-work-complete-finalize.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/test_dashboard_work_actions.py')
+          source = path.read_text(encoding='utf-8')
+          old = "if (!waitingHtml.includes('project_key=alpha%2Fbeta&work_key=W-0001')) throw new Error('query action');"
+          new = "if (!waitingHtml.includes('project_key=alpha%2Fbeta&amp;work_key=W-0001')) throw new Error('query action');"
+          assert source.count(old) == 1
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
           rm .github/dashboard-work-complete.patch
           rm .github/dashboard-work-complete-finalize.py
           rm .github/workflows/dashboard-work-complete-finalize.yml

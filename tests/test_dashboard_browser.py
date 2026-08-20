@@ -268,7 +268,7 @@ class DashboardServerState:
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
-    server: "DashboardHTTPServer"
+    server: DashboardHTTPServer
 
     def log_message(self, _format: str, *_args: object) -> None:
         return

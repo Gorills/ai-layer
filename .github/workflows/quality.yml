@@ -4,12 +4,14 @@ on:
   push:
     branches: [main]
 permissions:
-  contents: read
+  contents: write
 jobs:
   quality:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -17,12 +19,17 @@ jobs:
       - run: python -m pip install -e '.[dev]'
       - name: Generate Phase 0 baseline evidence
         run: python scripts/agent_native_baseline.py
-      - name: Upload Phase 0 baseline evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-native-phase0-baseline
-          path: docs/evidence/0.14.0-agent-native-phase0-baseline.json
-          if-no-files-found: error
+      - name: Commit Phase 0 baseline evidence
+        if: github.event_name == 'pull_request'
+        run: |
+          git add docs/evidence/0.14.0-agent-native-phase0-baseline.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Record agent-native Phase 0 baseline evidence'
+          git push origin HEAD:${{ github.head_ref }}
       - run: make quality
 
   postgres-hardening:

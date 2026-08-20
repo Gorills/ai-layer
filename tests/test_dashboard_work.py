@@ -73,7 +73,14 @@ def test_work_list_and_detail_are_bounded_safe_durable_read_models(monkeypatch, 
             work_key_value="W-0001",
             status="completed",
             summary="Checkout flow verified.",
-            checks=[{"name": "focused tests", "status": "passed", "summary": "1 passed"}],
+            checks=[
+                {"name": "focused tests", "status": "passed", "summary": "1 passed"},
+                {
+                    "name": "host verification",
+                    "status": "reported",
+                    "summary": "Host reported a successful external check.",
+                },
+            ],
             map_disposition={
                 "status": "checked_no_change",
                 "scope": ["src/checkout.py"],
@@ -114,11 +121,16 @@ def test_work_list_and_detail_are_bounded_safe_durable_read_models(monkeypatch, 
     assert listing["items"][0]["key"] == "W-0001"
     assert listing["items"][0]["project"]["key"] == "dashboard-work"
     assert listing["items"][0]["runs"][0]["host"] == "codex"
+    assert {item["status"] for item in listing["items"][0]["checks"]} == {
+        "passed",
+        "reported",
+    }
     WorkListRead.model_validate(listing)
 
     detail = dashboard_work.work_detail_payload("dashboard-work", "W-0001")
     assert detail is not None
     assert detail["work"]["status"] == "completed"
+    assert {item["status"] for item in detail["work"]["checks"]} == {"passed", "reported"}
     assert [item["event_type"] for item in detail["timeline"]] == [
         "WorkStarted",
         "WorkCheckpointed",

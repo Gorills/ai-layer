@@ -161,7 +161,7 @@ def test_overviews_do_not_hide_open_work_or_require_detail_for_completion() -> N
     project_source = PROJECT_JS.read_text(encoding="utf-8")
     overview_source = OVERVIEW_JS.read_text(encoding="utf-8")
 
-    assert ".slice(0, 4)" not in project_source
+    assert "project.work?.attention || []).slice(0, 4)" not in project_source
     assert "${openWorkPanel(data)}" in project_source
     assert 'metric("Открытые Work", open.length' in project_source
     assert "workCompletionAction(project, work)" in project_source

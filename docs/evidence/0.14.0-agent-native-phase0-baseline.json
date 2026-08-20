@@ -6676,41 +6676,1270 @@
       "review",
       "host_lifecycle"
     ],
+    "fixture_evidence": "configured_protocol_not_observed_host_run",
     "fixtures": [
       {
-        "events": [],
-        "host": "unassigned",
+        "events": [
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_status",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 73,
+              "estimated_tokens": 19,
+              "sha256": "a9a50d3f91011bfeb0b531b1384c1ed469572916009d8d98ccd7fd628ad4d679",
+              "utf8_bytes": 73
+            },
+            "response_profile": {
+              "chars": 66,
+              "estimated_tokens": 17,
+              "sha256": "37e56259607966404a1fc6206a55ecaa68dfeff8f68902a1a789fa88a8111bd5",
+              "utf8_bytes": 66
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "work_begin",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 69,
+              "estimated_tokens": 18,
+              "sha256": "ffc0aaa9a90472535e6f5474a69f6dda833891e1ab6844e3ca7ae1d7d5b97849",
+              "utf8_bytes": 69
+            },
+            "response_profile": {
+              "chars": 66,
+              "estimated_tokens": 17,
+              "sha256": "37e56259607966404a1fc6206a55ecaa68dfeff8f68902a1a789fa88a8111bd5",
+              "utf8_bytes": 66
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "native_read",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "open_known_source",
+            "relevant_source": true,
+            "reviewed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ]
+          },
+          {
+            "changed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ],
+            "correction_retry": false,
+            "kind": "native_edit",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "edit_known_source",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "check",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "targeted_check",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_map_reconcile",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 80,
+              "estimated_tokens": 20,
+              "sha256": "50921697bc8660b57d699fd5c908e232fdec2ef95853992e6d9364df283e476e",
+              "utf8_bytes": 80
+            },
+            "response_profile": {
+              "chars": 66,
+              "estimated_tokens": 17,
+              "sha256": "37e56259607966404a1fc6206a55ecaa68dfeff8f68902a1a789fa88a8111bd5",
+              "utf8_bytes": 66
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "work_complete",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 72,
+              "estimated_tokens": 18,
+              "sha256": "0903531c82447dd83b4e1554825b66ec0b88945860c1fea671fcf0be7cc15876",
+              "utf8_bytes": 72
+            },
+            "response_profile": {
+              "chars": 66,
+              "estimated_tokens": 17,
+              "sha256": "37e56259607966404a1fc6206a55ecaa68dfeff8f68902a1a789fa88a8111bd5",
+              "utf8_bytes": 66
+            }
+          }
+        ],
+        "host": "protocol-configured",
         "journey": "ordinary_known_location_change",
+        "metrics": {
+          "ai_layer_call_count": 4,
+          "duplicate_control_plane_call_count": 0,
+          "engineering_check_count": 1,
+          "failure_classes": {},
+          "mcp_latency_ms_p50": null,
+          "mcp_latency_ms_p95": null,
+          "mcp_latency_sample_count": 0,
+          "native_search_read_before_first_edit": 1,
+          "native_search_read_before_first_relevant_source": 0,
+          "observability_class_counts": {
+            "configured": 7,
+            "observed": 0,
+            "unsupported": 0
+          },
+          "request_payload_estimated_tokens": 75,
+          "request_payload_utf8_bytes": 294,
+          "response_payload_estimated_tokens": 68,
+          "response_payload_utf8_bytes": 264,
+          "retrieval_usefulness": {
+            "candidate_count": 0,
+            "candidate_to_changed_hit_rate": null,
+            "candidate_to_inspected_hit_rate": null,
+            "changed_hit_count": 0,
+            "changed_hit_paths": [],
+            "changed_path_count": 1,
+            "inspected_hit_count": 0,
+            "inspected_hit_paths": [],
+            "reviewed_path_count": 1
+          },
+          "workflow_correction_retry_count": 0,
+          "workflow_correction_retry_rate": 0.0
+        },
         "schema_version": 1
       },
       {
-        "events": [],
-        "host": "unassigned",
+        "events": [
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_status",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 75,
+              "estimated_tokens": 19,
+              "sha256": "eb6aecdb2d9368ca19cd2bf56d17ff6dbc3a3d0ad4649f390830fa8317c1bf0c",
+              "utf8_bytes": 75
+            },
+            "response_profile": {
+              "chars": 68,
+              "estimated_tokens": 17,
+              "sha256": "b2d60712f12982bb779087344590c6ab7e0f55577b6d9464c8d44501ce1ef243",
+              "utf8_bytes": 68
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "work_begin",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 71,
+              "estimated_tokens": 18,
+              "sha256": "1598007fd51a22f9c9c79d7dc9d35bfa522fd6adcdb910a269723f432e949cac",
+              "utf8_bytes": 71
+            },
+            "response_profile": {
+              "chars": 68,
+              "estimated_tokens": 17,
+              "sha256": "b2d60712f12982bb779087344590c6ab7e0f55577b6d9464c8d44501ce1ef243",
+              "utf8_bytes": 68
+            }
+          },
+          {
+            "candidate_paths": [
+              "src/ai_layer/mcp/runtime.py",
+              "tests/test_agent_facing_contracts.py"
+            ],
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_search",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 75,
+              "estimated_tokens": 19,
+              "sha256": "47af1899c44e0dc5db239e9660951abcda2e2501226689336643a971beea7d1e",
+              "utf8_bytes": 75
+            },
+            "response_profile": {
+              "chars": 68,
+              "estimated_tokens": 17,
+              "sha256": "b2d60712f12982bb779087344590c6ab7e0f55577b6d9464c8d44501ce1ef243",
+              "utf8_bytes": 68
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "native_read",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "open_search_candidate",
+            "relevant_source": true,
+            "reviewed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ]
+          },
+          {
+            "changed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ],
+            "correction_retry": false,
+            "kind": "native_edit",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "edit_discovered_source",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "check",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "targeted_check",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_map_reconcile",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 82,
+              "estimated_tokens": 21,
+              "sha256": "2764a98ecc5d25a448116e048632419720b8f86e7ade2c8ce9de03a199ef6cf2",
+              "utf8_bytes": 82
+            },
+            "response_profile": {
+              "chars": 68,
+              "estimated_tokens": 17,
+              "sha256": "b2d60712f12982bb779087344590c6ab7e0f55577b6d9464c8d44501ce1ef243",
+              "utf8_bytes": 68
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "work_complete",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 74,
+              "estimated_tokens": 19,
+              "sha256": "50192311990ce117a2b4ad31bb05cef429266b17cfa77e2c1365234db64f89c6",
+              "utf8_bytes": 74
+            },
+            "response_profile": {
+              "chars": 68,
+              "estimated_tokens": 17,
+              "sha256": "b2d60712f12982bb779087344590c6ab7e0f55577b6d9464c8d44501ce1ef243",
+              "utf8_bytes": 68
+            }
+          }
+        ],
+        "host": "protocol-configured",
         "journey": "ordinary_unknown_location_change",
+        "metrics": {
+          "ai_layer_call_count": 5,
+          "duplicate_control_plane_call_count": 0,
+          "engineering_check_count": 1,
+          "failure_classes": {},
+          "mcp_latency_ms_p50": null,
+          "mcp_latency_ms_p95": null,
+          "mcp_latency_sample_count": 0,
+          "native_search_read_before_first_edit": 1,
+          "native_search_read_before_first_relevant_source": 0,
+          "observability_class_counts": {
+            "configured": 8,
+            "observed": 0,
+            "unsupported": 0
+          },
+          "request_payload_estimated_tokens": 96,
+          "request_payload_utf8_bytes": 377,
+          "response_payload_estimated_tokens": 85,
+          "response_payload_utf8_bytes": 340,
+          "retrieval_usefulness": {
+            "candidate_count": 2,
+            "candidate_to_changed_hit_rate": 0.5,
+            "candidate_to_inspected_hit_rate": 0.5,
+            "changed_hit_count": 1,
+            "changed_hit_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ],
+            "changed_path_count": 1,
+            "inspected_hit_count": 1,
+            "inspected_hit_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ],
+            "reviewed_path_count": 1
+          },
+          "workflow_correction_retry_count": 0,
+          "workflow_correction_retry_rate": 0.0
+        },
         "schema_version": 1
       },
       {
-        "events": [],
-        "host": "unassigned",
+        "events": [
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_status",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 67,
+              "estimated_tokens": 17,
+              "sha256": "6996f3a73cb61d05d49dde3d49890a3c8c755f737a1c64f5e0d16c0c32bf113a",
+              "utf8_bytes": 67
+            },
+            "response_profile": {
+              "chars": 60,
+              "estimated_tokens": 15,
+              "sha256": "6ff7e076f298d56395b6dffced2806225873f4a4ac0708b70a11f29ad8c9a3c9",
+              "utf8_bytes": 60
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_create",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 64,
+              "estimated_tokens": 16,
+              "sha256": "7b73873d2826405d0a1fe79fe44e94d7cdff9873fdb1f973f550ac8dcb54c8ce",
+              "utf8_bytes": 64
+            },
+            "response_profile": {
+              "chars": 60,
+              "estimated_tokens": 15,
+              "sha256": "6ff7e076f298d56395b6dffced2806225873f4a4ac0708b70a11f29ad8c9a3c9",
+              "utf8_bytes": 60
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_stage_delegate",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 72,
+              "estimated_tokens": 18,
+              "sha256": "4db61e4dc9e8ccb515a33446dc586a54211ecb45012e082f343f3839bd56574b",
+              "utf8_bytes": 72
+            },
+            "response_profile": {
+              "chars": 60,
+              "estimated_tokens": 15,
+              "sha256": "6ff7e076f298d56395b6dffced2806225873f4a4ac0708b70a11f29ad8c9a3c9",
+              "utf8_bytes": 60
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "host_lifecycle",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "implement_worker",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "native_read",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "worker_read",
+            "relevant_source": true,
+            "reviewed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ]
+          },
+          {
+            "changed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ],
+            "correction_retry": false,
+            "kind": "native_edit",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "worker_edit",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "check",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "implementation_check",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_implementation_complete",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 81,
+              "estimated_tokens": 21,
+              "sha256": "0c441cec307d649faeb0d346ee9f91313bccbac48b79be5fbcac1ed883c5bef1",
+              "utf8_bytes": 81
+            },
+            "response_profile": {
+              "chars": 60,
+              "estimated_tokens": 15,
+              "sha256": "6ff7e076f298d56395b6dffced2806225873f4a4ac0708b70a11f29ad8c9a3c9",
+              "utf8_bytes": 60
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_next",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 62,
+              "estimated_tokens": 16,
+              "sha256": "83326e076310676d7530753701968214a69fa13b1de2c9b4269271bfdcf4c372",
+              "utf8_bytes": 62
+            },
+            "response_profile": {
+              "chars": 60,
+              "estimated_tokens": 15,
+              "sha256": "6ff7e076f298d56395b6dffced2806225873f4a4ac0708b70a11f29ad8c9a3c9",
+              "utf8_bytes": 60
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_stage_delegate",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 72,
+              "estimated_tokens": 18,
+              "sha256": "4db61e4dc9e8ccb515a33446dc586a54211ecb45012e082f343f3839bd56574b",
+              "utf8_bytes": 72
+            },
+            "response_profile": {
+              "chars": 60,
+              "estimated_tokens": 15,
+              "sha256": "6ff7e076f298d56395b6dffced2806225873f4a4ac0708b70a11f29ad8c9a3c9",
+              "utf8_bytes": 60
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "review",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "independent_review",
+            "relevant_source": false,
+            "reviewed_paths": [
+              "src/ai_layer/mcp/runtime.py",
+              "tests/test_agent_facing_contracts.py"
+            ]
+          },
+          {
+            "correction_retry": false,
+            "kind": "check",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "review_check",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_review_complete",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 73,
+              "estimated_tokens": 19,
+              "sha256": "d383929f392635817b5ba3ea12d605f575e1078946dbef426e2e0f1656376977",
+              "utf8_bytes": 73
+            },
+            "response_profile": {
+              "chars": 60,
+              "estimated_tokens": 15,
+              "sha256": "6ff7e076f298d56395b6dffced2806225873f4a4ac0708b70a11f29ad8c9a3c9",
+              "utf8_bytes": 60
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_next",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 62,
+              "estimated_tokens": 16,
+              "sha256": "83326e076310676d7530753701968214a69fa13b1de2c9b4269271bfdcf4c372",
+              "utf8_bytes": 62
+            },
+            "response_profile": {
+              "chars": 60,
+              "estimated_tokens": 15,
+              "sha256": "6ff7e076f298d56395b6dffced2806225873f4a4ac0708b70a11f29ad8c9a3c9",
+              "utf8_bytes": 60
+            }
+          }
+        ],
+        "host": "protocol-configured",
         "journey": "explicit_standard_change",
+        "metrics": {
+          "ai_layer_call_count": 8,
+          "duplicate_control_plane_call_count": 2,
+          "engineering_check_count": 2,
+          "failure_classes": {},
+          "mcp_latency_ms_p50": null,
+          "mcp_latency_ms_p95": null,
+          "mcp_latency_sample_count": 0,
+          "native_search_read_before_first_edit": 1,
+          "native_search_read_before_first_relevant_source": 0,
+          "observability_class_counts": {
+            "configured": 14,
+            "observed": 0,
+            "unsupported": 0
+          },
+          "request_payload_estimated_tokens": 141,
+          "request_payload_utf8_bytes": 553,
+          "response_payload_estimated_tokens": 120,
+          "response_payload_utf8_bytes": 480,
+          "retrieval_usefulness": {
+            "candidate_count": 0,
+            "candidate_to_changed_hit_rate": null,
+            "candidate_to_inspected_hit_rate": null,
+            "changed_hit_count": 0,
+            "changed_hit_paths": [],
+            "changed_path_count": 1,
+            "inspected_hit_count": 0,
+            "inspected_hit_paths": [],
+            "reviewed_path_count": 2
+          },
+          "workflow_correction_retry_count": 0,
+          "workflow_correction_retry_rate": 0.0
+        },
         "schema_version": 1
       },
       {
-        "events": [],
-        "host": "unassigned",
+        "events": [
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_status",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 72,
+              "estimated_tokens": 18,
+              "sha256": "ae1c6f70f5dca39c233ede79a52eb001e1dacc8a7f1fc972256131534ce82b56",
+              "utf8_bytes": 72
+            },
+            "response_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "27cb246a3f2d2e76f73c7ee283424836bcd84426a2346932da831cbb6d79de04",
+              "utf8_bytes": 65
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "work_begin",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 68,
+              "estimated_tokens": 17,
+              "sha256": "db4a1b7fd715aa9c888f001a3562f8292d8e4631d7c936c3909d4d5aaf2dadd2",
+              "utf8_bytes": 68
+            },
+            "response_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "27cb246a3f2d2e76f73c7ee283424836bcd84426a2346932da831cbb6d79de04",
+              "utf8_bytes": 65
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "native_read",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "native_read",
+            "relevant_source": true,
+            "reviewed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ]
+          },
+          {
+            "changed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ],
+            "correction_retry": false,
+            "kind": "native_edit",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "native_edit",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "check",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "native_check",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_adopt",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 68,
+              "estimated_tokens": 17,
+              "sha256": "dddc3dbf23ee2879cd0780d749acccc1fe22ccbd350a94865c230befd39aeb25",
+              "utf8_bytes": 68
+            },
+            "response_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "27cb246a3f2d2e76f73c7ee283424836bcd84426a2346932da831cbb6d79de04",
+              "utf8_bytes": 65
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_next",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 67,
+              "estimated_tokens": 17,
+              "sha256": "0af1ab69628f4bdc888e679c46c5d0d214ba9555c2199aae3e54003efcd42f11",
+              "utf8_bytes": 67
+            },
+            "response_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "27cb246a3f2d2e76f73c7ee283424836bcd84426a2346932da831cbb6d79de04",
+              "utf8_bytes": 65
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_stage_delegate",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 77,
+              "estimated_tokens": 20,
+              "sha256": "5b846a168a3dfb0b5771fd162303bfc0644cb85df3b19bdb223730194d2e7269",
+              "utf8_bytes": 77
+            },
+            "response_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "27cb246a3f2d2e76f73c7ee283424836bcd84426a2346932da831cbb6d79de04",
+              "utf8_bytes": 65
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "review",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "independent_review",
+            "relevant_source": false,
+            "reviewed_paths": [
+              "src/ai_layer/mcp/runtime.py",
+              "tests/test_agent_facing_contracts.py"
+            ]
+          },
+          {
+            "correction_retry": false,
+            "kind": "check",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "review_check",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_review_complete",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 78,
+              "estimated_tokens": 20,
+              "sha256": "45c763d3c181d4b06964dc15afcdabd6d6f31716580927ef4281e0c1f078fcd4",
+              "utf8_bytes": 78
+            },
+            "response_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "27cb246a3f2d2e76f73c7ee283424836bcd84426a2346932da831cbb6d79de04",
+              "utf8_bytes": 65
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_next",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 67,
+              "estimated_tokens": 17,
+              "sha256": "0af1ab69628f4bdc888e679c46c5d0d214ba9555c2199aae3e54003efcd42f11",
+              "utf8_bytes": 67
+            },
+            "response_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "27cb246a3f2d2e76f73c7ee283424836bcd84426a2346932da831cbb6d79de04",
+              "utf8_bytes": 65
+            }
+          }
+        ],
+        "host": "protocol-configured",
         "journey": "native_to_reviewed_escalation",
+        "metrics": {
+          "ai_layer_call_count": 7,
+          "duplicate_control_plane_call_count": 1,
+          "engineering_check_count": 2,
+          "failure_classes": {},
+          "mcp_latency_ms_p50": null,
+          "mcp_latency_ms_p95": null,
+          "mcp_latency_sample_count": 0,
+          "native_search_read_before_first_edit": 1,
+          "native_search_read_before_first_relevant_source": 0,
+          "observability_class_counts": {
+            "configured": 12,
+            "observed": 0,
+            "unsupported": 0
+          },
+          "request_payload_estimated_tokens": 126,
+          "request_payload_utf8_bytes": 497,
+          "response_payload_estimated_tokens": 119,
+          "response_payload_utf8_bytes": 455,
+          "retrieval_usefulness": {
+            "candidate_count": 0,
+            "candidate_to_changed_hit_rate": null,
+            "candidate_to_inspected_hit_rate": null,
+            "changed_hit_count": 0,
+            "changed_hit_paths": [],
+            "changed_path_count": 1,
+            "inspected_hit_count": 0,
+            "inspected_hit_paths": [],
+            "reviewed_path_count": 2
+          },
+          "workflow_correction_retry_count": 0,
+          "workflow_correction_retry_rate": 0.0
+        },
         "schema_version": 1
       },
       {
-        "events": [],
-        "host": "unassigned",
+        "events": [
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_status",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "f07654a9b7d410ba9dc67aa7ac01685c1a582a99ecd3625cc46f1a43c111d318",
+              "utf8_bytes": 65
+            },
+            "response_profile": {
+              "chars": 58,
+              "estimated_tokens": 15,
+              "sha256": "7ffada22361b05ec391606863e2086d9680400f9ae3836e974e9cc17ca6fa4f8",
+              "utf8_bytes": 58
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "work_resume",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 62,
+              "estimated_tokens": 16,
+              "sha256": "c283c76cf8fdc8d102292dbb59071816a140281ee10ba8b6fbd7f40765e32c88",
+              "utf8_bytes": 62
+            },
+            "response_profile": {
+              "chars": 58,
+              "estimated_tokens": 15,
+              "sha256": "7ffada22361b05ec391606863e2086d9680400f9ae3836e974e9cc17ca6fa4f8",
+              "utf8_bytes": 58
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "native_read",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "reopen_current_focus",
+            "relevant_source": true,
+            "reviewed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ]
+          },
+          {
+            "changed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ],
+            "correction_retry": false,
+            "kind": "native_edit",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "continue_edit",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "check",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "targeted_check",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_map_reconcile",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 72,
+              "estimated_tokens": 18,
+              "sha256": "d174c924a1b481ffa3c0163937b7f14d0dcccd90ae341634af0373aa4a3f12a1",
+              "utf8_bytes": 72
+            },
+            "response_profile": {
+              "chars": 58,
+              "estimated_tokens": 15,
+              "sha256": "7ffada22361b05ec391606863e2086d9680400f9ae3836e974e9cc17ca6fa4f8",
+              "utf8_bytes": 58
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "work_complete",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 64,
+              "estimated_tokens": 16,
+              "sha256": "49386d53ed9e16b8e8512424e28991da6b8394bb3928090768673cd5841fbcbd",
+              "utf8_bytes": 64
+            },
+            "response_profile": {
+              "chars": 58,
+              "estimated_tokens": 15,
+              "sha256": "7ffada22361b05ec391606863e2086d9680400f9ae3836e974e9cc17ca6fa4f8",
+              "utf8_bytes": 58
+            }
+          }
+        ],
+        "host": "protocol-configured",
         "journey": "continue_after_restart",
+        "metrics": {
+          "ai_layer_call_count": 4,
+          "duplicate_control_plane_call_count": 0,
+          "engineering_check_count": 1,
+          "failure_classes": {},
+          "mcp_latency_ms_p50": null,
+          "mcp_latency_ms_p95": null,
+          "mcp_latency_sample_count": 0,
+          "native_search_read_before_first_edit": 1,
+          "native_search_read_before_first_relevant_source": 0,
+          "observability_class_counts": {
+            "configured": 7,
+            "observed": 0,
+            "unsupported": 0
+          },
+          "request_payload_estimated_tokens": 67,
+          "request_payload_utf8_bytes": 263,
+          "response_payload_estimated_tokens": 60,
+          "response_payload_utf8_bytes": 232,
+          "retrieval_usefulness": {
+            "candidate_count": 0,
+            "candidate_to_changed_hit_rate": null,
+            "candidate_to_inspected_hit_rate": null,
+            "changed_hit_count": 0,
+            "changed_hit_paths": [],
+            "changed_path_count": 1,
+            "inspected_hit_count": 0,
+            "inspected_hit_paths": [],
+            "reviewed_path_count": 1
+          },
+          "workflow_correction_retry_count": 0,
+          "workflow_correction_retry_rate": 0.0
+        },
         "schema_version": 1
       },
       {
-        "events": [],
-        "host": "unassigned",
+        "events": [
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "project_status",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 60,
+              "estimated_tokens": 15,
+              "sha256": "1e71a47a618f68400a0173aeea537ee41c076865b95bb619edbf019ab80b24f3",
+              "utf8_bytes": 60
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "epic_next",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 55,
+              "estimated_tokens": 14,
+              "sha256": "81d0b7f84a3bfdcc7afb02fdafdffe8599d23f2d4fada415e53093b1b07bbddf",
+              "utf8_bytes": 55
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "epic_start_next",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 61,
+              "estimated_tokens": 16,
+              "sha256": "f8936d295ba2970e0e55866242b26f083adde01aedd92b7d3d80ed93a1756f30",
+              "utf8_bytes": 61
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_next",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 55,
+              "estimated_tokens": 14,
+              "sha256": "dea16b37fc53e940949c570947f4b98e25e2bcfb8cb9ae14e83dd5b10d2c387b",
+              "utf8_bytes": 55
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_stage_delegate",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "af48efd4be89be85831d946b05513d83a74e965702061814c177c1b27325a0fd",
+              "utf8_bytes": 65
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "host_lifecycle",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "implement_worker",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "native_read",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "worker_read",
+            "relevant_source": true,
+            "reviewed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ]
+          },
+          {
+            "changed_paths": [
+              "src/ai_layer/mcp/runtime.py"
+            ],
+            "correction_retry": false,
+            "kind": "native_edit",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "worker_edit",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "check",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "implementation_check",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_implementation_complete",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 74,
+              "estimated_tokens": 19,
+              "sha256": "30424b9e042d4b61f7a3bed51d93f8f290cd6b288c045938bcd482fcb6ba247c",
+              "utf8_bytes": 74
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_next",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 55,
+              "estimated_tokens": 14,
+              "sha256": "dea16b37fc53e940949c570947f4b98e25e2bcfb8cb9ae14e83dd5b10d2c387b",
+              "utf8_bytes": 55
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_stage_delegate",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 65,
+              "estimated_tokens": 17,
+              "sha256": "af48efd4be89be85831d946b05513d83a74e965702061814c177c1b27325a0fd",
+              "utf8_bytes": 65
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "review",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "independent_review",
+            "relevant_source": false,
+            "reviewed_paths": [
+              "src/ai_layer/mcp/runtime.py",
+              "tests/test_agent_facing_contracts.py"
+            ]
+          },
+          {
+            "correction_retry": false,
+            "kind": "check",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "review_check",
+            "relevant_source": false
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "task_review_complete",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 66,
+              "estimated_tokens": 17,
+              "sha256": "ccec0d4de4f1675e579b92cc2ca49e231319dfaa97dd38a4ab4424dd23214301",
+              "utf8_bytes": 66
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          },
+          {
+            "correction_retry": false,
+            "kind": "ai_layer_call",
+            "observability_class": "configured",
+            "ok": true,
+            "operation": "epic_next",
+            "relevant_source": false,
+            "request_profile": {
+              "chars": 55,
+              "estimated_tokens": 14,
+              "sha256": "81d0b7f84a3bfdcc7afb02fdafdffe8599d23f2d4fada415e53093b1b07bbddf",
+              "utf8_bytes": 55
+            },
+            "response_profile": {
+              "chars": 53,
+              "estimated_tokens": 14,
+              "sha256": "57dc65775307db45c6a4636505a33024f6729d3cc06c404ce03a5c4d70d6ce79",
+              "utf8_bytes": 53
+            }
+          }
+        ],
+        "host": "protocol-configured",
         "journey": "epic_continuation",
+        "metrics": {
+          "ai_layer_call_count": 10,
+          "duplicate_control_plane_call_count": 3,
+          "engineering_check_count": 2,
+          "failure_classes": {},
+          "mcp_latency_ms_p50": null,
+          "mcp_latency_ms_p95": null,
+          "mcp_latency_sample_count": 0,
+          "native_search_read_before_first_edit": 1,
+          "native_search_read_before_first_relevant_source": 0,
+          "observability_class_counts": {
+            "configured": 16,
+            "observed": 0,
+            "unsupported": 0
+          },
+          "request_payload_estimated_tokens": 157,
+          "request_payload_utf8_bytes": 611,
+          "response_payload_estimated_tokens": 140,
+          "response_payload_utf8_bytes": 530,
+          "retrieval_usefulness": {
+            "candidate_count": 0,
+            "candidate_to_changed_hit_rate": null,
+            "candidate_to_inspected_hit_rate": null,
+            "changed_hit_count": 0,
+            "changed_hit_paths": [],
+            "changed_path_count": 1,
+            "inspected_hit_count": 0,
+            "inspected_hit_paths": [],
+            "reviewed_path_count": 2
+          },
+          "workflow_correction_retry_count": 0,
+          "workflow_correction_retry_rate": 0.0
+        },
         "schema_version": 1
       }
     ],

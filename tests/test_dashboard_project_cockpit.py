@@ -67,7 +67,14 @@ def _payload() -> dict:
                     "status": "running",
                     "progress": {"completed": 1, "total": 3},
                     "updated_at": "2026-08-20T06:00:00+00:00",
-                }
+                },
+                {
+                    "key": "E-0002",
+                    "title": "Archived UX",
+                    "status": "archived",
+                    "progress": {"completed": 3, "total": 3},
+                    "updated_at": "2026-08-19T06:00:00+00:00",
+                },
             ]
         },
         "skill_state": {"configured_catalog": {}},
@@ -95,6 +102,7 @@ def test_project_cockpit_keeps_daily_workflows_on_summary_screen() -> None:
     assert "Managed Tasks" in html
     assert "Review rollout" in html
     assert "Dashboard UX" in html
+    assert "Archived UX" not in html
     assert "cockpit-work-row is-focus" in html
     assert "Текущий фокус" in html
     assert html.count('data-work-complete="true"') == 1

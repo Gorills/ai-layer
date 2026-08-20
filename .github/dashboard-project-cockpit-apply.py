@@ -97,7 +97,7 @@ project = regex_once(
     "remove duplicate now panel",
 )
 
-open_panel = r'''function openWorkPanel(data) {
+open_panel = r"""function openWorkPanel(data) {
   const project = data.project || {};
   const items = project.work?.active || [];
   const focus = currentWork(project);
@@ -140,7 +140,7 @@ function workflowPanel(data) {
   </section>`;
 }
 
-function recentResults'''
+function recentResults"""
 project = regex_once(
     project,
     r"function openWorkPanel\(data\) \{.*?\n\}\n\nfunction recentResults",
@@ -154,7 +154,7 @@ project = replace_once(
     "project eyebrow",
 )
 
-render_project = r'''export function renderProject(data) {
+render_project = r"""export function renderProject(data) {
   const project = data.project || {};
   const work = project.work || {};
   const open = work.active || [];
@@ -185,7 +185,7 @@ render_project = r'''export function renderProject(data) {
     </div>`;
 }
 
-function groupedWork'''
+function groupedWork"""
 project = regex_once(
     project,
     r"export function renderProject\(data\) \{.*?\n\}\n\nfunction groupedWork",
@@ -197,7 +197,7 @@ PROJECT.write_text(project, encoding="utf-8")
 css = CSS.read_text(encoding="utf-8")
 if "/* Project Cockpit */" in css:
     raise RuntimeError("Project Cockpit CSS already applied")
-css += r'''
+css += r"""
 
 /* Project Cockpit */
 .cockpit-attention { margin-bottom: 18px; }
@@ -235,5 +235,5 @@ css += r'''
   .cockpit-work-row { align-items: flex-start; }
   .cockpit-work-row .toolbar-controls { flex: 0 0 auto; }
 }
-'''
+"""
 CSS.write_text(css, encoding="utf-8")

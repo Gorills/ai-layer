@@ -133,41 +133,46 @@ function attentionPanel(data) {
   </section>`;
 }
 
-function nowPanel(data) {
-  const project = data.project || {};
-  const work = currentWork(project);
-  const task = ["active", "blocked"].includes(project.task?.status) ? project.task : null;
-  if (!work && !task) {
-    return `<section class="panel now-panel"><div class="panel-header"><div><div class="panel-title">Сейчас</div><div class="panel-hint">Текущий пользовательский фокус</div></div></div><div class="calm-state large"><strong>Проект в ожидании</strong><span>Активной работы нет. Последние результаты доступны ниже.</span></div></section>`;
-  }
-  return `<section class="panel now-panel">
-    <div class="panel-header"><div><div class="panel-title">Сейчас</div><div class="panel-hint">Приоритетный текущий контекст; все open WorkItems показаны ниже</div></div>${work ? stateBadge(workDisplayState(work)) : stateBadge(task?.status || "idle")}</div>
-    ${work ? `<div class="now-focus">
-      <div class="now-kicker">${escapeHtml(work.key || "Work")} · ${escapeHtml(work.kind || "work")}</div>
-      <div class="now-title">${escapeHtml(work.goal || "—")}</div>
-      <div class="now-action">${escapeHtml(lastAction(work))}</div>
-      <div class="now-meta"><span>${escapeHtml(workMethod(work))}</span><span>${escapeHtml(changedLabel(work))}</span><span>${escapeHtml(checksLabel(work))}</span></div>
-      <a class="panel-link" href="${workHref(project.key, work.key)}">Открыть ход работы →</a>
-    </div>` : ""}
-    ${task ? `<div class="managed-focus"><span class="managed-label">Managed workflow</span>${taskCard(project.key, task)}</div>` : ""}
-  </section>`;
-}
-
 function openWorkPanel(data) {
   const project = data.project || {};
   const items = project.work?.active || [];
+  const focus = currentWork(project);
   const liveCount = items.filter((item) => item.live).length;
   return `<section class="panel open-work-panel">
-    <div class="panel-header"><div><div class="panel-title">Открытые WorkItems</div><div class="panel-hint">Все незавершённые Work проекта. Live Work нельзя закрыть одним кликом.</div></div><span class="muted">${escapeHtml(items.length)}</span></div>
-    ${items.length ? `<div class="workspace-record-list">${items.map((work) => `<div class="workspace-record">
-      <a class="workspace-record-main" href="${workHref(project.key, work.key)}">
-        <div class="record-kicker">${escapeHtml(work.key || "Work")} · ${escapeHtml(work.kind || "work")}</div>
-        <div class="record-title">${escapeHtml(work.goal || "—")}</div>
-        <div class="record-meta">${escapeHtml(work.live ? "live" : workAttentionReason(work))} · ${escapeHtml(work.updated_at ? age(work.updated_at) : "")}</div>
-      </a>
-      <div class="toolbar-controls">${stateBadge(workDisplayState(work))}${workCompletionAction(project, work)}</div>
-    </div>`).join("")}</div>` : `<div class="calm-state"><strong>Open Work нет</strong><span>Все WorkItems проекта завершены или ещё не создавались.</span></div>`}
-    ${items.length ? `<div class="panel-footer"><span class="muted">${escapeHtml(liveCount)} live · ${escapeHtml(items.length - liveCount)} non-live</span><a class="panel-header-link" href="#/project/${encodeURIComponent(project.key)}/work">Вся работа →</a></div>` : ""}
+    <div class="panel-header"><div><div class="panel-title">В работе</div><div class="panel-hint">Все незавершённые Work проекта; текущий фокус выделен, live Work защищён от механического закрытия.</div></div><span class="muted">${escapeHtml(items.length)}</span></div>
+    ${items.length ? `<div class="workspace-record-list">${items.map((work) => {
+      const focused = focus?.key === work.key;
+      return `<div class="workspace-record cockpit-work-row ${focused ? "is-focus" : ""}">
+        <a class="workspace-record-main" href="${workHref(project.key, work.key)}">
+          <div class="record-kicker">${focused ? '<span class="cockpit-focus-label">Текущий фокус</span>' : ""}${escapeHtml(work.key || "Work")} · ${escapeHtml(work.kind || "work")}</div>
+          <div class="record-title">${escapeHtml(work.goal || "—")}</div>
+          <div class="record-meta">${escapeHtml(work.live ? "live" : workAttentionReason(work))} · ${escapeHtml(work.updated_at ? age(work.updated_at) : "")}</div>
+        </a>
+        <div class="toolbar-controls">${stateBadge(workDisplayState(work))}${workCompletionAction(project, work)}</div>
+      </div>`;
+    }).join("")}</div>` : `<div class="calm-state"><strong>Open Work нет</strong><span>Все WorkItems проекта завершены или ещё не создавались.</span></div>`}
+    ${items.length ? `<div class="panel-footer"><span class="muted">${escapeHtml(liveCount)} live · ${escapeHtml(items.length - liveCount)} non-live</span><a class="panel-header-link" href="#/project/${encodeURIComponent(project.key)}/work">Глубокий обзор работы →</a></div>` : ""}
+  </section>`;
+}
+
+function workflowPanel(data) {
+  const project = data.project || {};
+  const allTasks = data.tasks?.items || [];
+  const allEpics = data.epics?.items || [];
+  const activeTasks = allTasks.filter((item) => ["active", "blocked"].includes(item.status));
+  const activeEpics = allEpics.filter((item) => !["completed", "cancelled", "failed", "abandoned"].includes(item.status));
+  const tasks = (activeTasks.length ? activeTasks : allTasks).slice(0, 3);
+  const epics = (activeEpics.length ? activeEpics : allEpics).slice(0, 3);
+  return `<section class="panel cockpit-workflow-panel">
+    <div class="panel-header"><div><div class="panel-title">План и assurance</div><div class="panel-hint">Managed Tasks и Epics доступны прямо в cockpit; отдельный экран нужен только для деталей.</div></div></div>
+    <div class="cockpit-workflow-group">
+      <div class="cockpit-workflow-head"><strong>Managed Tasks</strong><a href="${hashUrl("tasks", { project: project.key })}">Все →</a></div>
+      ${tasks.length ? taskList(project.key, tasks) : `<div class="cockpit-empty-line">Активных Managed Tasks нет</div>`}
+    </div>
+    <div class="cockpit-workflow-group">
+      <div class="cockpit-workflow-head"><strong>Epics</strong><a href="${hashUrl("epics", { project: project.key })}">Все →</a></div>
+      ${epics.length ? epicList(project.key, epics) : `<div class="cockpit-empty-line">Активных Epics нет</div>`}
+    </div>
   </section>`;
 }
 
@@ -223,7 +228,7 @@ function projectHealth(data) {
 
 function projectHeader(project) {
   return `<div class="project-head workspace-project-head">
-    <div><div class="section-eyebrow">PROJECT WORKSPACE</div><h2>${escapeHtml(project.name || "Проект")}</h2><div class="path">${escapeHtml(project.root || "")}</div></div>
+    <div><div class="section-eyebrow">PROJECT COCKPIT</div><h2>${escapeHtml(project.name || "Проект")}</h2><div class="path">${escapeHtml(project.root || "")}</div></div>
     ${stateBadge(project.project_state || "healthy")}
   </div>`;
 }
@@ -235,22 +240,24 @@ export function renderProject(data) {
   const liveCount = open.filter((item) => item.live).length;
   const recent = recentWork(project);
   const attention = attentionItems(data);
+  const activeTasks = (data.tasks?.items || []).filter((item) => ["active", "blocked"].includes(item.status));
+  const activeEpics = (data.epics?.items || []).filter((item) => !["completed", "cancelled", "failed", "abandoned"].includes(item.status));
   return `
     ${projectHeader(project)}
     <div class="workspace-summary-grid">
       ${metric("Открытые Work", open.length, open.length ? `${liveCount} live · ${open.length - liveCount} non-live` : "активной работы нет")}
       ${metric("Нужно внимания", attention.length, attention.length ? "есть actionable сигналы" : "всё спокойно")}
-      ${metric("Недавние результаты", recent.length, recent[0]?.updated_at ? `последний ${age(recent[0].updated_at)}` : "истории пока нет")}
-      ${metric("Project Map", project.project_map?.semantic_current_coverage != null ? `${Math.round(Number(project.project_map.semantic_current_coverage || 0) * 100)}%` : "—", `${escapeHtml(project.project_map?.semantic_current ?? 0)} current`)}
+      ${metric("Managed Tasks", activeTasks.length, activeTasks.length ? "active / blocked" : "нет активных")}
+      ${metric("Epics", activeEpics.length, activeEpics.length ? "в работе" : "нет активных")}
     </div>
+    ${attention.length ? `<div class="cockpit-attention">${attentionPanel(data)}</div>` : ""}
     <div class="dashboard-grid project-workspace-layout">
       <div class="dashboard-main">
-        ${nowPanel(data)}
         ${openWorkPanel(data)}
         ${recentResults(data)}
       </div>
       <div class="dashboard-side">
-        ${attentionPanel(data)}
+        ${workflowPanel(data)}
         ${knowledgePulse(data)}
         ${projectHealth(data)}
       </div>

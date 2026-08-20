@@ -77,7 +77,7 @@ def _payload() -> dict:
 
 def test_project_cockpit_keeps_daily_workflows_on_summary_screen() -> None:
     script = (
-        f'import {{ renderProject }} from {json.dumps(PROJECT_JS.as_uri())};\n'
+        f"import {{ renderProject }} from {json.dumps(PROJECT_JS.as_uri())};\n"
         f"const payload = {json.dumps(_payload())};\n"
         "process.stdout.write(renderProject(payload));\n"
     )

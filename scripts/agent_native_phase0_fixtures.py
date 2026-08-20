@@ -10,7 +10,11 @@ _STEP_SPECS: dict[str, tuple[tuple[str, str, dict[str, Any]], ...]] = {
     "ordinary_known_location_change": (
         ("ai_layer_call", "project_status", {}),
         ("ai_layer_call", "work_begin", {}),
-        ("native_read", "open_known_source", {"relevant_source": True, "reviewed_paths": [SOURCE_PATH]}),
+        (
+            "native_read",
+            "open_known_source",
+            {"relevant_source": True, "reviewed_paths": [SOURCE_PATH]},
+        ),
         ("native_edit", "edit_known_source", {"changed_paths": [SOURCE_PATH]}),
         ("check", "targeted_check", {}),
         ("ai_layer_call", "project_map_reconcile", {}),
@@ -20,7 +24,11 @@ _STEP_SPECS: dict[str, tuple[tuple[str, str, dict[str, Any]], ...]] = {
         ("ai_layer_call", "project_status", {}),
         ("ai_layer_call", "work_begin", {}),
         ("ai_layer_call", "project_search", {"candidate_paths": [SOURCE_PATH, TEST_PATH]}),
-        ("native_read", "open_search_candidate", {"relevant_source": True, "reviewed_paths": [SOURCE_PATH]}),
+        (
+            "native_read",
+            "open_search_candidate",
+            {"relevant_source": True, "reviewed_paths": [SOURCE_PATH]},
+        ),
         ("native_edit", "edit_discovered_source", {"changed_paths": [SOURCE_PATH]}),
         ("check", "targeted_check", {}),
         ("ai_layer_call", "project_map_reconcile", {}),
@@ -59,7 +67,11 @@ _STEP_SPECS: dict[str, tuple[tuple[str, str, dict[str, Any]], ...]] = {
     "continue_after_restart": (
         ("ai_layer_call", "project_status", {}),
         ("ai_layer_call", "work_resume", {}),
-        ("native_read", "reopen_current_focus", {"relevant_source": True, "reviewed_paths": [SOURCE_PATH]}),
+        (
+            "native_read",
+            "reopen_current_focus",
+            {"relevant_source": True, "reviewed_paths": [SOURCE_PATH]},
+        ),
         ("native_edit", "continue_edit", {"changed_paths": [SOURCE_PATH]}),
         ("check", "targeted_check", {}),
         ("ai_layer_call", "project_map_reconcile", {}),

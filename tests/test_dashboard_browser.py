@@ -52,7 +52,11 @@ def _work(project_key: str = "alpha", key: str = "W-0001") -> dict:
         "last_milestone_at": NOW,
         "completed_at": None,
         "runs": [],
-        "project": {"key": project_key, "name": f"{project_key.title()} Project", "root": f"/tmp/{project_key}"},
+        "project": {
+            "key": project_key,
+            "name": f"{project_key.title()} Project",
+            "root": f"/tmp/{project_key}",
+        },
     }
 
 
@@ -135,8 +139,20 @@ def _work_list(project_key: str | None) -> dict:
         "items": items,
         "pagination": _pagination(len(items)),
         "projects": [
-            {"key": "alpha", "name": "Alpha Project", "root": "/tmp/alpha", "mode": "standard", "provenance": "allow"},
-            {"key": "beta", "name": "Beta Project", "root": "/tmp/beta", "mode": "standard", "provenance": "allow"},
+            {
+                "key": "alpha",
+                "name": "Alpha Project",
+                "root": "/tmp/alpha",
+                "mode": "standard",
+                "provenance": "allow",
+            },
+            {
+                "key": "beta",
+                "name": "Beta Project",
+                "root": "/tmp/beta",
+                "mode": "standard",
+                "provenance": "allow",
+            },
         ],
         "filters": {"project_key": project_key, "status": None},
         "ordering": ["updated_at:desc", "id:desc"],
@@ -146,7 +162,11 @@ def _work_list(project_key: str | None) -> dict:
 def _work_detail(project_key: str, work_key: str) -> dict:
     return {
         "contract_version": 1,
-        "project": {"key": project_key, "name": f"{project_key.title()} Project", "root": f"/tmp/{project_key}"},
+        "project": {
+            "key": project_key,
+            "name": f"{project_key.title()} Project",
+            "root": f"/tmp/{project_key}",
+        },
         "work": _work(project_key, work_key),
         "timeline": [],
         "timeline_total": 0,
@@ -197,7 +217,10 @@ def _epic_detail(project_key: str, epic_key: str) -> dict:
             "updated_at": NOW,
             "plan": [],
             "audits": [],
-            "spec_quality": {"ready_for_human_review": True, "missing_recommended_sections": []},
+            "spec_quality": {
+                "ready_for_human_review": True,
+                "missing_recommended_sections": [],
+            },
         },
     }
 
@@ -207,7 +230,10 @@ def _tasks(project_key: str | None) -> dict:
         "generated_at": NOW,
         "items": [],
         "pagination": _pagination(0),
-        "projects": [{"key": "alpha", "name": "Alpha Project"}, {"key": "beta", "name": "Beta Project"}],
+        "projects": [
+            {"key": "alpha", "name": "Alpha Project"},
+            {"key": "beta", "name": "Beta Project"},
+        ],
         "filters": {"project_key": project_key, "status": None},
     }
 
@@ -247,7 +273,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, _format: str, *_args: object) -> None:
         return
 
-    def _write(self, data: bytes, content_type: str, status: HTTPStatus = HTTPStatus.OK) -> None:
+    def _write(
+        self,
+        data: bytes,
+        content_type: str,
+        status: HTTPStatus = HTTPStatus.OK,
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Cache-Control", "no-store")
@@ -339,7 +370,9 @@ def dashboard_server():
         server.server_close()
 
 
-def _wait_for_count(state: DashboardServerState, path: str, minimum: int, timeout: float = 3) -> None:
+def _wait_for_count(
+    state: DashboardServerState, path: str, minimum: int, timeout: float = 3
+) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if state.count(path) >= minimum:
@@ -371,7 +404,11 @@ def test_navigation_during_inflight_refresh_reaches_latest_project_without_stale
 
         page.locator("#page-title").filter(has_text="Alpha Project").wait_for(timeout=5000)
         assert page.locator("[data-refresh-warning]").count() == 0
-        assert page.locator(".open-work-panel").get_by_text("Verify dashboard navigation").is_visible()
+        assert (
+            page.locator(".open-work-panel")
+            .get_by_text("Verify dashboard navigation")
+            .is_visible()
+        )
         browser.close()
 
 
@@ -419,7 +456,9 @@ def test_transient_network_failure_preserves_project_and_recovers_on_next_refres
         page.goto(url)
         page.locator(".portfolio-project-card", has_text="Alpha Project").click()
         page.locator("#page-title").filter(has_text="Alpha Project").wait_for(timeout=5000)
-        original_work = page.locator(".open-work-panel").get_by_text("Verify dashboard navigation")
+        original_work = page.locator(".open-work-panel").get_by_text(
+            "Verify dashboard navigation"
+        )
         assert original_work.is_visible()
 
         state.drop_next("/api/v1/dashboard/overview")
@@ -447,7 +486,9 @@ def test_project_work_hub_opens_epic_without_losing_project_context(dashboard_se
         page.locator(".portfolio-project-card", has_text="Alpha Project").click()
         page.locator("#page-title").filter(has_text="Alpha Project").wait_for(timeout=5000)
 
-        page.get_by_role("link", name="Работа", exact=True).click()
+        page.get_by_label("Разделы проекта").get_by_role(
+            "link", name="Работа", exact=True
+        ).click()
         page.get_by_text("Вся работа проекта в одном месте").wait_for(timeout=5000)
         page.locator('a[href="#/epic/alpha/E-0001"]').click()
         page.locator("#page-title").filter(has_text="E-0001").wait_for(timeout=5000)

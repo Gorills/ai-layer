@@ -29,18 +29,25 @@ jobs:
           project = project_path.read_text(encoding='utf-8')
           import_line = 'import { workAttentionReason, workCompletionAction, workDisplayState, workHref } from "./work.js";\n\n'
           open_statuses = 'const OPEN_EPIC_STATUSES = new Set(["draft", "approved", "phase0", "planning", "running", "final_review", "blocked"]);\n\n'
-          old_filter = 'const activeEpics = allEpics.filter((item) => !["completed", "cancelled", "failed", "abandoned"].includes(item.status));'
-          new_filter = 'const activeEpics = allEpics.filter((item) => OPEN_EPIC_STATUSES.has(item.status));'
+          old_workflow_filter = 'const activeEpics = allEpics.filter((item) => !["completed", "cancelled", "failed", "abandoned"].includes(item.status));'
+          new_workflow_filter = 'const activeEpics = allEpics.filter((item) => OPEN_EPIC_STATUSES.has(item.status));'
+          old_summary_filter = 'const activeEpics = (data.epics?.items || []).filter((item) => !["completed", "cancelled", "failed", "abandoned"].includes(item.status));'
+          new_summary_filter = 'const activeEpics = (data.epics?.items || []).filter((item) => OPEN_EPIC_STATUSES.has(item.status));'
           if open_statuses not in project:
               if project.count(import_line) != 1:
                   raise RuntimeError('unexpected project.js import contract')
               project = project.replace(import_line, import_line + open_statuses, 1)
-          if old_filter in project:
-              if project.count(old_filter) != 2:
-                  raise RuntimeError('unexpected active Epic filter count')
-              project = project.replace(old_filter, new_filter)
-          if project.count(new_filter) != 2:
-              raise RuntimeError('reviewed active Epic filter not applied exactly twice')
+          replacements = (
+              (old_workflow_filter, new_workflow_filter, 'workflow Epic filter'),
+              (old_summary_filter, new_summary_filter, 'summary Epic filter'),
+          )
+          for old, new, label in replacements:
+              if old in project:
+                  if project.count(old) != 1:
+                      raise RuntimeError(f'unexpected {label} count')
+                  project = project.replace(old, new, 1)
+              if project.count(new) != 1:
+                  raise RuntimeError(f'reviewed {label} not applied exactly once')
           project_path.write_text(project, encoding='utf-8')
 
           test = test_path.read_text(encoding='utf-8')

@@ -1,7 +1,7 @@
 import { age, escapeHtml } from "../format.js";
 import { agentsList, metric, stageName, stateBadge } from "../components/common.js";
 import { hashUrl, infoRow } from "../components/ui.js";
-import { workAttentionReason, workDisplayState, workHref } from "./work.js";
+import { workAttentionReason, workCompletionAction, workDisplayState, workHref } from "./work.js";
 
 function currentWork(project) {
   const work = project?.work || {};
@@ -106,7 +106,7 @@ function attentionItems(data) {
   const protocol = project.protocol_state || {};
   const freshness = mapFreshness(project.project_map || {});
   const items = [];
-  for (const work of (project.work?.attention || []).slice(0, 4)) {
+  for (const work of project.work?.attention || []) {
     items.push({
       title: `${work.key || "Work"} · ${work.goal || "Работа"}`,
       reason: workAttentionReason(work),
@@ -141,7 +141,7 @@ function nowPanel(data) {
     return `<section class="panel now-panel"><div class="panel-header"><div><div class="panel-title">Сейчас</div><div class="panel-hint">Текущий пользовательский фокус</div></div></div><div class="calm-state large"><strong>Проект в ожидании</strong><span>Активной работы нет. Последние результаты доступны ниже.</span></div></section>`;
   }
   return `<section class="panel now-panel">
-    <div class="panel-header"><div><div class="panel-title">Сейчас</div><div class="panel-hint">Один текущий контекст вместо разрозненных экранов</div></div>${work ? stateBadge(workDisplayState(work)) : stateBadge(task?.status || "idle")}</div>
+    <div class="panel-header"><div><div class="panel-title">Сейчас</div><div class="panel-hint">Приоритетный текущий контекст; все open WorkItems показаны ниже</div></div>${work ? stateBadge(workDisplayState(work)) : stateBadge(task?.status || "idle")}</div>
     ${work ? `<div class="now-focus">
       <div class="now-kicker">${escapeHtml(work.key || "Work")} · ${escapeHtml(work.kind || "work")}</div>
       <div class="now-title">${escapeHtml(work.goal || "—")}</div>
@@ -150,6 +150,24 @@ function nowPanel(data) {
       <a class="panel-link" href="${workHref(project.key, work.key)}">Открыть ход работы →</a>
     </div>` : ""}
     ${task ? `<div class="managed-focus"><span class="managed-label">Managed workflow</span>${taskCard(project.key, task)}</div>` : ""}
+  </section>`;
+}
+
+function openWorkPanel(data) {
+  const project = data.project || {};
+  const items = project.work?.active || [];
+  const liveCount = items.filter((item) => item.live).length;
+  return `<section class="panel open-work-panel">
+    <div class="panel-header"><div><div class="panel-title">Открытые WorkItems</div><div class="panel-hint">Все незавершённые Work проекта. Live Work нельзя закрыть одним кликом.</div></div><span class="muted">${escapeHtml(items.length)}</span></div>
+    ${items.length ? `<div class="workspace-record-list">${items.map((work) => `<div class="workspace-record">
+      <a class="workspace-record-main" href="${workHref(project.key, work.key)}">
+        <div class="record-kicker">${escapeHtml(work.key || "Work")} · ${escapeHtml(work.kind || "work")}</div>
+        <div class="record-title">${escapeHtml(work.goal || "—")}</div>
+        <div class="record-meta">${escapeHtml(work.live ? "live" : workAttentionReason(work))} · ${escapeHtml(work.updated_at ? age(work.updated_at) : "")}</div>
+      </a>
+      <div class="toolbar-controls">${stateBadge(workDisplayState(work))}${workCompletionAction(project, work)}</div>
+    </div>`).join("")}</div>` : `<div class="calm-state"><strong>Open Work нет</strong><span>Все WorkItems проекта завершены или ещё не создавались.</span></div>`}
+    ${items.length ? `<div class="panel-footer"><span class="muted">${escapeHtml(liveCount)} live · ${escapeHtml(items.length - liveCount)} non-live</span><a class="panel-header-link" href="#/project/${encodeURIComponent(project.key)}/work">Вся работа →</a></div>` : ""}
   </section>`;
 }
 
@@ -213,13 +231,14 @@ function projectHeader(project) {
 export function renderProject(data) {
   const project = data.project || {};
   const work = project.work || {};
+  const open = work.active || [];
+  const liveCount = open.filter((item) => item.live).length;
   const recent = recentWork(project);
-  const active = currentWork(project);
   const attention = attentionItems(data);
   return `
     ${projectHeader(project)}
     <div class="workspace-summary-grid">
-      ${metric("Сейчас", active ? active.key : "пауза", active?.goal || "активной работы нет")}
+      ${metric("Открытые Work", open.length, open.length ? `${liveCount} live · ${open.length - liveCount} non-live` : "активной работы нет")}
       ${metric("Нужно внимания", attention.length, attention.length ? "есть actionable сигналы" : "всё спокойно")}
       ${metric("Недавние результаты", recent.length, recent[0]?.updated_at ? `последний ${age(recent[0].updated_at)}` : "истории пока нет")}
       ${metric("Project Map", project.project_map?.semantic_current_coverage != null ? `${Math.round(Number(project.project_map.semantic_current_coverage || 0) * 100)}%` : "—", `${escapeHtml(project.project_map?.semantic_current ?? 0)} current`)}
@@ -227,6 +246,7 @@ export function renderProject(data) {
     <div class="dashboard-grid project-workspace-layout">
       <div class="dashboard-main">
         ${nowPanel(data)}
+        ${openWorkPanel(data)}
         ${recentResults(data)}
       </div>
       <div class="dashboard-side">

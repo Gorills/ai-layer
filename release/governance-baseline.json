@@ -4,7 +4,7 @@
   "protected": {
     ".githooks/pre-commit": "b7148819202f5e6cc854e173654471b2e36ad584a209d2ba9bddcbffcfba024a",
     ".githooks/pre-push": "d752fee76207d1dcb426ad61323b1c74825699e29884b376d7979fbc905f80ba",
-    ".github/workflows/quality.yml": "3d772e62e476a14525b78adae48874a132025c708bb2b426bd40ce88634f62d9",
+    ".github/workflows/quality.yml": "e628b4fef1dadc84d5497d62231535491ce52fc34b80d6e8c39124eb142e45f4",
     "AGENTS.md": "69a6ee759cccc684dbaf9381d9543f81832ec9e51fbd516bf4360fa1a6eac49c",
     "GEMINI.md": "fa730a757108e56790a9d6528837e6facd2a48e4c11923a5a8e9cc66ffb35a11",
     "MAINTAINER_INSTRUCTIONS.md": "8fe4e5ae2fe9b43d5b74e041bc9bfec003fde54c975d484368b089d9890c0516",

@@ -33,6 +33,21 @@ let nextPollMs = IDLE_POLL_MS;
 let lastRenderFingerprint = null;
 let lastScopeFingerprint = null;
 
+const PROJECT_COCKPIT_CACHE_MS = IDLE_POLL_MS;
+const projectCockpitCache = new Map();
+
+async function projectCockpitData(projectKey) {
+  const cached = projectCockpitCache.get(projectKey);
+  if (cached && Date.now() - cached.cachedAt < PROJECT_COCKPIT_CACHE_MS) return cached.data;
+  const [tasks, epics] = await Promise.all([
+    api.tasks({ project_key: projectKey, page: 1, page_size: 6 }),
+    api.epics({ project_key: projectKey, page: 1, page_size: 6 }),
+  ]);
+  const data = { tasks, epics };
+  projectCockpitCache.set(projectKey, { cachedAt: Date.now(), data });
+  return data;
+}
+
 function intParam(params, name, fallback = 1) {
   const value = Number(params.get(name) || fallback);
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
@@ -317,13 +332,17 @@ async function loadCycle() {
       generatedAt = data.work?.updated_at;
       nextPollMs = data.work?.live ? ACTIVE_POLL_MS : IDLE_POLL_MS;
     } else if (current.kind === "project") {
-      const data = await api.project(current.key);
+      const [projectData, cockpit] = await Promise.all([
+        api.project(current.key),
+        projectCockpitData(current.key),
+      ]);
+      const data = { ...projectData, tasks: cockpit.tasks, epics: cockpit.epics };
       renderChanged(current, data, () => {
-        setPage(data.project?.name || "Проект", "Что происходит сейчас, что было сделано и что важно знать");
+        setPage(data.project?.name || "Проект", "Cockpit: текущая работа, решения, Tasks, Epics и последние результаты");
         app.innerHTML = renderProject(data);
       });
-      generatedAt = data.generated_at;
-      nextPollMs = projectIsLive(data) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
+      generatedAt = projectData.generated_at;
+      nextPollMs = projectIsLive(projectData) ? ACTIVE_POLL_MS : IDLE_POLL_MS;
     } else if (current.kind === "project-work") {
       const [projectData, work, tasks, epics] = await Promise.all([
         api.project(current.key),
@@ -483,6 +502,7 @@ async function refresh({ resetOverview = false } = {}) {
   if (resetOverview) {
     overviewCache = null;
     overviewCachedAt = 0;
+    projectCockpitCache.clear();
   }
   await load();
   schedule();

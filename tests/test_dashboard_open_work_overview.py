@@ -24,7 +24,7 @@ def test_project_overview_keeps_every_open_work_visible_and_actionable(tmp_path:
                 "const blocked = { key: 'W-0003', goal: 'Blocked work', kind: 'change', status: 'blocked', live: false, runs: [], updated_at: '2026-08-20T00:00:00Z' };",
                 "const html = renderProject({ project: { key: 'alpha/beta', name: 'Alpha', root: '/tmp/alpha', task: {}, protocol_state: {}, project_map: {}, agents: [], work: { active: [live, waiting, blocked], live: [live], attention: [waiting, blocked], recent: [] } }, metrics: {} });",
                 "for (const key of ['W-0001', 'W-0002', 'W-0003']) if (!html.includes(key)) throw new Error(`missing ${key}`);",
-                "if (!html.includes('Открытые WorkItems')) throw new Error('missing open Work panel');",
+                "if (!html.includes('В работе')) throw new Error('missing open Work panel');",
                 "if (!html.includes('1 live · 2 non-live')) throw new Error('missing open Work totals');",
                 'const forms = html.match(/<form method="post"/g) || [];',
                 "if (forms.length !== 2) throw new Error(`expected 2 completion forms, got ${forms.length}`);",

@@ -227,3 +227,41 @@
   .attention-work-row, .recent-result-row { grid-template-columns: 1fr auto; }
   .attention-work-project, .recent-result-project { grid-column: 1 / -1; }
 }
+
+
+/* Project Cockpit */
+.cockpit-attention { margin-bottom: 18px; }
+.cockpit-work-row { position: relative; padding-left: 10px; padding-right: 2px; }
+.cockpit-work-row.is-focus::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: #8f82ec;
+  content: "";
+}
+.cockpit-focus-label {
+  margin-right: 7px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: #c9c1ff;
+  font-size: 8.5px;
+  letter-spacing: .04em;
+}
+.cockpit-workflow-panel .panel-header { margin-bottom: 2px; }
+.cockpit-workflow-group { padding: 8px 0 4px; border-top: 1px solid var(--border); }
+.cockpit-workflow-group:first-of-type { border-top: 0; }
+.cockpit-workflow-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px 4px; }
+.cockpit-workflow-head strong { color: var(--text-soft); font-size: 10.5px; }
+.cockpit-workflow-head a { color: #9d92ef; font-size: 9.5px; }
+.cockpit-workflow-panel .workspace-record-list { padding-top: 0; padding-bottom: 0; }
+.cockpit-workflow-panel .workspace-record { padding: 8px 0; }
+.cockpit-empty-line { padding: 7px 14px 10px; color: var(--muted-2); font-size: 10px; }
+
+@media (max-width: 620px) {
+  .cockpit-work-row { align-items: flex-start; }
+  .cockpit-work-row .toolbar-controls { flex: 0 0 auto; }
+}

@@ -81,3 +81,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'Add manual Dashboard Work completion'
           git push origin HEAD:agent/dashboard-work-complete
+
+# retrigger after workflow registration

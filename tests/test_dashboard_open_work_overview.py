@@ -55,3 +55,4 @@ def test_overviews_do_not_hide_open_work_or_require_detail_for_completion() -> N
     assert "workCompletionAction(project, work)" in project_source
     assert "workCompletionAction(item.project, item.work)" in overview_source
     assert '<div class="attention-work-row">' in overview_source
+    assert '<a class="attention-work-row"' not in overview_source

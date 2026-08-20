@@ -31,6 +31,34 @@ jobs:
           assert source.count(old) == 1
           path.write_text(source.replace(old, new, 1), encoding='utf-8')
           PY
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/ai_layer/dashboard/web.py')
+          source = path.read_text(encoding='utf-8')
+          old = '''    if not _loopback_host(candidate.hostname) or not _loopback_host(base.hostname):
+              return False
+          return (
+              candidate.hostname.casefold() == base.hostname.casefold()
+              and _effective_port(candidate.scheme, candidate.port)
+              == _effective_port(base.scheme, base.port)
+          )
+          '''
+          new = '''    candidate_hostname = candidate.hostname
+          base_hostname = base.hostname
+          if candidate_hostname is None or base_hostname is None:
+              return False
+          if not _loopback_host(candidate_hostname) or not _loopback_host(base_hostname):
+              return False
+          return (
+              candidate_hostname.casefold() == base_hostname.casefold()
+              and _effective_port(candidate.scheme, candidate.port)
+              == _effective_port(base.scheme, base.port)
+          )
+          '''
+          assert source.count(old) == 1
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
           rm .github/dashboard-work-complete.patch
           rm .github/dashboard-work-complete-finalize.py
           rm .github/workflows/dashboard-work-complete-finalize.yml

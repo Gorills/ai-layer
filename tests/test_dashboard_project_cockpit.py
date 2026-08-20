@@ -47,6 +47,7 @@ def _payload() -> dict:
             "mcp_bridges": [],
         },
         "tasks": {
+            "pagination": {"total": 5},
             "items": [
                 {
                     "key": "T-0001",
@@ -57,9 +58,10 @@ def _payload() -> dict:
                     "fix_round": 0,
                     "open_findings": 0,
                 }
-            ]
+            ],
         },
         "epics": {
+            "pagination": {"total": 4},
             "items": [
                 {
                     "key": "E-0001",
@@ -75,7 +77,7 @@ def _payload() -> dict:
                     "progress": {"completed": 3, "total": 3},
                     "updated_at": "2026-08-19T06:00:00+00:00",
                 },
-            ]
+            ],
         },
         "skill_state": {"configured_catalog": {}},
         "metrics": {},
@@ -103,6 +105,8 @@ def test_project_cockpit_keeps_daily_workflows_on_summary_screen() -> None:
     assert "Review rollout" in html
     assert "Dashboard UX" in html
     assert "Archived UX" not in html
+    assert '<div class="metric-label">Managed Tasks</div><div class="metric-value">5</div>' in html
+    assert '<div class="metric-label">Epics</div><div class="metric-value">4</div>' in html
     assert "cockpit-work-row is-focus" in html
     assert "Текущий фокус" in html
     assert html.count('data-work-complete="true"') == 1
@@ -113,8 +117,13 @@ def test_project_route_uses_bounded_cockpit_cache() -> None:
 
     assert "const PROJECT_COCKPIT_CACHE_MS = IDLE_POLL_MS;" in source
     assert "async function projectCockpitData(projectKey)" in source
-    assert "api.tasks({ project_key: projectKey, page: 1, page_size: 6 })" in source
-    assert "api.epics({ project_key: projectKey, page: 1, page_size: 6 })" in source
+    assert (
+        'api.tasks({ project_key: projectKey, status: "active", page: 1, page_size: 3 })' in source
+    )
+    assert (
+        'api.tasks({ project_key: projectKey, status: "blocked", page: 1, page_size: 3 })' in source
+    )
+    assert 'api.epics({ project_key: projectKey, status: "open", page: 1, page_size: 3 })' in source
     assert "projectCockpitCache.clear();" in source
     assert "tasks: cockpit.tasks, epics: cockpit.epics" in source
 
@@ -127,3 +136,7 @@ def test_project_summary_no_longer_renders_duplicate_now_panel() -> None:
     assert "${workflowPanel(data)}" in source
     assert "OPEN_EPIC_STATUSES = new Set" in source
     assert source.count("OPEN_EPIC_STATUSES.has(item.status)") == 2
+    assert "const tasks = activeTasks.slice(0, 3);" in source
+    assert "const epics = activeEpics.slice(0, 3);" in source
+    assert "activeTasks.length ? activeTasks : allTasks" not in source
+    assert "activeEpics.length ? activeEpics : allEpics" not in source

@@ -39,10 +39,19 @@ const projectCockpitCache = new Map();
 async function projectCockpitData(projectKey) {
   const cached = projectCockpitCache.get(projectKey);
   if (cached && Date.now() - cached.cachedAt < PROJECT_COCKPIT_CACHE_MS) return cached.data;
-  const [tasks, epics] = await Promise.all([
-    api.tasks({ project_key: projectKey, page: 1, page_size: 6 }),
-    api.epics({ project_key: projectKey, page: 1, page_size: 6 }),
+  const [activeTasks, blockedTasks, epics] = await Promise.all([
+    api.tasks({ project_key: projectKey, status: "active", page: 1, page_size: 3 }),
+    api.tasks({ project_key: projectKey, status: "blocked", page: 1, page_size: 3 }),
+    api.epics({ project_key: projectKey, status: "open", page: 1, page_size: 3 }),
   ]);
+  const taskItems = [...(activeTasks.items || []), ...(blockedTasks.items || [])]
+    .sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
+  const tasks = {
+    items: taskItems,
+    pagination: {
+      total: Number(activeTasks.pagination?.total || 0) + Number(blockedTasks.pagination?.total || 0),
+    },
+  };
   const data = { tasks, epics };
   projectCockpitCache.set(projectKey, { cachedAt: Date.now(), data });
   return data;

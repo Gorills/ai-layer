@@ -22,8 +22,8 @@ export function workCompletionAction(project, work) {
     !COMPLETABLE_WORK_STATUSES.has(work.status)
   ) return "";
   const action = `/dashboard/actions/work/complete?project_key=${encodeURIComponent(project.key)}&work_key=${encodeURIComponent(work.key)}`;
-  return `<form method="post" action="${escapeHtml(action)}">
-    <button class="button" type="submit" title="Закрыть Work как completed без запуска агента.">Завершить Work</button>
+  return `<form method="post" action="${escapeHtml(action)}" data-work-complete="true">
+    <button class="button compact-button" data-work-complete-button="true" type="submit" title="Закрыть Work как completed без запуска агента.">Завершить</button>
   </form>`;
 }
 

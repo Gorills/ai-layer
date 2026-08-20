@@ -1,18 +1,31 @@
 const base = "/api/v1/dashboard";
+const REQUEST_TIMEOUT_MS = 10000;
 
 async function request(path, params = null) {
   const query = params
     ? `?${new URLSearchParams(Object.entries(params).filter(([, value]) => value !== null && value !== undefined && value !== "")).toString()}`
     : "";
-  const response = await fetch(`${base}${path}${query}`, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`${response.status}: ${text || response.statusText}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${base}${path}${query}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`${response.status}: ${text || response.statusText}`);
+    }
+    return response.json();
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("Таймаут обновления Dashboard");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return response.json();
 }
 
 export const api = {

@@ -94,7 +94,7 @@ def test_work_ui_escapes_untrusted_fields_and_keeps_fetch_no_store() -> None:
         assert "escapeHtml(work.goal" in blob or "escapeHtml(title)" in blob
         assert "escapeHtml(work.key" in blob or "escapeHtml(title)" in blob
         assert "innerHTML =" not in blob
-    assert "escapeHtml(error.message)" in app_js
+    assert "warning.textContent" in app_js
     assert 'cache: "no-store"' in api_js
     assert "eval(" not in work_js
     assert "document.write" not in work_js

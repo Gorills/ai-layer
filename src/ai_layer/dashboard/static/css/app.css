@@ -127,6 +127,7 @@
   background: rgba(10, 12, 15, .88);
   backdrop-filter: blur(14px);
 }
+body[data-navigation-loading="true"] .topbar { box-shadow: inset 0 -2px 0 var(--accent); }
 .topbar-copy { min-width: 0; }
 .topbar h1 {
   margin: 0;
@@ -165,8 +166,11 @@
   transition: background var(--ease), border-color var(--ease), color var(--ease);
 }
 .button:hover { border-color: var(--border-strong); background: var(--surface-raised); color: var(--text); }
+.button:disabled { opacity: .58; cursor: wait; }
+.compact-button { min-height: 28px; padding: 4px 8px; font-size: 11px; white-space: nowrap; }
 .icon-button { width: 32px; padding: 0; }
 .icon-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dashboard-refresh-warning { position: sticky; top: calc(var(--topbar-height) + 8px); z-index: 12; }
 
 .content { width: min(100%, var(--content-max)); margin: 0 auto; padding: 26px 28px 54px; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.62fr) minmax(300px, .74fr); gap: 18px; align-items: start; }

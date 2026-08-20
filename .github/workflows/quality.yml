@@ -59,3 +59,152 @@ jobs:
         env:
           AI_LAYER_BROWSER_TESTS: '1'
         run: pytest -q tests/test_dashboard_browser.py
+
+  cockpit-review-materialize:
+    if: github.event_name == 'pull_request' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Apply reviewed Cockpit open-workflow fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('src/ai_layer/dashboard/static/js/app.js')
+          text = app.read_text(encoding='utf-8')
+          old = '''async function projectCockpitData(projectKey) {
+            const cached = projectCockpitCache.get(projectKey);
+            if (cached && Date.now() - cached.cachedAt < PROJECT_COCKPIT_CACHE_MS) return cached.data;
+            const [tasks, epics] = await Promise.all([
+              api.tasks({ project_key: projectKey, page: 1, page_size: 6 }),
+              api.epics({ project_key: projectKey, page: 1, page_size: 6 }),
+            ]);
+            const data = { tasks, epics };
+            projectCockpitCache.set(projectKey, { cachedAt: Date.now(), data });
+            return data;
+          }
+          '''
+          new = '''async function projectCockpitData(projectKey) {
+            const cached = projectCockpitCache.get(projectKey);
+            if (cached && Date.now() - cached.cachedAt < PROJECT_COCKPIT_CACHE_MS) return cached.data;
+            const [activeTasks, blockedTasks, epics] = await Promise.all([
+              api.tasks({ project_key: projectKey, status: "active", page: 1, page_size: 3 }),
+              api.tasks({ project_key: projectKey, status: "blocked", page: 1, page_size: 3 }),
+              api.epics({ project_key: projectKey, status: "open", page: 1, page_size: 3 }),
+            ]);
+            const taskItems = [...(activeTasks.items || []), ...(blockedTasks.items || [])]
+              .sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
+            const tasks = {
+              items: taskItems,
+              pagination: {
+                total: Number(activeTasks.pagination?.total || 0) + Number(blockedTasks.pagination?.total || 0),
+              },
+            };
+            const data = { tasks, epics };
+            projectCockpitCache.set(projectKey, { cachedAt: Date.now(), data });
+            return data;
+          }
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f'app.js contract mismatch: {text.count(old)} matches')
+          app.write_text(text.replace(old, new), encoding='utf-8')
+
+          project = Path('src/ai_layer/dashboard/static/js/views/project.js')
+          text = project.read_text(encoding='utf-8')
+          old = '''  const tasks = (activeTasks.length ? activeTasks : allTasks).slice(0, 3);
+            const epics = (activeEpics.length ? activeEpics : allEpics).slice(0, 3);'''
+          new = '''  const tasks = activeTasks.slice(0, 3);
+            const epics = activeEpics.slice(0, 3);'''
+          if text.count(old) != 1:
+              raise SystemExit(f'project.js workflow contract mismatch: {text.count(old)} matches')
+          text = text.replace(old, new)
+          old = '''  const activeTasks = (data.tasks?.items || []).filter((item) => ["active", "blocked"].includes(item.status));
+            const activeEpics = (data.epics?.items || []).filter((item) => OPEN_EPIC_STATUSES.has(item.status));
+            return `'''
+          new = '''  const activeTasks = (data.tasks?.items || []).filter((item) => ["active", "blocked"].includes(item.status));
+            const activeEpics = (data.epics?.items || []).filter((item) => OPEN_EPIC_STATUSES.has(item.status));
+            const activeTaskCount = data.tasks?.pagination?.total ?? activeTasks.length;
+            const activeEpicCount = data.epics?.pagination?.total ?? activeEpics.length;
+            return `'''
+          if text.count(old) != 1:
+              raise SystemExit(f'project.js count contract mismatch: {text.count(old)} matches')
+          text = text.replace(old, new)
+          text = text.replace('metric("Managed Tasks", activeTasks.length, activeTasks.length ? "active / blocked" : "нет активных")', 'metric("Managed Tasks", activeTaskCount, activeTaskCount ? "active / blocked" : "нет активных")')
+          text = text.replace('metric("Epics", activeEpics.length, activeEpics.length ? "в работе" : "нет активных")', 'metric("Epics", activeEpicCount, activeEpicCount ? "в работе" : "нет активных")')
+          project.write_text(text, encoding='utf-8')
+
+          test = Path('tests/test_dashboard_project_cockpit.py')
+          text = test.read_text(encoding='utf-8')
+          text = text.replace('''        "tasks": {
+              "items": [''', '''        "tasks": {
+              "pagination": {"total": 5},
+              "items": [''', 1)
+          text = text.replace('''        "epics": {
+              "items": [''', '''        "epics": {
+              "pagination": {"total": 4},
+              "items": [''', 1)
+          marker = '''    assert "Archived UX" not in html
+          '''
+          replacement = '''    assert "Archived UX" not in html
+              assert '<div class="metric-label">Managed Tasks</div><div class="metric-value">5</div>' in html
+              assert '<div class="metric-label">Epics</div><div class="metric-value">4</div>' in html
+          '''
+          if text.count(marker) != 1:
+              raise SystemExit('cockpit runtime assertion marker mismatch')
+          text = text.replace(marker, replacement)
+          old = '''    assert "api.tasks({ project_key: projectKey, page: 1, page_size: 6 })" in source
+              assert "api.epics({ project_key: projectKey, page: 1, page_size: 6 })" in source
+          '''
+          new = '''    assert 'api.tasks({ project_key: projectKey, status: "active", page: 1, page_size: 3 })' in source
+              assert 'api.tasks({ project_key: projectKey, status: "blocked", page: 1, page_size: 3 })' in source
+              assert 'api.epics({ project_key: projectKey, status: "open", page: 1, page_size: 3 })' in source
+          '''
+          if text.count(old) != 1:
+              raise SystemExit('cockpit cache assertion contract mismatch')
+          text = text.replace(old, new)
+          marker = '''    assert source.count("OPEN_EPIC_STATUSES.has(item.status)") == 2
+          '''
+          replacement = '''    assert source.count("OPEN_EPIC_STATUSES.has(item.status)") == 2
+              assert "const tasks = activeTasks.slice(0, 3);" in source
+              assert "const epics = activeEpics.slice(0, 3);" in source
+              assert "activeTasks.length ? activeTasks : allTasks" not in source
+              assert "activeEpics.length ? activeEpics : allEpics" not in source
+          '''
+          if text.count(marker) != 1:
+              raise SystemExit('cockpit active-only assertion marker mismatch')
+          test.write_text(text.replace(marker, replacement), encoding='utf-8')
+          PY
+      - name: Verify focused fix and rebuild wheel
+        run: |
+          pytest -q tests/test_dashboard_project_cockpit.py tests/test_dashboard_open_work_overview.py tests/test_dashboard_project_workspace_ux.py
+          python scripts/build_release_wheel.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('release/release-manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          wheel = Path(manifest['application_wheel'])
+          manifest['application_wheel_sha256'] = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+          git diff --check
+      - name: Publish reviewed materialization
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- src/ai_layer/dashboard/static/js/app.js src/ai_layer/dashboard/static/js/views/project.js tests/test_dashboard_project_cockpit.py dist/local_ai_development_layer-0.14.0-py3-none-any.whl release/release-manifest.json
+          git diff --cached --check
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix Project Cockpit open workflow counts [cockpit-review-materialized]'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}

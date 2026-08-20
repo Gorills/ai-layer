@@ -36,28 +36,20 @@ jobs:
 
           path = Path('src/ai_layer/dashboard/web.py')
           source = path.read_text(encoding='utf-8')
-          old = '''    if not _loopback_host(candidate.hostname) or not _loopback_host(base.hostname):
-              return False
-          return (
-              candidate.hostname.casefold() == base.hostname.casefold()
-              and _effective_port(candidate.scheme, candidate.port)
-              == _effective_port(base.scheme, base.port)
+          old_guard = "    if not _loopback_host(candidate.hostname) or not _loopback_host(base.hostname):\n"
+          new_guard = (
+              "    candidate_hostname = candidate.hostname\n"
+              "    base_hostname = base.hostname\n"
+              "    if candidate_hostname is None or base_hostname is None:\n"
+              "        return False\n"
+              "    if not _loopback_host(candidate_hostname) or not _loopback_host(base_hostname):\n"
           )
-          '''
-          new = '''    candidate_hostname = candidate.hostname
-          base_hostname = base.hostname
-          if candidate_hostname is None or base_hostname is None:
-              return False
-          if not _loopback_host(candidate_hostname) or not _loopback_host(base_hostname):
-              return False
-          return (
-              candidate_hostname.casefold() == base_hostname.casefold()
-              and _effective_port(candidate.scheme, candidate.port)
-              == _effective_port(base.scheme, base.port)
-          )
-          '''
-          assert source.count(old) == 1
-          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          old_compare = "        candidate.hostname.casefold() == base.hostname.casefold()\n"
+          new_compare = "        candidate_hostname.casefold() == base_hostname.casefold()\n"
+          assert source.count(old_guard) == 1
+          assert source.count(old_compare) == 1
+          source = source.replace(old_guard, new_guard, 1).replace(old_compare, new_compare, 1)
+          path.write_text(source, encoding='utf-8')
           PY
           rm .github/dashboard-work-complete.patch
           rm .github/dashboard-work-complete-finalize.py

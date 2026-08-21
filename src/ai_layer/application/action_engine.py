@@ -88,7 +88,10 @@ def _safe_dirty_worktree(project: Project) -> bool:
     try:
         changes = git_changed_paths(Path(project.root_path).expanduser().resolve())
     except RuntimeError:
-        return False
+        _protocol_error(
+            "REPOSITORY_STATE_UNAVAILABLE",
+            "cannot safely choose clean vs dirty assurance promotion while Git state is unavailable",
+        )
     return bool(int(changes.get("total") or 0))
 
 
@@ -101,7 +104,10 @@ def _open_project_task(db: Session, project: Project) -> Task | None:
     )
 
 
-def _recover_unbound_open_task(db: Session, project: Project, work: WorkItem) -> Task | None:
+def _recover_claimed_unbound_open_task(
+    db: Session, project: Project, work: WorkItem
+) -> Task | None:
+    """Recover only an orphan Task proven to belong to this Work by a durable submission."""
     task = _open_project_task(db, project)
     if task is None:
         return None
@@ -134,8 +140,8 @@ def attach_reviewed_assurance(
 
     open_task = _open_project_task(db, project)
     if open_task is not None:
-        recovered = _recover_unbound_open_task(db, project, work)
-        if recovered is None:
+        binding = task_work_binding(db, open_task)
+        if binding is None or binding.work.id != work.id or binding.role != "outcome":
             _protocol_error(
                 "OPEN_MANAGED_TASK_CONFLICT",
                 "another managed Task is already open for this project",
@@ -229,7 +235,11 @@ def _recover_processing_submission(
 
     task = _latest_outcome_task(db, work)
     if task is None:
-        task = _recover_unbound_open_task(db, project, work)
+        recovered = _recover_claimed_unbound_open_task(db, project, work)
+        if recovered is not None:
+            response = current_action(db, project, work)
+            return _complete_submission(db, submission, response)
+        task = None
     if task is not None and int(task.version or 1) != int(submission.state_version):
         response = current_action(db, project, work)
         return _complete_submission(db, submission, response)

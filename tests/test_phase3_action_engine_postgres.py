@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from threading import Barrier, Lock, Thread
 from uuid import uuid4
@@ -25,11 +26,20 @@ def _engine():
     return create_engine(POSTGRES_URL, pool_pre_ping=True)
 
 
+def _init_git(root: Path) -> None:
+    subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "tests@example.invalid"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "AI Layer Tests"], cwd=root, check=True)
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-m", "baseline"], cwd=root, check=True, capture_output=True)
+
+
 def test_concurrent_same_worker_result_advances_managed_stage_once(tmp_path: Path) -> None:
     engine = _engine()
     root = tmp_path / f"phase3-pg-{uuid4().hex}"
     root.mkdir()
     (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _init_git(root)
 
     with Session(engine, expire_on_commit=False) as db:
         project = Project(

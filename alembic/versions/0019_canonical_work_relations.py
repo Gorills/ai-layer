@@ -21,7 +21,12 @@ def _create_relation_tables() -> None:
         "task_work_relations",
         sa.Column("task_id", sa.Uuid(), nullable=False),
         sa.Column("work_id", sa.Uuid(), nullable=False),
-        sa.Column("role", sa.String(length=24), nullable=False, server_default="outcome"),
+        sa.Column(
+            "role",
+            sa.String(length=24),
+            nullable=False,
+            server_default=sa.text("'outcome'"),
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -102,8 +107,8 @@ def _create_relation_tables() -> None:
         sa.Column("owner_type", sa.String(length=32), nullable=False),
         sa.Column("owner_id", sa.Uuid(), nullable=False),
         sa.Column("status", sa.String(length=24), nullable=False),
-        sa.Column("candidate_count", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("note", sa.Text(), nullable=False, server_default=""),
+        sa.Column("candidate_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("note", sa.Text(), nullable=False, server_default=sa.text("''")),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -128,7 +133,7 @@ def _legacy_control_task_ids(bind: sa.Connection, metadata: sa.MetaData) -> set[
     epics = sa.Table("epics", metadata, autoload_with=bind)
     plan_items = sa.Table("epic_plan_items", metadata, autoload_with=bind)
     ids: set[object] = set()
-    for phase0_id, drift_id in bind.execute(select(epics.c.phase0_task_id, epics.c.drift_task_id)):
+    for phase0_id, drift_id in bind.execute(sa.select(epics.c.phase0_task_id, epics.c.drift_task_id)):
         if phase0_id is not None:
             ids.add(phase0_id)
         if drift_id is not None:
@@ -136,7 +141,7 @@ def _legacy_control_task_ids(bind: sa.Connection, metadata: sa.MetaData) -> set[
     ids.update(
         row[0]
         for row in bind.execute(
-            select(plan_items.c.task_id).where(
+            sa.select(plan_items.c.task_id).where(
                 plan_items.c.task_id.is_not(None),
                 plan_items.c.kind.in_(("phase0", "final")),
             )
@@ -159,11 +164,11 @@ def _backfill_relations() -> None:
 
     control_ids = _legacy_control_task_ids(bind, metadata)
     resolved_task_work: dict[object, object] = {}
-    for task_id, project_id in bind.execute(select(tasks.c.id, tasks.c.project_id)):
+    for task_id, project_id in bind.execute(sa.select(tasks.c.id, tasks.c.project_id)):
         candidates = [
             row[0]
             for row in bind.execute(
-                select(work.c.id).where(
+                sa.select(work.c.id).where(
                     work.c.project_id == project_id,
                     work.c.linked_task_id == task_id,
                 )
@@ -196,10 +201,10 @@ def _backfill_relations() -> None:
             )
         )
 
-    for epic_id, project_id in bind.execute(select(epics.c.id, epics.c.project_id)):
+    for epic_id, project_id in bind.execute(sa.select(epics.c.id, epics.c.project_id)):
         candidate_count = int(
             bind.scalar(
-                select(sa.func.count()).select_from(work).where(
+                sa.select(sa.func.count()).select_from(work).where(
                     work.c.project_id == project_id,
                     work.c.linked_epic_id == epic_id,
                 )
@@ -221,7 +226,7 @@ def _backfill_relations() -> None:
         )
 
     for item_id, task_id, kind in bind.execute(
-        select(plan_items.c.id, plan_items.c.task_id, plan_items.c.kind)
+        sa.select(plan_items.c.id, plan_items.c.task_id, plan_items.c.kind)
     ):
         if kind != "work" or task_id is None:
             continue

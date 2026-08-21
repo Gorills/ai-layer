@@ -3,10 +3,12 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
+from ai_layer.db import action_models as _action_models  # noqa: F401
 from ai_layer.db import epic_models as _epic_models  # noqa: F401
 from ai_layer.db import models  # noqa: F401
 from ai_layer.db import navigation_models as _navigation_models  # noqa: F401
 from ai_layer.db import work_models as _work_models  # noqa: F401
+from ai_layer.db import work_relation_models as _work_relation_models  # noqa: F401
 from ai_layer.db.base import Base
 from alembic import context
 

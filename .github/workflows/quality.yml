@@ -26,7 +26,21 @@ jobs:
           text = test.read_text(encoding="utf-8")
           if "from uuid import UUID\n" not in text:
               text = text.replace("from pathlib import Path\n", "from pathlib import Path\nfrom uuid import UUID\n")
+          text = text.replace(
+              "from ai_layer.db.work_models import AgentRun, WorkItem",
+              "from ai_layer.db.work_models import WorkItem",
+          )
           test.write_text(text, encoding="utf-8")
+
+          pg_test = Path("tests/test_phase3_action_engine_postgres.py")
+          text = pg_test.read_text(encoding="utf-8")
+          text = text.replace("        project_id = project.id\n", "")
+          pg_test.write_text(text, encoding="utf-8")
+
+          migration_test = Path("tests/test_phase3_action_migration.py")
+          text = migration_test.read_text(encoding="utf-8")
+          text = text.replace("    task_stages = sa.Table(\n", "    sa.Table(\n")
+          migration_test.write_text(text, encoding="utf-8")
 
           contract = Path("tests/test_agent_facing_contracts.py")
           text = contract.read_text(encoding="utf-8")
@@ -80,7 +94,16 @@ jobs:
           '''
           if old not in text:
               raise SystemExit("expected native human-decision patch anchor not found")
-          engine.write_text(text.replace(old, new), encoding="utf-8")
+          text = text.replace(old, new)
+          text = text.replace(
+              "            raise _ReplayResponse(recovered)\n",
+              "            raise _ReplayResponse(recovered) from None\n",
+          )
+          text = text.replace(
+              '        raise AssertionError("unreachable")\n',
+              '        raise AssertionError("unreachable") from None\n',
+          )
+          engine.write_text(text, encoding="utf-8")
           PY
           ruff format src/ai_layer/application/action_engine.py src/ai_layer/db/action_models.py alembic/env.py alembic/versions/0020_server_owned_actions.py tests/test_phase3_action_engine.py tests/test_phase3_action_engine_postgres.py tests/test_phase3_action_migration.py tests/test_agent_facing_contracts.py
           ruff check src/ai_layer/application/action_engine.py src/ai_layer/db/action_models.py alembic/env.py alembic/versions/0020_server_owned_actions.py tests/test_phase3_action_engine.py tests/test_phase3_action_engine_postgres.py tests/test_phase3_action_migration.py

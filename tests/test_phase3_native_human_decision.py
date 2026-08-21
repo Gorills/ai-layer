@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from ai_layer.application.action_engine import continue_action, current_action, finish_action
+from ai_layer.application.action_engine import (
+    ActionProtocolError,
+    continue_action,
+    current_action,
+    finish_action,
+)
 from ai_layer.db.base import Base
 from ai_layer.db.models import Project
 from ai_layer.work.service import begin_work
@@ -49,17 +55,29 @@ def test_native_block_resume_then_cancel_stays_server_owned(tmp_path: Path) -> N
         assert blocked["kind"] == "human_decision"
         assert blocked["choices"] == ["resume", "cancel"]
 
-        resumed = continue_action(
+        resume_report = {
+            "kind": "human_choice",
+            "summary": "Resume native engineering",
+            "selection": "resume",
+        }
+        resumed_response = continue_action(
             db,
             action_token=blocked["action_token"],
-            report={
-                "kind": "human_choice",
-                "summary": "Resume native engineering",
-                "selection": "resume",
-            },
-        )["next_action"]
+            report=resume_report,
+        )
+        resumed = resumed_response["next_action"]
         assert resumed["kind"] == "native_engineering"
         assert resumed["state_version"] > blocked["state_version"]
+        assert (
+            continue_action(db, action_token=blocked["action_token"], report=resume_report)
+            == resumed_response
+        )
+        with pytest.raises(ActionProtocolError, match="IDEMPOTENCY_CONFLICT"):
+            continue_action(
+                db,
+                action_token=blocked["action_token"],
+                report={**resume_report, "selection": "cancel"},
+            )
 
         blocked_again = continue_action(
             db,

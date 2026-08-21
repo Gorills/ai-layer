@@ -71,7 +71,9 @@ def upgrade() -> None:
         sa.Column("action_token", sa.String(length=64), nullable=False),
         sa.Column("state_version", sa.Integer(), nullable=False),
         sa.Column("report_fingerprint", sa.String(length=64), nullable=False),
-        sa.Column("status", sa.String(length=16), nullable=False, server_default=sa.text("'processing'")),
+        sa.Column(
+            "status", sa.String(length=16), nullable=False, server_default=sa.text("'processing'")
+        ),
         sa.Column("response", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
         sa.Column(
             "created_at",

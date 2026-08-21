@@ -27,7 +27,7 @@ def _phase2_schema(metadata: sa.MetaData) -> None:
         sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("project_id", sa.Uuid(), sa.ForeignKey(projects.c.id)),
     )
-    task_stages = sa.Table(
+    sa.Table(
         "task_stages",
         metadata,
         sa.Column("id", sa.Uuid(), primary_key=True),

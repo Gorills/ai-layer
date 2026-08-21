@@ -317,7 +317,8 @@ def _managed_action(db: Session, project: Project, work: WorkItem, task: Task) -
             worker_kind=None,
             worker_id="",
             state_version=int(task.version or 1),
-            instruction=task.blocked_reason or "Managed assurance is blocked; choose how to continue.",
+            instruction=task.blocked_reason
+            or "Managed assurance is blocked; choose how to continue.",
             payload={"choices": ["resume", "cancel"]},
         )
         return _state_response(db, project, work, state)
@@ -376,11 +377,16 @@ def current_action(db: Session, project: Project, work: WorkItem) -> dict:
         return response
 
     state = db.get(WorkActionState, work.id)
-    if state is not None and state.task_id is None and state.action_kind in {
-        "native_engineering",
-        "human_decision",
-        "done",
-    }:
+    if (
+        state is not None
+        and state.task_id is None
+        and state.action_kind
+        in {
+            "native_engineering",
+            "human_decision",
+            "done",
+        }
+    ):
         return _state_response(db, project, work, state)
     state_version = int(state.state_version) + 1 if state is not None else 1
     state = _upsert_action_state(
@@ -488,7 +494,9 @@ def attach_reviewed_assurance(
     return current_action(db, project, work)
 
 
-def _submission_for_token(db: Session, token: str, *, lock: bool = False) -> WorkActionSubmission | None:
+def _submission_for_token(
+    db: Session, token: str, *, lock: bool = False
+) -> WorkActionSubmission | None:
     stmt = select(WorkActionSubmission).where(WorkActionSubmission.action_token == token)
     if lock:
         stmt = stmt.with_for_update()
@@ -578,8 +586,8 @@ def _claim_submission(
             raise
         recovered = _recover_processing_submission(db, existing, fingerprint)
         if recovered is not None:
-            raise _ReplayResponse(recovered)
-        raise AssertionError("unreachable")
+            raise _ReplayResponse(recovered) from None
+        raise AssertionError("unreachable") from None
     return submission
 
 
@@ -623,9 +631,13 @@ def _complete_worker_action(
     task = db.get(Task, state.task_id) if state.task_id else None
     stage = db.get(TaskStage, state.stage_id) if state.stage_id else None
     if task is None or stage is None:
-        _protocol_error("STALE_ACTION", "the managed Task/stage bound to this action is unavailable")
+        _protocol_error(
+            "STALE_ACTION", "the managed Task/stage bound to this action is unavailable"
+        )
     if task.status != "active" or stage.status != "active":
-        _protocol_error("STALE_ACTION", "the managed stage already advanced; refresh current action")
+        _protocol_error(
+            "STALE_ACTION", "the managed stage already advanced; refresh current action"
+        )
     if stage.worker_id != state.worker_id:
         _protocol_error("STALE_ACTION", "the active worker binding no longer matches this action")
 
@@ -657,9 +669,37 @@ def _handle_human_decision(
     if str(report.get("kind") or "") != "human_choice":
         _protocol_error("REPORT_KIND_MISMATCH", "human_decision requires report.kind=human_choice")
     task = db.get(Task, state.task_id) if state.task_id else None
-    if task is None:
-        _protocol_error("STALE_ACTION", "the managed Task for this decision is unavailable")
     selection = str(report.get("selection") or "").strip().casefold()
+    if task is None:
+        if selection == "resume":
+            next_state = _upsert_action_state(
+                db,
+                project,
+                work,
+                task=None,
+                stage=None,
+                kind="native_engineering",
+                worker_kind=None,
+                worker_id="",
+                state_version=int(state.state_version) + 1,
+                instruction="Resume native repository engineering from the current Work state.",
+            )
+            return _state_response(db, project, work, next_state)
+        if selection == "cancel":
+            next_state = _upsert_action_state(
+                db,
+                project,
+                work,
+                task=None,
+                stage=None,
+                kind="done",
+                worker_kind=None,
+                worker_id="",
+                state_version=int(state.state_version) + 1,
+                instruction="Native work was cancelled; close the durable Work with the appropriate status.",
+            )
+            return _state_response(db, project, work, next_state)
+        _protocol_error("INVALID_HUMAN_CHOICE", "selection must be resume or cancel")
     if selection == "resume":
         resume_task(db, project, expected_version=int(state.state_version))
         task = db.get(Task, task.id)
@@ -800,7 +840,9 @@ def finish_action(
     if state is None:
         _protocol_error("STALE_ACTION", "done token is no longer current")
     if state.action_kind != "done":
-        _protocol_error("MANAGED_BOUNDARY_NOT_COMPLETE", "Work cannot finish before the server returns done")
+        _protocol_error(
+            "MANAGED_BOUNDARY_NOT_COMPLETE", "Work cannot finish before the server returns done"
+        )
     work = db.get(WorkItem, state.work_id)
     project = db.get(Project, state.project_id)
     if work is None or project is None:
@@ -817,7 +859,9 @@ def finish_action(
                 "MANAGED_BOUNDARY_NOT_COMPLETE",
                 "managed assurance is not terminal; Work closure is forbidden",
             )
-        checks = [{"name": item, "status": "reported", "summary": item} for item in verification or []]
+        checks = [
+            {"name": item, "status": "reported", "summary": item} for item in verification or []
+        ]
         finish_work(
             db,
             project,

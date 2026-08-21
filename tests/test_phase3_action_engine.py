@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from sqlalchemy import create_engine, func, select
@@ -19,7 +20,7 @@ from ai_layer.application.action_engine import (
 from ai_layer.db.action_models import WorkActionState, WorkActionSubmission
 from ai_layer.db.base import Base
 from ai_layer.db.models import Project, ReviewFinding, Task, TaskStage
-from ai_layer.db.work_models import AgentRun, WorkItem
+from ai_layer.db.work_models import WorkItem
 from ai_layer.db.work_relation_models import TaskWorkRelation
 from ai_layer.work.service import begin_work
 
@@ -82,7 +83,9 @@ def _promote(db: Session, project: Project, work: WorkItem) -> tuple[str, dict]:
     return token, reviewed
 
 
-def test_standard_facade_actions_implement_review_finish_without_fsm_navigation(tmp_path: Path) -> None:
+def test_standard_facade_actions_implement_review_finish_without_fsm_navigation(
+    tmp_path: Path,
+) -> None:
     engine, project_id, root = _engine_project(tmp_path)
     db, project = _rows(engine, project_id)
     try:
@@ -105,9 +108,7 @@ def test_standard_facade_actions_implement_review_finish_without_fsm_navigation(
             "checks": ["focused implementation check"],
             "outcome": "done",
         }
-        review = continue_action(
-            db, action_token=action["action_token"], report=implement_report
-        )
+        review = continue_action(db, action_token=action["action_token"], report=implement_report)
         review_action = review["next_action"]
         assert review_action["kind"] == "run_worker"
         assert review_action["worker_kind"] == "independent_check"
@@ -142,7 +143,12 @@ def test_standard_facade_actions_implement_review_finish_without_fsm_navigation(
             .where(TaskWorkRelation.work_id == work.id, TaskWorkRelation.role == "outcome")
         )
         assert task is not None and task.status == "completed"
-        assert db.scalar(select(func.count()).select_from(TaskStage).where(TaskStage.task_id == task.id)) == 2
+        assert (
+            db.scalar(
+                select(func.count()).select_from(TaskStage).where(TaskStage.task_id == task.id)
+            )
+            == 2
+        )
 
         with pytest.raises(ActionProtocolError, match="ACTION_REQUIRES_FINISH"):
             continue_action(
@@ -180,7 +186,9 @@ def test_standard_facade_actions_implement_review_finish_without_fsm_navigation(
         db.close()
 
 
-def test_review_fix_review_loop_preserves_structured_findings_and_verification(tmp_path: Path) -> None:
+def test_review_fix_review_loop_preserves_structured_findings_and_verification(
+    tmp_path: Path,
+) -> None:
     engine, project_id, root = _engine_project(tmp_path)
     db, project = _rows(engine, project_id)
     try:
@@ -266,7 +274,9 @@ def test_review_fix_review_loop_preserves_structured_findings_and_verification(t
         db.close()
 
 
-def test_worker_block_resume_binds_fresh_worker_and_cannot_skip_managed_boundary(tmp_path: Path) -> None:
+def test_worker_block_resume_binds_fresh_worker_and_cannot_skip_managed_boundary(
+    tmp_path: Path,
+) -> None:
     engine, project_id, _root = _engine_project(tmp_path)
     db, project = _rows(engine, project_id)
     try:
@@ -308,7 +318,9 @@ def test_worker_block_resume_binds_fresh_worker_and_cannot_skip_managed_boundary
         db.close()
 
 
-def test_restart_reuses_same_current_token_and_external_advance_makes_old_token_stale(tmp_path: Path) -> None:
+def test_restart_reuses_same_current_token_and_external_advance_makes_old_token_stale(
+    tmp_path: Path,
+) -> None:
     engine, project_id, _root = _engine_project(tmp_path)
     db, project = _rows(engine, project_id)
     work, _run = _native_work(db, project)
@@ -335,7 +347,9 @@ def test_restart_reuses_same_current_token_and_external_advance_makes_old_token_
         db2.close()
 
 
-def test_dirty_native_promotion_adopts_same_work_and_starts_with_independent_review(tmp_path: Path) -> None:
+def test_dirty_native_promotion_adopts_same_work_and_starts_with_independent_review(
+    tmp_path: Path,
+) -> None:
     engine, project_id, root = _engine_project(tmp_path)
     _init_git(root)
     db, project = _rows(engine, project_id)

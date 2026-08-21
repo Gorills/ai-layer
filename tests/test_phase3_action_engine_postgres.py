@@ -42,7 +42,6 @@ def test_concurrent_same_worker_result_advances_managed_stage_once(tmp_path: Pat
         )
         db.add(project)
         db.commit()
-        project_id = project.id
         work, _run = begin_work(db, project, goal="Concurrent managed transition")
         db.commit()
         native = current_action(db, project, work)

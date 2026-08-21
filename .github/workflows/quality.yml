@@ -59,3 +59,18 @@ jobs:
         env:
           AI_LAYER_BROWSER_TESTS: '1'
         run: pytest -q tests/test_dashboard_browser.py
+
+  deterministic-wheel-artifact:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Rebuild deterministic application wheel
+        run: python scripts/build_release_wheel.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase3-deterministic-wheel
+          path: dist/local_ai_development_layer-0.14.0-py3-none-any.whl
+          if-no-files-found: error

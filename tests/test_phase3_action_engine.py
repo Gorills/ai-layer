@@ -32,6 +32,7 @@ def _engine_project(tmp_path: Path):
     root = tmp_path / "project"
     root.mkdir()
     (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _init_git(root)
     with Session(engine, expire_on_commit=False) as db:
         project = Project(
             name="phase3",
@@ -352,7 +353,6 @@ def test_dirty_native_promotion_adopts_same_work_and_starts_with_independent_rev
     tmp_path: Path,
 ) -> None:
     engine, project_id, root = _engine_project(tmp_path)
-    _init_git(root)
     db, project = _rows(engine, project_id)
     try:
         work, _run = _native_work(db, project, goal="Adopt the existing implementation")

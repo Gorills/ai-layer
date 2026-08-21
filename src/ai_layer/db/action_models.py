@@ -10,7 +10,7 @@ from ai_layer.db.base import Base
 from ai_layer.db.models import utcnow
 
 PUBLIC_ACTION_KINDS = ("native_engineering", "run_worker", "human_decision", "done")
-PUBLIC_WORKER_KINDS = ("change", "independent_check", "correction", "discovery")
+PUBLIC_WORKER_KINDS = ("change", "independent_check", "correction")
 
 
 class WorkActionState(Base):
@@ -27,7 +27,7 @@ class WorkActionState(Base):
             name="ck_work_action_states_kind",
         ),
         CheckConstraint(
-            "worker_kind IS NULL OR worker_kind IN ('change','independent_check','correction','discovery')",
+            "worker_kind IS NULL OR worker_kind IN ('change','independent_check','correction')",
             name="ck_work_action_states_worker_kind",
         ),
     )

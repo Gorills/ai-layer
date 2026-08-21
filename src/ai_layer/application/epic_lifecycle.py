@@ -14,6 +14,7 @@ from ai_layer.application.epic_common import (
     project_for_root,
 )
 from ai_layer.application.epic_spec_editor import apply_spec_edits
+from ai_layer.application.work_relations import ensure_epic_root_work
 from ai_layer.db.epic_models import Epic, EpicAudit, EpicSpecVersion
 from ai_layer.db.models import utcnow
 from ai_layer.db.session import session_scope
@@ -27,7 +28,13 @@ from ai_layer.epics.contracts import (
 )
 
 
-def create(project_root: str | Path, *, title: str, spec_markdown: str) -> dict:
+def create(
+    project_root: str | Path,
+    *,
+    title: str,
+    spec_markdown: str,
+    work_key: str | None = None,
+) -> dict:
     with session_scope() as db:
         project = project_for_root(db, project_root)
         lock_project(db, project)
@@ -41,6 +48,13 @@ def create(project_root: str | Path, *, title: str, spec_markdown: str) -> dict:
         epic = Epic(project_id=project.id, sequence=int(previous or 0) + 1, title=title_text)
         db.add(epic)
         db.flush()
+        root_work = ensure_epic_root_work(
+            db,
+            project,
+            epic,
+            create_if_missing=True,
+            preferred_work_key=work_key,
+        )
         db.add(
             EpicSpecVersion(
                 epic_id=epic.id,
@@ -50,7 +64,16 @@ def create(project_root: str | Path, *, title: str, spec_markdown: str) -> dict:
                 change_summary="Initial Epic specification created from the accepted discussion context.",
             )
         )
-        append_epic_event(db, project, epic, "EpicCreated", {"spec_version": 1})
+        append_epic_event(
+            db,
+            project,
+            epic,
+            "EpicCreated",
+            {
+                "spec_version": 1,
+                "root_work": f"W-{int(root_work.sequence):04d}" if root_work else None,
+            },
+        )
         db.flush()
         return epic_payload(db, epic, include_spec=True, include_history=True)
 

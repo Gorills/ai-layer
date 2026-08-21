@@ -183,8 +183,11 @@ def test_new_epic_created_is_default_milestone_and_epic_id_filterable(monkeypatc
     try:
         payload = dashboard_activity.activity_payload(epic_id=epic_id)
         assert payload is not None
-        assert [item["event_type"] for item in payload["items"]] == ["EpicCreated"]
-        assert payload["items"][0]["epic_id"] == str(epic_id)
+        assert [item["event_type"] for item in payload["items"]] == [
+            "EpicCreated",
+            "WorkStarted",
+        ]
+        assert {item["epic_id"] for item in payload["items"]} == {str(epic_id)}
         default = dashboard_activity.activity_payload()
         assert default is not None
         assert "EpicCreated" in [item["event_type"] for item in default["items"]]

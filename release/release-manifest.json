@@ -1,6 +1,6 @@
 {
   "application_wheel": "dist/local_ai_development_layer-0.14.0-py3-none-any.whl",
-  "application_wheel_sha256": "181974e018a1381c934c33f2828eabadaef2f80f607bb43412ad07bfbba906c6",
+  "application_wheel_sha256": "17a1f9706882871a2c3c89d5fee2a7d39e00491fb2a9656c7685eab300029607",
   "dependency_policy": "closed-world-exact-version-binary-only-no-deps",
   "docker_image": "pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
   "governance": {
@@ -12,9 +12,9 @@
     "minimum_source_schema": "0010_adaptive_task_workflow",
     "rollback": "forward_only_after_migration",
     "strategy": "expand-contract-where-practical; executable remains forward-compatible after migration",
-    "target_schema": "0018_command_project_scope"
+    "target_schema": "0019_canonical_work_relations"
   },
-  "notes": "0.14.0 introduces the durable ordinary-work spine: WorkItem and AgentRun are distinct from managed Task assurance and transport activity; project_status delivers bounded effective project policy and truthful work state; Project Search publishes a bounded multilingual/code-centric query contract; RuntimeEvent correlation becomes the durable activity journal while JSONL remains diagnostic; stdio/core execution shares correlation identity; semantic Project Map reconciliation can retain source Work provenance; Dashboard separates Work, managed Tasks, Project Map semantics and MCP bridges, exposes bounded versioned Work list/detail contracts, and provides a milestone-first filterable Activity v2 timeline with deterministic keyset cursors.",
+  "notes": "0.14.0 introduces the durable ordinary-work spine: WorkItem and AgentRun are distinct from managed Task assurance and transport activity; canonical additive relations make Task ownership point to Work, Epic ownership point to one root Work, and Epic implementation plan items point to child Work while legacy linked_task_id/linked_epic_id remain compatibility associations; terminal Epic completion closes its root Work through the normal Work lifecycle, including active AgentRun shutdown; project_status delivers bounded effective project policy and truthful work state; Project Search publishes a bounded multilingual/code-centric query contract; RuntimeEvent correlation becomes the durable activity journal while JSONL remains diagnostic; stdio/core execution shares correlation identity; semantic Project Map reconciliation can retain source Work provenance; Dashboard separates Work, managed Tasks, Project Map semantics and MCP bridges, exposes bounded versioned Work list/detail contracts, and provides a milestone-first filterable Activity v2 timeline with deterministic keyset cursors.",
   "official_runtime": {
     "arch": "x86_64",
     "os": "linux",

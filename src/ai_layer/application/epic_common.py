@@ -6,6 +6,11 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ai_layer.application.work_relations import (
+    complete_epic_root_work,
+    epic_root_work,
+    plan_item_work,
+)
 from ai_layer.core.service import get_project
 from ai_layer.db.epic_models import Epic, EpicAudit, EpicPlanItem, EpicSpecVersion
 from ai_layer.db.models import Project, Task
@@ -87,6 +92,13 @@ def append_epic_event(
     event_type: str,
     payload: dict,
 ) -> None:
+    if event_type == "EpicCompleted":
+        complete_epic_root_work(
+            db,
+            project,
+            epic,
+            summary=f"Epic {epic_key(epic.sequence)} completed.",
+        )
     append_contextual_event(
         db,
         event_type=event_type,
@@ -143,6 +155,7 @@ def audit_payload(row: EpicAudit, *, current_spec_version: int | None = None) ->
 
 def plan_payload(db: Session, row: EpicPlanItem) -> dict:
     linked = task_row(db, row.task_id)
+    child_work = plan_item_work(db, row)
     return {
         "id": str(row.id),
         "key": plan_item_key(row.ordinal),
@@ -156,6 +169,8 @@ def plan_payload(db: Session, row: EpicPlanItem) -> dict:
         "task_id": str(row.task_id) if row.task_id else None,
         "task_key": f"T-{int(linked.sequence):04d}" if linked else None,
         "task_status": linked.status if linked else None,
+        "work_id": str(child_work.id) if child_work else None,
+        "work_key": f"W-{int(child_work.sequence):04d}" if child_work else None,
         "spec_version": row.spec_version,
         "plan_version": row.plan_version,
         "created_at": row.created_at.isoformat() if row.created_at else None,
@@ -184,12 +199,15 @@ def epic_payload(
         .where(EpicPlanItem.epic_id == epic.id)
         .order_by(EpicPlanItem.ordinal.asc())
     ).all()
+    root_work = epic_root_work(db, epic)
     payload = {
         "id": str(epic.id),
         "key": epic_key(epic.sequence),
         "project_id": str(epic.project_id),
         "title": epic.title,
         "status": epic.status,
+        "root_work_id": str(root_work.id) if root_work else None,
+        "root_work_key": f"W-{int(root_work.sequence):04d}" if root_work else None,
         "current_spec_version": epic.current_spec_version,
         "approved_spec_version": epic.approved_spec_version,
         "execution_spec_version": epic.execution_spec_version,

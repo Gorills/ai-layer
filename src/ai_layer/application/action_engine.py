@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ai_layer.application.action_state import OPEN_TASK_STATUSES as _OPEN_TASK_STATUSES
 from ai_layer.application.action_state import (
-    OPEN_TASK_STATUSES as _OPEN_TASK_STATUSES,
     ActionProtocolError,
     _finished_response,
     _protocol_error,
@@ -21,10 +21,10 @@ from ai_layer.application.action_state import (
     _worker_kind,
     action_debug_snapshot,
     action_token_shape_valid,
-    latest_outcome_task as _latest_outcome_task,
-    report_checks as _report_checks,
     report_fingerprint,
 )
+from ai_layer.application.action_state import latest_outcome_task as _latest_outcome_task
+from ai_layer.application.action_state import report_checks as _report_checks
 from ai_layer.application.work_relations import bind_task_work, task_work_binding
 from ai_layer.db.action_models import WorkActionState, WorkActionSubmission
 from ai_layer.db.models import Project, Task, TaskStage, utcnow

@@ -12,6 +12,7 @@ from ai_layer.application.managed_work import sync_task_backing_work
 from ai_layer.application.work_relations import (
     bind_epic_control_task,
     bind_task_work,
+    complete_epic_root_work,
     ensure_epic_plan_work,
     ensure_epic_root_work,
 )
@@ -233,5 +234,40 @@ def test_epic_completed_event_closes_only_the_root_outcome(tmp_path: Path) -> No
         assert root.status == "completed"
         assert root.completed_at is not None
         assert child.status == "completed"
+    finally:
+        db.close()
+
+
+def test_epic_completion_closes_promoted_root_agent_run(tmp_path: Path) -> None:
+    db, project, _root = _project(tmp_path)
+    try:
+        native, run = begin_work(db, project, goal="Deliver the Epic outcome")
+        db.commit()
+        epic = _epic(db, project, title="Deliver the Epic outcome")
+        root = ensure_epic_root_work(
+            db,
+            project,
+            epic,
+            create_if_missing=True,
+            preferred_work_key=f"W-{native.sequence:04d}",
+        )
+        assert root is not None and root.id == native.id
+
+        completed = complete_epic_root_work(
+            db,
+            project,
+            epic,
+            summary="Epic outcome completed.",
+        )
+        db.commit()
+        db.refresh(native)
+        db.refresh(run)
+
+        assert completed is not None and completed.id == native.id
+        assert native.status == "completed"
+        assert native.completed_at is not None
+        assert native.map_disposition["status"] == "deferred"
+        assert run.status == "completed"
+        assert run.ended_at is not None
     finally:
         db.close()

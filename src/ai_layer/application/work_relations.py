@@ -17,6 +17,7 @@ from ai_layer.db.work_relation_models import (
     WorkHierarchy,
 )
 from ai_layer.observability.work_events import append_contextual_event
+from ai_layer.work.service import finish_work
 
 _WORK_KEY = re.compile(r"^W-(\d+)$")
 
@@ -452,12 +453,14 @@ def complete_epic_root_work(
     work = epic_root_work(db, epic)
     if work is None or work.status not in {"active", "blocked"}:
         return work
-    now = utcnow()
-    work.status = "completed"
-    work.result_summary = str(summary)[:4000]
-    work.updated_at = now
-    work.last_milestone_at = now
-    work.completed_at = now
+    rendered_summary = str(summary).strip() or f"Epic E-{int(epic.sequence):04d} completed."
+    work, _runs = finish_work(
+        db,
+        project,
+        work_key_value=f"W-{int(work.sequence):04d}",
+        status="completed",
+        summary=rendered_summary,
+    )
     append_contextual_event(
         db,
         event_type="WorkCompleted",

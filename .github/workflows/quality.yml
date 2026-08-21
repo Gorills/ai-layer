@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 permissions:
-  contents: write
+  contents: read
 jobs:
   quality:
     runs-on: ubuntu-24.04
@@ -15,72 +15,6 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - name: Close promoted Epic root runs and refresh wheel
-        env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-        run: |
-          git fetch --no-tags origin "+refs/heads/$HEAD_REF:refs/remotes/origin/$HEAD_REF"
-          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-          git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
-          python - <<'PY'
-          from pathlib import Path
-
-          def replace_one(path: str, old: str, new: str) -> None:
-              file = Path(path)
-              text = file.read_text(encoding="utf-8")
-              if text.count(old) != 1:
-                  raise SystemExit(f"{path}: expected one exact replacement, found {text.count(old)}")
-              file.write_text(text.replace(old, new, 1), encoding="utf-8")
-
-          replace_one(
-              "src/ai_layer/application/work_relations.py",
-              "from ai_layer.observability.work_events import append_contextual_event\n",
-              "from ai_layer.observability.work_events import append_contextual_event\nfrom ai_layer.work.service import finish_work\n",
-          )
-          replace_one(
-              "src/ai_layer/application/work_relations.py",
-              '''    work = epic_root_work(db, epic)\n    if work is None or work.status not in {"active", "blocked"}:\n        return work\n    now = utcnow()\n    work.status = "completed"\n    work.result_summary = str(summary)[:4000]\n    work.updated_at = now\n    work.last_milestone_at = now\n    work.completed_at = now\n    append_contextual_event(\n        db,\n        event_type="WorkCompleted",\n        project=project,\n        aggregate_type="work",\n        aggregate_id=str(work.id),\n        work=work,\n        epic_id=epic.id,\n        payload={"status": "completed", "summary": work.result_summary},\n        importance="high",\n    )\n    db.flush()\n    return work\n''',
-              '''    work = epic_root_work(db, epic)\n    if work is None or work.status not in {"active", "blocked"}:\n        return work\n    rendered_summary = str(summary).strip() or f"Epic E-{int(epic.sequence):04d} completed."\n    work, _runs = finish_work(\n        db,\n        project,\n        work_key_value=f"W-{int(work.sequence):04d}",\n        status="completed",\n        summary=rendered_summary,\n    )\n    append_contextual_event(\n        db,\n        event_type="WorkCompleted",\n        project=project,\n        aggregate_type="work",\n        aggregate_id=str(work.id),\n        work=work,\n        epic_id=epic.id,\n        payload={"status": "completed", "summary": work.result_summary},\n        importance="high",\n    )\n    db.flush()\n    return work\n''',
-          )
-          replace_one(
-              "tests/test_phase2_work_relations.py",
-              "    bind_task_work,\n    ensure_epic_plan_work,\n",
-              "    bind_task_work,\n    complete_epic_root_work,\n    ensure_epic_plan_work,\n",
-          )
-          test_file = Path("tests/test_phase2_work_relations.py")
-          text = test_file.read_text(encoding="utf-8")
-          test_name = "test_epic_completion_closes_promoted_root_agent_run"
-          if test_name in text:
-              raise SystemExit(f"{test_name} already exists")
-          text += '''\n\ndef test_epic_completion_closes_promoted_root_agent_run(tmp_path: Path) -> None:\n    db, project, _root = _project(tmp_path)\n    try:\n        native, run = begin_work(db, project, goal="Deliver the Epic outcome")\n        db.commit()\n        epic = _epic(db, project, title="Deliver the Epic outcome")\n        root = ensure_epic_root_work(\n            db,\n            project,\n            epic,\n            create_if_missing=True,\n            preferred_work_key=f"W-{native.sequence:04d}",\n        )\n        assert root is not None and root.id == native.id\n\n        completed = complete_epic_root_work(\n            db,\n            project,\n            epic,\n            summary="Epic outcome completed.",\n        )\n        db.commit()\n        db.refresh(native)\n        db.refresh(run)\n\n        assert completed is not None and completed.id == native.id\n        assert native.status == "completed"\n        assert native.completed_at is not None\n        assert native.map_disposition["status"] == "deferred"\n        assert run.status == "completed"\n        assert run.ended_at is not None\n    finally:\n        db.close()\n'''
-          test_file.write_text(text, encoding="utf-8")
-          PY
-          ruff format src/ai_layer/application/work_relations.py tests/test_phase2_work_relations.py
-          python scripts/build_release_wheel.py
-          python - <<'PY'
-          import hashlib
-          import json
-          from pathlib import Path
-
-          manifest_path = Path("release/release-manifest.json")
-          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-          wheel = Path(manifest["application_wheel"])
-          manifest["application_wheel_sha256"] = hashlib.sha256(wheel.read_bytes()).hexdigest()
-          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-          print(manifest["application_wheel_sha256"])
-          PY
-          git checkout "origin/$BASE_REF" -- .github/workflows/quality.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            .github/workflows/quality.yml \
-            src/ai_layer/application/work_relations.py \
-            tests/test_phase2_work_relations.py \
-            dist/local_ai_development_layer-0.14.0-py3-none-any.whl \
-            release/release-manifest.json
-          git commit -m "Close promoted Epic root agent runs"
-          git push origin HEAD:"$HEAD_REF"
       - run: make quality
 
   postgres-hardening:

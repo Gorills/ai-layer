@@ -48,7 +48,7 @@ def upgrade() -> None:
             name="ck_work_action_states_kind",
         ),
         sa.CheckConstraint(
-            "worker_kind IS NULL OR worker_kind IN ('change','independent_check','correction','discovery')",
+            "worker_kind IS NULL OR worker_kind IN ('change','independent_check','correction')",
             name="ck_work_action_states_worker_kind",
         ),
         sa.ForeignKeyConstraint(["work_id"], ["work_items.id"], ondelete="CASCADE"),

@@ -14,6 +14,12 @@ from ai_layer.application.epic_common import (
     project_for_root,
     task_uuid,
 )
+from ai_layer.application.work_relations import (
+    bind_epic_control_task,
+    bind_task_work,
+    ensure_epic_plan_work,
+    ensure_epic_root_work,
+)
 from ai_layer.db.epic_models import Epic, EpicPlanItem
 from ai_layer.db.models import Project, Task, utcnow
 from ai_layer.db.session import session_scope
@@ -104,6 +110,13 @@ def _plan_item_task_contract(pending: EpicPlanItem) -> tuple[list[str], list[str
     return criteria, constraints
 
 
+def _task_from_result(db: Session, project: Project, result: dict) -> Task:
+    task = db.get(Task, task_uuid(result["id"]))
+    if task is None or task.project_id != project.id:
+        raise RuntimeError("Task Engine created a Task outside the selected project")
+    return task
+
+
 def start_next(project_root: str | Path, *, key: str) -> dict:
     with session_scope() as db:
         project = project_for_root(db, project_root)
@@ -112,6 +125,7 @@ def start_next(project_root: str | Path, *, key: str) -> dict:
         _assert_no_open_task(db, project)
         if epic.status == "approved":
             _assert_no_other_execution_epic(db, project, epic)
+            ensure_epic_root_work(db, project, epic, create_if_missing=True)
             goal, criteria, constraints = _phase0_goal(epic)
             result = create_task(
                 db,
@@ -121,7 +135,9 @@ def start_next(project_root: str | Path, *, key: str) -> dict:
                 constraints=constraints,
                 workflow="analysis_only",
             )
-            epic.phase0_task_id = task_uuid(result["id"])
+            task = _task_from_result(db, project, result)
+            bind_epic_control_task(db, project, epic, task)
+            epic.phase0_task_id = task.id
             epic.status = "phase0"
             epic.updated_at = utcnow()
             append_epic_event(
@@ -151,6 +167,13 @@ def start_next(project_root: str | Path, *, key: str) -> dict:
         if pending is None:
             raise RuntimeError("Epic has no pending plan item to start")
         criteria, constraints = _plan_item_task_contract(pending)
+        owned_work = (
+            ensure_epic_plan_work(db, project, epic, pending)
+            if pending.kind == "work"
+            else ensure_epic_root_work(db, project, epic, create_if_missing=True)
+        )
+        if owned_work is None:
+            raise RuntimeError("Epic Work ownership is unavailable")
         result = create_task(
             db,
             project,
@@ -159,7 +182,12 @@ def start_next(project_root: str | Path, *, key: str) -> dict:
             constraints=constraints,
             workflow="standard",
         )
-        pending.task_id = task_uuid(result["id"])
+        task = _task_from_result(db, project, result)
+        if pending.kind == "work":
+            bind_task_work(db, project, task, owned_work, role="outcome")
+        else:
+            bind_epic_control_task(db, project, epic, task)
+        pending.task_id = task.id
         pending.status = "active"
         epic.status = "final_review" if pending.kind == "final" else "running"
         epic.updated_at = utcnow()
@@ -172,6 +200,7 @@ def start_next(project_root: str | Path, *, key: str) -> dict:
                 "plan_item": plan_item_key(pending.ordinal),
                 "kind": pending.kind,
                 "task": result["key"],
+                "work": f"W-{int(owned_work.sequence):04d}",
             },
         )
         db.flush()
@@ -191,6 +220,7 @@ def start_drift_reconciliation(project_root: str | Path, *, key: str) -> dict:
         ):
             raise RuntimeError("Epic is not waiting for repository drift reconciliation")
         _assert_no_open_task(db, project)
+        ensure_epic_root_work(db, project, epic, create_if_missing=True)
         goal = (
             f"Targeted drift reconciliation for {epic_key(epic.sequence)} execution spec "
             f"v{epic.execution_spec_version}. Compare repository changes since the last accepted Epic Task "
@@ -210,7 +240,9 @@ def start_drift_reconciliation(project_root: str | Path, *, key: str) -> dict:
             constraints=["analysis-only", "After completion call epic_reconcile_complete"],
             workflow="analysis_only",
         )
-        epic.drift_task_id = task_uuid(result["id"])
+        task = _task_from_result(db, project, result)
+        bind_epic_control_task(db, project, epic, task)
+        epic.drift_task_id = task.id
         epic.status = "running"
         epic.blocked_reason = ""
         append_epic_event(

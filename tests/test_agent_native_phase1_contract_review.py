@@ -44,9 +44,10 @@ def test_representative_action_responses_match_declared_output_shape() -> None:
     for name in ("project_enter", "work_continue", "work_finish"):
         response = responses[name]
         _assert_object_shape(response, ACTION_RESPONSE_SCHEMA)
-        assert response["contract_version"] == ACTION_RESPONSE_SCHEMA["properties"][
-            "contract_version"
-        ]["const"]
+        assert (
+            response["contract_version"]
+            == ACTION_RESPONSE_SCHEMA["properties"]["contract_version"]["const"]
+        )
         _assert_object_shape(response["project"], project_schema)
         assert response["work"] is not None
         _assert_object_shape(response["work"], work_schema)

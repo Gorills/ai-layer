@@ -108,5 +108,6 @@ def test_native_block_resume_then_cancel_stays_server_owned(tmp_path: Path) -> N
         )
         assert finished["next_action"]["kind"] == "done"
         assert finished["next_action"]["action_token"] is None
+        assert "status" not in finished["work"]
         db.refresh(work)
         assert work.status == "abandoned"

@@ -90,7 +90,9 @@ def test_phase2_migration_resolves_only_unambiguous_task_links() -> None:
             ],
         )
         connection.execute(
-            tables["epics"].insert().values(
+            tables["epics"]
+            .insert()
+            .values(
                 id=epic_id,
                 project_id=project_id,
                 phase0_task_id=control_task,
@@ -98,7 +100,9 @@ def test_phase2_migration_resolves_only_unambiguous_task_links() -> None:
             )
         )
         connection.execute(
-            tables["epic_plan_items"].insert().values(
+            tables["epic_plan_items"]
+            .insert()
+            .values(
                 id=plan_item_id,
                 epic_id=epic_id,
                 task_id=resolved_task,
@@ -150,9 +154,9 @@ def test_phase2_migration_resolves_only_unambiguous_task_links() -> None:
         ).all()
         assert task_rows == [(resolved_task, resolved_work, "outcome")]
         assert connection.execute(sa.select(epic_rel.c.epic_id)).all() == []
-        assert connection.execute(
-            sa.select(plan_rel.c.plan_item_id, plan_rel.c.work_id)
-        ).all() == [(plan_item_id, resolved_work)]
+        assert connection.execute(sa.select(plan_rel.c.plan_item_id, plan_rel.c.work_id)).all() == [
+            (plan_item_id, resolved_work)
+        ]
 
         statuses = {
             (owner_type, owner_id): (status, candidate_count)

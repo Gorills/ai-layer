@@ -133,7 +133,9 @@ def _legacy_control_task_ids(bind: sa.Connection, metadata: sa.MetaData) -> set[
     epics = sa.Table("epics", metadata, autoload_with=bind)
     plan_items = sa.Table("epic_plan_items", metadata, autoload_with=bind)
     ids: set[object] = set()
-    for phase0_id, drift_id in bind.execute(sa.select(epics.c.phase0_task_id, epics.c.drift_task_id)):
+    for phase0_id, drift_id in bind.execute(
+        sa.select(epics.c.phase0_task_id, epics.c.drift_task_id)
+    ):
         if phase0_id is not None:
             ids.add(phase0_id)
         if drift_id is not None:
@@ -204,7 +206,9 @@ def _backfill_relations() -> None:
     for epic_id, project_id in bind.execute(sa.select(epics.c.id, epics.c.project_id)):
         candidate_count = int(
             bind.scalar(
-                sa.select(sa.func.count()).select_from(work).where(
+                sa.select(sa.func.count())
+                .select_from(work)
+                .where(
                     work.c.project_id == project_id,
                     work.c.linked_epic_id == epic_id,
                 )

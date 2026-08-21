@@ -6,7 +6,11 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_layer.application.work_relations import complete_epic_root_work, epic_root_work, plan_item_work
+from ai_layer.application.work_relations import (
+    complete_epic_root_work,
+    epic_root_work,
+    plan_item_work,
+)
 from ai_layer.core.service import get_project
 from ai_layer.db.epic_models import Epic, EpicAudit, EpicPlanItem, EpicSpecVersion
 from ai_layer.db.models import Project, Task

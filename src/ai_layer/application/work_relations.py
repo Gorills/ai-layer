@@ -58,7 +58,9 @@ def _lock_project(db: Session, project: Project) -> None:
 def _next_work_sequence(db: Session, project: Project) -> int:
     _lock_project(db, project)
     previous = db.scalar(
-        select(func.coalesce(func.max(WorkItem.sequence), 0)).where(WorkItem.project_id == project.id)
+        select(func.coalesce(func.max(WorkItem.sequence), 0)).where(
+            WorkItem.project_id == project.id
+        )
     )
     return int(previous or 0) + 1
 
@@ -199,7 +201,9 @@ def bind_task_work(
             .limit(1)
         )
         if other is not None:
-            raise RuntimeError("WORK_ALREADY_HAS_OPEN_ASSURANCE: Work already has an open managed Task")
+            raise RuntimeError(
+                "WORK_ALREADY_HAS_OPEN_ASSURANCE: Work already has an open managed Task"
+            )
 
     db.add(TaskWorkRelation(task_id=task.id, work_id=work.id, role=role))
     if role == "outcome":
@@ -263,7 +267,9 @@ def ensure_task_work(
         if preferred_work_key is not None:
             preferred = work_for_key(db, project, preferred_work_key)
             if preferred.id != existing.work.id:
-                raise RuntimeError("TASK_WORK_RELATION_CONFLICT: Task already belongs to another Work")
+                raise RuntimeError(
+                    "TASK_WORK_RELATION_CONFLICT: Task already belongs to another Work"
+                )
         return existing
 
     if preferred_work_key is not None:
@@ -318,9 +324,7 @@ def bind_epic_root_work(
             raise RuntimeError("EPIC_WORK_RELATION_CONFLICT: Epic already has another root Work")
         return work
     other_epic = db.scalar(
-        select(EpicWorkRelation.epic_id)
-        .where(EpicWorkRelation.root_work_id == work.id)
-        .limit(1)
+        select(EpicWorkRelation.epic_id).where(EpicWorkRelation.root_work_id == work.id).limit(1)
     )
     if other_epic is not None:
         raise RuntimeError("WORK_ALREADY_EPIC_ROOT: Work is already the root of another Epic")
@@ -352,7 +356,9 @@ def ensure_epic_root_work(
         if preferred_work_key is not None:
             preferred = work_for_key(db, project, preferred_work_key)
             if preferred.id != existing.id:
-                raise RuntimeError("EPIC_WORK_RELATION_CONFLICT: Epic already has another root Work")
+                raise RuntimeError(
+                    "EPIC_WORK_RELATION_CONFLICT: Epic already has another root Work"
+                )
         return existing
     if preferred_work_key is not None:
         return bind_epic_root_work(db, project, epic, work_for_key(db, project, preferred_work_key))
@@ -361,7 +367,9 @@ def ensure_epic_root_work(
 
     legacy_count = int(
         db.scalar(
-            select(func.count()).select_from(WorkItem).where(
+            select(func.count())
+            .select_from(WorkItem)
+            .where(
                 WorkItem.project_id == project.id,
                 WorkItem.linked_epic_id == epic.id,
             )
@@ -485,7 +493,9 @@ def canonical_links_for_work(db: Session, work: WorkItem) -> dict[str, object]:
     return {
         "task_ids": [str(item) for item in tasks],
         "epic_root_id": str(epic) if epic is not None else None,
-        "parent_work_id": str(hierarchy.parent_work_id) if hierarchy and hierarchy.parent_work_id else None,
+        "parent_work_id": str(hierarchy.parent_work_id)
+        if hierarchy and hierarchy.parent_work_id
+        else None,
         "root_work_id": str(hierarchy.root_work_id) if hierarchy else None,
         "epic_plan_item_id": str(plan_item) if plan_item is not None else None,
     }

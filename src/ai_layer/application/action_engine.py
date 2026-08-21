@@ -336,9 +336,10 @@ def _managed_action(db: Session, project: Project, work: WorkItem, task: Task) -
             worker_id=worker_id,
             expected_version=int(task.version or 1),
         )
-        task = db.get(Task, task.id)
-        if task is None:
+        refreshed_task = db.get(Task, task.id)
+        if refreshed_task is None:
             raise RuntimeError("managed Task disappeared after worker binding")
+        task = refreshed_task
         stage = _active_stage(db, task)
         if stage is None or not stage.worker_id:
             raise RuntimeError("worker binding did not produce a delegated active stage")

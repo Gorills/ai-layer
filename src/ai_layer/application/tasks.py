@@ -36,9 +36,22 @@ def _project(db, project_root: str | Path):
     return get_project(db, project_root)
 
 
-def _with_task_work(db, project, result: dict, *, create_if_missing: bool = True) -> dict:
+def _with_task_work(
+    db,
+    project,
+    result: dict,
+    *,
+    create_if_missing: bool = True,
+    preferred_work_key: str | None = None,
+) -> dict:
     payload = dict(result)
-    work = sync_task_backing_work(db, project, payload, create_if_missing=create_if_missing)
+    work = sync_task_backing_work(
+        db,
+        project,
+        payload,
+        create_if_missing=create_if_missing,
+        preferred_work_key=preferred_work_key,
+    )
     if work is not None:
         payload["work"] = work
     return payload
@@ -278,18 +291,40 @@ def resume(project_root: str | Path) -> dict:
         return _with_task_work(db, project, result)
 
 
+def _pop_preferred_work_key(kwargs: dict[str, Any]) -> str | None:
+    raw = kwargs.pop("work_key", None)
+    if raw is None:
+        return None
+    value = str(raw).strip()
+    return value or None
+
+
 def create(project_root: str | Path, **kwargs: Any) -> dict:
     with session_scope() as db:
         project = _project(db, project_root)
+        preferred_work_key = _pop_preferred_work_key(kwargs)
         result = create_task(db, project, **kwargs)
-        return _with_task_work(db, project, result, create_if_missing=True)
+        return _with_task_work(
+            db,
+            project,
+            result,
+            create_if_missing=True,
+            preferred_work_key=preferred_work_key,
+        )
 
 
 def adopt(project_root: str | Path, **kwargs: Any) -> dict:
     with session_scope() as db:
         project = _project(db, project_root)
+        preferred_work_key = _pop_preferred_work_key(kwargs)
         result = adopt_task(db, project, **kwargs)
-        return _with_task_work(db, project, result, create_if_missing=True)
+        return _with_task_work(
+            db,
+            project,
+            result,
+            create_if_missing=True,
+            preferred_work_key=preferred_work_key,
+        )
 
 
 def delegate(

@@ -6,7 +6,7 @@ import re
 import secrets
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 from uuid import UUID
 
 from sqlalchemy import select
@@ -44,7 +44,7 @@ class ActionProtocolError(RuntimeError):
         self.code = code
 
 
-def _protocol_error(code: str, message: str) -> None:
+def _protocol_error(code: str, message: str) -> NoReturn:
     raise ActionProtocolError(code, message)
 
 

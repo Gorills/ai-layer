@@ -58,12 +58,16 @@ class WorkActionState(Base):
 
 
 class WorkActionSubmission(Base):
-    """Consumed action token + canonical report fingerprint for durable idempotent replay."""
+    """Durable token consumption record used for concurrency and idempotent replay."""
 
     __tablename__ = "work_action_submissions"
     __table_args__ = (
         Index("ix_work_action_submissions_work", "work_id", "created_at"),
         CheckConstraint("state_version >= 1", name="ck_work_action_submissions_version"),
+        CheckConstraint(
+            "status IN ('processing','completed')",
+            name="ck_work_action_submissions_status",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -73,5 +77,9 @@ class WorkActionSubmission(Base):
     action_token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     state_version: Mapped[int] = mapped_column(Integer, nullable=False)
     report_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="processing")
     response: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

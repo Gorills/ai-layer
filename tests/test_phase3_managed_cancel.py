@@ -82,4 +82,4 @@ def test_managed_block_cancel_requires_done_before_work_closure(tmp_path: Path) 
         )
         assert finished["next_action"]["action_token"] is None
         refreshed = db.get(WorkItem, work.id)
-        assert refreshed is not None and refreshed.status == "cancelled"
+        assert refreshed is not None and refreshed.status == "abandoned"

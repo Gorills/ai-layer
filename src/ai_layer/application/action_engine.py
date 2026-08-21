@@ -532,11 +532,12 @@ def finish_action(
         checks = [
             {"name": item, "status": "reported", "summary": item} for item in verification or []
         ]
+        work_status = "abandoned" if str(status).strip().casefold() == "cancelled" else status
         finish_work(
             db,
             project,
             work_key_value=work_key(work),
-            status=status,
+            status=work_status,
             summary=summary,
             checks=checks if checks else None,
             map_disposition=map_disposition,

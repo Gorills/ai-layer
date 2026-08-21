@@ -1,8 +1,10 @@
 name: canonical-quality
 on:
   pull_request:
+  push:
+    branches: [main]
 permissions:
-  contents: write
+  contents: read
 jobs:
   quality:
     runs-on: ubuntu-24.04
@@ -13,112 +15,47 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - name: Extract Phase 3 action-state seam
+      - run: make quality
+
+  postgres-hardening:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9
         env:
-          CANONICAL_B64: bmFtZTogY2Fub25pY2FsLXF1YWxpdHkKb246CiAgcHVsbF9yZXF1ZXN0OgogIHB1c2g6CiAgICBicmFuY2hlczogW21haW5dCnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCmpvYnM6CiAgcXVhbGl0eToKICAgIHJ1bnMtb246IHVidW50dS0yNC4wNAogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYWN0aW9ucy9jaGVja291dEB2NAogICAgICAtIHVzZXM6IGFjdGlvbnMvc2V0dXAtcHl0aG9uQHY1CiAgICAgICAgd2l0aDoKICAgICAgICAgIHB5dGhvbi12ZXJzaW9uOiAnMy4xMicKICAgICAgLSBydW46IHB5dGhvbiAtbSBwaXAgaW5zdGFsbCAtLXVwZ3JhZGUgcGlwCiAgICAgIC0gcnVuOiBweXRob24gLW0gcGlwIGluc3RhbGwgLWUgJy5bZGV2XScKICAgICAgLSBydW46IG1ha2UgcXVhbGl0eQoKICBwb3N0Z3Jlcy1oYXJkZW5pbmc6CiAgICBydW5zLW9uOiB1YnVudHUtMjQuMDQKICAgIHNlcnZpY2VzOgogICAgICBwb3N0Z3JlczoKICAgICAgICBpbWFnZTogcGd2ZWN0b3IvcGd2ZWN0b3I6MC44LjAtcGcxNkBzaGEyNTY6YTEzMjc2NWVjMzUxYzY1MTExYjViNjc1OTI4YTNhMDUxNWE0NjZhNDBmOTcyNzczMjlkYjhiODIwOWFkOGJjOQogICAgICAgIGVudjoKICAgICAgICAgIFBPU1RHUkVTX1VTRVI6IHBvc3RncmVzCiAgICAgICAgICBQT1NUR1JFU19QQVNTV09SRDogcG9zdGdyZXMKICAgICAgICAgIFBPU1RHUkVTX0RCOiBhaV9sYXllcl9nYXRlCiAgICAgICAgcG9ydHM6CiAgICAgICAgICAtIDU0MzI6NTQzMgogICAgICAgIG9wdGlvbnM6ID4tCiAgICAgICAgICAtLWhlYWx0aC1jbWQgInBnX2lzcmVhZHkgLVUgcG9zdGdyZXMiCiAgICAgICAgICAtLWhlYWx0aC1pbnRlcnZhbCA1cwogICAgICAgICAgLS1oZWFsdGgtdGltZW91dCA1cwogICAgICAgICAgLS1oZWFsdGgtcmV0cmllcyAyMAogICAgZW52OgogICAgICBBSV9MQVlFUl9URVNUX1BPU1RHUkVTX1VSTDogcG9zdGdyZXNxbCtwc3ljb3BnOi8vcG9zdGdyZXM6cG9zdGdyZXNAMTI3LjAuMC4xOjU0MzIvYWlfbGF5ZXJfZ2F0ZQogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYWN0aW9ucy9jaGVja291dEB2NAogICAgICAtIHVzZXM6IGFjdGlvbnMvc2V0dXAtcHl0aG9uQHY1CiAgICAgICAgd2l0aDoKICAgICAgICAgIHB5dGhvbi12ZXJzaW9uOiAnMy4xMicKICAgICAgLSBydW46IHB5dGhvbiAtbSBwaXAgaW5zdGFsbCAtLXVwZ3JhZGUgcGlwCiAgICAgIC0gcnVuOiBweXRob24gLW0gcGlwIGluc3RhbGwgLWUgJy5bZGV2XScKICAgICAgLSBydW46IG1ha2UgcG9zdGdyZXMtZ2F0ZQoKICBkYXNoYm9hcmQtYnJvd3NlcjoKICAgIHJ1bnMtb246IHVidW50dS0yNC4wNAogICAgdGltZW91dC1taW51dGVzOiAxNQogICAgc3RlcHM6CiAgICAgIC0gdXNlczogYWN0aW9ucy9jaGVja291dEB2NAogICAgICAtIHVzZXM6IGFjdGlvbnMvc2V0dXAtcHl0aG9uQHY1CiAgICAgICAgd2l0aDoKICAgICAgICAgIHB5dGhvbi12ZXJzaW9uOiAnMy4xMicKICAgICAgLSBydW46IHB5dGhvbiAtbSBwaXAgaW5zdGFsbCAtLXVwZ3JhZGUgcGlwCiAgICAgIC0gcnVuOiBweXRob24gLW0gcGlwIGluc3RhbGwgLWUgJy5bZGV2XScgcGxheXdyaWdodD09MS41NS4wCiAgICAgIC0gcnVuOiBweXRob24gLW0gcGxheXdyaWdodCBpbnN0YWxsIC0td2l0aC1kZXBzIGNocm9taXVtCiAgICAgIC0gbmFtZTogUnVuIERhc2hib2FyZCBicm93c2VyIGFjY2VwdGFuY2UKICAgICAgICBlbnY6CiAgICAgICAgICBBSV9MQVlFUl9CUk9XU0VSX1RFU1RTOiAnMScKICAgICAgICBydW46IHB5dGVzdCAtcSB0ZXN0cy90ZXN0X2Rhc2hib2FyZF9icm93c2VyLnB5Cg==
-        run: |
-          git fetch --no-tags --depth=1 origin p3-server-owned-actions
-          git checkout -B p3-server-owned-actions FETCH_HEAD
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          restore_only() {
-            set +e
-            git reset --hard HEAD
-            python -c 'import base64, os; from pathlib import Path; Path(".github/workflows/quality.yml").write_bytes(base64.b64decode(os.environ["CANONICAL_B64"]))'
-            git add .github/workflows/quality.yml
-            git commit -m "Restore canonical quality workflow after refactor failure" || true
-            git push origin HEAD:p3-server-owned-actions || true
-          }
-          trap restore_only ERR
-          python - <<'PY'
-          import ast
-          from pathlib import Path
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ai_layer_gate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      AI_LAYER_TEST_POSTGRES_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/ai_layer_gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - run: make postgres-gate
 
-          path = Path("src/ai_layer/application/action_engine.py")
-          text = path.read_text(encoding="utf-8")
-          lines = text.splitlines(keepends=True)
-          tree = ast.parse(text)
-          move_names = {
-              "ActionProtocolError", "_protocol_error", "_canonical_json", "report_fingerprint",
-              "action_token_shape_valid", "_new_action_token", "_project_key", "_public_assurance",
-              "_public_work", "_state_response", "_finished_response", "_worker_kind",
-              "_public_result_contract", "_public_worker_packet", "_state_binding_matches",
-              "_upsert_action_state", "action_debug_snapshot",
-          }
-          nodes = [node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in move_names]
-          found = {node.name for node in nodes}
-          if found != move_names:
-              raise SystemExit(f"action-state extraction mismatch: {sorted(move_names - found)}")
-          segments = ["".join(lines[node.lineno - 1:node.end_lineno]) for node in nodes]
-          header = """from __future__ import annotations
-
-import hashlib
-import json
-import re
-import secrets
-from collections.abc import Mapping
-from typing import Any, NoReturn
-
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from ai_layer.db.action_models import WorkActionState
-from ai_layer.db.models import Project, Task, TaskStage, utcnow
-from ai_layer.db.work_models import WorkItem
-from ai_layer.db.work_relation_models import TaskWorkRelation
-from ai_layer.tasks.delegation_contract import worker_job_packet
-from ai_layer.work.service import work_key, work_to_dict
-
-CONTRACT_VERSION = 1
-TOKEN_VERSION = "act1"
-_TOKEN_RE = re.compile(r"^act1_[A-Za-z0-9_-]{43}$")
-
-"""
-          Path("src/ai_layer/application/action_state.py").write_text(header + "\n\n".join(segment.rstrip() for segment in segments) + "\n", encoding="utf-8")
-          removed = set()
-          for node in nodes:
-              removed.update(range(node.lineno, node.end_lineno + 1))
-          engine = "".join(line for number, line in enumerate(lines, 1) if number not in removed)
-          engine = engine.replace("import hashlib\n", "").replace("import json\n", "").replace("import re\n", "")
-          engine = engine.replace("from typing import Any, NoReturn\n", "from typing import Any\n")
-          engine = engine.replace("from ai_layer.tasks.delegation_contract import worker_job_packet\n", "")
-          engine = engine.replace("from ai_layer.work.service import finish_work, work_key, work_to_dict\n", "from ai_layer.work.service import finish_work, work_key\n")
-          engine = engine.replace('CONTRACT_VERSION = 1\nTOKEN_VERSION = "act1"\n_TOKEN_RE = re.compile(r"^act1_[A-Za-z0-9_-]{43}$")\n', "")
-          anchor = "from ai_layer.application.work_relations import bind_task_work, task_work_binding\n"
-          import_block = """from ai_layer.application.action_state import (
-    ActionProtocolError,
-    _finished_response,
-    _protocol_error,
-    _public_worker_packet,
-    _state_response,
-    _upsert_action_state,
-    _worker_kind,
-    action_debug_snapshot,
-    action_token_shape_valid,
-    report_fingerprint,
-)
-"""
-          if anchor not in engine:
-              raise SystemExit("action-state import anchor missing")
-          path.write_text(engine.replace(anchor, import_block + anchor, 1), encoding="utf-8")
-          PY
-          ruff format src/ai_layer/application/action_engine.py src/ai_layer/application/action_state.py
-          ruff check src/ai_layer/application/action_engine.py src/ai_layer/application/action_state.py
-          mypy src/ai_layer
-          python scripts/architecture_gate.py
-          python scripts/build_release_wheel.py
-          python - <<'PY'
-          import hashlib
-          import json
-          from pathlib import Path
-          manifest_path = Path("release/release-manifest.json")
-          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-          wheel = Path(manifest["application_wheel"])
-          manifest["application_wheel_sha256"] = hashlib.sha256(wheel.read_bytes()).hexdigest()
-          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-          PY
-          python -c 'import base64, os; from pathlib import Path; Path(".github/workflows/quality.yml").write_bytes(base64.b64decode(os.environ["CANONICAL_B64"]))'
-          trap - ERR
-          git add src/ai_layer/application/action_engine.py src/ai_layer/application/action_state.py release/release-manifest.json dist/local_ai_development_layer-0.14.0-py3-none-any.whl .github/workflows/quality.yml
-          git commit -m "Extract durable action state seam"
-          git push origin HEAD:p3-server-owned-actions
+  dashboard-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]' playwright==1.55.0
+      - run: python -m playwright install --with-deps chromium
+      - name: Run Dashboard browser acceptance
+        env:
+          AI_LAYER_BROWSER_TESTS: '1'
+        run: pytest -q tests/test_dashboard_browser.py

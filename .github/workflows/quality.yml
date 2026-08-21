@@ -20,23 +20,12 @@ jobs:
           git fetch --no-tags --depth=1 origin p3-server-owned-actions
           git checkout -B p3-server-owned-actions FETCH_HEAD
           python - <<'PY'
-          import hashlib
-          import json
           from pathlib import Path
 
           source = Path("src/ai_layer/application/action_engine.py")
           text = source.read_text(encoding="utf-8")
-          old = '''        task = db.get(Task, task.id)
-          if task is None:
-              raise RuntimeError("managed Task disappeared after worker binding")
-          stage = _active_stage(db, task)
-          '''
-          new = '''        refreshed_task = db.get(Task, task.id)
-          if refreshed_task is None:
-              raise RuntimeError("managed Task disappeared after worker binding")
-          task = refreshed_task
-          stage = _active_stage(db, task)
-          '''
+          old = "        task = db.get(Task, task.id)\n        if task is None:\n            raise RuntimeError(\"managed Task disappeared after worker binding\")\n        stage = _active_stage(db, task)\n"
+          new = "        refreshed_task = db.get(Task, task.id)\n        if refreshed_task is None:\n            raise RuntimeError(\"managed Task disappeared after worker binding\")\n        task = refreshed_task\n        stage = _active_stage(db, task)\n"
           if old not in text:
               raise SystemExit("expected task refresh typing anchor not found")
           source.write_text(text.replace(old, new, 1), encoding="utf-8")

@@ -71,6 +71,7 @@ def upgrade() -> None:
         sa.Column("action_token", sa.String(length=64), nullable=False),
         sa.Column("state_version", sa.Integer(), nullable=False),
         sa.Column("report_fingerprint", sa.String(length=64), nullable=False),
+        sa.Column("status", sa.String(length=16), nullable=False, server_default=sa.text("'processing'")),
         sa.Column("response", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
         sa.Column(
             "created_at",
@@ -78,7 +79,17 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
         sa.CheckConstraint("state_version >= 1", name="ck_work_action_submissions_version"),
+        sa.CheckConstraint(
+            "status IN ('processing','completed')",
+            name="ck_work_action_submissions_status",
+        ),
         sa.ForeignKeyConstraint(["work_id"], ["work_items.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("action_token", name="uq_work_action_submissions_token"),

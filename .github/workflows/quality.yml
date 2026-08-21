@@ -18,17 +18,18 @@ jobs:
       - name: Format Phase 2 and restore canonical workflow
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          git checkout -B "$HEAD_REF" "$HEAD_SHA"
+          git fetch --no-tags origin "+refs/heads/$HEAD_REF:refs/remotes/origin/$HEAD_REF"
+          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
           ruff format \
             alembic/versions/0019_canonical_work_relations.py \
             src/ai_layer/application/epic_common.py \
             src/ai_layer/application/work_relations.py \
             src/ai_layer/db/work_relation_models.py \
             tests/test_phase2_work_relation_migration.py
-          git checkout "$BASE_SHA" -- .github/workflows/quality.yml
+          git checkout "origin/$BASE_REF" -- .github/workflows/quality.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .github/workflows/quality.yml \

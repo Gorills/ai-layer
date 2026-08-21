@@ -1,0 +1,557 @@
+{
+  "action_token": {
+    "binds": [
+      "project_key",
+      "work_key",
+      "state_version",
+      "action_kind"
+    ],
+    "format": "act1_<43 base64url chars>",
+    "opaque": true,
+    "production_requirement": "server-generated unguessable token",
+    "retry_semantics": {
+      "noncurrent_unconsumed_token": "stale_action",
+      "same_token_different_report": "idempotency_conflict",
+      "same_token_same_report": "idempotent_replay"
+    }
+  },
+  "budgets": {
+    "action_response_bytes": 4096,
+    "catalog_bytes": 7168,
+    "response_bytes": 8192
+  },
+  "contract_version": 1,
+  "promotion": {
+    "clean": "fresh_managed_attachment",
+    "dirty": "dirty_baseline_adopt",
+    "dirty_prohibits": [
+      "reset",
+      "rebase",
+      "stash",
+      "discard"
+    ]
+  },
+  "public_actions": [
+    "native_engineering",
+    "run_worker",
+    "human_decision",
+    "done"
+  ],
+  "public_tools": [
+    "project_enter",
+    "project_lookup",
+    "work_continue",
+    "work_finish"
+  ],
+  "runtime": {
+    "current_mcp_default_unchanged": true,
+    "facade_registered": false,
+    "installer_default_unchanged": true,
+    "legacy_tools_removed": false
+  },
+  "schemas": {
+    "action_response": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": 1,
+          "type": "integer"
+        },
+        "next_action": {
+          "additionalProperties": false,
+          "properties": {
+            "action_token": {
+              "anyOf": [
+                {
+                  "pattern": "^act1_[A-Za-z0-9_-]{43}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "choices": {
+              "items": {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 8,
+              "type": "array"
+            },
+            "instruction": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "native_engineering",
+                "run_worker",
+                "human_decision",
+                "done"
+              ],
+              "type": "string"
+            },
+            "state_version": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "worker_kind": {
+              "enum": [
+                "change",
+                "independent_check",
+                "correction"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "action_token",
+            "state_version",
+            "instruction"
+          ],
+          "type": "object"
+        },
+        "project": {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "key"
+          ],
+          "type": "object"
+        },
+        "work": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "assurance": {
+                  "enum": [
+                    "native",
+                    "reviewed"
+                  ],
+                  "type": "string"
+                },
+                "epic_attached": {
+                  "type": "boolean"
+                },
+                "goal": {
+                  "anyOf": [
+                    {
+                      "maxLength": 2000,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "key": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "goal",
+                "assurance",
+                "epic_attached"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "contract_version",
+        "project",
+        "work",
+        "next_action"
+      ],
+      "type": "object"
+    },
+    "lookup_response": {
+      "additionalProperties": false,
+      "properties": {
+        "breadcrumbs": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "source",
+                  "test",
+                  "knowledge",
+                  "decision"
+                ],
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              "reason": {
+                "maxLength": 1000,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "kind",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "contract_version": {
+          "const": 1,
+          "type": "integer"
+        },
+        "query": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_truth_required": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "contract_version",
+        "query",
+        "breadcrumbs",
+        "source_truth_required"
+      ],
+      "type": "object"
+    },
+    "tool_inputs": {
+      "project_enter": {
+        "additionalProperties": false,
+        "properties": {
+          "assurance": {
+            "default": "native",
+            "enum": [
+              "native",
+              "reviewed"
+            ],
+            "type": "string"
+          },
+          "goal": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "start",
+              "resume"
+            ],
+            "type": "string"
+          },
+          "project_root": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "work_key": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_root",
+          "intent"
+        ],
+        "type": "object"
+      },
+      "project_lookup": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 5,
+            "maximum": 8,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "project_root": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "query": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_root",
+          "query"
+        ],
+        "type": "object"
+      },
+      "work_continue": {
+        "additionalProperties": false,
+        "properties": {
+          "action_token": {
+            "pattern": "^act1_[A-Za-z0-9_-]{43}$",
+            "type": "string"
+          },
+          "report": {
+            "additionalProperties": false,
+            "properties": {
+              "evidence": {
+                "items": {
+                  "maxLength": 500,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 12,
+                "type": "array"
+              },
+              "kind": {
+                "enum": [
+                  "native_result",
+                  "worker_result",
+                  "human_choice",
+                  "assurance_request"
+                ],
+                "type": "string"
+              },
+              "outcome": {
+                "enum": [
+                  "completed",
+                  "blocked",
+                  "changes_required",
+                  "pass",
+                  "selected",
+                  "escalate"
+                ],
+                "type": "string"
+              },
+              "selection": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "summary": {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "summary"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "action_token",
+          "report"
+        ],
+        "type": "object"
+      },
+      "work_finish": {
+        "additionalProperties": false,
+        "properties": {
+          "action_token": {
+            "pattern": "^act1_[A-Za-z0-9_-]{43}$",
+            "type": "string"
+          },
+          "map_disposition": {
+            "enum": [
+              "reconciled",
+              "checked_no_change",
+              "not_applicable",
+              "deferred"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "default": "completed",
+            "enum": [
+              "completed",
+              "failed",
+              "abandoned"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "verification": {
+            "items": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 12,
+            "type": "array"
+          }
+        },
+        "required": [
+          "action_token",
+          "summary"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "scope": "agent_native_phase1_prototype_only",
+  "target_journeys": {
+    "A_short_ordinary_change": {
+      "invariants": {
+        "lookup_optional": true,
+        "managed_task_required": false
+      },
+      "steps": [
+        {
+          "returns": "native_engineering",
+          "tool": "project_enter"
+        },
+        {
+          "tool": "project_lookup"
+        },
+        {
+          "returns": "done",
+          "tool": "work_finish"
+        }
+      ]
+    },
+    "B_long_ordinary_optional_review": {
+      "invariants": {
+        "promotion_same_work": true
+      },
+      "steps": [
+        {
+          "returns": "native_engineering",
+          "tool": "project_enter"
+        },
+        {
+          "returns": "run_worker",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "run_worker",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "done",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "done",
+          "tool": "work_finish"
+        }
+      ]
+    },
+    "C_explicit_standard_change": {
+      "invariants": {
+        "managed_from_start": true
+      },
+      "steps": [
+        {
+          "returns": "run_worker",
+          "tool": "project_enter"
+        },
+        {
+          "returns": "run_worker",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "run_worker",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "done",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "done",
+          "tool": "work_finish"
+        }
+      ]
+    },
+    "D_continue_after_restart": {
+      "invariants": {
+        "resume_single_entrypoint": true
+      },
+      "steps": [
+        {
+          "returns": "native_engineering",
+          "tool": "project_enter"
+        },
+        {
+          "returns": "done",
+          "tool": "work_finish"
+        }
+      ]
+    },
+    "E_epic_continuation": {
+      "invariants": {
+        "epic_attached_work": true,
+        "internal_epic_navigation_hidden": true
+      },
+      "steps": [
+        {
+          "returns": "run_worker",
+          "tool": "project_enter"
+        },
+        {
+          "returns": "run_worker",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "done",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "done",
+          "tool": "work_finish"
+        }
+      ]
+    },
+    "F_mid_native_escalation": {
+      "invariants": {
+        "dirty_promotion_safe": true,
+        "same_work_before_after_escalation": true
+      },
+      "steps": [
+        {
+          "returns": "native_engineering",
+          "tool": "project_enter"
+        },
+        {
+          "returns": "run_worker",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "done",
+          "tool": "work_continue"
+        },
+        {
+          "returns": "done",
+          "tool": "work_finish"
+        }
+      ]
+    }
+  }
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from sqlalchemy import create_engine, func, select
@@ -88,7 +89,7 @@ def test_native_to_task_promotion_preserves_one_work_identity(tmp_path: Path) ->
         assert rendered["id"] == str(native.id)
         assert rendered["key"] == "W-0001"
         assert db.scalar(select(func.count()).select_from(WorkItem)) == 1
-        relation = db.get(TaskWorkRelation, created["id"])
+        relation = db.get(TaskWorkRelation, UUID(created["id"]))
         assert relation is not None
         assert relation.work_id == native.id
         assert relation.role == "outcome"

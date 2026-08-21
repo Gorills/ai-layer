@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import sqlalchemy as sa
 from alembic.migration import MigrationContext
@@ -18,6 +18,10 @@ def _load_migration():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _uuid(value: object) -> UUID:
+    return value if isinstance(value, UUID) else UUID(str(value))
 
 
 def _legacy_schema(metadata: sa.MetaData) -> dict[str, sa.Table]:
@@ -149,17 +153,24 @@ def test_phase2_migration_resolves_only_unambiguous_task_links() -> None:
         plan_rel = sa.Table("epic_plan_work_relations", reflected, autoload_with=connection)
         audit = sa.Table("work_relation_backfill_audit", reflected, autoload_with=connection)
 
-        task_rows = connection.execute(
-            sa.select(task_rel.c.task_id, task_rel.c.work_id, task_rel.c.role)
-        ).all()
+        task_rows = [
+            (_uuid(task_id), _uuid(work_id), role)
+            for task_id, work_id, role in connection.execute(
+                sa.select(task_rel.c.task_id, task_rel.c.work_id, task_rel.c.role)
+            ).all()
+        ]
         assert task_rows == [(resolved_task, resolved_work, "outcome")]
         assert connection.execute(sa.select(epic_rel.c.epic_id)).all() == []
-        assert connection.execute(sa.select(plan_rel.c.plan_item_id, plan_rel.c.work_id)).all() == [
-            (plan_item_id, resolved_work)
+        plan_rows = [
+            (_uuid(item_id), _uuid(work_id))
+            for item_id, work_id in connection.execute(
+                sa.select(plan_rel.c.plan_item_id, plan_rel.c.work_id)
+            ).all()
         ]
+        assert plan_rows == [(plan_item_id, resolved_work)]
 
         statuses = {
-            (owner_type, owner_id): (status, candidate_count)
+            (owner_type, _uuid(owner_id)): (status, candidate_count)
             for owner_type, owner_id, status, candidate_count in connection.execute(
                 sa.select(
                     audit.c.owner_type,

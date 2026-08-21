@@ -22,6 +22,7 @@ from ai_layer.db.base import Base
 from ai_layer.db.models import Project, ReviewFinding, Task, TaskStage
 from ai_layer.db.work_models import WorkItem
 from ai_layer.db.work_relation_models import TaskWorkRelation
+from ai_layer.tasks.service import create_task
 from ai_layer.work.service import begin_work
 
 
@@ -31,6 +32,7 @@ def _engine_project(tmp_path: Path):
     root = tmp_path / "project"
     root.mkdir()
     (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _init_git(root)
     with Session(engine, expire_on_commit=False) as db:
         project = Project(
             name="phase3",
@@ -351,7 +353,6 @@ def test_dirty_native_promotion_adopts_same_work_and_starts_with_independent_rev
     tmp_path: Path,
 ) -> None:
     engine, project_id, root = _engine_project(tmp_path)
-    _init_git(root)
     db, project = _rows(engine, project_id)
     try:
         work, _run = _native_work(db, project, goal="Adopt the existing implementation")
@@ -394,3 +395,105 @@ def test_action_debug_snapshot_does_not_expose_action_token(tmp_path: Path) -> N
         assert snapshot["action"]["kind"] == "native_engineering"
     finally:
         db.close()
+
+
+def test_promotion_fails_closed_when_git_state_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine, project_id, _root = _engine_project(tmp_path)
+    db, project = _rows(engine, project_id)
+    try:
+        work, _run = _native_work(db, project)
+        initial = current_action(db, project, work)
+        token = initial["next_action"]["action_token"]
+
+        def unavailable(_root: Path) -> dict:
+            raise RuntimeError("git state unavailable")
+
+        monkeypatch.setattr(
+            "ai_layer.application.action_engine.git_changed_paths",
+            unavailable,
+        )
+        with pytest.raises(ActionProtocolError, match="REPOSITORY_STATE_UNAVAILABLE"):
+            continue_action(
+                db,
+                action_token=token,
+                report={
+                    "kind": "assurance_request",
+                    "summary": "Require reviewed assurance",
+                    "outcome": "escalate",
+                },
+            )
+
+        assert db.scalar(select(func.count()).select_from(Task)) == 0
+        state = db.get(WorkActionState, work.id)
+        assert state is not None and state.action_token == token
+        assert db.scalar(select(func.count()).select_from(WorkActionSubmission)) == 0
+    finally:
+        db.close()
+
+
+def test_unbound_same_goal_task_is_not_silently_claimed_by_work(tmp_path: Path) -> None:
+    engine, project_id, _root = _engine_project(tmp_path)
+    db, project = _rows(engine, project_id)
+    try:
+        work, _run = _native_work(db, project, goal="Repeated goal")
+        create_task(
+            db,
+            project,
+            goal="Repeated goal",
+            acceptance_criteria=[],
+            constraints=[],
+            workflow="standard",
+        )
+        with pytest.raises(ActionProtocolError, match="OPEN_MANAGED_TASK_CONFLICT"):
+            attach_reviewed_assurance(db, project, work)
+        assert db.scalar(select(func.count()).select_from(TaskWorkRelation)) == 0
+    finally:
+        db.close()
+
+
+def test_claimed_native_promotion_recovers_crash_between_task_create_and_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import ai_layer.application.action_engine as action_engine
+
+    engine, project_id, _root = _engine_project(tmp_path)
+    db, project = _rows(engine, project_id)
+    work, _run = _native_work(db, project, goal="Crash-safe promotion")
+    work_id = work.id
+    initial = current_action(db, project, work)
+    token = initial["next_action"]["action_token"]
+    report = {
+        "kind": "assurance_request",
+        "summary": "Require reviewed assurance",
+        "outcome": "escalate",
+    }
+    original_bind = action_engine.bind_task_work
+    crashed = False
+
+    def crash_once(*args, **kwargs):
+        nonlocal crashed
+        if not crashed:
+            crashed = True
+            raise SystemExit("simulated process crash after Task creation")
+        return original_bind(*args, **kwargs)
+
+    monkeypatch.setattr(action_engine, "bind_task_work", crash_once)
+    with pytest.raises(SystemExit, match="simulated process crash"):
+        continue_action(db, action_token=token, report=report)
+    db.close()
+
+    monkeypatch.setattr(action_engine, "bind_task_work", original_bind)
+    db2, project2 = _rows(engine, project_id)
+    try:
+        recovered = continue_action(db2, action_token=token, report=report)
+        assert recovered["next_action"]["kind"] == "run_worker"
+        relation = db2.scalar(select(TaskWorkRelation).where(TaskWorkRelation.work_id == work_id))
+        assert relation is not None and relation.role == "outcome"
+        submission = db2.scalar(
+            select(WorkActionSubmission).where(WorkActionSubmission.action_token == token)
+        )
+        assert submission is not None and submission.status == "completed"
+    finally:
+        db2.close()

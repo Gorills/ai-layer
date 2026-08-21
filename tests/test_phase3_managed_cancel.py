@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -13,12 +14,21 @@ from ai_layer.db.work_relation_models import TaskWorkRelation
 from ai_layer.work.service import begin_work
 
 
+def _init_git(root: Path) -> None:
+    subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "tests@example.invalid"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "AI Layer Tests"], cwd=root, check=True)
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-m", "baseline"], cwd=root, check=True, capture_output=True)
+
+
 def test_managed_block_cancel_requires_done_before_work_closure(tmp_path: Path) -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     root = tmp_path / "project"
     root.mkdir()
     (root / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _init_git(root)
 
     with Session(engine, expire_on_commit=False) as db:
         project = Project(

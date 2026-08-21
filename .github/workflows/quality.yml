@@ -59,36 +59,3 @@ jobs:
         env:
           AI_LAYER_BROWSER_TESTS: '1'
         run: pytest -q tests/test_dashboard_browser.py
-
-  deterministic-wheel-publish:
-    permissions:
-      contents: write
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Rebuild, record, and restore canonical workflow
-        run: |
-          git fetch --no-tags --depth=1 origin p3-server-owned-actions
-          git checkout -B p3-server-owned-actions FETCH_HEAD
-          python scripts/build_release_wheel.py
-          python - <<'PY'
-          import hashlib
-          import json
-          from pathlib import Path
-
-          manifest_path = Path("release/release-manifest.json")
-          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-          wheel = Path(manifest["application_wheel"])
-          manifest["application_wheel_sha256"] = hashlib.sha256(wheel.read_bytes()).hexdigest()
-          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-          PY
-          git fetch --no-tags --depth=1 origin redesign/agent-native-workflow
-          git checkout FETCH_HEAD -- .github/workflows/quality.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- dist/local_ai_development_layer-0.14.0-py3-none-any.whl release/release-manifest.json .github/workflows/quality.yml
-          git commit -m "Refresh Phase 3 release wheel"
-          git push origin HEAD:p3-server-owned-actions

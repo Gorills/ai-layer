@@ -331,8 +331,11 @@ def validate_tool_arguments(name: str, arguments: Mapping[str, Any]) -> tuple[st
     if name == "project_enter":
         intent = arguments.get("intent")
         goal = arguments.get("goal")
+        work_key = arguments.get("work_key")
         if intent == "start" and not isinstance(goal, str):
             errors.append("start_requires_goal")
+        if intent == "start" and work_key is not None:
+            errors.append("start_rejects_work_key")
         if intent == "resume" and goal is not None:
             errors.append("resume_rejects_goal")
     elif name in {"work_continue", "work_finish"}:
@@ -580,14 +583,20 @@ def build_target_journeys() -> dict[str, dict[str, Any]]:
 
 
 def representative_responses(*, secret: bytes) -> dict[str, dict[str, Any]]:
+    work: PublicWork = {
+        "key": "W-0042",
+        "goal": "Update request routing and verify it",
+        "assurance": "native",
+        "epic_attached": False,
+    }
     return {
         "project_enter": resolve_enter(
             EnterScenario(
                 project_key="demo",
                 intent="start",
-                goal="Update request routing and verify it",
-                assurance="native",
-                new_work_key="W-0042",
+                goal=work["goal"],
+                assurance=work["assurance"],
+                new_work_key=work["key"],
             ),
             secret=secret,
         ),
@@ -610,10 +619,11 @@ def representative_responses(*, secret: bytes) -> dict[str, dict[str, Any]]:
         },
         "work_continue": {
             "contract_version": CONTRACT_VERSION,
-            "work": {"key": "W-0042"},
+            "project": {"key": "demo"},
+            "work": dict(work),
             "next_action": make_next_action(
                 project_key="demo",
-                work_key="W-0042",
+                work_key=work["key"],
                 state_version=2,
                 directive="worker_check",
                 secret=secret,
@@ -622,7 +632,8 @@ def representative_responses(*, secret: bytes) -> dict[str, dict[str, Any]]:
         },
         "work_finish": {
             "contract_version": CONTRACT_VERSION,
-            "work": {"key": "W-0042", "status": "completed"},
+            "project": {"key": "demo"},
+            "work": dict(work),
             "next_action": {
                 "kind": "done",
                 "action_token": None,
